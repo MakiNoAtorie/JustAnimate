@@ -1,3 +1,15 @@
+# Changelog
+
+One line per change, newest first. JustAnimate entries are above;
+the original Pencil2D history is kept below for reference.
+
+## JustAnimate - Unreleased
+
+- Require a one-line ChangeLog.md entry for every change (ROADMAP.md ground rules).
+- Add ROADMAP.md with the improvement plan, brush engine design, JustPaint lessons and lean build rules.
+- Rebrand the app as JustAnimate; separate settings, temp folders and desktop ID from Pencil2D.
+- Import Pencil2D source snapshot (upstream 9ee4e1c).
+
 
 ## Pencil2D v0.8.0 - Draft
 

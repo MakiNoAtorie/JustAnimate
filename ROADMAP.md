@@ -8,6 +8,11 @@
   (and ignore what they don't know).
 - One feature per branch/PR; core logic in `core_lib/`, UI in `app/`.
 - Keep internal names as-is so upstream Pencil2D fixes can still be merged.
+- **Every change gets a one-line entry in `ChangeLog.md`** under
+  "JustAnimate - Unreleased" (newest first), in the same commit as the
+  change. Plain words, what changed for the user or developer, e.g.
+  `- Fix zip-slip: opening a .pclx can no longer write outside its temp folder.`
+  At release, rename "Unreleased" to the version.
 - Performance rules (proven in JustPaint, see below): measure before and
   after; keep a change only if it is clearly outside run-to-run noise
   (≈ ±10 %); output must stay **pixel-identical** (checked by image hashes)
