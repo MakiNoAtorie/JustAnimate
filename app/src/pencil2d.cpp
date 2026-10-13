@@ -75,17 +75,17 @@ Status Pencil2D::handleCommandLineOptions()
     CommandLineParser parser;
     parser.process(arguments());
 
-#ifndef QT_DEBUG
-    if (isInstanceOpen()) {
-        return Status::SAFE;
-    }
-#endif
-
     QString inputPath = parser.inputPath();
     QStringList outputPaths = parser.outputPaths();
 
     if (outputPaths.isEmpty())
     {
+        // Single-instance check for GUI launches only; command-line export must not block on a dialog.
+#ifndef QT_DEBUG
+        if (isInstanceOpen()) {
+            return Status::SAFE;
+        }
+#endif
         prepareGuiStartup(inputPath);
         return Status::OK;
     }
@@ -93,18 +93,15 @@ Status Pencil2D::handleCommandLineOptions()
     // Can't construct the editor directly, need to make a main window instead because... reasons
     mainWindow.reset(new MainWindow2);
     CommandLineExporter exporter(mainWindow->mEditor);
-    if (exporter.process(inputPath,
-                         outputPaths,
-                         parser.camera(),
-                         parser.width(),
-                         parser.height(),
-                         parser.startFrame(),
-                         parser.endFrame(),
-                         parser.transparency()))
-    {
-        return Status::SAFE;
-    }
-    return Status::FAIL;
+    Status st = exporter.process(inputPath,
+                                 outputPaths,
+                                 parser.camera(),
+                                 parser.width(),
+                                 parser.height(),
+                                 parser.startFrame(),
+                                 parser.endFrame(),
+                                 parser.transparency());
+    return st.ok() ? Status::SAFE : st;
 }
 
 bool Pencil2D::isInstanceOpen()

@@ -22,7 +22,6 @@ GNU General Public License for more details.
 #include "fileformat.h"
 #include "layercamera.h"
 #include "layermanager.h"
-#include "mainwindow2.h"
 #include "movieexporter.h"
 #include "object.h"
 #include "playbackmanager.h"
@@ -43,30 +42,28 @@ CommandLineExporter::CommandLineExporter(Editor *editor) :
 
 }
 
-bool CommandLineExporter::process(const QString &inputPath,
-                                  const QStringList &outputPaths,
-                                  const QString &camera,
-                                  int width,
-                                  int height,
-                                  int startFrame,
-                                  int endFrame,
-                                  bool transparency)
+Status CommandLineExporter::process(const QString &inputPath,
+                                    const QStringList &outputPaths,
+                                    const QString &camera,
+                                    int width,
+                                    int height,
+                                    int startFrame,
+                                    int endFrame,
+                                    bool transparency)
 {
     LayerManager *layerManager = mEditor->layers();
 
     if(inputPath.isEmpty())
     {
         mErr << tr("Error: No input file specified. An input project file argument is required when output path(s) are specified.") << qEndl;
-        return false;
+        return Status::FAIL;
     }
 
     Status s = mEditor->openObject(inputPath, [](int){}, [](int){});
     if (!s.ok())
     {
-        mErr << qEndl << qEndl << s.title() << qEndl << qEndl;
-        mErr << s.description() << qEndl << qEndl;
-        mErr << s.details().str() << qEndl << qEndl;
-        return false;
+        printError(s);
+        return s;
     }
 
     LayerCamera *cameraLayer = nullptr;
@@ -100,6 +97,12 @@ bool CommandLineExporter::process(const QString &inputPath,
         endFrame = layerManager->animationLength(endFrame < -1);
     }
 
+    if (endFrame < startFrame)
+    {
+        mErr << tr("Error: Nothing to export. The frame range %1-%2 is empty.", "Command line error").arg(startFrame).arg(endFrame) << qEndl;
+        return Status::INVALID_ARGUMENT;
+    }
+
     Q_ASSERT(!outputPaths.empty());
     for (const QString& outputPath : outputPaths)
     {
@@ -111,24 +114,26 @@ bool CommandLineExporter::process(const QString &inputPath,
             format = "PNG";
         }
 
-        if (isMovieFormat(format))
+        Status st = isMovieFormat(format)
+            ? exportMovie(outputPath, cameraLayer, exportSize, startFrame, endFrame, transparency)
+            : exportImageSequence(outputPath, format, cameraLayer, exportSize, startFrame, endFrame, transparency);
+        if (!st.ok())
         {
-            exportMovie(outputPath, cameraLayer, exportSize, startFrame, endFrame, transparency);
-            continue;
+            printError(st);
+            return st;
         }
-
-        exportImageSequence(outputPath, format, cameraLayer, exportSize, startFrame, endFrame, transparency);
+        mOut << tr("Done.", "Command line task done") << qEndl;
     }
 
-    return true;
+    return Status::OK;
 }
 
-void CommandLineExporter::exportMovie(const QString &outputPath,
-                                      const LayerCamera *cameraLayer,
-                                      const QSize &exportSize,
-                                      int startFrame,
-                                      int endFrame,
-                                      bool transparency)
+Status CommandLineExporter::exportMovie(const QString &outputPath,
+                                        const LayerCamera *cameraLayer,
+                                        const QSize &exportSize,
+                                        int startFrame,
+                                        int endFrame,
+                                        bool transparency)
 {
     if (transparency)
     {
@@ -146,30 +151,38 @@ void CommandLineExporter::exportMovie(const QString &outputPath,
     desc.strCameraName = cameraLayer->name();
 
     MovieExporter ex;
-    ex.run(mEditor->object(), desc, [](float, float){}, [](float){}, [](const QString &){});
-    mOut << tr("Done.", "Command line task done") << qEndl;
+    return ex.run(mEditor->object(), desc, [](float, float){}, [](float){}, [](const QString &){});
 }
 
-void CommandLineExporter::exportImageSequence(const QString &outputPath,
-                                              const QString &format,
-                                              const LayerCamera *cameraLayer,
-                                              const QSize &exportSize,
-                                              int startFrame,
-                                              int endFrame,
-                                              bool transparency)
+Status CommandLineExporter::exportImageSequence(const QString &outputPath,
+                                                const QString &format,
+                                                const LayerCamera *cameraLayer,
+                                                const QSize &exportSize,
+                                                int startFrame,
+                                                int endFrame,
+                                                bool transparency)
 {
     mOut << tr("Exporting image sequence...", "Command line task progress") << qEndl;
-    mEditor->object()->exportFrames(startFrame,
-                                    endFrame,
-                                    cameraLayer,
-                                    exportSize,
-                                    outputPath,
-                                    format,
-                                    transparency,
-                                    false,
-                                    "",
-                                    true,
-                                    nullptr,
-                                    0);
-    mOut << tr("Done.", "Command line task done") << qEndl;
+    return mEditor->object()->exportFrames(startFrame,
+                                           endFrame,
+                                           cameraLayer,
+                                           exportSize,
+                                           outputPath,
+                                           format,
+                                           transparency,
+                                           false,
+                                           "",
+                                           true,
+                                           nullptr,
+                                           0);
+}
+
+void CommandLineExporter::printError(const Status &st)
+{
+    mErr << tr("Error: export failed (code %1).", "Command line error").arg(static_cast<int>(st.code())) << qEndl;
+    if (st.code() == Status::ERROR_FFMPEG_NOT_FOUND) mErr << tr("ffmpeg was not found; it is needed for movie export.", "Command line error") << qEndl;
+    if (!st.title().isEmpty()) mErr << st.title() << qEndl;
+    if (!st.description().isEmpty()) mErr << st.description() << qEndl;
+    const QString details = st.details().str();
+    if (!details.isEmpty()) mErr << details << qEndl;
 }

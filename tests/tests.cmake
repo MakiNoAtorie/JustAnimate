@@ -4,12 +4,15 @@
 # Test sources
 set(TEST_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/catch.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.h
 )
 
 set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_benchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colormanager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineexporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerbitmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layercamera.cpp
