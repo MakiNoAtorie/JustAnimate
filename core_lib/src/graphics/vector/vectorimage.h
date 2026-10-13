@@ -145,7 +145,6 @@ public:
 
     qreal getDistance(VertexRef r1, VertexRef r2);
 
-    QSize getSize() { return mSize; }
 
     void setOpacity(qreal opacity) { mOpacity = opacity; }
     qreal getOpacity() const { return mOpacity; }

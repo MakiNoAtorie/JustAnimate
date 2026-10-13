@@ -167,13 +167,6 @@ void BitmapImage::paintImage(QPainter& painter)
     painter.drawImage(mBounds.topLeft(), *image());
 }
 
-void BitmapImage::paintImage(QPainter& painter, QImage& image, QRect sourceRect, QRect destRect)
-{
-    painter.drawImage(QRect(mBounds.topLeft(), destRect.size()),
-                      image,
-                      sourceRect);
-}
-
 QImage* BitmapImage::image()
 {
     loadFile();

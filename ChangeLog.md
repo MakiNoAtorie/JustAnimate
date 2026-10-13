@@ -7,6 +7,7 @@ the original Pencil2D history is kept below for reference.
 
 - With the new undo system on, adding and deleting a layer can be undone and redone; an undone delete restores the layer at its place with its frames. Deleting a layer below the current one no longer changes which layer is current (0.5).
 - Removed the qmake build (`*.pro`, `*.pri`); CMake is the only build system and it now sets the revision shown in About (0.1).
+- Removed dead code: commented-out vector fill code, unused bitmap paint overload, palette-file loader stub, unused sound and export helpers, three unused setting keys and a duplicate event-filter install (0.1).
 - Removed the Qt 5 compatibility branches; Qt 6 is the only supported major version (0.1).
 - With the new undo system on, remove selected frames, reverse frames, exposure changes and Reposition Frames can be undone and redone; undo of a frame move restores exactly the moved frames; legacy Reposition Frames undo restores the right layer (0.5).
 - CI runs the test suite under AddressSanitizer and UndefinedBehaviorSanitizer on Linux; locally: `cmake -DJUSTANIMATE_SANITIZE=ON` (0.1).

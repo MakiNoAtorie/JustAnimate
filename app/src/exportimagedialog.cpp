@@ -89,12 +89,6 @@ void ExportImageDialog::frameCheckboxClicked(bool checked)
     ui->endSpinBox->setValue(e);
 }
 
-void ExportImageDialog::setExportSize(QSize size)
-{
-    ui->imgWidthSpinBox->setValue(size.width());
-    ui->imgHeightSpinBox->setValue(size.height());
-}
-
 QSize ExportImageDialog::getExportSize() const
 {
     return QSize(ui->imgWidthSpinBox->value(), ui->imgHeightSpinBox->value());

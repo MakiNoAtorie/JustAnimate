@@ -35,7 +35,6 @@ public:
 	void setCamerasInfo(const std::vector<std::pair<QString, QSize>>& camInfo);
     void setDefaultRange( int startFrame, int endFrame, int endFrameWithSounds );
 
-    void  setExportSize( QSize size );
     QSize getExportSize() const;
     bool getTransparency() const;
     bool getExportKeyframesOnly() const;

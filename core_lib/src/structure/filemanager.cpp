@@ -785,18 +785,6 @@ Status FileManager::unzip(const QString& strZipFile, const QString& strUnzipTarg
     return s;
 }
 
-QList<ColorRef> FileManager::loadPaletteFile(QString strFilename)
-{
-    QFileInfo fileInfo(strFilename);
-    if (!fileInfo.exists())
-    {
-        return QList<ColorRef>();
-    }
-
-    // TODO: Load Palette.
-    return QList<ColorRef>();
-}
-
 Status FileManager::verifyObject(Object* obj)
 {
     if (obj->getLayerCount() == 0) {

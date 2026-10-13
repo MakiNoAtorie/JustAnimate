@@ -44,7 +44,6 @@ public:
     Status  save(const Object*, const QString& sFileName);
     Status  writeToWorkingFolder(const Object*);
 
-    QList<ColorRef> loadPaletteFile(QString strFilename);
     Status error() const { return mError; }
     Status verifyObject(Object* obj);
 

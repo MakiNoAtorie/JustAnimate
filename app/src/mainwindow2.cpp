@@ -1345,7 +1345,6 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionResetToolsDefault->setShortcut(cmdKeySeq(CMD_RESET_ALL_TOOLS));
 
     ui->actionMove->installEventFilter(shortcutFilter);
-    ui->actionMove->installEventFilter(shortcutFilter);
     ui->actionSelect->installEventFilter(shortcutFilter);
     ui->actionBrush->installEventFilter(shortcutFilter);
     ui->actionPolyline->installEventFilter(shortcutFilter);
