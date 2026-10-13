@@ -102,6 +102,13 @@ if(APPLE)
     target_link_libraries(pencil2d_tests PRIVATE ${APPKIT_FRAMEWORK})
 endif()
 
+# Opt-in AddressSanitizer + UndefinedBehaviorSanitizer for the test binary (GCC/Clang).
+option(JUSTANIMATE_SANITIZE "Build pencil2d_tests with ASan and UBSan" OFF)
+if(JUSTANIMATE_SANITIZE)
+    target_compile_options(pencil2d_tests PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined)
+    target_link_options(pencil2d_tests PRIVATE -fsanitize=address,undefined)
+endif()
+
 # Enable testing
 enable_testing()
 add_test(NAME pencil2d_tests COMMAND pencil2d_tests)

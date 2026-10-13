@@ -145,3 +145,30 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  sanitizers:
+    name: Linux ASan + UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      QT_QPA_PLATFORM: offscreen
+      # The emergency-save crash test (child process) installs its own SIGSEGV
+      # handler; ASan must let it run, not replace it.
+      ASAN_OPTIONS: allow_user_segv_handler=1:detect_leaks=1
+      UBSAN_OPTIONS: print_stacktrace=1
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install Qt
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends             qt6-base-dev qt6-multimedia-dev qt6-svg-dev qt6-tools-dev             qt6-tools-dev-tools qt6-l10n-tools libgl-dev ninja-build
+
+      - name: Configure
+        run: cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_SANITIZE=ON
+
+      - name: Build
+        run: cmake --build build-san --target pencil2d_tests
+
+      - name: Run tests
+        run: ./build-san/pencil2d_tests
