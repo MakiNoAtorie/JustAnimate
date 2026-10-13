@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Timed autosave writes a complete `autosave.pclx` archive via the save's .tmp-and-rename, startup recovery restores the last completed autosave, and each edit counts once toward the autosave threshold (was up to 3x) (1.7).
+- Import Layers shows the load error for a corrupt or unreadable project instead of crashing (A11).
 - A failed save no longer marks the project as saved, so quitting still asks to save and the work is kept (A1).
 - Peg-bar align works from a held frame (uses the governing keyframe) and is one undo step in the new undo system (A10).
 - Add a benchmark target (`cmake --build <dir> --target benchmark`): open, scrub, play and draw on a 500-frame, 10-layer project; baseline in docs/benchmarks.md.

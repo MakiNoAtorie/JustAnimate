@@ -34,6 +34,7 @@ public:
     ~ImportLayersDialog();
 
     void setCore(Editor *editor);
+    Status loadFile(const QString& fileName);
 
 public slots:
     void getFileName();
@@ -44,7 +45,7 @@ public slots:
 private:
     Ui::ImportLayersDialog *ui;
 
-    void getLayers();
+    Status getLayers();
 
     std::unique_ptr<Object> mImportObject;
     Layer* mImportLayer = nullptr;

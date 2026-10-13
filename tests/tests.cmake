@@ -30,6 +30,21 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_vectorimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_viewmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_util.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_importlayersdialog.cpp
+)
+
+# App sources under test (the dialog and what it links against)
+set(TEST_APP_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/importlayersdialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/importlayersdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/errordialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/errordialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/filedialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/filedialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/importlayersdialog.ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/errordialog.ui
 )
 
 set(TEST_RESOURCES
@@ -44,6 +59,7 @@ add_executable(pencil2d_tests
     ${CORE_LIB_RESOURCES}
     ${TEST_HEADERS}
     ${TEST_SOURCES}
+    ${TEST_APP_SOURCES}
     ${TEST_RESOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
@@ -54,6 +70,10 @@ target_include_directories(pencil2d_tests PRIVATE
     ${CORE_LIB_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src
+)
+
+set_target_properties(pencil2d_tests PROPERTIES
+    AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/app/ui
 )
 
 # Link libraries
