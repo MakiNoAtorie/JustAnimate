@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Add CLAUDE.md: always work directly on master, no feature branches.
 - Add Matt Pocock's 27 published skills (v1.3.1, upstream 49dd158) as project skills in .claude/skills/.
 - Add code audit (ponytail-audit) to ROADMAP.md: 11 must-fix, 9 should-fix, test gaps, lean list.
 - Require a one-line ChangeLog.md entry for every change (ROADMAP.md ground rules).
