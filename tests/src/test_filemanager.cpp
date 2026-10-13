@@ -26,6 +26,8 @@ GNU General Public License for more details.
 #include "object.h"
 #include "bitmapimage.h"
 #include "layerbitmap.h"
+#include "layervector.h"
+#include "vectorimage.h"
 #include "layersound.h"
 #include "soundclip.h"
 
@@ -593,6 +595,102 @@ TEST_CASE("FileManager autosave and crash recovery", "[FileManager]")
     BitmapImage* recoveredFrame = recoveredLayer->getBitmapImageAtFrame(1);
     REQUIRE(recoveredFrame != nullptr);
     REQUIRE(recoveredFrame->image()->pixel(4, 4) == qRgba(255, 0, 0, 255));
+}
+
+TEST_CASE("FileManager write errors fail the save", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString projectPath = testDir.filePath("shot.pclx");
+
+    auto readAll = [](const QString& path) {
+        QFile f(path);
+        REQUIRE(f.open(QFile::ReadOnly));
+        return f.readAll();
+    };
+    auto findBitmapLayer = [](Object* o) -> LayerBitmap* {
+        for (int i = 0; i < o->getLayerCount(); ++i)
+            if (o->getLayer(i)->type() == Layer::BITMAP)
+                return static_cast<LayerBitmap*>(o->getLayer(i));
+        return nullptr;
+    };
+
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    LayerVector* vectorLayer = obj->addNewVectorLayer();
+    LayerBitmap* bitmapLayer = obj->addNewBitmapLayer();
+    BitmapImage red(QRect(0, 0, 8, 8), Qt::red);
+    bitmapLayer->getBitmapImageAtFrame(1)->paste(&red);
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+    const QByteArray original = readAll(projectPath);
+
+    // Writing to /dev/full fails with "no space left on device", like a full
+    // disk. The folder (.pcl) format writes main.xml and the frames in place,
+    // so the error has to be caught where the file is written; a failed
+    // .pclx save then never replaces the archive (A4).
+    const bool haveFullDevice = QFile::exists("/dev/full");
+    const QString folderProjectPath = testDir.filePath("shot.pcl");
+    auto replaceWithFullDevice = [](const QString& path) {
+        REQUIRE(QFile::remove(path));
+        REQUIRE(QFile::link("/dev/full", path));
+    };
+
+    SECTION("A write error in the project XML fails the save")
+    {
+        if (!haveFullDevice) { WARN("No /dev/full on this platform"); return; }
+        REQUIRE(fm.save(obj.get(), folderProjectPath).ok());
+
+        replaceWithFullDevice(folderProjectPath);
+
+        REQUIRE_FALSE(fm.save(obj.get(), folderProjectPath).ok());
+    }
+
+    SECTION("A write error in a vector frame fails the save")
+    {
+        if (!haveFullDevice) { WARN("No /dev/full on this platform"); return; }
+        REQUIRE(fm.save(obj.get(), folderProjectPath).ok());
+
+        VectorImage* vec = vectorLayer->getVectorImageAtFrame(1);
+        REQUIRE(vec != nullptr);
+        vec->setModified(true);
+        const QString dataFolder = folderProjectPath + "." + PFF_OLD_DATA_DIR;
+        replaceWithFullDevice(QDir(dataFolder).filePath(QString::asprintf("%03d.%03d.vec", vectorLayer->id(), 1)));
+
+        REQUIRE_FALSE(fm.save(obj.get(), folderProjectPath).ok());
+    }
+
+    SECTION("A failed frame rename during Save As fails the save and keeps the frame")
+    {
+        // Reopen so the frame is on disk and not loaded, then move it without drawing.
+        obj.reset(fm.load(projectPath));
+        REQUIRE(obj != nullptr);
+        bitmapLayer = findBitmapLayer(obj.get());
+        REQUIRE(bitmapLayer != nullptr);
+        REQUIRE(bitmapLayer->moveKeyFrame(1, 1));
+
+        // Something in the way of the frame's temporary name makes the rename fail.
+        const QString blocker = QDir(obj->dataDir()).filePath(QString::asprintf("t_%03d.%03d.png", bitmapLayer->id(), 2));
+        REQUIRE(QDir().mkpath(blocker));
+
+        const QString saveAsPath = testDir.filePath("shot-v2.pclx");
+        REQUIRE_FALSE(fm.save(obj.get(), saveAsPath).ok());
+        REQUIRE_FALSE(QFile::exists(saveAsPath));
+        const bool unchanged = (readAll(projectPath) == original);
+        REQUIRE(unchanged);
+
+        // Once the obstacle is gone the same project saves with the frame intact.
+        REQUIRE(QDir(blocker).removeRecursively());
+        REQUIRE(fm.save(obj.get(), saveAsPath).ok());
+        std::unique_ptr<Object> reloaded(fm.load(saveAsPath));
+        REQUIRE(reloaded != nullptr);
+        LayerBitmap* reloadedLayer = findBitmapLayer(reloaded.get());
+        REQUIRE(reloadedLayer != nullptr);
+        BitmapImage* frame = reloadedLayer->getBitmapImageAtFrame(2);
+        REQUIRE(frame != nullptr);
+        REQUIRE(frame->image()->pixel(4, 4) == qRgba(255, 0, 0, 255));
+    }
 }
 
 TEST_CASE("Empty Sound Frames")

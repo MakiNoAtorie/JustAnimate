@@ -335,8 +335,13 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     Status stKeyFrames = writeKeyFrameFiles(object, sDataFolder, filesToZip);
     dd.collect(stKeyFrames.details());
 
-    Status stMainXml = writeMainXml(object, sMainXMLFile, filesToZip);
-    dd.collect(stMainXml.details());
+    // Don't write a main.xml that points at frame files which weren't written.
+    Status stMainXml = Status::FAIL;
+    if (stKeyFrames.ok())
+    {
+        stMainXml = writeMainXml(object, sMainXMLFile, filesToZip);
+        dd.collect(stMainXml.details());
+    }
 
     Status stPalette = writePalette(object, sDataFolder, filesToZip);
     dd.collect(stPalette.details());
@@ -597,7 +602,13 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
     for (int i = 0; i < numLayers; ++i)
     {
         Layer* layer = object->getLayer(i);
-        layer->presave(dataFolder);
+        Status st = layer->presave(dataFolder);
+        if (!st.ok())
+        {
+            dd.collect(st.details());
+            dd << QString("\nError: Failed to move frames of Layer[%1] %2").arg(i).arg(layer->name());
+            return Status(Status::FAIL, dd);
+        }
     }
 
     bool saveLayersOK = true;
@@ -672,6 +683,11 @@ Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPat
     QTextStream out(&file);
     xmlDoc.save(out, indentSize);
     out.flush();
+    if (out.status() != QTextStream::Ok || !file.flush())
+    {
+        dd << QString("Error: Failed to write Main XML at: %1, \nReason: %2").arg(mainXmlPath, file.errorString());
+        return Status(Status::FAIL, dd);
+    }
 
     dd << "Done writing main xml file: " << mainXmlPath;
 

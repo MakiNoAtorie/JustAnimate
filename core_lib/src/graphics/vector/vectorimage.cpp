@@ -148,6 +148,11 @@ Status VectorImage::write(QString filePath, QString format)
     }
     xmlStream.writeEndElement(); // Close image element
     xmlStream.writeEndDocument();
+    if (xmlStream.hasError() || !file.flush())
+    {
+        debugInfo << ("Write failed: " + file.errorString());
+        return Status(Status::FAIL, debugInfo);
+    }
 
     setFileName(filePath);
     return Status::OK;
