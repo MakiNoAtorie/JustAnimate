@@ -150,6 +150,51 @@ TEST_CASE("UndoRedoManager: unsaved changes survive a failed save")
     delete scribbleArea;
 }
 
+TEST_CASE("UndoRedoManager: frame and layer edits flag the project as unsaved")
+{
+    const bool useNewSystem = GENERATE(false, true);
+    Object* object = new Object;
+    object->init();
+    object->addNewBitmapLayer();
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, useNewSystem);
+    editor->undoRedo()->init();
+    UndoRedoManager* undoRedo = editor->undoRedo();
+
+    REQUIRE_FALSE(undoRedo->hasUnsavedChanges());
+
+    SECTION("Frames modified")
+    {
+        emit editor->framesModified();
+        REQUIRE(undoRedo->hasUnsavedChanges());
+        undoRedo->markSaved();
+        REQUIRE_FALSE(undoRedo->hasUnsavedChanges());
+    }
+
+    SECTION("Layer add, rename and delete")
+    {
+        Layer* layer = editor->layers()->createBitmapLayer("New");
+        REQUIRE(undoRedo->hasUnsavedChanges());
+        undoRedo->markSaved();
+
+        REQUIRE(editor->layers()->renameLayer(layer, "Renamed").ok());
+        REQUIRE(undoRedo->hasUnsavedChanges());
+        undoRedo->markSaved();
+
+        editor->layers()->deleteLayer(editor->layers()->currentLayerIndex());
+        REQUIRE(undoRedo->hasUnsavedChanges());
+    }
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    delete editor;
+    delete scribbleArea;
+}
+
 TEST_CASE("Editor: each edit counts once toward autosave")
 {
     Object* object = new Object;

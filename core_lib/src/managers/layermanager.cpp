@@ -359,6 +359,7 @@ Status LayerManager::renameLayer(Layer* layer, const QString& newName)
     if (newName.isEmpty()) return Status::FAIL;
 
     layer->setName(newName);
+    editor()->object()->modification();
     emit currentLayerChanged(getIndex(layer));
     return Status::OK;
 }

@@ -10,6 +10,7 @@ the original Pencil2D history is kept below for reference.
 - Stage profiler: set JUSTANIMATE_STAGE_PROFILE=1 to print per-stage time and call counts (input, dab mask, composite, buffer paste, canvas update); off costs one branch per stage.
 - With the new undo system on, paste, paste from previous keyframe, flip selection, clear frame and delete selection can be undone and redone on bitmap and vector layers (0.5).
 - Opening a .pclx with `..`, absolute or drive-letter entries (also with backslashes) is rejected instead of writing outside the temp folder (A3).
+- Frame drag, paste, reverse, exposure and layer add/delete/rename now make quit ask "save changes?" (A2).
 - CI packages JustAnimate from the CMake build: Linux AppImage, Windows installer + ZIP, macOS DMG (JustAnimate.app); old Pencil2D WiX installer and packaging scripts removed.
 - Brush stroke replay test hashes seeded Pencil, Brush and Eraser strokes against golden values, with a `replay` timing target and `util/compare_replay.py` to compare two runs (B0).
 - On a crash, the last completed autosave is copied to a durable recovery folder, so startup recovery still finds it after the temp folder is cleaned (1.7).

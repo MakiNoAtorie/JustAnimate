@@ -91,6 +91,7 @@ Status UndoRedoManager::save(Object* /*o*/)
 
 void UndoRedoManager::markSaved()
 {
+    editor()->object()->setModified(false);
     if (mNewBackupSystemEnabled) {
         mUndoStack.setClean();
     } else if (!mLegacyBackupList.isEmpty() && mLegacyBackupIndex < mLegacyBackupList.count()) {
@@ -167,6 +168,9 @@ void UndoRedoManager::clearSaveStates()
 
 bool UndoRedoManager::hasUnsavedChanges() const
 {
+    if (editor()->object()->isModified()) {
+        return true;
+    }
     if (mNewBackupSystemEnabled) {
         return !mUndoStack.isClean();
     } else {

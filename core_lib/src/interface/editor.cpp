@@ -124,6 +124,11 @@ void Editor::makeConnections()
     connect(mUndoRedoManager, &UndoRedoManager::didRecordEdit, this, &Editor::updateAutoSaveCounter);
     connect(mPreferenceManager, &PreferenceManager::optionChanged, mUndoRedoManager, &UndoRedoManager::onSettingChanged);
 
+    // Legacy undo does not record these edits; the object's modified flag does.
+    connect(this, &Editor::frameModified, this, [this] { mObject->modification(); });
+    connect(this, &Editor::framesModified, this, [this] { mObject->modification(); });
+    connect(mLayerManager, &LayerManager::layerCountChanged, this, [this] { mObject->modification(); });
+
     // XXX: This is a hack to prevent crashes until #864 is done (see #1412)
     connect(mLayerManager, &LayerManager::layerDeleted, mUndoRedoManager, &UndoRedoManager::sanitizeLegacyBackupElementsAfterLayerDeletion);
     connect(mLayerManager, &LayerManager::currentLayerWillChange, this, &Editor::onCurrentLayerWillChange);
