@@ -77,9 +77,9 @@ jobs:
       - name: Download ffmpeg (macOS)
         if: runner.os == 'macOS'
         run: |
-          curl -fsSLo ffmpeg.7z https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z
-          curl -fsSLo ffmpeg.7z.sig https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z.sig
-          curl -fsSL https://evermeet.cx/ffmpeg/0x1A660874.asc | gpg --import
+          curl --retry 5 --retry-delay 15 -fsSLo ffmpeg.7z https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z
+          curl --retry 5 --retry-delay 15 -fsSLo ffmpeg.7z.sig https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z.sig
+          curl --retry 5 --retry-delay 15 -fsSL https://evermeet.cx/ffmpeg/0x1A660874.asc | gpg --import
           gpg --verify ffmpeg.7z.sig ffmpeg.7z
           mkdir ffmpeg && bsdtar -xf ffmpeg.7z -C ffmpeg
           echo "FFMPEG=$PWD/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
@@ -101,7 +101,7 @@ jobs:
           mkdir -p packages tools
           for t in linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
                    linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage; do
-            curl -fsSL "https://github.com/$t" -o "tools/$(basename "$t")"
+            curl --retry 5 --retry-delay 15 -fsSL "https://github.com/$t" -o "tools/$(basename "$t")"
           done
           chmod +x tools/*.AppImage
           DESTDIR="$PWD/AppDir" cmake --install build-release --prefix /usr

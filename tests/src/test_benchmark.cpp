@@ -413,7 +413,7 @@ struct Golden
 // The look of Pencil, Brush and Eraser before the brush engine work (ROADMAP B0).
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
-    // winnt x86_64: measured with MSVC, Qt 6.8.3. Linux, macOS and Windows CI rows are still to add.
+    // winnt: MSVC, Qt 6.8.3 and 6.5.3. linux and darwin: CI, Qt 6.5.3.
     { "winnt x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
     { "winnt x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
     { "winnt x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
@@ -426,6 +426,30 @@ const Golden kGolden[] = {
     { "winnt x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
     { "winnt x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
     { "winnt x86_64", "eraser", 200, "516a81d7c6b1d424b1a5e6f9beb9074cdd54dec2", "3aca31806a5bda175678e38b2d0043338db1c7ce" },
+    { "linux x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
+    { "linux x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
+    { "linux x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
+    { "linux x86_64", "pencil", 200, "b2621f11c3e6214dbd89014eafc12d22ac374589", "928eabfdfac9b0e3d9ce87e8e087350185e67b79" },
+    { "linux x86_64", "brush", 4, "08ac3b83dbf641ffeb5b645d6b79fb4dc332f8e1", "646b6145475d7df921aa824535dbc5524350a989" },
+    { "linux x86_64", "brush", 24, "ac77c286b9b6e9f907000f19a4327ec3ddbcc3e6", "93688a6d99a914987bf51ff7dcccdd8b27754938" },
+    { "linux x86_64", "brush", 96, "875e33735b958bec8be54804e56cf8ae5220f03a", "fa9935dab752949aa2b61497f10381791b613ccc" },
+    { "linux x86_64", "brush", 200, "0fa12608f628ee6bb7e05af77c82b9f2b3287ccb", "27cd857dc3e459c11ee8d134dd6ab88b20fac4cc" },
+    { "linux x86_64", "eraser", 4, "d7e2f2e5e32b6b22059c24951ac933943fd957b7", "88130c67007948c838b5a64bb13667fcb08a1f69" },
+    { "linux x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
+    { "linux x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
+    { "linux x86_64", "eraser", 200, "516a81d7c6b1d424b1a5e6f9beb9074cdd54dec2", "3aca31806a5bda175678e38b2d0043338db1c7ce" },
+    { "darwin arm64", "pencil", 4, "5000a2e5b14e7dbc08aa011dc157de2bf7929cae", "ae3fa4fe54391a65474202d40c6179662044e735" },
+    { "darwin arm64", "pencil", 24, "3f9e24bb45c76fbe381aa547dc22553e4a016c12", "ee398f6ad88318aaf85b35b5bcc03883601e4564" },
+    { "darwin arm64", "pencil", 96, "133828f4ae764ccd6532d1a7dded26147d2c86f8", "48657693ffed51c954aed70ee84b8efef8e89bd6" },
+    { "darwin arm64", "pencil", 200, "763ca6ddca698fdfc128b5751f867e26310a0d3a", "fa59cd26a8df95b6d1d6100cd79c00439468c31e" },
+    { "darwin arm64", "brush", 4, "6ba6764ce248bdaffc996826ed38461ece651182", "81b1e88689e4fe30fd68c01919b95d732cb2421f" },
+    { "darwin arm64", "brush", 24, "745acceb3f282859c158f324584aa802aae3447c", "169bd9f89abad3f6313c8d30ca7fcd39ad4d85f0" },
+    { "darwin arm64", "brush", 96, "754cc8fc17664d12718051dc5bd44902f0ad05f5", "0d9ca4ac77b726634b33da2bc7bbb989787b9e37" },
+    { "darwin arm64", "brush", 200, "dfb745b451f8e9b93f47e96bb3b907e6cd0270e4", "c384456c5bb527b01888ef738f8fb3a9e8739a2d" },
+    { "darwin arm64", "eraser", 4, "c059930a509377a716ed948c0ca35523fd6ff8e2", "4d4f6a380cbd0335356e91de2071ef1de48d69c6" },
+    { "darwin arm64", "eraser", 24, "968522fda805d0c1805c5a7157914a6f2ae4fb2c", "6e09d76e867c69c92d60f6d72b2f38acdc2e1385" },
+    { "darwin arm64", "eraser", 96, "d4543c7fb4b70a8f91cef3ee0c7ed0f528e8752c", "333353a675795c9bc0ec968faa4fdf013561dc1e" },
+    { "darwin arm64", "eraser", 200, "f3512e3a650f8a8d4b3ea565731afa3a3e839b56", "1f52f221dffe72a5e0e5d65df20889433f3fe406" },
 };
 
 } // namespace
