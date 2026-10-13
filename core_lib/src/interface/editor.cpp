@@ -643,6 +643,12 @@ Status Editor::importVectorImage(const QString& filePath)
 
     auto layer = static_cast<LayerVector*>(layers()->currentLayer());
 
+    if (!layer->visible())
+    {
+        mScribbleArea->showLayerNotVisibleWarning();
+        return Status::SAFE;
+    }
+
     Status status = Status::OK;
     DebugDetails dd;
     dd << QString("Raw file path: %1").arg(filePath);
@@ -733,6 +739,12 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
         return Status(Status::ERROR_INVALID_LAYER_TYPE, dd, tr("Import failed"), tr("You can only import images to a bitmap layer."));
     }
     LayerBitmap* bitmapLayer = static_cast<LayerBitmap*>(layers()->currentLayer());
+
+    if (!bitmapLayer->visible())
+    {
+        mScribbleArea->showLayerNotVisibleWarning();
+        return Status::SAFE;
+    }
 
     QImageReader reader(filePath);
     dd << QString("QImageReader format: %1").arg(QString(reader.format()));
