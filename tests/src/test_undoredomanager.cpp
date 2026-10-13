@@ -356,3 +356,107 @@ TEST_CASE("UndoRedoManager: undo/redo of selection edits")
     delete editor;
     delete scribbleArea;
 }
+
+TEST_CASE("UndoRedoManager: undo/redo of image import")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+
+    Object* object = new Object;
+    object->init();
+    object->addNewCameraLayer();
+    LayerBitmap* bitmapLayer = object->addNewBitmapLayer();
+    LayerVector* vectorLayer = object->addNewVectorLayer();
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    scribbleArea->setEditor(editor);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
+    editor->undoRedo()->init();
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    // Runs `edit`, then checks that `state` reads `before` after undo and `after` after redo.
+    auto checkUndoRedo = [&](const std::function<void()>& edit, const std::function<int()>& state, int before, int after)
+    {
+        REQUIRE(state() == before);
+        edit();
+        REQUIRE(state() == after);
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE(state() == before);
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(state() == after);
+    };
+
+    auto opaquePixels = [&]
+    {
+        const QImage* img = bitmapLayer->getBitmapImageAtFrame(1)->image();
+        int count = 0;
+        for (int y = 0; y < img->height(); ++y)
+            for (int x = 0; x < img->width(); ++x)
+                if (qAlpha(img->pixel(x, y)) != 0) { ++count; }
+        return count;
+    };
+
+    ImportImageConfig config;
+    config.positionType = ImportImageConfig::None;
+
+    SECTION("Bitmap image")
+    {
+        const QString path = dir.filePath("image.png");
+        QImage source(4, 4, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::black);
+        REQUIRE(source.save(path));
+
+        editor->layers()->setCurrentLayer(bitmapLayer);
+        editor->scrubTo(1);
+        bitmapLayer->getBitmapImageAtFrame(1)->setPixel(50, 50, qRgba(0, 0, 0, 255));
+
+        checkUndoRedo([&] { REQUIRE(editor->importImage(path, config).ok()); }, opaquePixels, 1, 17);
+    }
+
+    SECTION("Animated image")
+    {
+        // A single-frame 1x1 GIF with one opaque black pixel.
+        const QString path = dir.filePath("anim.gif");
+        QFile file(path);
+        REQUIRE(file.open(QIODevice::WriteOnly));
+        file.write(QByteArray::fromHex(
+            "47494638396101000100800000000000ffffff21f90400000000002c00000000010001000002024401003b"));
+        file.close();
+
+        editor->layers()->setCurrentLayer(bitmapLayer);
+        editor->scrubTo(1);
+        bitmapLayer->getBitmapImageAtFrame(1)->setPixel(50, 50, qRgba(0, 0, 0, 255));
+
+        checkUndoRedo([&] { REQUIRE(editor->importAnimatedImage(path, 1, [](int) {}, [] { return false; }).ok()); },
+                      opaquePixels, 1, 2);
+    }
+
+    SECTION("Vector image")
+    {
+        const QString path = dir.filePath("image.vec");
+        VectorImage source;
+        BezierCurve curve({ QPointF(50, 50), QPointF(100, 100) });
+        source.addCurve(curve, 1.0);
+        REQUIRE(source.write(path, "VEC").ok());
+
+        editor->layers()->setCurrentLayer(vectorLayer);
+        editor->scrubTo(1);
+        auto hasCurves = [&] { return vectorLayer->getVectorImageAtFrame(1)->isEmpty() ? 0 : 1; };
+
+        checkUndoRedo([&] { REQUIRE(editor->importImage(path, config).ok()); }, hasCurves, 0, 1);
+    }
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    delete editor;
+    delete scribbleArea;
+}

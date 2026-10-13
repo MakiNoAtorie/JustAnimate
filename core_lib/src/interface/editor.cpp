@@ -640,8 +640,11 @@ Status Editor::importBitmapImage(const QString& filePath, const QTransform& impo
     }
     BitmapImage* bitmapImage = layer->getBitmapImageAtFrame(mFrame);
     BitmapImage importedBitmapImage(pos, img);
+    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     bitmapImage->paste(&importedBitmapImage);
     emit frameModified(bitmapImage->pos());
+    // Record before the scrub: the record reads the image at the current frame.
+    undoRedo()->record(saveStateId, tr("Import Image"));
 
     scrubTo(mFrame+1);
 
@@ -677,9 +680,11 @@ Status Editor::importVectorImage(const QString& filePath)
     bool ok = importedVectorImage.read(filePath);
     if (ok)
     {
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         importedVectorImage.selectAll();
         vectorImage->paste(importedVectorImage);
         emit frameModified(importedVectorImage.pos());
+        undoRedo()->record(saveStateId, tr("Import Image"));
 
         backup(tr("Import Image"));
     }
@@ -798,8 +803,11 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
         }
         BitmapImage* bitmapImage = bitmapLayer->getBitmapImageAtFrame(mFrame);
         BitmapImage importedBitmapImage(pos, img);
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         bitmapImage->paste(&importedBitmapImage);
         emit frameModified(bitmapImage->pos());
+        // Record before the cancel check and the scrub: the record reads the image at the current frame.
+        undoRedo()->record(saveStateId, tr("Import Image"));
 
         if (wasCanceled())
         {
