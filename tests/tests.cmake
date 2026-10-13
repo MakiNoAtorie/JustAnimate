@@ -8,6 +8,7 @@ set(TEST_HEADERS
 
 set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_benchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colormanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerbitmap.cpp
@@ -68,3 +69,11 @@ endif()
 # Enable testing
 enable_testing()
 add_test(NAME pencil2d_tests COMMAND pencil2d_tests)
+
+# Benchmark (ROADMAP 1.1): `cmake --build <build> --target benchmark`.
+# Use a Release build for numbers you compare; see docs/benchmarks.md.
+add_custom_target(benchmark
+    COMMAND pencil2d_tests "[benchmark]"
+    DEPENDS pencil2d_tests
+    USES_TERMINAL
+)

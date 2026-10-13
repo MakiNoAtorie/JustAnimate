@@ -1,0 +1,60 @@
+Benchmarks {#benchmarks}
+==========
+
+The benchmark (ROADMAP 1.1) is the baseline every optimization is measured
+against. Keep a speed-up only if it is clearly outside run-to-run noise
+(about ±10 %), and put the before/after numbers in the commit message.
+
+## Run it
+
+Use a Release build; Debug numbers are not comparable.
+
+```bash
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release --target benchmark
+```
+
+The `benchmark` target builds `pencil2d_tests` and runs its hidden
+`[benchmark]` test case (`./build-release/pencil2d_tests "[benchmark]"`
+does the same). In cloud sessions `QT_QPA_PLATFORM=offscreen` is set; on a
+desktop the canvas window briefly appears. A full run takes a few minutes.
+The `[BenchmarkSmoke]` case runs the same code on a 3-frame project in the
+normal test suite, so the benchmark can't silently break.
+
+## What it measures
+
+A project is generated first (not timed): 500 frames × 10 bitmap layers
+(plus the camera layer), one 100 px ellipse per keyframe, saved as `.pclx`.
+Then, 3 times over, each in a fresh editor and 1280×720 canvas:
+
+| Scenario | What is timed |
+|---|---|
+| open | `Editor::openObject` on the `.pclx` |
+| scrub | `scrubTo(f)` + canvas repaint for frames 1–500, caches cleared first (frames load from disk on first use) |
+| play | playback on, `scrubForward()` + repaint for 500 frames back to back (no frame-rate timer) |
+| draw pencil | 20 strokes of 100 mouse moves on frame 1, repaint after every move |
+| draw brush | the same with the brush tool |
+
+The table prints median, min and max over the 3 runs, and the median per
+frame or stroke.
+
+## Baseline
+
+Commit: the one adding this file (ticket #31). Release build, Linux cloud
+container, 4 cores, Qt 6 offscreen platform.
+
+**Caveat:** this run was taken while other builds shared the machine
+(load average about 45 on 4 cores), so the numbers are inflated and
+noisy; a second run under the same load was up to 2.6× slower. Re-record
+on a quiet machine before using them to accept or reject an
+optimization, and always compare before/after on the same machine.
+
+```
+JustAnimate benchmark: 500 frames x 10 bitmap layers (+camera), 1280x720 canvas, 20 strokes per draw, 3 reps
+scenario      median ms     min ms     max ms     median per
+open              894.4      545.2     2338.8   894.38 ms/file
+scrub           18126.7    13500.7    23514.1    36.25 ms/frame
+play            10680.2    10317.4    15894.7    21.36 ms/frame
+draw pencil     14160.3    11292.9    28298.2   708.01 ms/stroke
+draw brush      10790.9     9983.8    22323.4   539.55 ms/stroke
+```

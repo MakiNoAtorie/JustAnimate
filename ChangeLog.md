@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Add a benchmark target (`cmake --build <dir> --target benchmark`): open, scrub, play and draw on a 500-frame, 10-layer project; baseline in docs/benchmarks.md.
 - "Move frame forward" followed by a drag no longer drops a keyframe: the selection list stays sorted after the swap.
 - Fix crash when using the bitmap bucket, or the eraser on a vector layer, on a frame before the layer's first keyframe.
 - CI builds with CMake and runs pencil2d_tests on Linux, Windows and macOS; drop Pencil2D notarization/upload and the AppVeyor, docs and Transifex jobs.
