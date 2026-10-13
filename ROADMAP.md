@@ -88,6 +88,79 @@ least new code.
 
 ---
 
+## Code audit (ponytail-audit, 2026-10-13)
+
+**What this repo does:** JustAnimate is a desktop 2D animation app
+(Pencil2D fork, C++/Qt 6). Projects are `.pclx` zips holding XML plus one
+PNG/vector file per keyframe; a command-line mode exports movies and
+image sequences. **Assumed load:** one artist at a time, with a pen
+tablet, on projects with hundreds of frames and canvases up to 4K; plus
+scripted command-line exports.
+
+Method: four parallel read-throughs (save/load, undo and timeline,
+drawing tools and canvas, import/export and app shell); the top findings
+were re-checked against the code by hand. Fix numbers below are referenced
+from Phase 0 and the milestones. Each fix must ship with a test that
+fails without it, and a `ChangeLog.md` line.
+
+### Must fix (bug, crash, data loss, security)
+
+| # | Problem (concrete case) | Where | Smallest fix |
+|---|---|---|---|
+| A1 | **A failed save marks the project as saved.** Save to a full disk or read-only folder → error dialog, but the undo stack is already "clean"; closing then quits without asking and the temp folder is deleted: work lost | `mainwindow2.cpp:803`, `undoredomanager.cpp:86-94` | Mark clean only after `fm.save()` succeeds |
+| A2 | **Many edits never trigger "save changes?".** Default (legacy) undo doesn't record layer add/delete/rename, frame drag, paste frames, reverse, exposure; `Object::isModified()` is never read. Drag frames, quit → edit lost | `undoredomanager.cpp:159-169`, `mainwindow2.cpp:881` | `hasUnsavedChanges()` also returns `object()->isModified()`; set it from the existing frame/layer change signals |
+| A3 | **Zip-slip:** a `.pclx` entry named `../../.bashrc` or an absolute path is written outside the temp folder on open | `qminiz.cpp:205-241` | Reject entries whose cleaned absolute path is outside the folder (reuse `validateDataPath`) |
+| A4 | **Save overwrites the original before the new file is complete.** Disk full → backup copy fails silently, then the original is truncated: the user's only copy is corrupt. Backup naming also breaks on names like `shot.v2.pclx` | `filemanager.cpp:347-379`, `587-636` | Write to `<name>.tmp`, rename over the original on success; delete the backup helpers (less code) |
+| A5 | **Undo after "Remove frame" on a vector layer crashes** (passes a layer *index* where an *id* is expected) | `undoredomanager.cpp:661` | Look up by `layerId` in all three branches |
+| A6 | **Bucket (bitmap) or eraser (vector) crashes on a frame before the layer's first keyframe** | `bitmapbucket.cpp:55`, `erasertool.cpp:270` | Return early when the keyframe is null |
+| A7 | **Tablet: a keyboard shortcut mid-stroke ruins the stroke.** Pen down + `E` → the brush dabs are committed as an erase; pen down + `.` → stroke lands on another frame. The shortcut filter only checks the mouse | `shortcutfilter.cpp:28`, `mainwindow2.cpp:1350` | Check `isPointerInUse()`; install the filter on frame/layer navigation actions too |
+| A8 | **"Move frame forward" can drop a keyframe:** the swap leaves the selection list unsorted; a following drag inserts onto an occupied key and loses it (medium confidence) | `layer.cpp:248-267`, `657` | Sort the selection list after the swap |
+| A9 | **Command-line export always exits 0 and prints "Done."**, even when ffmpeg is missing, the width is odd, or the project is empty; and it shows a blocking "already open" dialog if the GUI is running | `commandlineexporter.cpp:114-174`, `pencil2d.cpp:78-122` | Return the export `Status` and exit non-zero; do the single-instance check only for GUI launches |
+| A10 | **Peg-bar align crashes on a held frame** (button enabled from the last keyframe, code reads the exact frame), and it has no undo | `pegbaraligner.cpp:40`, `pegbaralignmentdialog.cpp:137` | Use the last keyframe at the position; wrap in a backup |
+| A11 | **Import Layers crashes on a corrupt or unreadable project** (null object dereferenced) | `importlayersdialog.cpp:160` | Null check + show the load error |
+
+### Should fix (risky, wrong output, real slowness)
+
+| # | Problem | Where | Smallest fix |
+|---|---|---|---|
+| A12 | Write errors ignored: a truncated `main.xml` / `.vec` is reported as saved | `filemanager.cpp:737`, `vectorimage.cpp:134` | Check stream/file status after flush |
+| A13 | Save As on a nearly full disk: failed frame copy is ignored and the frame is saved blank | `layerbitmap.cpp:132-155` | Fail the save when copy/rename fails |
+| A14 | Loader: an XML comment in `<projectdata>` hangs forever; an unknown layer type or `frame <= 0` crashes | `filemanager.cpp:424`, `object.cpp:99`, layer loaders | Advance the loop; skip unknown/invalid elements |
+| A15 | Deleting a layer applies a pending selection move to the neighbouring layer | `layermanager.cpp:338` | Emit `currentLayerWillChange` before deleting |
+| A16 | Importing a vector image or animated GIF into a hidden layer crashes | `editor.cpp:650`, `770` | Copy the visibility guard from `importBitmapImage` |
+| A17 | A tap (dot) uses the pressure from the end of the previous stroke: dots vanish or come out fat | `stroketool.cpp:156` | Set pressure at stroke start |
+| A18 | Vector copy/paste duplicates the whole frame (condition `< -1` can never be true) | `vectorimage.cpp:1055` | Paste only selected curves when there is a selection |
+| A19 | Eyedropper picks premultiplied colour: soft edges give a darker colour | `eyedroppertool.cpp:152` | `qUnpremultiply()` |
+| A20 | Export overwrites an existing file without asking; cancelling leaves a truncated movie | `importexportdialog.cpp:76`, `movieexporter.cpp:684` | Ask before overwrite; delete the partial file on cancel/fail |
+
+**21 more confirmed, smaller findings** (track as issues): new-system frame-move undo moves wrong frames; Reposition Frames undo stores the wrong layer after the change; undo states clone the full image even when unused and leak on no-op bucket clicks; vector copy leaks a clone; autosave counter counts each edit up to 3×; bucket click outside the image fills from its top-left corner; vector fill skips vertex 0 of curve 0; tablet eraser end fires `toolChanged` on every event; smudge copies the whole image per move and is quadratic per stroke; canvas cache key mismatch makes held frames re-render on every hover; eraser never shrinks image bounds; camera "reset scaling" also resets rotation; camera tool hover clears all caches; pen double-tap needs a triple tap; Import Layers remaps vector colours in a chain; Check for Updates spins forever / null `deleteLater` on dev builds; CI packaging still expects Pencil2D names and builds qmake, not CMake; sound preview one frame off from export; image-sequence import not in numeric order; GIF/4K export queues all frames in RAM; exposure on long selections is O(n²).
+
+### Missing tests (one good test each, not coverage)
+`MiniZ::uncompressFolder` with `..` entries; a failed save leaves the
+original intact; loading malformed XML; `UndoRedoManager` (legacy + new)
+undo/redo of remove-frame and move-frames; `moveKeyFrame` then
+`moveSelectedFrames`; `BitmapImage::floodFill`; `VectorImage::fillSelectedPath`
+and `paste`; `CommandLineExporter` exit status; `CommandLineParser`
+bad arguments.
+
+### Lean (code that should not exist)
+| Item | Lines |
+|---|---|
+| Finish the undo migration (0.5): legacy system + toggle; the new system first needs records for paste, flip, clear, delete selection, import, remove/reverse/exposure frames, layer add/delete | ≈ −500 net |
+| qmake build files (after CI moves to CMake) | −729 |
+| Dead CI for this fork: AppVeyor, docs, Transifex workflows and scripts | ≈ −500 |
+| Qt 5 compatibility branches (CMake already requires Qt 6) | ≈ −40 branches in 21 files |
+| Dead code: ~280 commented-out lines + unused functions in `vectorimage.cpp`, unused `BitmapImage::paintImage` overload, `FileManager::loadPaletteFile`, unused sound/export helpers and 3 unused setting keys, duplicate filter install | ≈ −400 |
+| Pencil/Brush/Eraser/Pen duplicate press/release/`paintAt` code (handled by brush engine B1) | ≈ −300 |
+
+**Verdict:** fix A1–A4 first (they lose or expose user data), then A5–A11.
+`Lean: about -2,700 lines and -0 dependencies possible.`
+**Not checked:** `miniz.c`, most of `timelinecells.cpp`, overlay and
+onion-skin painters, platform-specific code (Windows/macOS), and nothing
+was run under a tablet or with real ffmpeg.
+
+---
+
 ## Phase 0 — Foundation (do first; everything else depends on it)
 
 | # | Task | Where | Size |
@@ -96,7 +169,7 @@ least new code.
 | 0.2 | Fix the "control reaches end of non-void function" warning (one header, `toolproperties.h:95`, counted three times; every enum case already returns, so low risk; one line) and the Must-fix items from the **Code audit** | see audit | S–M |
 | 0.3 | Replace deprecated Qt 6 calls (`localPos()`, `posF()`, `x()/y()` → `position()`), then turn on `-Werror` in CI | tool/canvas event code | M |
 | 0.4 | Add sanitizer CI job (ASan/UBSan) running the test suite | CI | S |
-| 0.5 | Retire the old undo system: make `NEW_UNDO_REDO_SYSTEM_ON` always on, remove the legacy path | `undoredomanager`, 4 call sites | M |
+| 0.5 | Retire the old undo system. The legacy one is still the **default** and has crash bugs (A5); the new one lacks records for paste, flip, clear, delete selection, import, frame remove/reverse/exposure and layer add/delete. Add those records, fix new-system frame-move undo, make it the only system, delete the legacy path (≈ −500 lines net) | `undoredomanager`, `legacybackupelement`, callers | L |
 | 0.6 | Update installer scripts (`util/installer`, `win-deploy.ps1`) and the CI packaging step for the new name | `util/`, `.github/` | M |
 | 0.7 | New app + file icons (replace Pencil2D logo) | `app/data/icons`, `.ico/.icns/.png` | S (needs art) |
 | 0.8 | Remove the qmake build (`*.pro`), keep CMake only | root, `app/`, `core_lib/` | S |
@@ -364,7 +437,7 @@ export without the manual.
 
 ## Suggested order / milestones
 
-1. **v0.1 "Foundation"**: Phase 0 (all), 1.1, 1.7, **B0**
+1. **v0.1 "Foundation"**: audit **A1–A4**, then **A5–A11**, then A12–A20 (each with its test); Phase 0 (all), 1.1, 1.7, **B0**
 2. **v0.2 "Feel"**: **B1, B2, B4**, 3.1, 4.1, 4.2
 3. **v0.3 "Brushes"**: **B3, B5, B8** (with Classic + default packs)
 4. **v0.4 "Speed & tools"**: 1.2–1.6, 2.3, 2.4–2.6, 3.4, 3.5, 4.3, 4.4

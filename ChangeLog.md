@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Add code audit (ponytail-audit) to ROADMAP.md: 11 must-fix, 9 should-fix, test gaps, lean list.
 - Require a one-line ChangeLog.md entry for every change (ROADMAP.md ground rules).
 - Add ROADMAP.md with the improvement plan, brush engine design, JustPaint lessons and lean build rules.
 - Rebrand the app as JustAnimate; separate settings, temp folders and desktop ID from Pencil2D.
