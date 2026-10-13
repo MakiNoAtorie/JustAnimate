@@ -48,6 +48,7 @@ SOURCES += \
     src/test_bitmapimage.cpp \
     src/test_bitmapbucket.cpp \
     src/test_erasertool.cpp \
+    src/test_eyedroppertool.cpp \
     src/test_editorimport.cpp \
     src/test_propertyinfo.cpp \
     src/test_qminiz.cpp \
