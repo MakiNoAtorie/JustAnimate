@@ -46,6 +46,18 @@ add_compile_definitions(
     QT_DISABLE_DEPRECATED_UP_TO=0x050F00
 )
 
+# Git revision for the About dialog and error reports (set at configure time)
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE GIT_SHA1 OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    execute_process(COMMAND ${GIT_EXECUTABLE} log -n 1 --pretty=format:%cd --date=format:%Y-%m-%d_%H:%M:%S
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE GIT_STAMP OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if(GIT_SHA1 AND GIT_STAMP)
+        add_compile_definitions(GIT_EXISTS GIT_CURRENT_SHA1=${GIT_SHA1} GIT_TIMESTAMP=${GIT_STAMP})
+    endif()
+endif()
+
 # MSVC specific flags
 if(MSVC)
     add_compile_options(/MP)  # Multi-processor compilation

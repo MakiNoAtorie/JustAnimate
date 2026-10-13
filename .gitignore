@@ -14,10 +14,6 @@
 
 # Qt-es
 
-.qmake.cache
-.qmake.stash
-*.pro.user
-*.pro.user.*
 *.moc
 moc_*.cpp
 qrc_*.cpp
@@ -84,7 +80,6 @@ ipch
 build/
 build-*/
 .qtc_clangd
-app/resources.pri
 
 # CMake
 CMakeCache.txt

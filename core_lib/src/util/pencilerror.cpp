@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 
 #include "pencilerror.h"
+#include "pencildef.h"
 #include <map>
 #include <QSysInfo>
 #include <QLocale>
