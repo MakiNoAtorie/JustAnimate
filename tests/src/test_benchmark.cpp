@@ -21,15 +21,21 @@ GNU General Public License for more details.
 
 #include <algorithm>
 #include <cstdio>
+#include <random>
 #include <vector>
 
 #include <QApplication>
+#include <QCryptographicHash>
 #include <QElapsedTimer>
 #include <QMouseEvent>
+#include <QPainter>
+#include <QPointingDevice>
+#include <QTabletEvent>
 #include <QTemporaryDir>
 #include <QWindow>
 
 #include "bitmapimage.h"
+#include "colormanager.h"
 #include "editor.h"
 #include "filemanager.h"
 #include "layerbitmap.h"
@@ -37,6 +43,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "playbackmanager.h"
 #include "scribblearea.h"
+#include "stroketool.h"
 #include "toolmanager.h"
 
 namespace
@@ -245,6 +252,181 @@ void printResults(const BenchConfig& cfg, std::vector<Scenario>& sc)
     std::fflush(stdout);
 }
 
+// Brush stroke replay (ROADMAP B0): replays pen strokes and hashes the painted layer and the
+// composited frame, so brush engine changes can prove they keep (or knowingly change) the pixels.
+
+struct Sample
+{
+    QPointF pos; // widget coordinates on the 1280x720 canvas
+    qreal pressure;
+};
+using Stroke = std::vector<Sample>;
+
+struct ReplayCase
+{
+    ToolType tool;
+    const char* name;
+    int size;
+};
+
+struct ReplayResult
+{
+    double ms = 0;
+    QByteArray layerSha1;
+    QByteArray frameSha1;
+};
+
+// Random-walk strokes from a seed. Only mt19937's raw output and + - * / are used:
+// std distributions and libm differ between platforms, so the strokes would too.
+std::vector<Stroke> seededStrokes(unsigned seed, int strokes, int samples)
+{
+    std::mt19937 rng(seed);
+    auto unit = [&rng] { return (rng() % 10001) / 10000.0; }; // [0, 1]
+    std::vector<Stroke> out;
+    for (int s = 0; s < strokes; ++s)
+    {
+        const qreal x0 = 240 + unit() * 800;
+        const qreal y0 = 140 + unit() * 440;
+        QPointF p(x0, y0);
+        const qreal vx = unit() * 12 - 6;
+        const qreal vy = unit() * 12 - 6;
+        QPointF v(vx, vy);
+        qreal pressure = 0.2 + unit() * 0.6;
+        Stroke stroke;
+        for (int i = 0; i < samples; ++i)
+        {
+            stroke.push_back({ p, pressure });
+            const qreal ax = unit() * 2 - 1;
+            const qreal ay = unit() * 2 - 1;
+            v = QPointF(qBound(-6.0, v.x() + ax, 6.0), qBound(-6.0, v.y() + ay, 6.0));
+            p = QPointF(qBound(20.0, p.x() + v.x(), 1260.0), qBound(20.0, p.y() + v.y(), 700.0));
+            pressure = qBound(0.05, pressure + (unit() - 0.5) * 0.1, 1.0);
+        }
+        out.push_back(stroke);
+    }
+    return out;
+}
+
+QByteArray layerHash(BitmapImage* image)
+{
+    QCryptographicHash h(QCryptographicHash::Sha1);
+    const QRect b = image->bounds();
+    h.addData(QString("%1 %2 %3 %4;").arg(b.x()).arg(b.y()).arg(b.width()).arg(b.height()).toLatin1());
+    const QImage* img = image->image();
+    if (!img->isNull())
+    {
+        REQUIRE(img->format() == QImage::Format_ARGB32_Premultiplied);
+        for (int y = 0; y < img->height(); ++y)
+            h.addData(QByteArrayView(reinterpret_cast<const char*>(img->constScanLine(y)), img->width() * 4));
+    }
+    return h.result().toHex();
+}
+
+QByteArray frameHash(const Object* object)
+{
+    QImage frame(1280, 720, QImage::Format_ARGB32_Premultiplied);
+    frame.fill(Qt::transparent);
+    QPainter painter(&frame);
+    painter.translate(640, 360);
+    object->paintImage(painter, 1, true, true);
+    painter.end();
+    return QCryptographicHash::hash(QByteArrayView(frame.constBits(), frame.sizeInBytes()),
+                                    QCryptographicHash::Sha1).toHex();
+}
+
+void tablet(QWidget* w, const QPointingDevice* pen, QEvent::Type type, const Sample& s,
+            Qt::MouseButton button, Qt::MouseButtons buttons)
+{
+    QTabletEvent e(type, pen, s.pos, w->mapToGlobal(s.pos), s.pressure, 0, 0, 0, 0, 0,
+                   Qt::NoModifier, button, buttons);
+    QApplication::sendEvent(w, &e);
+}
+
+// Replays the strokes as tablet input with one tool at its default settings and the given size,
+// on a fresh canvas: a blue layer below and a half-transparent yellow block on the painted layer
+// (so the eraser has something to erase). Events are sent synchronously, no event loop runs, so
+// the stabilizer's poll timer never fires and the result only depends on the input.
+ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes)
+{
+    Session s;
+    s.editor->color()->setFrontColor(QColor(200, 30, 90));
+    auto* below = static_cast<LayerBitmap*>(s.editor->object()->getLayer(1));
+    below->getBitmapImageAtFrame(1)->drawRect(QRectF(-500, -250, 1000, 500), Qt::NoPen, QColor(90, 160, 220),
+                                              QPainter::CompositionMode_SourceOver, false);
+    LayerBitmap* painted = s.editor->layers()->createBitmapLayer("painted");
+    painted->getBitmapImageAtFrame(1)->drawRect(QRectF(-300, -150, 600, 300), Qt::NoPen, QColor(240, 200, 40, 200),
+                                                QPainter::CompositionMode_SourceOver, false);
+    s.editor->scrubTo(1);
+
+    s.editor->tools()->setCurrentTool(c.tool);
+    BaseTool* tool = s.editor->tools()->currentTool();
+    const ToolProperties userSettings = tool->toolProperties(); // put back so the user's settings aren't overwritten on save
+    tool->resetSettings();
+    static_cast<StrokeTool*>(tool)->setWidth(c.size);
+
+    const QPointingDevice pen("replay pen", 1, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
+                              QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
+    ReplayResult r;
+    QElapsedTimer t;
+    t.start();
+    for (const Stroke& stroke : strokes)
+    {
+        tablet(s.area, &pen, QEvent::TabletPress, stroke.front(), Qt::LeftButton, Qt::LeftButton);
+        for (size_t i = 1; i < stroke.size(); ++i)
+            tablet(s.area, &pen, QEvent::TabletMove, stroke[i], Qt::NoButton, Qt::LeftButton);
+        tablet(s.area, &pen, QEvent::TabletRelease, stroke.back(), Qt::LeftButton, Qt::NoButton);
+    }
+    r.ms = t.nsecsElapsed() / 1e6;
+
+    tool->toolProperties() = userSettings;
+    r.layerSha1 = layerHash(painted->getBitmapImageAtFrame(1));
+    r.frameSha1 = frameHash(s.editor->object());
+    return r;
+}
+
+const ReplayCase kReplayCases[] = {
+    { PENCIL, "pencil", 4 }, { PENCIL, "pencil", 24 }, { PENCIL, "pencil", 96 }, { PENCIL, "pencil", 200 },
+    { BRUSH, "brush", 4 },   { BRUSH, "brush", 24 },   { BRUSH, "brush", 96 },   { BRUSH, "brush", 200 },
+    { ERASER, "eraser", 4 }, { ERASER, "eraser", 24 }, { ERASER, "eraser", 96 }, { ERASER, "eraser", 200 },
+};
+
+std::vector<Stroke> goldenStrokes() { return seededStrokes(1, 6, 150); }
+
+// Qt's raster engine isn't bit-exact across Qt versions, CPUs (SSE vs NEON) and compilers,
+// so golden hashes are kept per platform (OS + CPU); the test prints the line to add for a new one.
+// If one platform differs between Qt versions, the mismatch shows the actual hash: key it by Qt version too.
+QString replayPlatform()
+{
+    return QString("%1 %2").arg(QSysInfo::kernelType(), QSysInfo::buildCpuArchitecture());
+}
+
+struct Golden
+{
+    const char* platform;
+    const char* tool;
+    int size;
+    const char* layerSha1;
+    const char* frameSha1;
+};
+
+// The look of Pencil, Brush and Eraser before the brush engine work (ROADMAP B0).
+// Change these only in a commit that means to change brush output, and say so.
+const Golden kGolden[] = {
+    // winnt x86_64: measured with MSVC, Qt 6.8.3. Linux, macOS and Windows CI rows are still to add.
+    { "winnt x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
+    { "winnt x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
+    { "winnt x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
+    { "winnt x86_64", "pencil", 200, "b2621f11c3e6214dbd89014eafc12d22ac374589", "928eabfdfac9b0e3d9ce87e8e087350185e67b79" },
+    { "winnt x86_64", "brush", 4, "08ac3b83dbf641ffeb5b645d6b79fb4dc332f8e1", "646b6145475d7df921aa824535dbc5524350a989" },
+    { "winnt x86_64", "brush", 24, "ac77c286b9b6e9f907000f19a4327ec3ddbcc3e6", "93688a6d99a914987bf51ff7dcccdd8b27754938" },
+    { "winnt x86_64", "brush", 96, "875e33735b958bec8be54804e56cf8ae5220f03a", "fa9935dab752949aa2b61497f10381791b613ccc" },
+    { "winnt x86_64", "brush", 200, "0fa12608f628ee6bb7e05af77c82b9f2b3287ccb", "27cd857dc3e459c11ee8d134dd6ab88b20fac4cc" },
+    { "winnt x86_64", "eraser", 4, "d7e2f2e5e32b6b22059c24951ac933943fd957b7", "88130c67007948c838b5a64bb13667fcb08a1f69" },
+    { "winnt x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
+    { "winnt x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
+    { "winnt x86_64", "eraser", 200, "516a81d7c6b1d424b1a5e6f9beb9074cdd54dec2", "3aca31806a5bda175678e38b2d0043338db1c7ce" },
+};
+
 } // namespace
 
 TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkSmoke]")
@@ -271,4 +453,72 @@ TEST_CASE("Benchmark: open, scrub, play and draw on a 500-frame, 10-layer projec
     BenchConfig cfg;
     std::vector<Scenario> sc = runBenchmark(cfg);
     printResults(cfg, sc);
+}
+
+TEST_CASE("Brush replay: replaying the same strokes twice gives identical hashes", "[BrushReplay]")
+{
+    const std::vector<Stroke> strokes = seededStrokes(1, 2, 40);
+    for (const ReplayCase& c : { ReplayCase{ PENCIL, "pencil", 24 }, ReplayCase{ BRUSH, "brush", 24 },
+                                 ReplayCase{ ERASER, "eraser", 24 } })
+    {
+        CAPTURE(c.name);
+        const ReplayResult a = replay(c, strokes);
+        const ReplayResult b = replay(c, strokes);
+        REQUIRE(a.layerSha1 == b.layerSha1);
+        REQUIRE(a.frameSha1 == b.frameSha1);
+        REQUIRE(a.layerSha1 != replay(c, {}).layerSha1); // the strokes changed the layer
+    }
+}
+
+TEST_CASE("Brush replay: today's Pencil, Brush and Eraser match the golden hashes", "[BrushReplay]")
+{
+    const QString platform = replayPlatform();
+    const std::vector<Stroke> strokes = goldenStrokes();
+    std::vector<ReplayResult> results;
+    QString lines; // ready to paste into kGolden
+    for (const ReplayCase& c : kReplayCases)
+    {
+        results.push_back(replay(c, strokes));
+        lines += QString("    { \"%1\", \"%2\", %3, \"%4\", \"%5\" },\n")
+                     .arg(platform, c.name).arg(c.size).arg(results.back().layerSha1, results.back().frameSha1);
+    }
+    INFO("Hashes on this platform:\n" << lines.toStdString());
+
+    int checked = 0;
+    for (size_t i = 0; i < results.size(); ++i)
+    {
+        const ReplayCase& c = kReplayCases[i];
+        for (const Golden& g : kGolden)
+        {
+            if (platform != g.platform || qstrcmp(c.name, g.tool) != 0 || c.size != g.size) continue;
+            CAPTURE(c.name, c.size);
+            CHECK(results[i].layerSha1 == g.layerSha1);
+            CHECK(results[i].frameSha1 == g.frameSha1);
+            ++checked;
+        }
+    }
+    if (checked == 0)
+        WARN("No golden brush hashes for " << platform.toStdString() << " yet; add to kGolden:\n" << lines.toStdString());
+    else
+        REQUIRE(checked == static_cast<int>(results.size()));
+}
+
+// Hidden: timing run for `compare_replay.py`. Prints one line per tool and size:
+// "replay <tool> <size> <median ms> <layer sha1> <frame sha1>". Use a Release build.
+TEST_CASE("Brush replay: time every tool and size, print hashes", "[.replay]")
+{
+    const std::vector<Stroke> strokes = goldenStrokes();
+    for (const ReplayCase& c : kReplayCases)
+    {
+        std::vector<double> ms;
+        ReplayResult r;
+        for (int rep = 0; rep < 3; ++rep)
+        {
+            r = replay(c, strokes);
+            ms.push_back(r.ms);
+        }
+        std::sort(ms.begin(), ms.end());
+        std::printf("replay %s %d %.1f %s %s\n", c.name, c.size, ms[1], r.layerSha1.constData(), r.frameSha1.constData());
+    }
+    std::fflush(stdout);
 }

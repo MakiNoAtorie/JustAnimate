@@ -58,3 +58,33 @@ play            10680.2    10317.4    15894.7    21.36 ms/frame
 draw pencil     14160.3    11292.9    28298.2   708.01 ms/stroke
 draw brush      10790.9     9983.8    22323.4   539.55 ms/stroke
 ```
+
+## Brush replay
+
+Replays seeded pen strokes (6 strokes of 150 samples, with pressure) through Pencil,
+Brush and Eraser at sizes 4, 24, 96 and 200, on a fixed canvas, then hashes (SHA-1)
+the painted layer and the composited frame. It is the safety net for brush engine
+work: a change that must keep the pixels keeps the hashes.
+
+- `[BrushReplay]` runs in the normal suite. It checks that replaying the same
+  strokes twice gives the same hashes, and that today's output matches `kGolden`
+  in `tests/src/test_benchmark.cpp`.
+- Qt's raster engine is not bit-exact across OS, CPU and Qt version, so `kGolden`
+  has one row per platform (`<kernelType> <cpu>`, e.g. `winnt x86_64`). On a
+  platform with no rows the test prints a warning with the lines to paste. On a
+  mismatch the failure shows the actual hash. To add a platform, paste its lines.
+- Change `kGolden` only in a commit that means to change brush output.
+
+Timing and before/after comparison (Release build, quiet machine):
+
+```bash
+cmake --build build-release --target replay > before.txt   # or: pencil2d_tests "[.replay]"
+# ... change the brush engine, rebuild ...
+cmake --build build-release --target replay > after.txt
+python util/compare_replay.py before.txt after.txt
+```
+
+It prints before/after ms, the speedup, and whether the layer and frame hashes are
+identical for every tool and size; exit code 1 if any differ.
+
+Replay timing baseline: TODO, not recorded yet (record on a quiet machine).

@@ -107,3 +107,10 @@ add_custom_target(benchmark
     DEPENDS pencil2d_tests
     USES_TERMINAL
 )
+
+# Brush replay timing (ROADMAP B0): prints one line per tool and size for util/compare_replay.py.
+add_custom_target(replay
+    COMMAND pencil2d_tests "[.replay]"
+    DEPENDS pencil2d_tests
+    USES_TERMINAL
+)
