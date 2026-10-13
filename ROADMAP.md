@@ -8,6 +8,12 @@
   (and ignore what they don't know).
 - One feature per branch/PR; core logic in `core_lib/`, UI in `app/`.
 - Keep internal names as-is so upstream Pencil2D fixes can still be merged.
+- Performance rules (proven in JustPaint, see below): measure before and
+  after; keep a change only if it is clearly outside run-to-run noise
+  (≈ ±10 %); output must stay **pixel-identical** (checked by image hashes)
+  unless the change is an opt-in "fast mode"; one change per commit with
+  the numbers in the commit message; record rejected attempts in
+  `docs/rejected-optimizations.md` so they are not retried blindly.
 
 Sizes: **S** ≈ a day, **M** ≈ a few days, **L** ≈ a week or more.
 
@@ -37,11 +43,11 @@ and builds have the new icon and name.
 |---|------|---------|------|
 | 1.1 | Benchmarks | Add a benchmark target: open a 500-frame/10-layer project, scrub, play, draw strokes. Record the numbers before optimizing anything | M |
 | 1.2 | Playback frame cache | Pre-render composited frames ahead of the playhead during playback; invalidate on edit | L |
-| 1.3 | Canvas rendering | Profile `CanvasPainter`; extend the existing layer pixmap cache (`mPreLayers/PostLayersPixmapCacheValid`) so only dirty tiles redraw | L |
+| 1.3 | Canvas rendering | Profile `CanvasPainter`; turn the existing "layers below" pixmap cache (`mPreLayersPixmapCacheValid`) into JustPaint's below-composite cache: cached per painted layer, filled in 64 px cells, invalidated by any change outside the painted layer, with a test that fails if invalidation is removed. Caching layers *above* is not pixel-exact (rounding), so it's an opt-in fast mode | L |
 | 1.4 | Onion skin cost | Cache tinted onion frames instead of re-tinting every paint | M |
 | 1.5 | Memory | Audit frame pool (`FRAME_POOL_SIZE`): unload far-away keyframes, measure peak RAM on large projects | M |
-| 1.6 | Async save/load | Move zip compression in `FileManager` to a worker thread with a progress bar; UI stays responsive | M |
-| 1.7 | Crash safety | Write autosave to a temp file and atomically rename it; strengthen recovery of unsaved projects at startup | M |
+| 1.6 | Async + parallel save/load | `.pclx` stores every bitmap keyframe as a PNG, so encode/decode frames on all cores (JustPaint: parallel PNG encoding cut cold startup 22.7 %, byte-identical pixels) and zip on a worker thread with a progress bar; cap worker count (JustPaint found 4-per-worker was slower) | M |
+| 1.7 | Crash safety | Write autosave to a temp file and atomically rename it; strengthen recovery of unsaved projects at startup; add an emergency-save hook on fatal signals that only publishes the last *completed* autosave (JustPaint `KisEmergencySave` pattern: allocation-free, lock-free, re-entry guarded; still unverified there, so write the crash test first) | M |
 | 1.8 | Fuzz the loader | Fuzz `.pclx`/`.pcl` parsing (malformed XML/zip) to catch crashes | M |
 | 1.9 | Upstream bug sweep | Triage open Pencil2D crash/data-loss issues, fix the reproducible ones | ongoing |
 
@@ -185,17 +191,18 @@ bitmap layers still store pixels.
 
 | # | Step | Details | Fixes | Size |
 |---|------|---------|-------|------|
-| B0 | Test & measurement harness | Record/replay pointer streams (JSON) → render headlessly → compare against golden PNGs with a tolerance. Benchmark: dabs/s and ms per stroke for brush sizes 4/32/256 px. Lock the **current** look in as a baseline first | — | M |
-| B1 | Correct spacing (quick win) | Extract one `DabSpacer` used by Pencil/Brush/Eraser; carry the remainder between events; interpolate pressure per dab; expose a "Spacing %" setting (default matches today's 12.5 %); fix the tile range (radius, not width) | F1, F2, F3, F6 | M |
-| B2 | Fast dab rendering | `QImage` (ARGB32_Premultiplied) tiles; `DabMaskCache`; direct mask blending with SIMD-friendly loops; batch all dabs of one event per tile; dirty-rect updates to the canvas. **Target: ≥5× dabs/s vs the B0 baseline at 256 px** | F5, F6 | L |
+| B0 | Test & measurement harness | Port JustPaint's setup: a stage profiler (time + call counts per stage: input, dab mask, composite, buffer paste, canvas update; off unless `JUSTANIMATE_STAGE_PROFILE=1`, one branch per stage when off), a `BrushStrokeReplayBenchmark` that replays deterministic or recorded strokes per preset/brush size and prints wall time + SHA-1 of the painted layer and the composited frame, and a compare script (speedup + "pixels identical?"). Seed all randomness in the benchmark so replays are deterministic. Lock the **current** look in as the baseline first | — | M |
+| B1 | Correct spacing (quick win) | Extract one `DabSpacer` used by Pencil/Brush/Eraser; carry the remainder between events; interpolate pressure per dab; expose a "Spacing %" setting (default matches today's 12.5 %); fix the tile range (radius, not width). This step intentionally changes output: new golden hashes after review | F1, F2, F3, F6 | M |
+| B2 | Fast dab rendering | `QImage` (ARGB32_Premultiplied) tiles; `DabMaskCache`; masks from r² with a precomputed **float** 1D profile table (no sqrt/erf/exp per pixel; JustPaint: float instead of double tables halved SIMD gathers, 1.35–1.45× on soft tips, bit-identical); 8-fold symmetry for round tips; tight dab bounds where mask ≥ 1/255; integer fixed-point mask × opacity × flow for 8-bit; a size-ordered dab-buffer pool reused across dabs and strokes with a memory cap (JustPaint: 128 MiB); **coverage-only accumulation**: for constant-color strokes accumulate a 1-channel alpha buffer and colorize once at paste. When multithreading big dabs, render dabs whose rolling mean time is < ~50 µs inline instead of via a thread pool (JustPaint: 2.8× on small brushes, which got *slower* with more threads before). Skip tile-binned compositing at first (JustPaint: no gain while batches hold 1–2 dabs). **Target: ≥5× dabs/s vs the B0 baseline at 256 px** | F5, F6 | L |
 | B3 | Dynamics system | Add tilt + timestamps to `PointerEvent` (from `QTabletEvent::xTilt/yTilt`, `timestamp()`); `BrushInputs` + `DynamicsCurve`; pressure → size/opacity/flow; speed → size; tilt → angle/size; random jitter; start/end taper (also "simulated pressure" for mouse users); **flow vs opacity** with build-up/wash modes; opacity linearize. Replaces the hard-coded `pressure * 0.5` | F3, F4, F9 | L |
-| B4 | Smoothing rewrite | `InputSmoother` with None / 1€ / Weighted / Stabilizer modes; 0–100 strength slider; catch-up on pen lift; run on input timestamps instead of a 5 ms `QTimer`; old NONE/SIMPLE/STRONG settings map to equivalent presets | F8 | M |
+| B4 | Smoothing & latency | `InputSmoother` with None / 1€ / Weighted / Stabilizer modes; 0–100 strength slider; catch-up on pen lift; run on input timestamps instead of a 5 ms `QTimer`; old NONE/SIMPLE/STRONG settings map to equivalent presets. Perceived latency (JustPaint spec §7): short-horizon pen prediction drawn only in a throwaway preview overlay, and input event compression | F8 | M |
 | B5 | Brush tips | Generated tips (hardness, aspect, angle, follow-stroke-direction rotation); image tips (PNG, GIMP `.gbr`); scatter/jitter of position, size, angle, count per dab | F7 | M |
 | B6 | Grain / texture | Grain texture multiplied into the dab mask; "fixed to canvas" (paper) or "moving with the stroke"; scale/contrast/brightness; a small built-in paper texture set | F7 | M |
-| B7 | Smudge & color mixing | Smudge built into the engine (bucket, length, radius, color rate); retire the separate smudge loop; optional Kubelka–Munk mixing via a C++ port of spectral.js (MIT) for "wet" brushes. Do not use Mixbox (CC BY-NC) | F10 | L |
-| B8 | Presets & UI | Brush preset dock with live stroke thumbnails; preset editor with curve editor and preview; import/export `.jabrush`; ship a default pack (HB pencil, 2B pencil, G-pen ink, marker, soft airbrush, chalk, watercolor-ish, hard/soft eraser) plus **"Classic" presets that reproduce today's Pencil/Brush/Eraser** so existing users aren't surprised | — | L |
+| B7 | Smudge & color mixing | Smudge built into the engine (bucket, length, radius, color rate); retire the separate smudge loop; optional Kubelka–Munk mixing via a C++ port of spectral.js (MIT) for "wet" brushes. Do not use Mixbox (CC BY-NC). Smudge reads the canvas every dab, so it can't use the paint-ahead pipeline; speed it up like JustPaint did: composite large dabs (≥ 256K px) in row bands of ≥ 64 rows on all cores (1.16×, bit-identical), keep small dabs serial; parallel source reads and buffer fills were measured as no gain, so skip them | F10 | L |
+| B8 | Presets & UI | Brush preset dock whose rows show a rendered sample stroke, display name and description (as in JustPaint `bd1ca4c`); preset editor with curve editor and preview; import/export `.jabrush`; ship a default pack (HB pencil, 2B pencil, G-pen ink, marker, soft airbrush, chalk, watercolor-ish, hard/soft eraser) plus **"Classic" presets that reproduce today's Pencil/Brush/Eraser** so existing users aren't surprised | — | L |
 | B9 | Optional: MyPaint brushes | Embed libmypaint (ISC) as a second engine behind the same `DabCompositor` surface interface, to load `.myb` brushes | — | L |
-| B10 | Optional: GPU path | GPU dab compositing via Qt RHI for very large brushes/canvases; CPU path stays the reference implementation | — | L |
+| B10 | Optional: GPU path | Low priority: JustPaint's research found Photoshop, Clip Studio and Krita all compute strokes on the CPU and use the GPU for display, and Krita's 2018 OpenCL brush test was ~30 % *slower* because of per-dab transfers. If done: a GPU-resident stroke buffer, dabs as instanced quads, readback only at stroke end, GPU result used as live preview while the CPU commits the authoritative pixels. CPU stays the reference | — | L |
+| B11 | Optional: segment fast path | For round tips, compute coverage per stroke segment from distance-to-segment (capsule SDF) instead of stamping dabs; big win at tight spacing; opt-in fast mode with the dab path as fallback (JustPaint spec §9) | — | M |
 
 **Brush engine acceptance criteria**
 - Replayed strokes match their golden images; spacing is constant (±5 %)
@@ -207,6 +214,39 @@ bitmap layers still store pixels.
   tolerance).
 - Brush presets survive an app restart and can be exported and
   re-imported.
+
+### Lessons from JustPaint (Krita fork, `MakiNoAtorie/justpaint`)
+
+JustPaint already went through a measured brush and performance pass on
+Krita. What carries over to JustAnimate:
+
+| JustPaint result | What JustAnimate takes from it | Plan item |
+|---|---|---|
+| Stage profiler + stroke replay benchmark with layer/projection hashes; ±10 % noise rule | Same harness and rules from day one | B0, ground rules |
+| Float curve table for soft tips: 1.35–1.45×, bit-identical | Float 1D profile tables in `DabMaskCache` | B2 |
+| Small dabs inline instead of thread pool: 2.8× | Threshold on rolling mean dab time when threading is added | B2 |
+| Size-ordered dab-buffer pool, 128 MiB cap | Reuse dab buffers across dabs and strokes | B2 |
+| Below-composite cache: up to 1.43× with many layers | Upgrade `CanvasPainter`'s "layers below" cache | 1.3 |
+| Parallel color-smudge compositing for big dabs: 1.16× | Row-band parallelism in engine smudge | B7 |
+| Vectorized 8-bit blend modes (Multiply, Screen, …) with integer math matching the scalar rounding byte for byte: 1.4× on blended replays | Layer blend modes must ship with a SIMD path and a byte-exact equivalence test | 3.8 |
+| Parallel PNG encode: −22.7 % cold startup | Parallel frame PNG encode/decode in save/load | 1.6 |
+| Emergency save on fatal signals (unverified) | Same pattern, crash test first | 1.7 |
+| Preset rows with rendered stroke + description | Preset dock design | B8 |
+| **Rejected:** LTO (slower), PGO (≤2 % on brushes), `-O3` (only ~2 %), U16 SIMD blends (slower), tile-binned compositing with tiny batches, parallel smudge reads/fills | Don't spend time on these; Release default flags are enough | — |
+| GPU research: big apps keep stroke math on CPU | GPU brush is last (B10); GPU display first if ever | B10 |
+
+**Reusing JustPaint/Krita code:** JustAnimate is GPLv2-only (inherited
+from Pencil2D). Krita files marked `GPL-2.0-or-later` or `LGPL-*` can be
+ported (keep their copyright headers). Files marked `GPL-3.0-*` cannot be
+copied (238 such files in `libs/` + `plugins/`, e.g.
+`kis_spacing_information.h`); reimplement those ideas from scratch. Check
+the SPDX line of every file before porting. Most of the brush code
+(`kis_circle_mask_generator`, `kis_curve_circle_mask_generator`,
+`kis_tool_freehand_helper`, `kis_distance_information`, `kis_cubic_curve`,
+`KisStageProfiler`, `BrushStrokeReplayBenchmark`, `KisEmergencySave`) is
+GPL-2.0-or-later ✔, but Krita's architecture (paint devices, paintops,
+strokes framework) is far bigger than JustAnimate needs, so port
+**algorithms and tests**, not whole classes.
 
 ---
 
@@ -221,7 +261,7 @@ bitmap layers still store pixels.
 | 3.5 | Exposure editing | Set hold length per frame (1s/2s/3s) with one command; "Clean exposure" | S |
 | 3.6 | Frame labels & markers | Named markers/colors on frames (e.g. "key", "breakdown"); saved in project | M |
 | 3.7 | Layer groups/folders | Collapsible groups with group visibility/opacity | L |
-| 3.8 | Layer blend modes | Multiply, screen, overlay, add — stored per layer | M |
+| 3.8 | Layer blend modes | Multiply, screen, overlay, add — stored per layer; vectorized 8-bit path with integer math matching the scalar rounding, plus a byte-for-byte equivalence test over all 256 alpha values (JustPaint `3d3a368`) | M |
 | 3.9 | X-sheet view | Optional exposure-sheet view of the timeline (traditional workflow) | L |
 | 3.10 | Audio | Waveform display on sound layers; scrubbing improvements; lip-sync markers | M |
 | 3.11 | Playback | Loop/ping-pong range, playback speed (0.5×/2×), frame-by-frame flipping improvements | S |
@@ -246,6 +286,7 @@ Pencil2D compatibility, and there are timeline operation tests.
 | 4.8 | Accessibility | Keyboard navigation in timeline/panels, tooltips everywhere, contrast check for themes | M |
 | 4.9 | Preferences cleanup | Reorganize preferences pages, search box, explain each option | M |
 | 4.10 | Translations | Re-sync `.ts` files with new strings; set up a translation workflow for the fork | S |
+| 4.11 | Optional: ideas from JustPaint's Photoshop-style UI | Toolbox groups behind one button with long-press menu; Alt+click on a layer's eye to show only that layer; layer lock row (pixels / all); proportional scaling by default in transform (Shift unlocks); Alt+wheel / Ctrl+wheel navigation; a monochrome icon set for light and dark themes | M |
 
 **Done when:** a first-time user can start a project, draw, animate, and
 export without the manual.
@@ -260,7 +301,7 @@ export without the manual.
 4. **v0.4 "Speed & tools"**: 1.2–1.6, 2.3, 2.4–2.6, 3.4, 3.5, 4.3, 4.4
 5. **v0.5 "Paint & animate"**: **B6, B7**, 3.3, 3.6–3.8, 3.11, 3.12
 6. **v1.0**: 2.8–2.11, 3.9, 3.10, remaining Phase 4, bug sweep
-7. **After 1.0 (optional)**: **B9** (MyPaint brushes), **B10** (GPU)
+7. **After 1.0 (optional)**: **B9** (MyPaint brushes), **B11** (segment fast path), **B10** (GPU, last)
 
 ## Risks
 - **File format drift:** guard with round-trip tests (save → load →
@@ -270,14 +311,19 @@ export without the manual.
   anything.
 - **Performance work breaking rendering:** add pixel-comparison tests for
   `CanvasPainter` and the brush engine before optimizing.
-- **Licensing:** only use GPL-compatible code (libmypaint = ISC ✔,
-  spectral.js = MIT ✔, Mixbox = CC BY-NC ✘).
+- **Licensing:** only use GPLv2-compatible code (libmypaint = ISC ✔,
+  spectral.js = MIT ✔, Krita/JustPaint `GPL-2.0-or-later`/`LGPL` files ✔,
+  Krita `GPL-3.0-*` files ✘, Mixbox = CC BY-NC ✘).
+- **Unverified work:** JustPaint's "heavy end" commits (emergency save,
+  out-of-memory guard, PSD adjustment layers) compile but are not tested;
+  don't port them as-is.
 - **Upstream divergence:** periodically merge Pencil2D fixes; keep
   refactors small.
 - **Art assets:** the icon, tool icons, brush tips, and paper textures need
   a designer or CC0 sources.
 
 ## References
+- JustPaint brush/performance record: `MakiNoAtorie/justpaint` → `PERFORMANCE.md`, `NEXT_STEPS.md`, `base-doc/krita-brush-speedup-spec.md`, `base-doc/krita-brush-gpu-research.md`, `dev-docs/rejected-optimizations.md`
 - libmypaint source (spacing, dynamics, smudge): https://github.com/mypaint/libmypaint/blob/master/mypaint-brush.c
 - MyPaint brush settings: https://docs.drawpile.net/help/draw/mypaint
 - Krita MyPaint engine docs: https://docs.krita.org/en/reference_manual/brushes/brush_engines/mypaint_engine.html
