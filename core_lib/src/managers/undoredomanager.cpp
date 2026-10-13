@@ -658,7 +658,7 @@ void UndoRedoManager::restoreLegacyKey()
         BackupLegacyVectorElement* lastBackupVectorElement = static_cast<BackupLegacyVectorElement*>(lastBackupElement);
         layerIndex = lastBackupVectorElement->layer;
         frame = lastBackupVectorElement->frame;
-        layer = object()->findLayerById(layerIndex);
+        layer = object()->findLayerById(lastBackupVectorElement->layerId);
         editor()->addKeyFrame(layerIndex, frame);
         dynamic_cast<LayerVector*>(layer)->getVectorImageAtFrame(frame)->paste(lastBackupVectorElement->vectorImage);
         editor()->setModified(layerIndex, frame);
