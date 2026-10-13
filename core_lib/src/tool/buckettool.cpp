@@ -140,10 +140,10 @@ void BucketTool::pointerReleaseEvent(PointerEvent* event)
 
     if (event->button() == Qt::LeftButton)
     {
-        // Backup of bitmap image is more complicated now and has therefore been moved to bitmap code
         if (layer->type() == Layer::VECTOR) {
-            mEditor->backup(typeName());
+            const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
             paintVector(layer);
+            mEditor->undoRedo()->record(saveStateId, typeName());
         }
         else if (layer->type() == Layer::BITMAP && !mFilledOnMove)
         {
@@ -157,11 +157,7 @@ void BucketTool::paintBitmap()
 {
     mBitmapBucket.paint(getCurrentPoint(), [this](BucketState progress, int layerIndex, int frameIndex)
     {
-        if (progress == BucketState::WillFillTarget)
-        {
-            mEditor->backup(layerIndex, frameIndex, typeName());
-        }
-        else if (progress == BucketState::DidFillTarget)
+        if (progress == BucketState::DidFillTarget)
         {
             mEditor->undoRedo()->record(mUndoSaveState, typeName());
             mEditor->setModified(layerIndex, frameIndex);

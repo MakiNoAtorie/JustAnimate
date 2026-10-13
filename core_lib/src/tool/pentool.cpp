@@ -125,7 +125,6 @@ void PenTool::pointerReleaseEvent(PointerEvent *event)
 
     if (event->inputType() != mCurrentInputType) return;
 
-    mEditor->backup(typeName());
 
     Layer* layer = mEditor->layers()->currentLayer();
 

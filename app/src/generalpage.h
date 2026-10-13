@@ -58,7 +58,6 @@ private slots:
     void backgroundChanged(QAbstractButton* button);
     void frameCacheNumberChanged(int value);
     void invertScrollDirectionBoxStateChanged(int b);
-    void newUndoRedoCheckBoxStateChanged();
     void undoRedoMaxStepsChanged();
 
     void undoRedoApplyButtonPressed();

@@ -526,12 +526,6 @@ void MainWindow2::updateSaveState()
     ui->statusBar->updateModifiedStatus(hasUnsavedChanges);
 }
 
-void MainWindow2::updateBackupActionState()
-{
-    mEditor->undoRedo()->updateUndoAction(ui->actionUndo);
-    mEditor->undoRedo()->updateRedoAction(ui->actionRedo);
-}
-
 void MainWindow2::openPegAlignDialog()
 {
     if (mPegAlign != nullptr)
@@ -780,7 +774,6 @@ bool MainWindow2::openObject(const QString& strFilePath)
     progress.setValue(progress.maximum());
 
     updateSaveState();
-    updateBackupActionState();
 
     if (!QFileInfo(strFilePath).isWritable())
     {
@@ -1120,7 +1113,6 @@ void MainWindow2::newObject()
     closeDialogs();
 
     setWindowTitle(getWindowTitle());
-    updateBackupActionState();
 }
 
 bool MainWindow2::newObjectFromPresets(int presetIndex)
@@ -1145,7 +1137,6 @@ bool MainWindow2::newObjectFromPresets(int presetIndex)
 
     setWindowTitle(getWindowTitle());
     updateSaveState();
-    updateBackupActionState();
 
     return true;
 }
@@ -1459,7 +1450,6 @@ void MainWindow2::openPalette()
 void MainWindow2::makeConnections(Editor* editor)
 {
     connect(editor->undoRedo(), &UndoRedoManager::didUpdateUndoStack, this, &MainWindow2::updateSaveState);
-    connect(editor->undoRedo(), &UndoRedoManager::didUpdateUndoStack, this, &MainWindow2::updateBackupActionState);
     connect(editor, &Editor::needDisplayInfo, this, &MainWindow2::displayMessageBox);
     connect(editor, &Editor::needDisplayInfoNoTitle, this, &MainWindow2::displayMessageBoxNoTitle);
     connect(editor->layers(), &LayerManager::currentLayerChanged, this, &MainWindow2::currentLayerChanged);
@@ -1710,7 +1700,6 @@ bool MainWindow2::startProjectRecovery(const QString recoverPath)
     Q_ASSERT(o);
     mEditor->setObject(o);
     updateSaveState();
-    updateBackupActionState();
 
     const QString title = tr("Recovery Succeeded!");
     const QString text = tr("Please save your work immediately to prevent loss of data");

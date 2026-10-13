@@ -758,19 +758,6 @@ void ActionCommands::removeSelectedFrames()
 
     if (!currentLayer->hasAnySelectedFrames()) { return; }
 
-    // Only the new undo system can restore the removed frames.
-    int ret = mEditor->undoRedo()->newUndoRedoSystemEnabled() ? QMessageBox::Ok :
-              QMessageBox::warning(mParent,
-                                   tr("Remove selected frames", "Windows title of remove selected frames pop-up."),
-                                   tr("Are you sure you want to remove the selected frames? This action is irreversible currently!"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
-
-    if (ret != QMessageBox::Ok)
-    {
-        return;
-    }
-
     const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_REMOVE);
     for (int pos : currentLayer->selectedKeyFramesPositions()) {
         currentLayer->removeKeyFrame(pos);
@@ -952,7 +939,7 @@ Status ActionCommands::deleteCurrentLayer()
 
     int ret = QMessageBox::warning(mParent,
                                    tr("Delete Layer", "Windows title of Delete current layer pop-up."),
-                                   tr("Are you sure you want to delete layer: %1? This cannot be undone.").arg(strLayerName),
+                                   tr("Are you sure you want to delete layer: %1?").arg(strLayerName),
                                    QMessageBox::Ok | QMessageBox::Cancel,
                                    QMessageBox::Ok);
     if (ret == QMessageBox::Ok)

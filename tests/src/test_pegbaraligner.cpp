@@ -47,9 +47,6 @@ TEST_CASE("PegBarAligner: align from a held frame, then undo and redo")
     editor->setObject(object);
     editor->init();
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
-    editor->undoRedo()->init();
-
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
     QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());

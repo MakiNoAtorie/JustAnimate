@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QFile>
 #include <QIcon>
+#include <QSettings>
 #include <QTemporaryDir>
 
 #include "beziercurve.h"
@@ -31,13 +32,14 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layermanager.h"
 #include "object.h"
+#include "pencildef.h"
 #include "preferencemanager.h"
 #include "scribblearea.h"
 #include "selectionmanager.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
 
-TEST_CASE("UndoRedoManager legacy: undo/redo of Remove frame")
+TEST_CASE("UndoRedoManager: undo/redo of Remove frame")
 {
     Object* object = new Object;
     object->init();
@@ -48,13 +50,10 @@ TEST_CASE("UndoRedoManager legacy: undo/redo of Remove frame")
 
     Editor* editor = new Editor;
     ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    scribbleArea->setEditor(editor);
     editor->setScribbleArea(scribbleArea);
     editor->setObject(object);
     editor->init();
-
-    // Use the legacy undo system, which is the default.
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
-    editor->undoRedo()->init();
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -71,15 +70,14 @@ TEST_CASE("UndoRedoManager legacy: undo/redo of Remove frame")
         editor->removeKey();
         REQUIRE_FALSE(layer->keyExists(5));
 
-        editor->undoRedo()->updateUndoAction(undoAction);
         REQUIRE(undoAction->isEnabled());
         undoAction->trigger();
         REQUIRE(layer->keyExists(5));
         REQUIRE(layer->keyExists(1));
 
-        editor->undoRedo()->updateRedoAction(redoAction);
         REQUIRE(redoAction->isEnabled());
         redoAction->trigger();
+        REQUIRE_FALSE(layer->keyExists(5));
         REQUIRE(layer->keyExists(1));
     };
 
@@ -105,16 +103,13 @@ TEST_CASE("UndoRedoManager: unsaved changes survive a failed save")
 
     Editor* editor = new Editor;
     ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    scribbleArea->setEditor(editor);
     editor->setScribbleArea(scribbleArea);
     editor->setObject(object);
     editor->init();
 
-    // Use the legacy undo system, which is the default.
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
-    editor->undoRedo()->init();
-
     UndoRedoManager* undoRedo = editor->undoRedo();
-    undoRedo->legacyBackup(0, 1, "Draw");
+    undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
     REQUIRE(undoRedo->hasUnsavedChanges());
 
     QTemporaryDir dir;
@@ -152,7 +147,6 @@ TEST_CASE("UndoRedoManager: unsaved changes survive a failed save")
 
 TEST_CASE("UndoRedoManager: frame and layer edits flag the project as unsaved")
 {
-    const bool useNewSystem = GENERATE(false, true);
     Object* object = new Object;
     object->init();
     object->addNewBitmapLayer();
@@ -162,8 +156,6 @@ TEST_CASE("UndoRedoManager: frame and layer edits flag the project as unsaved")
     editor->setScribbleArea(scribbleArea);
     editor->setObject(object);
     editor->init();
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, useNewSystem);
-    editor->undoRedo()->init();
     UndoRedoManager* undoRedo = editor->undoRedo();
 
     REQUIRE_FALSE(undoRedo->hasUnsavedChanges());
@@ -190,7 +182,6 @@ TEST_CASE("UndoRedoManager: frame and layer edits flag the project as unsaved")
         REQUIRE(undoRedo->hasUnsavedChanges());
     }
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
     delete editor;
     delete scribbleArea;
 }
@@ -220,32 +211,15 @@ TEST_CASE("Editor: each edit counts once toward autosave")
         REQUIRE_FALSE(layer->keyExists(frame));
     };
 
-    auto checkEditsCountOnce = [&]
-    {
-        editor->undoRedo()->init();
-        editor->preference()->set(SETTING::AUTO_SAVE, true);
-        editor->preference()->set(SETTING::AUTO_SAVE_NUMBER, 2);
-        editor->resetAutoSaveCounter();
+    editor->preference()->set(SETTING::AUTO_SAVE, true);
+    editor->preference()->set(SETTING::AUTO_SAVE_NUMBER, 2);
+    editor->resetAutoSaveCounter();
 
-        removeFrame(5);
-        REQUIRE(autosaves == 0);
-        removeFrame(6);
-        REQUIRE(autosaves == 1);
-    };
+    removeFrame(5);
+    REQUIRE(autosaves == 0);
+    removeFrame(6);
+    REQUIRE(autosaves == 1);
 
-    SECTION("Legacy undo system")
-    {
-        editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
-        checkEditsCountOnce();
-    }
-
-    SECTION("New undo system")
-    {
-        editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
-        checkEditsCountOnce();
-    }
-
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
     delete editor;
     delete scribbleArea;
 }
@@ -265,8 +239,6 @@ TEST_CASE("UndoRedoManager: undo/redo of selection edits")
     editor->setObject(object);
     editor->init();
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
-    editor->undoRedo()->init();
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -352,7 +324,6 @@ TEST_CASE("UndoRedoManager: undo/redo of selection edits")
         checkUndoRedo([&] { editor->flipSelection(false); }, flipped, 0, 1);
     }
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
     delete editor;
     delete scribbleArea;
 }
@@ -375,8 +346,6 @@ TEST_CASE("UndoRedoManager: undo/redo of image import")
     editor->setObject(object);
     editor->init();
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
-    editor->undoRedo()->init();
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -456,7 +425,6 @@ TEST_CASE("UndoRedoManager: undo/redo of image import")
         checkUndoRedo([&] { REQUIRE(editor->importImage(path, config).ok()); }, hasCurves, 0, 1);
     }
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
     delete editor;
     delete scribbleArea;
 }
@@ -507,113 +475,96 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
         for (int pos : positions) { layer->setFrameSelected(pos, true); }
     };
 
-    SECTION("New undo system")
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    // Runs `edit`, then checks that the frames read as at the start after undo and `after` after redo.
+    auto checkUndoRedo = [&](const std::function<void()>& edit, const std::string& after)
     {
-        editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
-        editor->undoRedo()->init();
-
-        QObject parent;
-        QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
-        QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
-
-        // Runs `edit`, then checks that the frames read as at the start after undo and `after` after redo.
-        auto checkUndoRedo = [&](const std::function<void()>& edit, const std::string& after)
-        {
-            const std::string before = "6=6 5=5 3=3 1=1";
-            REQUIRE(frames() == before);
-            edit();
-            REQUIRE(frames() == after);
-            // The user selects another frame before the undo.
-            select({ 1 });
-            REQUIRE(undoAction->isEnabled());
-            undoAction->trigger();
-            REQUIRE(frames() == before);
-            select({ 3 });
-            REQUIRE(redoAction->isEnabled());
-            redoAction->trigger();
-            REQUIRE(frames() == after);
-            undoAction->trigger();
-            REQUIRE(frames() == before);
-        };
-        // Records `edit` as one step of the given type, as the timeline and the frame actions do.
-        auto recorded = [&](UndoRedoRecordType type, const std::function<void()>& edit)
-        {
-            return [&, type, edit]
-            {
-                const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(type);
-                edit();
-                editor->undoRedo()->record(saveStateId, "Frame operation");
-            };
-        };
-
-        SECTION("Remove frame")
-        {
-            editor->scrubTo(5);
-            checkUndoRedo([&] { editor->removeKey(); }, "6=6 3=3 1=1");
-        }
-
-        SECTION("Remove the selected frames")
-        {
-            select({ 3, 6 });
-            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAMES_REMOVE, [&]
-            {
-                for (int pos : layer->selectedKeyFramesPositions()) { layer->removeKeyFrame(pos); }
-            }), "5=5 1=1");
-        }
-
-        SECTION("Move frames")
-        {
-            select({ 5, 6 });
-            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->moveSelectedFrames(2); }), "8=6 7=5 3=3 1=1");
-        }
-
-        SECTION("Move frames, shortened by the frame in the way at position 1")
-        {
-            select({ 3 });
-            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->moveSelectedFrames(-5); }), "6=6 5=5 2=3 1=1");
-        }
-
-        SECTION("Reverse")
-        {
-            select({ 1, 3, 6 });
-            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->reverseOrderOfSelection(); }), "6=1 5=5 3=3 1=6");
-        }
-
-        SECTION("Add exposure")
-        {
-            select({ 3 });
-            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->setExposureForSelectedFrames(1); }), "7=6 6=5 3=3 1=1");
-        }
-
-        SECTION("Subtract exposure")
-        {
-            select({ 1 });
-            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->setExposureForSelectedFrames(-1); }), "5=6 4=5 2=3 1=1");
-        }
-
-        SECTION("Reposition Frames")
-        {
-            checkUndoRedo([&] { editor->repositionImage(QPoint(0, 20), 3); }, "6=6 5=5 3=0 1=1");
-        }
-    }
-
-    SECTION("Legacy undo system: Reposition Frames")
-    {
-        editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
-        editor->undoRedo()->init();
-
-        QObject parent;
-        QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
-
-        editor->repositionImage(QPoint(0, 20), 3);
-        REQUIRE(frames() == "6=6 5=5 3=0 1=1");
-        editor->undoRedo()->updateUndoAction(undoAction);
+        const std::string before = "6=6 5=5 3=3 1=1";
+        REQUIRE(frames() == before);
+        edit();
+        REQUIRE(frames() == after);
+        // The user selects another frame before the undo.
+        select({ 1 });
         REQUIRE(undoAction->isEnabled());
         undoAction->trigger();
-        REQUIRE(frames() == "6=6 5=5 3=3 1=1");
+        REQUIRE(frames() == before);
+        select({ 3 });
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(frames() == after);
+        undoAction->trigger();
+        REQUIRE(frames() == before);
+    };
+    // Records `edit` as one step of the given type, as the timeline and the frame actions do.
+    auto recorded = [&](UndoRedoRecordType type, const std::function<void()>& edit)
+    {
+        return [&, type, edit]
+        {
+            const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(type);
+            edit();
+            editor->undoRedo()->record(saveStateId, "Frame operation");
+        };
+    };
+
+    SECTION("Remove frame")
+    {
+        editor->scrubTo(5);
+        checkUndoRedo([&] { editor->removeKey(); }, "6=6 3=3 1=1");
     }
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    SECTION("Remove the selected frames")
+    {
+        select({ 3, 6 });
+        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAMES_REMOVE, [&]
+        {
+            for (int pos : layer->selectedKeyFramesPositions()) { layer->removeKeyFrame(pos); }
+        }), "5=5 1=1");
+    }
+
+    SECTION("Cut the selected frames")
+    {
+        select({ 3, 6 });
+        checkUndoRedo([&] { editor->copyAndCut(); }, "5=5 1=1");
+    }
+
+    SECTION("Move frames")
+    {
+        select({ 5, 6 });
+        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->moveSelectedFrames(2); }), "8=6 7=5 3=3 1=1");
+    }
+
+    SECTION("Move frames, shortened by the frame in the way at position 1")
+    {
+        select({ 3 });
+        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->moveSelectedFrames(-5); }), "6=6 5=5 2=3 1=1");
+    }
+
+    SECTION("Reverse")
+    {
+        select({ 1, 3, 6 });
+        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->reverseOrderOfSelection(); }), "6=1 5=5 3=3 1=6");
+    }
+
+    SECTION("Add exposure")
+    {
+        select({ 3 });
+        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->setExposureForSelectedFrames(1); }), "7=6 6=5 3=3 1=1");
+    }
+
+    SECTION("Subtract exposure")
+    {
+        select({ 1 });
+        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->setExposureForSelectedFrames(-1); }), "5=6 4=5 2=3 1=1");
+    }
+
+    SECTION("Reposition Frames")
+    {
+        checkUndoRedo([&] { editor->repositionImage(QPoint(0, 20), 3); }, "6=6 5=5 3=0 1=1");
+    }
+
     delete editor;
     delete scribbleArea;
 }
@@ -636,8 +587,6 @@ TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
     editor->setObject(object);
     editor->init();
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
-    editor->undoRedo()->init();
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -710,7 +659,6 @@ TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
         REQUIRE(layers->currentLayerIndex() == 2);
     }
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
     delete editor;
     delete scribbleArea;
 }
@@ -737,8 +685,6 @@ TEST_CASE("UndoRedoManager: an undone layer delete keeps its frames across saves
     editor->setObject(object);
     editor->init();
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
-    editor->undoRedo()->init();
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -799,7 +745,43 @@ TEST_CASE("UndoRedoManager: an undone layer delete keeps its frames across saves
     }
     delete loaded;
 
-    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    delete editor;
+    delete scribbleArea;
+}
+
+TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
+{
+    // A settings file written before the legacy undo system was removed can hold this key.
+    const QString oldKey = "NewUndoRedoOn";
+    QSettings settings(PENCIL2D, PENCIL2D);
+    settings.setValue(oldKey, false);
+    settings.sync();
+
+    Object* object = new Object;
+    object->init();
+    Layer* layer = object->addNewBitmapLayer();
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    scribbleArea->setEditor(editor);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    REQUIRE(editor->init());
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    editor->layers()->setCurrentLayer(layer);
+    layer->addNewKeyFrameAt(5);
+    editor->scrubTo(5);
+    editor->removeKey();
+    REQUIRE_FALSE(layer->keyExists(5));
+
+    REQUIRE(undoAction->isEnabled());
+    undoAction->trigger();
+    REQUIRE(layer->keyExists(5));
+
+    settings.remove(oldKey);
     delete editor;
     delete scribbleArea;
 }

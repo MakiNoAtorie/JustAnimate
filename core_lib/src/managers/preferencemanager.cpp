@@ -92,7 +92,6 @@ void PreferenceManager::loadPrefs()
 
     set(SETTING::LAYOUT_LOCK,              settings.value(SETTING_LAYOUT_LOCK,            false).toBool());
     set(SETTING::FRAME_POOL_SIZE,          settings.value(SETTING_FRAME_POOL_SIZE,        1024).toInt());
-    set(SETTING::NEW_UNDO_REDO_SYSTEM_ON,  settings.value(SETTING_NEW_UNDO_REDO_ON,       false).toBool());
     set(SETTING::UNDO_REDO_MAX_STEPS,      settings.value(SETTING_UNDO_REDO_MAX_STEPS,    100).toInt());
 
     set(SETTING::FPS,                      settings.value(SETTING_FPS,                    12).toInt());
@@ -475,9 +474,6 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::LOAD_DEFAULT_PRESET:
         settings.setValue(SETTING_LOAD_DEFAULT_PRESET, value);
-        break;
-    case SETTING::NEW_UNDO_REDO_SYSTEM_ON:
-        settings.setValue(SETTING_NEW_UNDO_REDO_ON, value);
         break;
     default:
         Q_ASSERT(false);

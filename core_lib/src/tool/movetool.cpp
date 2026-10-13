@@ -221,7 +221,6 @@ void MoveTool::beginInteraction(const QPointF& pos, Qt::KeyboardModifiers keyMod
     if (!selectionRect.isNull())
     {
         mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
-        mEditor->backup(typeName());
     }
 
     if (keyMod != Qt::ShiftModifier)

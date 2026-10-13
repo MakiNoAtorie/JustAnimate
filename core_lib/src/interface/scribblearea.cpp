@@ -1460,7 +1460,6 @@ void ScribbleArea::deleteSelection()
 
         handleDrawingOnEmptyFrame();
 
-        mEditor->backup(tr("Delete Selection", "Undo Step: clear the selection area."));
         const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
         selectMan->clearCurves();
@@ -1488,7 +1487,6 @@ void ScribbleArea::clearImage()
 
     if (layer->type() == Layer::VECTOR)
     {
-        mEditor->backup(tr("Clear Image", "Undo step text"));
         const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
         VectorImage* vectorImage = currentVectorImage(layer);
@@ -1502,7 +1500,6 @@ void ScribbleArea::clearImage()
     }
     else if (layer->type() == Layer::BITMAP)
     {
-        mEditor->backup(tr("Clear Image", "Undo step text"));
 
         BitmapImage* bitmapImage = currentBitmapImage(layer);
         if (bitmapImage == nullptr) return;

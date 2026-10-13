@@ -40,7 +40,6 @@ class VectorImage;
 class Camera;
 class SoundClip;
 class KeyFrame;
-class LegacyBackupElement;
 class UndoRedoCommand;
 
 using SAVESTATE_ID = int;
@@ -143,7 +142,6 @@ public:
     /** Checks whether there are unsaved changes.
      *  @return true if there are unsaved changes, otherwise false */
     bool hasUnsavedChanges() const;
-    bool newUndoRedoSystemEnabled() const { return mNewBackupSystemEnabled; }
 
     /** Marks the current state as saved. Call only after the file was written successfully. */
     void markSaved();
@@ -169,38 +167,14 @@ public:
     QAction* createUndoAction(QObject* parent, const QIcon& icon);
     QAction* createRedoAction(QObject* parent, const QIcon& icon);
 
-    void updateUndoAction(QAction* undoAction);
-    void updateRedoAction(QAction* redoAction);
-
     /** Clears the undo stack */
     void clearStack();
-
-    // Developer note:
-    // Our legacy undo/redo system is not meant to be build upon anymore.
-    // The implementation should however be kept until the new undo/redo system takes over.
-
-    void legacyBackup(const QString& undoText);
-    bool legacyBackup(int backupLayer, int backupFrame, const QString& undoText);
-    /**
-     * Restores integrity of the backup elements after a layer has been deleted.
-     * Removes backup elements affecting the deleted layer and adjusts the layer
-     * index on other backup elements as necessary.
-     *
-     * @param layerIndex The index of the layer that was deleted
-     *
-     * @warning This serves as a temporary hack to prevent crashes until #864 is
-     *          done (see #1412).
-     */
-    void sanitizeLegacyBackupElementsAfterLayerDeletion(int layerIndex);
-    void restoreLegacyKey();
-
-    void rememberLastModifiedFrame(int layerNumber, int frameNumber);
 
     void onSettingChanged(SETTING setting);
 
 signals:
     void didUpdateUndoStack();
-    /** A new-system undo step was recorded: one per user edit, unlike didUpdateUndoStack. */
+    /** An undo step was recorded: one per user edit, unlike didUpdateUndoStack. */
     void didRecordEdit();
 
 private:
@@ -222,24 +196,11 @@ private:
     void clearState(UndoSaveState*& state);
     void clearSaveStates();
 
-    void legacyUndo();
-    void legacyRedo();
-
     QUndoStack mUndoStack;
 
     QMap<SAVESTATE_ID, UndoSaveState*> mSaveStates;
 
-    // Legacy system
-    int mLegacyBackupIndex = -1;
-    LegacyBackupElement* mLegacyBackupAtSave = nullptr;
-    QList<LegacyBackupElement*> mLegacyBackupList;
-
-    int mLegacyLastModifiedLayer = -1;
-    int mLegacyLastModifiedFrame = -1;
-
     SAVESTATE_ID mSaveStateId = 1;
-
-    bool mNewBackupSystemEnabled = false;
 };
 
 #endif // UNDOREDOMANAGER_H

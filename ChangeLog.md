@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The new undo system is the only one: the legacy undo path and its "Enable New System" preference are gone (an old settings value is ignored). Cutting selected frames, a vector fill and a vector vertex move with the smudge tool can be undone and redone; removing selected frames no longer asks for confirmation (0.5).
 - Fixed memory leaks on each bucket fill and each copy of a vector frame (0.1).
 - With the new undo system on, adding and deleting a layer can be undone and redone; an undone delete restores the layer at its place with its frames. Deleting a layer below the current one no longer changes which layer is current (0.5).
 - Removed the qmake build (`*.pro`, `*.pri`); CMake is the only build system and it now sets the revision shown in About (0.1).

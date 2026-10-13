@@ -15,18 +15,26 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <QAction>
 #include <QApplication>
+#include <QIcon>
 #include <QPointingDevice>
 #include <QTabletEvent>
 
+#include "beziercurve.h"
 #include "bitmapimage.h"
 #include "brushtool.h"
+#include "colormanager.h"
 #include "editor.h"
 #include "layerbitmap.h"
 #include "layermanager.h"
+#include "layervector.h"
 #include "object.h"
 #include "scribblearea.h"
 #include "toolmanager.h"
+#include "undoredomanager.h"
+#include "vectorimage.h"
+#include "viewmanager.h"
 
 namespace
 {
@@ -113,6 +121,71 @@ TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous str
     CHECK(hardDot >= 30);
     CHECK(lightDot > 0);
     CHECK(lightDot <= 15);
+
+    delete area;
+    delete editor;
+}
+
+TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
+{
+    Object* obj = new Object;
+    obj->init();
+    LayerVector* layer = obj->addNewVectorLayer();
+
+    Editor* editor = new Editor;
+    ScribbleArea* area = new ScribbleArea(nullptr);
+    editor->setScribbleArea(area);
+    editor->setObject(obj);
+    editor->init();
+    area->setEditor(editor);
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+
+    BezierCurve curve({ QPointF(50, 50), QPointF(100, 100) });
+    curve.setColorNumber(1);
+    layer->getVectorImageAtFrame(1)->addCurve(curve, 1.0);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    // Undo and redo replace the keyframe: get the image again each time.
+    auto image = [&] { return layer->getVectorImageAtFrame(1); };
+    const QPointF curveStart = editor->view()->mapCanvasToScreen(QPointF(50, 50));
+
+    SECTION("Smudge tool moves a vertex")
+    {
+        editor->tools()->setCurrentTool(SMUDGE);
+        auto moved = [&] { return image()->getVertex(0, -1).x() > 70; };
+
+        stroke(area, curveStart, curveStart + QPointF(40, 0), 0.5);
+        REQUIRE(moved());
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE_FALSE(moved());
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(moved());
+    }
+
+    SECTION("Bucket tool colors the selected curve")
+    {
+        editor->tools()->setCurrentTool(BUCKET);
+        editor->color()->setColorNumber(2);
+        image()->setSelected(0, true);
+        auto colorNumber = [&] { return image()->curve(0).getColorNumber(); };
+
+        tap(area, curveStart, 0.5);
+        REQUIRE(colorNumber() == 2);
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE(colorNumber() == 1);
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(colorNumber() == 2);
+    }
 
     delete area;
     delete editor;
