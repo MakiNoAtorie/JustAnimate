@@ -6,7 +6,8 @@
 - Project files stay compatible: new data goes in new optional XML
   attributes, so older JustAnimate and Pencil2D still open the files
   (and ignore what they don't know).
-- One feature per branch/PR; core logic in `core_lib/`, UI in `app/`.
+- One commit per ticket (`Fixes #N`); one integration branch and PR per
+  milestone (see `CLAUDE.md`); core logic in `core_lib/`, UI in `app/`.
 - Keep internal names as-is so upstream Pencil2D fixes can still be merged.
 - **Every change gets a one-line entry in `ChangeLog.md`** under
   "JustAnimate - Unreleased" (newest first), in the same commit as the

@@ -14,6 +14,22 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
+## Cloud sessions: use the REST API
+
+In Claude Code cloud sessions GitHub GraphQL is blocked, so `gh issue view`, `gh issue list` and `gh pr create` fail with HTTP 403. Use `gh api` (REST) instead:
+
+- **Read an issue**: `gh api repos/MakiNoAtorie/JustAnimate/issues/<n> --jq '{number,title,state,body,labels:[.labels[].name]}'`
+- **Comments**: `gh api repos/MakiNoAtorie/JustAnimate/issues/<n>/comments --jq '.[].body'`
+- **Spec task graph** (a spec's tickets and their blockers):
+  - `gh api --paginate "repos/MakiNoAtorie/JustAnimate/issues/<spec>/sub_issues?per_page=100" --jq '.[] | {number,title,state,labels:[.labels[].name]}'`
+  - `gh api repos/MakiNoAtorie/JustAnimate/issues/<n>/dependencies/blocked_by --jq '[.[] | {number,state}]'`
+- **Draft PR**: `gh api repos/MakiNoAtorie/JustAnimate/pulls -f title="..." -f head=integration/<milestone> -f base=master -f body="..." -F draft=true`
+- **Label / comment / close**: `gh api` on `issues/<n>/labels`, `issues/<n>/comments`, and `PATCH issues/<n>` with `state=closed`.
+
+## Specs
+
+Each milestone has a spec issue (label `spec`); its sub-issues are the tickets. See `CLAUDE.md` for the spec numbers and the `/implement-spec` workflow. Work closes through the integration branch's PR: each ticket commit ends with `Fixes #<n>`.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
