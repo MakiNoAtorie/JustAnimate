@@ -539,6 +539,62 @@ TEST_CASE("FileManager atomic save", "[FileManager]")
     }
 }
 
+TEST_CASE("FileManager autosave and crash recovery", "[FileManager]")
+{
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    layer->setName("Ink");
+    REQUIRE(layer->getBitmapImageAtFrame(1) != nullptr);
+    BitmapImage red(QRect(0, 0, 8, 8), Qt::red);
+    layer->getBitmapImageAtFrame(1)->paste(&red);
+
+    // The time-based autosave runs once to completion.
+    REQUIRE(fm.writeToWorkingFolder(obj.get()).ok());
+
+    // Then the app is killed in the middle of the next autosave: main.xml is
+    // half written, a frame file is cut short and the archive .tmp is partial.
+    const QDir workingDir(obj->workingDir());
+    auto truncateFile = [](const QString& path) {
+        QFile f(path);
+        REQUIRE(f.open(QFile::ReadWrite));
+        REQUIRE(f.resize(f.size() / 2));
+    };
+    truncateFile(workingDir.filePath(PFF_XML_FILE_NAME));
+    const QStringList frames = QDir(obj->dataDir()).entryList({ "*.png" }, QDir::Files);
+    REQUIRE(frames.size() == 1);
+    truncateFile(QDir(obj->dataDir()).filePath(frames.first()));
+    {
+        QFile partial(workingDir.filePath(QString(PFF_AUTOSAVE_FILE_NAME) + ".tmp"));
+        REQUIRE(partial.open(QFile::WriteOnly));
+        partial.write("PK\x03\x04 cut short");
+    }
+
+    // The next start offers the project, and recovering it gives back the
+    // last completed autosave rather than the half-written files.
+    QStringList recoverables;
+    for (const QString& path : fm.searchForUnsavedProjects())
+        recoverables << QDir(path).canonicalPath();
+    REQUIRE(recoverables.contains(workingDir.canonicalPath()));
+
+    std::unique_ptr<Object> recovered(fm.recoverUnsavedProject(workingDir.path()));
+    REQUIRE(fm.error().ok());
+    REQUIRE(recovered != nullptr);
+
+    LayerBitmap* recoveredLayer = nullptr;
+    for (int i = 0; i < recovered->getLayerCount(); ++i)
+        if (recovered->getLayer(i)->type() == Layer::BITMAP)
+            recoveredLayer = static_cast<LayerBitmap*>(recovered->getLayer(i));
+    REQUIRE(recoveredLayer != nullptr);
+    REQUIRE(recoveredLayer->name() == "Ink");
+
+    BitmapImage* recoveredFrame = recoveredLayer->getBitmapImageAtFrame(1);
+    REQUIRE(recoveredFrame != nullptr);
+    REQUIRE(recoveredFrame->image()->pixel(4, 4) == qRgba(255, 0, 0, 255));
+}
+
 TEST_CASE("Empty Sound Frames")
 {
     SECTION("Invalid src value")

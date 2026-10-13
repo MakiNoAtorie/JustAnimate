@@ -178,6 +178,7 @@ void UndoRedoManager::pushCommand(QUndoCommand* command)
     mUndoStack.push(command);
 
     emit didUpdateUndoStack();
+    emit didRecordEdit();
 }
 
 void UndoRedoManager::removeKeyFrame(const UndoSaveState& undoState, const QString& description)

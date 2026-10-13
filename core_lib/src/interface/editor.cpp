@@ -121,7 +121,7 @@ void Editor::setFps(int fps)
 void Editor::makeConnections()
 {
     connect(mPreferenceManager, &PreferenceManager::optionChanged, this, &Editor::settingUpdated);
-    connect(mUndoRedoManager, &UndoRedoManager::didUpdateUndoStack, this, &Editor::updateAutoSaveCounter);
+    connect(mUndoRedoManager, &UndoRedoManager::didRecordEdit, this, &Editor::updateAutoSaveCounter);
     connect(mPreferenceManager, &PreferenceManager::optionChanged, mUndoRedoManager, &UndoRedoManager::onSettingChanged);
 
     // XXX: This is a hack to prevent crashes until #864 is done (see #1412)
@@ -1081,13 +1081,14 @@ bool Editor::canCopyVectorImage(const VectorImage* vectorImage) const
 void Editor::backup(const QString &undoText)
 {
     undoRedo()->legacyBackup(undoText);
-    updateAutoSaveCounter();
+    if (!undoRedo()->newUndoRedoSystemEnabled())
+        updateAutoSaveCounter(); // the new system counts in didRecordEdit
 }
 
 bool Editor::backup(int layerNumber, int frameNumber, const QString &undoText)
 {
     bool didBackup = undoRedo()->legacyBackup(layerNumber, frameNumber, undoText);
-
-    updateAutoSaveCounter();
+    if (!undoRedo()->newUndoRedoSystemEnabled())
+        updateAutoSaveCounter(); // the new system counts in didRecordEdit
     return didBackup;
 }

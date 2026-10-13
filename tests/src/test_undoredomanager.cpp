@@ -143,3 +143,58 @@ TEST_CASE("UndoRedoManager: unsaved changes survive a failed save")
     delete editor;
     delete scribbleArea;
 }
+
+TEST_CASE("Editor: each edit counts once toward autosave")
+{
+    Object* object = new Object;
+    object->init();
+    object->addNewCameraLayer();
+    Layer* layer = object->addNewBitmapLayer();
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+    editor->layers()->setCurrentLayer(layer);
+
+    int autosaves = 0;
+    QObject::connect(editor, &Editor::needSave, [&] { autosaves++; });
+
+    auto removeFrame = [&](int frame)
+    {
+        REQUIRE(layer->addNewKeyFrameAt(frame));
+        editor->scrubTo(frame);
+        editor->removeKey();
+        REQUIRE_FALSE(layer->keyExists(frame));
+    };
+
+    auto checkEditsCountOnce = [&]
+    {
+        editor->undoRedo()->init();
+        editor->preference()->set(SETTING::AUTO_SAVE, true);
+        editor->preference()->set(SETTING::AUTO_SAVE_NUMBER, 2);
+        editor->resetAutoSaveCounter();
+
+        removeFrame(5);
+        REQUIRE(autosaves == 0);
+        removeFrame(6);
+        REQUIRE(autosaves == 1);
+    };
+
+    SECTION("Legacy undo system")
+    {
+        editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+        checkEditsCountOnce();
+    }
+
+    SECTION("New undo system")
+    {
+        editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
+        checkEditsCountOnce();
+    }
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    delete editor;
+    delete scribbleArea;
+}

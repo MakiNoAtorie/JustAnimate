@@ -138,6 +138,7 @@ public:
     /** Checks whether there are unsaved changes.
      *  @return true if there are unsaved changes, otherwise false */
     bool hasUnsavedChanges() const;
+    bool newUndoRedoSystemEnabled() const { return mNewBackupSystemEnabled; }
 
     /** Marks the current state as saved. Call only after the file was written successfully. */
     void markSaved();
@@ -187,6 +188,8 @@ public:
 
 signals:
     void didUpdateUndoStack();
+    /** A new-system undo step was recorded: one per user edit, unlike didUpdateUndoStack. */
+    void didRecordEdit();
 
 private:
 

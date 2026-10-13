@@ -81,6 +81,7 @@ GNU General Public License for more details.
 #define PFF_OLD_DATA_DIR 		"data"
 #define PFF_DATA_DIR            "data"
 #define PFF_XML_FILE_NAME 		"main.xml"
+#define PFF_AUTOSAVE_FILE_NAME  "autosave.pclx"
 #define PFF_TMP_DECOMPRESS_EXT 	"Y2xD"
 #define PFF_PALETTE_FILE        "palette.xml"
 

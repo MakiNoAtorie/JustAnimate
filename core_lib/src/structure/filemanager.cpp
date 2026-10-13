@@ -399,27 +399,12 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     return Status::OK;
 }
 
+/** Autosave: write the project into its working folder and archive it to
+ *  PFF_AUTOSAVE_FILE_NAME there. The archive goes through save(), so it is
+ *  replaced only once complete and recovery always finds a whole one. */
 Status FileManager::writeToWorkingFolder(const Object* object)
 {
-    DebugDetails dd;
-
-    QStringList filesWritten;
-
-    const QString dataFolder = object->dataDir();
-    const QString mainXml = object->mainXMLFile();
-
-    Status stKeyFrames = writeKeyFrameFiles(object, dataFolder, filesWritten);
-    dd.collect(stKeyFrames.details());
-
-    Status stMainXml = writeMainXml(object, mainXml, filesWritten);
-    dd.collect(stMainXml.details());
-
-    Status stPalette = writePalette(object, dataFolder, filesWritten);
-    dd.collect(stPalette.details());
-
-    const bool saveOk = stKeyFrames.ok() && stMainXml.ok() && stPalette.ok();
-    const auto errorCode = (saveOk) ? Status::OK : Status::FAIL;
-    return Status(errorCode, dd);
+    return save(object, QDir(object->workingDir()).filePath(PFF_AUTOSAVE_FILE_NAME));
 }
 
 ObjectData FileManager::loadProjectData(const QDomElement& docElem)
@@ -838,6 +823,8 @@ bool FileManager::isProjectRecoverable(const QString& projectFolder)
     QDir dir(projectFolder);
     if (!dir.exists()) { return false; }
 
+    if (dir.exists(PFF_AUTOSAVE_FILE_NAME)) { return true; }
+
     // There must be a subfolder called "data"
     if (!dir.exists("data")) { return false; }
 
@@ -858,6 +845,20 @@ Object* FileManager::recoverUnsavedProject(QString intermeidatePath)
     QDir projectDir(intermeidatePath);
     const QString mainXMLPath = projectDir.filePath(PFF_XML_FILE_NAME);
     const QString dataFolder = projectDir.filePath(PFF_DATA_DIR);
+
+    // Prefer the last completed autosave over files a crash may have cut short.
+    const QString autosave = projectDir.filePath(PFF_AUTOSAVE_FILE_NAME);
+    if (QFile::exists(autosave) && MiniZ::sanityCheck(autosave).ok())
+    {
+        QFile::remove(mainXMLPath);
+        QDir(dataFolder).removeRecursively();
+        Status st = MiniZ::uncompressFolder(autosave, projectDir.absolutePath() + "/");
+        if (!st.ok())
+        {
+            mError = st;
+            return nullptr;
+        }
+    }
 
     std::unique_ptr<Object> object(new Object);
     object->setWorkingDir(intermeidatePath);
