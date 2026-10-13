@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Eyedropper picks the true colour on soft (antialiased) bitmap edges instead of a darker one (A19).
+- Copy/paste on a vector layer pastes only the selected curves; with no selection it still pastes the whole frame (A18).
 - CI packages JustAnimate from the CMake build: Linux AppImage, Windows installer + ZIP, macOS DMG (JustAnimate.app); old Pencil2D WiX installer and packaging scripts removed.
 - Brush stroke replay test hashes seeded Pencil, Brush and Eraser strokes against golden values, with a `replay` timing target and `util/compare_replay.py` to compare two runs (B0).
 - On a crash, the last completed autosave is copied to a durable recovery folder, so startup recovery still finds it after the temp folder is cleaned (1.7).

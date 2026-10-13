@@ -1057,7 +1057,7 @@ void VectorImage::paste(VectorImage& vectorImage)
     int n = mCurves.size();
     QList<int> selectedCurves;
 
-    bool hasSelection = getFirstSelectedCurve() < -1;
+    bool hasSelection = vectorImage.getFirstSelectedCurve() > -1;
 
     for (int i = 0; i < vectorImage.mCurves.size(); i++)
     {
