@@ -26,7 +26,6 @@ GNU General Public License for more details.
 #define PFF_OLD_BIG_LETTER_EXTENSION	"PCL"
 #define PFF_EXTENSION				    ".pclx"
 #define PFF_BIG_LETTER_EXTENSION	    "PCLX"
-#define PFF_BACKUP_IDENTIFIER           "backup"
 
 #define PFF_OPEN_PROJECT_EXT_FILTER \
     QCoreApplication::translate("FileFormat", "Project formats") + " (*.pclx *.pcl);;" + QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Project") + " (*.pcl)"

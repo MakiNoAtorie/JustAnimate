@@ -26,6 +26,10 @@ GNU General Public License for more details.
 #include "object.h"
 #include "bitmapimage.h"
 #include "layerbitmap.h"
+#include "layersound.h"
+#include "soundclip.h"
+
+#include <memory>
 
 
 TEST_CASE("FileManager Initial Test")
@@ -482,6 +486,56 @@ TEST_CASE("FileManager File-saving")
             }
         }
         delete o3;
+    }
+}
+
+TEST_CASE("FileManager atomic save", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString projectPath = testDir.filePath("shot.v2.pclx");
+
+    auto readAll = [](const QString& path) {
+        QFile f(path);
+        REQUIRE(f.open(QFile::ReadOnly));
+        return f.readAll();
+    };
+    auto dirEntries = [&] {
+        return QDir(testDir.path()).entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
+    };
+
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    obj->addNewBitmapLayer();
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+
+    SECTION("A successful save leaves only the project file, no .tmp or backup")
+    {
+        REQUIRE(fm.save(obj.get(), projectPath).ok());
+        REQUIRE(dirEntries() == QStringList{ "shot.v2.pclx" });
+
+        std::unique_ptr<Object> loaded(fm.load(projectPath));
+        REQUIRE(loaded != nullptr);
+        REQUIRE(loaded->getLayerCount() == obj->getLayerCount());
+    }
+
+    SECTION("A save that fails part-way leaves the original byte-identical")
+    {
+        const QByteArray original = readAll(projectPath);
+
+        // A sound clip pointing at a missing file in the data folder makes
+        // the zip writer fail after it has started writing the archive.
+        LayerSound* sound = obj->addNewSoundLayer();
+        SoundClip* clip = new SoundClip;
+        clip->setFileName(QDir(obj->dataDir()).filePath("missing.wav"));
+        REQUIRE(sound->addKeyFrame(1, clip));
+
+        REQUIRE_FALSE(fm.save(obj.get(), projectPath).ok());
+        const bool unchanged = (readAll(projectPath) == original);
+        REQUIRE(unchanged);
+        REQUIRE(dirEntries() == QStringList{ "shot.v2.pclx" });
     }
 }
 

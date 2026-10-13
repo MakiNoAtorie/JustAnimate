@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "appinfo.h"
 
 #include <ctime>
+#include <filesystem>
 #include <QDebug>
 #include <QDir>
 #include <QVersionNumber>
@@ -347,11 +348,6 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     if (isArchive)
     {
         dd << "\n[Archiving diagnostics]\n";
-        QString sBackupFile = backupPreviousFile(sFileName);
-
-        if (!sBackupFile.isEmpty()) {
-            dd << QString("\nNote: A backup has been made here: %1").arg(sBackupFile);
-        }
 
         if (!saveOk) {
             return Status(Status::FAIL, dd,
@@ -359,22 +355,35 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                           tr("An internal error occurred. The project could not be saved."));
         }
 
+        // Write the archive next to the target and only replace the original
+        // once the new file is complete, so a failed save never corrupts it.
+        const QString sTmpFile = sFileName + ".tmp";
+        QFile::remove(sTmpFile);
+
         dd << "Miniz: Zipping...";
-        Status stMiniz = MiniZ::compressFolder(sFileName, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx");
+        Status stMiniz = MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx");
         if (!stMiniz.ok())
         {
+            QFile::remove(sTmpFile);
             dd.collect(stMiniz.details());
             dd << "\nError: Miniz failed to zip project";
             return Status(Status::ERROR_MINIZ_FAIL, dd,
                           tr("Miniz Error"),
-                          tr("An internal error occurred. The project may not have been saved successfully."));
+                          tr("An internal error occurred. The project could not be saved."));
         }
         dd << "Miniz: Zip file saved successfully";
-        Q_ASSERT(stMiniz.ok());
 
-        if (saveOk) {
-            dd << "Project saved successfully, deleting backup";
-            deleteBackupFile(sBackupFile);
+        // Replaces the original in one step (atomic on POSIX, MoveFileEx on Windows).
+        std::error_code renameError;
+        std::filesystem::rename(QFileInfo(sTmpFile).filesystemFilePath(),
+                                QFileInfo(sFileName).filesystemFilePath(), renameError);
+        if (renameError)
+        {
+            QFile::remove(sTmpFile);
+            dd << QString("Error: Unable to rename %1 to %2: %3").arg(sTmpFile, sFileName, QString::fromStdString(renameError.message()));
+            return Status(Status::FAIL, dd,
+                          tr("Internal Error"),
+                          tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(sFileName));
         }
     }
 
@@ -572,57 +581,6 @@ void FileManager::handleOpenProjectError(Status::ErrorCode error, const DebugDet
 
     mError = Status(error, dd, title, errorDesc + contactLinks);
     removePFFTmpDirectory(mstrLastTempFolder);
-}
-
-int FileManager::countExistingBackups(const QString& fileName) const
-{
-    QFileInfo fileInfo(fileName);
-    QDir directory(fileInfo.absoluteDir());
-    const QString& baseFileName = fileInfo.completeBaseName();
-
-    int backupCount = 0;
-    for (const QFileInfo &dirFileInfo : directory.entryInfoList(QDir::Filter::Files)) {
-        QString searchFileAbsPath = dirFileInfo.absoluteFilePath();
-        QString searchFileName = dirFileInfo.baseName();
-
-        bool sameBaseName = baseFileName.compare(searchFileName) == 0;
-        if (sameBaseName && searchFileAbsPath.contains(PFF_BACKUP_IDENTIFIER)) {
-            backupCount++;
-        }
-    }
-
-    return backupCount;
-}
-
-QString FileManager::backupPreviousFile(const QString& fileName)
-{
-    if (!QFile::exists(fileName))
-        return "";
-
-    QFileInfo fileInfo(fileName);
-    QString baseName = fileInfo.completeBaseName();
-
-    int backupCount = countExistingBackups(fileName) + 1; // start index 1
-    QString countStr = QString::number(backupCount);
-
-    QString sBackupFile = baseName + "." + PFF_BACKUP_IDENTIFIER + countStr + "." + fileInfo.suffix();
-    QString sBackupFileFullPath = QDir(fileInfo.absolutePath()).filePath(sBackupFile);
-
-    bool ok = QFile::copy(fileInfo.absoluteFilePath(), sBackupFileFullPath);
-    if (!ok)
-    {
-        FILEMANAGER_LOG("Cannot backup the previous file");
-        return "";
-    }
-    return sBackupFileFullPath;
-}
-
-void FileManager::deleteBackupFile(const QString& fileName)
-{
-    if (QFile::exists(fileName))
-    {
-        QFile::remove(fileName);
-    }
 }
 
 void FileManager::progressForward()
