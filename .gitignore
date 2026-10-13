@@ -70,6 +70,7 @@ ipch
 *.opendb
 .vs
 *.rc
+!/app/data/version.rc
 *.tlog
 
 /tests/tests
