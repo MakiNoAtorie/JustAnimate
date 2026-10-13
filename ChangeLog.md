@@ -18,6 +18,7 @@ the original Pencil2D history is kept below for reference.
 - Fix crash when undoing "Remove frame" on a vector layer (legacy undo looked the layer up by index instead of id).
 - Save writes the project to `<name>.tmp` and renames it over the original only on success, so a failed save no longer corrupts the file; old backup-copy helpers removed (A4).
 - Loader survives XML comments in project data, unknown layer types and frame numbers <= 0 instead of hanging or crashing.
+- Add docs/CONVENTIONS.md (build, test, code and commit rules) and token-saving agent workflow rules in CLAUDE.md.
 - Set up /implement-spec: one spec issue and integration branch per milestone, Qt 6 SessionStart hook for cloud sessions, REST notes for the issue tracker.
 - Add CLAUDE.md: always work directly on master, no feature branches.
 - Add Matt Pocock's 27 published skills (v1.3.1, upstream 49dd158) as project skills in .claude/skills/.
