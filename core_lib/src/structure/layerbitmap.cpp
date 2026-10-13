@@ -211,10 +211,10 @@ void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath
         QDomElement imageElement = imageTag.toElement();
         if (!imageElement.isNull() && imageElement.tagName() == "image")
         {
+            const int position = imageElement.attribute("frame").toInt();
             QString path = validateDataPath(imageElement.attribute("src"), dataDirPath);
-            if (!path.isEmpty())
+            if (!path.isEmpty() && position > 0)
             {
-                int position = imageElement.attribute("frame").toInt();
                 int x = imageElement.attribute("topLeftX").toInt();
                 int y = imageElement.attribute("topLeftY").toInt();
                 qreal opacity = imageElement.attribute("opacity", "1.0").toDouble();

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Loader survives XML comments in project data, unknown layer types and frame numbers <= 0 instead of hanging or crashing.
 - Set up /implement-spec: one spec issue and integration branch per milestone, Qt 6 SessionStart hook for cloud sessions, REST notes for the issue tracker.
 - Add CLAUDE.md: always work directly on master, no feature branches.
 - Add Matt Pocock's 27 published skills (v1.3.1, upstream 49dd158) as project skills in .claude/skills/.

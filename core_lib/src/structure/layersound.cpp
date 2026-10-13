@@ -103,9 +103,9 @@ void LayerSound::loadDomElement(const QDomElement& element, QString dataDirPath,
             if (!soundFile.isEmpty())
             {
                 QString path = validateDataPath(soundFile, dataDirPath);
-                if (!path.isEmpty())
+                const int position = soundElement.attribute("frame").toInt();
+                if (!path.isEmpty() && position > 0)
                 {
-                    int position = soundElement.attribute("frame").toInt();
                     Status st = loadSoundClipAtFrame(sSoundClipName, path, position);
                     Q_ASSERT(st.ok());
                 }

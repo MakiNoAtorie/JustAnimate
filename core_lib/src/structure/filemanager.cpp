@@ -421,19 +421,9 @@ ObjectData FileManager::loadProjectData(const QDomElement& docElem)
         return data;
     }
 
-    QDomNode tag = docElem.firstChild();
-
-    while (!tag.isNull())
+    for (QDomElement element = docElem.firstChildElement(); !element.isNull(); element = element.nextSiblingElement())
     {
-        QDomElement element = tag.toElement(); // try to convert the node to an element.
-        if (element.isNull())
-        {
-            continue;
-        }
-
         extractProjectData(element, data);
-
-        tag = tag.nextSibling();
     }
     return data;
 }

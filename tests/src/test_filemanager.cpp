@@ -15,6 +15,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <memory>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QImage>
@@ -210,6 +211,89 @@ TEST_CASE("FileManager Loading XML Tests")
 
         REQUIRE(layer->getKeyFrameAt(1) != nullptr);
         delete obj;
+    }
+}
+
+static Object* loadXmlString(FileManager& fm, const QString& xml)
+{
+    QTemporaryFile tmpFile;
+    REQUIRE(tmpFile.open());
+    QTextStream fout(&tmpFile);
+    fout << xml;
+    fout.flush();
+    tmpFile.close();
+    return fm.load(tmpFile.fileName());
+}
+
+TEST_CASE("FileManager loads malformed project XML")
+{
+    SECTION("XML comment inside projectdata")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document>"
+            "  <projectdata>"
+            "    <!-- a comment -->"
+            "    <currentFrame value='3'/>"
+            "  </projectdata>"
+            "  <object></object>"
+            "</document>"));
+
+        REQUIRE(obj != nullptr);
+        REQUIRE(obj->data()->getCurrentFrame() == 3);
+    }
+
+    SECTION("Unknown layer type is skipped")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document><object>"
+            "  <layer name='Weird' id='7' visibility='1' type='99'></layer>"
+            "  <layer name='Movie' id='8' visibility='1' type='3'></layer>"
+            "  <layer name='Good' id='5' visibility='1' type='1'></layer>"
+            "</object></document>"));
+
+        REQUIRE(obj != nullptr);
+        REQUIRE(obj->findLayerByName("Weird") == nullptr);
+        REQUIRE(obj->findLayerByName("Movie") == nullptr);
+        REQUIRE(obj->findLayerByName("Good") != nullptr);
+    }
+
+    SECTION("Frames numbered zero or below are skipped")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document><object>"
+            "  <layer name='Vec' id='2' visibility='1' type='2'>"
+            "    <image frame='0'/>"
+            "    <image frame='-1'/>"
+            "    <image frame='2'/>"
+            "  </layer>"
+            "  <layer name='Bmp' id='3' visibility='1' type='1'>"
+            "    <image frame='0' topLeftX='0' topLeftY='0' src='003.001.png'/>"
+            "    <image frame='1' topLeftX='0' topLeftY='0' src='003.001.png'/>"
+            "  </layer>"
+            "  <layer name='Cam' id='4' visibility='1' type='5' width='800' height='600'>"
+            "    <camera frame='0'/>"
+            "    <camera frame='1'/>"
+            "  </layer>"
+            "</object></document>"));
+
+        REQUIRE(obj != nullptr);
+        Layer* vec = obj->findLayerByName("Vec");
+        REQUIRE(vec != nullptr);
+        REQUIRE(vec->keyFrameCount() == 1);
+        REQUIRE(vec->keyExists(2));
+
+        Layer* bmp = obj->findLayerByName("Bmp");
+        REQUIRE(bmp != nullptr);
+        REQUIRE(bmp->keyFrameCount() == 1);
+        REQUIRE(!bmp->keyExists(0));
+
+        Layer* cam = obj->findLayerByName("Cam");
+        REQUIRE(cam != nullptr);
+        REQUIRE(cam->keyFrameCount() == 1);
+        REQUIRE(!cam->keyExists(0));
     }
 }
 

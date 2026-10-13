@@ -157,21 +157,19 @@ void LayerVector::loadDomElement(const QDomElement& element, QString dataDirPath
         QDomElement imageElement = imageTag.toElement();
         if (!imageElement.isNull() && imageElement.tagName() == "image")
         {
-            int position;
+            const int position = imageElement.attribute("frame").toInt();
             QString rawPath = imageElement.attribute("src");
-            if (!rawPath.isNull())
+            if (position > 0 && !rawPath.isNull())
             {
                 QString path = validateDataPath(rawPath, dataDirPath);
                 if (!path.isEmpty())
                 {
-                    position = imageElement.attribute("frame").toInt();
                     loadImageAtFrame(path, position);
                     getVectorImageAtFrame(position)->setOpacity(imageElement.attribute("opacity", "1.0").toDouble());
                 }
             }
-            else
+            else if (position > 0)
             {
-                position = imageElement.attribute("frame").toInt();
                 addNewKeyFrameAt(position);
                 getVectorImageAtFrame(position)->loadDomElement(imageElement);
                 getVectorImageAtFrame(position)->setOpacity(imageElement.attribute("opacity", "1.0").toDouble());

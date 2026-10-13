@@ -111,7 +111,8 @@ bool Object::loadXML(const QDomElement& docElem, ProgressCallback progressForwar
             newLayer = new LayerCamera(getUniqueLayerID());
             break;
         default:
-            Q_UNREACHABLE();
+            qWarning() << "Skipping layer with unknown type" << element.attribute("type");
+            continue;
         }
         mLayers.append(newLayer);
         newLayer->loadDomElement(element, dataDirPath, progressForward);
