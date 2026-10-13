@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Removed the Qt 5 compatibility branches; Qt 6 is the only supported major version (0.1).
+- With the new undo system on, remove selected frames, reverse frames, exposure changes and Reposition Frames can be undone and redone; undo of a frame move restores exactly the moved frames; legacy Reposition Frames undo restores the right layer (0.5).
 - CI runs the test suite under AddressSanitizer and UndefinedBehaviorSanitizer on Linux; locally: `cmake -DJUSTANIMATE_SANITIZE=ON` (0.1).
 - With the new undo system on, importing an image (bitmap, vector or animated) can be undone and redone (0.5).
 - Add tests for bitmap flood fill, vector fill of a selected path and command-line parser bad arguments.

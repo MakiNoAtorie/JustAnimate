@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QPainter>
 #include <QDomElement>
+#include <QSet>
 #include "keyframe.h"
 
 // Used to sort the selected frames list
@@ -669,6 +670,42 @@ bool Layer::moveSelectedFrames(int offset)
     for (int& pos : mSelectedFrames_byLast)
     {
         pos += offset;
+    }
+    return true;
+}
+
+bool Layer::moveKeyFrames(const QList<QPair<int, int>>& fromTo)
+{
+    QSet<int> sources;
+    QSet<int> targets;
+    for (const QPair<int, int>& move : fromTo)
+    {
+        sources.insert(move.first);
+        targets.insert(move.second);
+    }
+    if (sources.count() != fromTo.count() || targets.count() != fromTo.count()) { return false; }
+    for (const QPair<int, int>& move : fromTo)
+    {
+        if (!keyExists(move.first) || (keyExists(move.second) && !sources.contains(move.second))) { return false; }
+    }
+
+    deselectAll();
+
+    // Take all keyframes out first: a target can be the source of another move.
+    QList<KeyFrame*> keys;
+    for (const QPair<int, int>& move : fromTo)
+    {
+        keys << mKeyFrames[move.first];
+        mKeyFrames.erase(move.first);
+        markFrameAsDirty(move.first);
+    }
+    for (int i = 0; i < fromTo.count(); i++)
+    {
+        const int toPos = fromTo[i].second;
+        keys[i]->setPos(toPos);
+        keys[i]->modification();
+        mKeyFrames.emplace(toPos, keys[i]);
+        markFrameAsDirty(toPos);
     }
     return true;
 }

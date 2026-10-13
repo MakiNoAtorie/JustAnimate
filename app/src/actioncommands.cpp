@@ -36,6 +36,7 @@ GNU General Public License for more details.
 #include "playbackmanager.h"
 #include "colormanager.h"
 #include "selectionmanager.h"
+#include "undoredomanager.h"
 #include "util.h"
 #include "app_util.h"
 
@@ -717,7 +718,9 @@ void ActionCommands::exposeSelectedFrames(int offset)
         currentLayer->setFrameSelected(key->pos(), true);
     }
 
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
     currentLayer->setExposureForSelectedFrames(offset);
+    mEditor->undoRedo()->record(saveStateId, offset > 0 ? tr("Add exposure") : tr("Subtract exposure"));
     emit mEditor->updateTimeLine();
     emit mEditor->framesModified();
 
@@ -743,7 +746,9 @@ Status ActionCommands::insertKeyFrameAtCurrentPosition()
     Layer* currentLayer = mEditor->layers()->currentLayer();
     int currentPosition = mEditor->currentFrame();
 
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
     currentLayer->insertExposureAt(currentPosition);
+    mEditor->undoRedo()->record(saveStateId, tr("Add exposure"));
     return addNewKey();
 }
 
@@ -753,7 +758,9 @@ void ActionCommands::removeSelectedFrames()
 
     if (!currentLayer->hasAnySelectedFrames()) { return; }
 
-    int ret = QMessageBox::warning(mParent,
+    // Only the new undo system can restore the removed frames.
+    int ret = mEditor->undoRedo()->newUndoRedoSystemEnabled() ? QMessageBox::Ok :
+              QMessageBox::warning(mParent,
                                    tr("Remove selected frames", "Windows title of remove selected frames pop-up."),
                                    tr("Are you sure you want to remove the selected frames? This action is irreversible currently!"),
                                    QMessageBox::Ok | QMessageBox::Cancel,
@@ -764,9 +771,11 @@ void ActionCommands::removeSelectedFrames()
         return;
     }
 
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_REMOVE);
     for (int pos : currentLayer->selectedKeyFramesPositions()) {
         currentLayer->removeKeyFrame(pos);
     }
+    mEditor->undoRedo()->record(saveStateId, tr("Remove frames"));
     mEditor->layers()->notifyLayerChanged(currentLayer);
 }
 
@@ -774,7 +783,10 @@ void ActionCommands::reverseSelectedFrames()
 {
     Layer* currentLayer = mEditor->layers()->currentLayer();
 
-    if (!currentLayer->reverseOrderOfSelection()) {
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
+    const bool reversed = currentLayer->reverseOrderOfSelection();
+    mEditor->undoRedo()->record(saveStateId, tr("Reverse frames"));
+    if (!reversed) {
         return;
     }
 

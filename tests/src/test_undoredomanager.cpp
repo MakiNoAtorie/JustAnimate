@@ -460,3 +460,160 @@ TEST_CASE("UndoRedoManager: undo/redo of image import")
     delete editor;
     delete scribbleArea;
 }
+
+TEST_CASE("UndoRedoManager: undo/redo of frame operations")
+{
+    Object* object = new Object;
+    object->init();
+    // A camera layer first, so that layer index and layer id differ.
+    object->addNewCameraLayer();
+    LayerBitmap* layer = object->addNewBitmapLayer();
+    REQUIRE(object->getLayer(1) == layer);
+    REQUIRE(layer->id() != 1);
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    scribbleArea->setEditor(editor);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+
+    // Frames at 1, 3, 5 and 6. Each has one opaque pixel at (its first position, 0).
+    editor->layers()->setCurrentLayer(layer);
+    for (int pos : { 1, 3, 5, 6 })
+    {
+        layer->addNewKeyFrameAt(pos);
+        layer->getBitmapImageAtFrame(pos)->setPixel(pos, 0, qRgba(0, 0, 0, 255));
+    }
+
+    // Lists "position=mark" from the last frame to the first. The mark is 0 after the pixel moved away.
+    auto frames = [&]
+    {
+        QString list;
+        layer->foreachKeyFrame([&](KeyFrame* key)
+        {
+            int mark = 0;
+            for (int x = 1; x <= 6; ++x)
+            {
+                if (qAlpha(static_cast<BitmapImage*>(key)->pixel(x, 0)) != 0) { mark = x; }
+            }
+            list += QString("%1=%2 ").arg(key->pos()).arg(mark);
+        });
+        return list.trimmed().toStdString();
+    };
+    auto select = [&](std::initializer_list<int> positions)
+    {
+        layer->deselectAll();
+        for (int pos : positions) { layer->setFrameSelected(pos, true); }
+    };
+
+    SECTION("New undo system")
+    {
+        editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
+        editor->undoRedo()->init();
+
+        QObject parent;
+        QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+        QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+        // Runs `edit`, then checks that the frames read as at the start after undo and `after` after redo.
+        auto checkUndoRedo = [&](const std::function<void()>& edit, const std::string& after)
+        {
+            const std::string before = "6=6 5=5 3=3 1=1";
+            REQUIRE(frames() == before);
+            edit();
+            REQUIRE(frames() == after);
+            // The user selects another frame before the undo.
+            select({ 1 });
+            REQUIRE(undoAction->isEnabled());
+            undoAction->trigger();
+            REQUIRE(frames() == before);
+            select({ 3 });
+            REQUIRE(redoAction->isEnabled());
+            redoAction->trigger();
+            REQUIRE(frames() == after);
+            undoAction->trigger();
+            REQUIRE(frames() == before);
+        };
+        // Records `edit` as one step of the given type, as the timeline and the frame actions do.
+        auto recorded = [&](UndoRedoRecordType type, const std::function<void()>& edit)
+        {
+            return [&, type, edit]
+            {
+                const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(type);
+                edit();
+                editor->undoRedo()->record(saveStateId, "Frame operation");
+            };
+        };
+
+        SECTION("Remove frame")
+        {
+            editor->scrubTo(5);
+            checkUndoRedo([&] { editor->removeKey(); }, "6=6 3=3 1=1");
+        }
+
+        SECTION("Remove the selected frames")
+        {
+            select({ 3, 6 });
+            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAMES_REMOVE, [&]
+            {
+                for (int pos : layer->selectedKeyFramesPositions()) { layer->removeKeyFrame(pos); }
+            }), "5=5 1=1");
+        }
+
+        SECTION("Move frames")
+        {
+            select({ 5, 6 });
+            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->moveSelectedFrames(2); }), "8=6 7=5 3=3 1=1");
+        }
+
+        SECTION("Move frames, shortened by the frame in the way at position 1")
+        {
+            select({ 3 });
+            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->moveSelectedFrames(-5); }), "6=6 5=5 2=3 1=1");
+        }
+
+        SECTION("Reverse")
+        {
+            select({ 1, 3, 6 });
+            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->reverseOrderOfSelection(); }), "6=1 5=5 3=3 1=6");
+        }
+
+        SECTION("Add exposure")
+        {
+            select({ 3 });
+            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->setExposureForSelectedFrames(1); }), "7=6 6=5 3=3 1=1");
+        }
+
+        SECTION("Subtract exposure")
+        {
+            select({ 1 });
+            checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->setExposureForSelectedFrames(-1); }), "5=6 4=5 2=3 1=1");
+        }
+
+        SECTION("Reposition Frames")
+        {
+            checkUndoRedo([&] { editor->repositionImage(QPoint(0, 20), 3); }, "6=6 5=5 3=0 1=1");
+        }
+    }
+
+    SECTION("Legacy undo system: Reposition Frames")
+    {
+        editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+        editor->undoRedo()->init();
+
+        QObject parent;
+        QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+        editor->repositionImage(QPoint(0, 20), 3);
+        REQUIRE(frames() == "6=6 5=5 3=0 1=1");
+        editor->undoRedo()->updateUndoAction(undoAction);
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE(frames() == "6=6 5=5 3=3 1=1");
+    }
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    delete editor;
+    delete scribbleArea;
+}

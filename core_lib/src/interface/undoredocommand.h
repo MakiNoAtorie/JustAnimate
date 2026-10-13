@@ -102,9 +102,9 @@ private:
 class MoveKeyFramesCommand : public UndoRedoCommand
 {
 public:
-    MoveKeyFramesCommand(int offset,
-                         QList<int> listOfPositions,
-                         int undoLayerId,
+    /// `moves` holds one (position before, position after) pair for each keyframe that changed position
+    MoveKeyFramesCommand(const QList<QPair<int, int>>& moves,
+                         int layerId,
                          const QString& description,
                          Editor* editor,
                          QUndoCommand* parent = nullptr);
@@ -113,11 +113,10 @@ public:
     void redo() override;
 
 private:
-    int undoLayerId = 0;
-    int redoLayerId = 0;
+    void apply(const QList<QPair<int, int>>& fromTo);
 
-    int frameOffset = 0;
-    QList<int> positions;
+    QList<QPair<int, int>> moves;
+    int layerId = 0;
 };
 
 class MoveBitmapsCommand : public UndoRedoCommand

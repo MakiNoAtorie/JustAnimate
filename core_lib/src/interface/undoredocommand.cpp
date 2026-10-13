@@ -20,6 +20,7 @@ GNU General Public License for more details.
 
 #include "layermanager.h"
 #include "selectionmanager.h"
+#include "viewmanager.h"
 
 #include "layersound.h"
 #include "layerbitmap.h"
@@ -45,7 +46,8 @@ KeyFrameRemoveCommand::KeyFrameRemoveCommand(const KeyFrame* undoKeyFrame,
     this->undoLayerId = undoLayerId;
 
     this->redoLayerId = editor->layers()->currentLayer()->id();
-    this->redoPosition = editor->currentFrame();
+    // Not the current frame: one step can remove several keyframes.
+    this->redoPosition = undoKeyFrame->pos();
 
     setText(description);
 }
@@ -66,7 +68,11 @@ void KeyFrameRemoveCommand::undo()
 
     UndoRedoCommand::undo();
 
-    layer->addKeyFrame(undoKeyFrame->pos(), undoKeyFrame->clone());
+    // The layer keeps its last keyframe on removal, so the position can be occupied.
+    KeyFrame* restoredKeyFrame = undoKeyFrame->clone();
+    if (!layer->addKeyFrame(undoKeyFrame->pos(), restoredKeyFrame)) {
+        delete restoredKeyFrame;
+    }
 
     emit editor()->frameModified(undoKeyFrame->pos());
     editor()->layers()->notifyAnimationLengthChanged();
@@ -146,63 +152,50 @@ void KeyFrameAddCommand::redo()
     editor()->scrubTo(redoPosition);
 }
 
-MoveKeyFramesCommand::MoveKeyFramesCommand(int offset,
-                                         QList<int> listOfPositions,
-                                         int undoLayerId,
+MoveKeyFramesCommand::MoveKeyFramesCommand(const QList<QPair<int, int>>& moves,
+                                         int layerId,
                                          const QString& description,
                                          Editor* editor,
                                          QUndoCommand *parent)
-    : UndoRedoCommand(editor, parent)
+    : UndoRedoCommand(editor, parent), moves(moves), layerId(layerId)
 {
-    this->frameOffset = offset;
-    this->positions = listOfPositions;
-
-    this->undoLayerId = undoLayerId;
-    this->redoLayerId = editor->layers()->currentLayer()->id();
-
     setText(description);
 }
 
 void MoveKeyFramesCommand::undo()
 {
-    Layer* undoLayer = editor()->layers()->findLayerById(undoLayerId);
-
-    if (!undoLayer) {
-        return setObsolete(true);
-    }
-
     UndoRedoCommand::undo();
 
-    for (int position : qAsConst(positions)) {
-        undoLayer->setFrameSelected(position, true);
+    QList<QPair<int, int>> movesBack;
+    for (const QPair<int, int>& move : qAsConst(moves)) {
+        movesBack.append(qMakePair(move.second, move.first));
     }
-    undoLayer->moveSelectedFrames(-frameOffset);
-
-    emit editor()->framesModified();
+    apply(movesBack);
 }
 
 void MoveKeyFramesCommand::redo()
 {
-    Layer* redoLayer = editor()->layers()->findLayerById(redoLayerId);
-
-    if (!redoLayer) {
-        return setObsolete(true);
-    }
-
     UndoRedoCommand::redo();
 
     // Ignore automatic redo when added to undo stack
     if (isFirstRedo()) { setFirstRedo(false); return; }
 
-    QList<int> newPositions = positions;
+    apply(moves);
+}
 
+void MoveKeyFramesCommand::apply(const QList<QPair<int, int>>& fromTo)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
 
-    for (int position : qAsConst(newPositions)) {
-        redoLayer->setFrameSelected(position, true);
+    // The frames are not where this step left them: the step cannot be applied.
+    if (!layer || !layer->moveKeyFrames(fromTo)) {
+        return setObsolete(true);
     }
 
-    redoLayer->moveSelectedFrames(frameOffset);
-
+    if (layer->type() == Layer::CAMERA) {
+        editor()->view()->forceUpdateViewTransform();
+    }
+    editor()->layers()->notifyAnimationLengthChanged();
     emit editor()->framesModified();
 }
 MoveBitmapsCommand::MoveBitmapsCommand(const QList<BitmapOffset>& offsets,

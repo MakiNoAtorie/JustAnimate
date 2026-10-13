@@ -27,6 +27,10 @@ GNU General Public License for more details.
 #include <QUndoStack>
 #include <QRectF>
 #include <QMap>
+#include <QHash>
+
+#include <memory>
+#include <vector>
 
 class QAction;
 class QUndoCommand;
@@ -46,8 +50,9 @@ enum class UndoRedoRecordType {
     KEYFRAME_MODIFY, // Any modification that involve a keyframe
     KEYFRAME_REMOVE, // Removing a keyframe
     KEYFRAME_ADD, // Adding a keyframe
-    KEYFRAME_MOVE,
+    KEYFRAME_MOVE, // Any change of keyframe positions on the current layer: move, reverse, exposure
     BITMAPS_MOVE, // Moving bitmap keyframes on the canvas, e.g. peg bar alignment
+    KEYFRAMES_REMOVE, // Removing the selected keyframes
     // SCRUB_LAYER, // Scrubbing layer
     // SCRUB_KEYFRAME, // Scrubbing keyframe
     INVALID
@@ -79,20 +84,6 @@ struct SelectionSaveState {
     QPointF anchor;
 };
 
-struct MoveFramesSaveState {
-
-    MoveFramesSaveState() = default;
-    MoveFramesSaveState(int offset,
-                        const QList<int>& positions)
-    {
-        this->offset = offset;
-        this->positions = positions;
-    }
-
-    int offset = 0;
-    QList<int> positions;
-};
-
 /// Moves the bitmap keyframe at `frame` on layer `layerId` by `offset` canvas pixels
 struct BitmapOffset {
     int layerId = 0;
@@ -106,7 +97,6 @@ struct BitmapOffset {
 /// All data stored in here should be based on ZII (zero is initialization) principle
 /// Only store what you need.
 struct UserSaveState {
-    MoveFramesSaveState moveFramesState = {};
     QList<BitmapOffset> bitmapOffsets;
 };
 
@@ -120,6 +110,12 @@ struct UndoSaveState {
     Layer::LAYER_TYPE layerType = Layer::UNDEFINED;
     std::unique_ptr<KeyFrame> keyframe;
     SelectionSaveState selectionState = {};
+
+    // KEYFRAME_MOVE: the position of each keyframe of the layer before the change.
+    // The keys can dangle: compare them, do not dereference them.
+    QHash<const KeyFrame*, int> keyframePositions;
+    // KEYFRAMES_REMOVE: copies of the selected keyframes
+    std::vector<std::unique_ptr<KeyFrame>> selectedKeyframes;
 
     UserSaveState userState = {};
 };
@@ -210,6 +206,7 @@ private:
     void removeKeyFrame(const UndoSaveState& undoState, const QString& description);
     void moveKeyFrames(const UndoSaveState& undoState, const QString& description);
     void moveBitmaps(const UndoSaveState& undoState, const QString& description);
+    void removeKeyFrames(const UndoSaveState& undoState, const QString& description);
 
     void initCommonKeyFrameState(UndoSaveState* undoSaveState) const;
 

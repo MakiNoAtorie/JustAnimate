@@ -396,13 +396,15 @@ void Editor::repositionImage(QPoint transform, int frame)
     if (layers()->currentLayer()->type() == Layer::BITMAP)
     {
         scrubTo(frame);
+        backup(layers()->currentLayerIndex(), frame, tr("Reposition frame")); // TOOD: backup multiple reposition operations.
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         LayerBitmap* layer = static_cast<LayerBitmap*>(layers()->currentLayer());
         QRect reposRect = layer->getFrameBounds(frame);
         select()->setSelection(reposRect);
         QPoint point = reposRect.topLeft();
         point += transform;
         layer->repositionFrame(point, frame);
-        backup(layer->id(), frame, tr("Reposition frame")); // TOOD: backup multiple reposition operations.
+        undoRedo()->record(saveStateId, tr("Reposition frame"));
     }
 }
 

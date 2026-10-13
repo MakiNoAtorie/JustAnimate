@@ -1068,10 +1068,6 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
 
             if (currentLayer->canMoveSelectedFramesToOffset(offset)) {
                 SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
-                UserSaveState userState;
-                userState.moveFramesState = MoveFramesSaveState(offset, currentLayer->selectedKeyFramesPositions());
-                mEditor->undoRedo()->addUserState(saveStateId, userState);
-
                 currentLayer->moveSelectedFrames(offset);
                 mEditor->undoRedo()->record(saveStateId, tr("Move Frames"));
             }
