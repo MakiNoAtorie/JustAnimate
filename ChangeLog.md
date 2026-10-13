@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Add Matt Pocock's 27 published skills (v1.3.1, upstream 49dd158) as project skills in .claude/skills/.
 - Add code audit (ponytail-audit) to ROADMAP.md: 11 must-fix, 9 should-fix, test gaps, lean list.
 - Require a one-line ChangeLog.md entry for every change (ROADMAP.md ground rules).
 - Add ROADMAP.md with the improvement plan, brush engine design, JustPaint lessons and lean build rules.
