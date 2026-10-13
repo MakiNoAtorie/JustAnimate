@@ -85,12 +85,17 @@ Status UndoRedoManager::load(Object* /*o*/)
 
 Status UndoRedoManager::save(Object* /*o*/)
 {
+    // The file has not been written yet; see markSaved().
+    return Status::OK;
+}
+
+void UndoRedoManager::markSaved()
+{
     if (mNewBackupSystemEnabled) {
         mUndoStack.setClean();
     } else if (!mLegacyBackupList.isEmpty() && mLegacyBackupIndex < mLegacyBackupList.count()) {
         mLegacyBackupAtSave = mLegacyBackupList[mLegacyBackupIndex];
     }
-    return Status::OK;
 }
 
 void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& description)

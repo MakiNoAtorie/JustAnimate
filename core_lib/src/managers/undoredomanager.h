@@ -139,6 +139,9 @@ public:
      *  @return true if there are unsaved changes, otherwise false */
     bool hasUnsavedChanges() const;
 
+    /** Marks the current state as saved. Call only after the file was written successfully. */
+    void markSaved();
+
     /** Prepares and returns an save state with common data
      * @return A UndoSaveState struct with common keyframe data */
     SAVESTATE_ID createState(UndoRedoRecordType recordType);

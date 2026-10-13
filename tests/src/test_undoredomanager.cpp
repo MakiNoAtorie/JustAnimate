@@ -16,9 +16,12 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QAction>
+#include <QFile>
 #include <QIcon>
+#include <QTemporaryDir>
 
 #include "editor.h"
+#include "filemanager.h"
 #include "layer.h"
 #include "layerbitmap.h"
 #include "layervector.h"
@@ -82,6 +85,59 @@ TEST_CASE("UndoRedoManager legacy: undo/redo of Remove frame")
     SECTION("Vector layer")
     {
         removeFrameThenUndoRedo(vectorLayer, 2);
+    }
+
+    delete editor;
+    delete scribbleArea;
+}
+
+TEST_CASE("UndoRedoManager: unsaved changes survive a failed save")
+{
+    Object* object = new Object;
+    object->init();
+    object->addNewBitmapLayer();
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+
+    // Use the legacy undo system, which is the default.
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    editor->undoRedo()->init();
+
+    UndoRedoManager* undoRedo = editor->undoRedo();
+    undoRedo->legacyBackup(0, 1, "Draw");
+    REQUIRE(undoRedo->hasUnsavedChanges());
+
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+
+    SECTION("A failed save keeps the project marked as modified")
+    {
+        // A path whose parent is a regular file can never be written, even as root.
+        QFile blocker(dir.filePath("not-a-folder"));
+        REQUIRE(blocker.open(QIODevice::WriteOnly));
+        blocker.close();
+
+        editor->prepareSave();
+        FileManager fm;
+        Status st = fm.save(object, dir.filePath("not-a-folder/project.pclx"));
+        REQUIRE_FALSE(st.ok());
+
+        REQUIRE(undoRedo->hasUnsavedChanges());
+    }
+
+    SECTION("A successful save marks the project as saved")
+    {
+        editor->prepareSave();
+        FileManager fm;
+        Status st = fm.save(object, dir.filePath("project.pclx"));
+        REQUIRE(st.ok());
+        undoRedo->markSaved();
+
+        REQUIRE_FALSE(undoRedo->hasUnsavedChanges());
     }
 
     delete editor;

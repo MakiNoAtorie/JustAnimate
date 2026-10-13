@@ -847,6 +847,7 @@ bool MainWindow2::saveObject(QString strSavedFileName)
         return false;
     }
 
+    mEditor->undoRedo()->markSaved();
     mEditor->object()->setFilePath(strSavedFileName);
     mEditor->object()->setModified(false);
 
