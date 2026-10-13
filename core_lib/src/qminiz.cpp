@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QDebug>
 #include <QDirIterator>
+#include <QRegularExpression>
 #include "util.h"
 
 
@@ -201,6 +202,22 @@ Status MiniZ::uncompressFolder(QString zipFilePath, QString destPath)
 
     mz_zip_archive_file_stat* stat = new mz_zip_archive_file_stat;
     OnScopeExit(delete stat);
+
+    // Zip-slip: reject the whole archive before writing anything.
+    // Backslashes count as separators for the check only (old Windows archives).
+    static const QRegularExpression driveLetter("^[A-Za-z]:");
+    for (int i = 0; i < num; ++i)
+    {
+        if (!mz_zip_reader_file_stat(mz, i, stat)) continue;
+        const QString name = QString::fromUtf8(stat->m_filename);
+        const QString checked = QString(name).replace(QLatin1Char(0x5C), QLatin1Char('/'));
+        if (checked.startsWith('/') || checked.contains(driveLetter) ||
+            validateDataPath(checked, baseDir.absolutePath()).isEmpty())
+        {
+            dd << QString("Error: Entry is outside the extraction folder: %1").arg(name);
+            return Status(Status::FAIL, dd);
+        }
+    }
 
     for (int i = 0; i < num; ++i)
     {

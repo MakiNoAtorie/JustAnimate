@@ -780,7 +780,6 @@ Status FileManager::unzip(const QString& strZipFile, const QString& strUnzipTarg
     removePFFTmpDirectory(strUnzipTarget);
 
     Status s = MiniZ::uncompressFolder(strZipFile, strUnzipTarget);
-    Q_ASSERT(s.ok());
 
     mstrLastTempFolder = strUnzipTarget;
     return s;
