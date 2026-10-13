@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Add retro for the v0.1 /implement-spec run (docs/retros/).
 - Add docs/CONVENTIONS.md (build, test, code and commit rules) and token-saving agent workflow rules in CLAUDE.md.
 - Set up /implement-spec: one spec issue and integration branch per milestone, Qt 6 SessionStart hook for cloud sessions, REST notes for the issue tracker.
 - Add CLAUDE.md: always work directly on master, no feature branches.
