@@ -231,6 +231,7 @@ GIT {
 }
 
 macx {
+    TARGET = JustAnimate
     RC_FILE = data/pencil2d.icns
 
     # Use custom Info.plist

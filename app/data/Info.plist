@@ -46,7 +46,7 @@
 		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
-	<string>justanimate</string>
+	<string>JustAnimate</string>
 	<key>CFBundleIconFile</key>
 	<string>pencil2d.icns</string>
 	<key>CFBundleIdentifier</key>

@@ -25,7 +25,7 @@ jobs:
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
@@ -64,3 +64,84 @@ jobs:
 
       - name: Run tests
         run: ./build/pencil2d_tests
+
+      # Packages: a Release build with Qt and ffmpeg bundled, uploaded as a workflow artifact
+      - name: Download ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/pencil2d/pencil2d-deps/releases/download/ffmpge-v4.1.1/ffmpeg-win64.zip -OutFile ffmpeg-win64.zip
+          Expand-Archive ffmpeg-win64.zip -DestinationPath ffmpeg
+          "FFMPEG=$("$PWD\ffmpeg\ffmpeg.exe".Replace('\', '/'))" >> $env:GITHUB_ENV
+
+      - name: Download ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          curl -fsSLo ffmpeg.7z https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z
+          curl -fsSLo ffmpeg.7z.sig https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z.sig
+          curl -fsSL https://evermeet.cx/ffmpeg/0x1A660874.asc | gpg --import
+          gpg --verify ffmpeg.7z.sig ffmpeg.7z
+          mkdir ffmpeg && bsdtar -xf ffmpeg.7z -C ffmpeg
+          echo "FFMPEG=$PWD/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
+
+      - name: Configure release
+        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUSTANIMATE_FFMPEG="${{ env.FFMPEG }}"
+
+      - name: Build release
+        run: cmake --build build-release --target pencil2d
+
+      - name: Package (Linux AppImage)
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          QMAKE: /usr/lib/qt6/bin/qmake
+          LDAI_OUTPUT: JustAnimate-x86_64.AppImage
+          EXTRA_PLATFORM_PLUGINS: libqoffscreen.so  # headless use (CLI export, the smoke test below)
+        run: |
+          mkdir -p packages tools
+          for t in linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+                   linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage; do
+            curl -fsSL "https://github.com/$t" -o "tools/$(basename "$t")"
+          done
+          chmod +x tools/*.AppImage
+          DESTDIR="$PWD/AppDir" cmake --install build-release --prefix /usr
+          PATH="$PWD/tools:$PATH" linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
+          mv "$LDAI_OUTPUT" packages/
+
+      - name: Package (macOS DMG, Windows installer)
+        if: runner.os != 'Linux'
+        working-directory: build-release
+        shell: bash
+        # Call CMake's cpack by path: on Windows runners "cpack" can be Chocolatey's
+        run: '"$(dirname "$(command -v cmake)")/cpack" -B ../packages'
+
+      - name: Smoke test the package (Linux)
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          ./packages/JustAnimate-x86_64.AppImage --version
+          ./packages/JustAnimate-x86_64.AppImage tests/data/camera-path-test.pclx -o smoke.png
+          test -s smoke0001.png  # one PNG per frame
+
+      - name: Smoke test the package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir smoke-win && unzip -q packages/*.zip -d smoke-win
+          ./smoke-win/*/justanimate.exe --version
+          ./smoke-win/*/justanimate.exe tests/data/camera-path-test.pclx -o smoke.png
+          test -s smoke0001.png
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: JustAnimate-${{ matrix.name }}
+          path: |
+            packages/*.AppImage
+            packages/*.exe
+            packages/*.zip
+            packages/*.dmg
+          retention-days: 14
+          if-no-files-found: error
+

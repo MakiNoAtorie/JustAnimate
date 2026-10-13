@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- CI packages JustAnimate from the CMake build: Linux AppImage, Windows installer + ZIP, macOS DMG (JustAnimate.app); old Pencil2D WiX installer and packaging scripts removed.
 - Deleting a layer while moving a selection no longer applies the move to the neighbouring layer (A15).
 - Importing a vector image or animated GIF into a hidden layer shows the hidden-layer warning instead of crashing (A16).
 - A tap (dot) with pressure on is sized by its own pressure, not by how the previous stroke ended (A17).
