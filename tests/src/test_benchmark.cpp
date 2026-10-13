@@ -43,6 +43,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "playbackmanager.h"
 #include "scribblearea.h"
+#include "stageprofiler.h"
 #include "stroketool.h"
 #include "toolmanager.h"
 
@@ -503,6 +504,29 @@ TEST_CASE("Brush replay: today's Pencil, Brush and Eraser match the golden hashe
         REQUIRE(checked == static_cast<int>(results.size()));
 }
 
+TEST_CASE("Stage profiler: counts the paint stages and leaves the painted pixels unchanged", "[BrushReplay]")
+{
+    const std::vector<Stroke> strokes = goldenStrokes();
+    const ReplayCase c{ PENCIL, "pencil", 24 };
+    const bool wasOn = StageProfiler::enabled();
+
+    StageProfiler::enabled() = false;
+    StageProfiler::reset();
+    const ReplayResult off = replay(c, strokes);
+    REQUIRE(StageProfiler::calls(StageProfiler::InputEvent) == 0);
+
+    StageProfiler::enabled() = true;
+    const ReplayResult on = replay(c, strokes);
+    StageProfiler::enabled() = wasOn;
+
+    CHECK(StageProfiler::calls(StageProfiler::InputEvent) > 0);
+    CHECK(StageProfiler::calls(StageProfiler::DabMask) > 0);
+    CHECK(StageProfiler::calls(StageProfiler::BufferPaste) > 0);
+    CHECK(on.layerSha1 == off.layerSha1);
+    CHECK(on.frameSha1 == off.frameSha1);
+    StageProfiler::reset();
+}
+
 // Hidden: timing run for `compare_replay.py`. Prints one line per tool and size:
 // "replay <tool> <size> <median ms> <layer sha1> <frame sha1>". Use a Release build.
 TEST_CASE("Brush replay: time every tool and size, print hashes", "[.replay]")
@@ -514,11 +538,14 @@ TEST_CASE("Brush replay: time every tool and size, print hashes", "[.replay]")
         ReplayResult r;
         for (int rep = 0; rep < 3; ++rep)
         {
+            StageProfiler::reset();
             r = replay(c, strokes);
             ms.push_back(r.ms);
         }
         std::sort(ms.begin(), ms.end());
         std::printf("replay %s %d %.1f %s %s\n", c.name, c.size, ms[1], r.layerSha1.constData(), r.frameSha1.constData());
+        if (StageProfiler::enabled())
+            StageProfiler::report(); // last repetition only
     }
     std::fflush(stdout);
 }

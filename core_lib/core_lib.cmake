@@ -80,6 +80,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blitrect.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/stageprofiler.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/cameraeasingtype.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/camerafieldoption.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/colordictionary.h

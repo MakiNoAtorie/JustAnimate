@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "basetool.h"
 #include "transformtool.h"
 #include "pointerevent.h"
+#include "stageprofiler.h"
 #include "beziercurve.h"
 #include "object.h"
 #include "editor.h"
@@ -649,6 +650,7 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
 
 void ScribbleArea::pointerPressEvent(PointerEvent* event)
 {
+    StageScope stage(StageProfiler::InputEvent);
     bool isCameraLayer = mEditor->layers()->currentLayer()->type() == Layer::CAMERA;
     if ((currentTool()->type() != HAND || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
     {
@@ -675,11 +677,13 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
 
 void ScribbleArea::pointerMoveEvent(PointerEvent* event)
 {
+    StageScope stage(StageProfiler::InputEvent);
     currentTool()->pointerMoveEvent(event);
 }
 
 void ScribbleArea::pointerReleaseEvent(PointerEvent* event)
 {
+    StageScope stage(StageProfiler::InputEvent);
     currentTool()->pointerReleaseEvent(event);
 
     editor()->tools()->tryClearTemporaryTool(event->button());
@@ -877,6 +881,7 @@ void ScribbleArea::handleDrawingOnEmptyFrame()
 
 void ScribbleArea::paintEvent(QPaintEvent* event)
 {
+    StageScope stage(StageProfiler::PaintEvent);
     int currentFrame = mEditor->currentFrame();
     if (!currentTool()->isActive())
     {
@@ -1139,6 +1144,7 @@ void ScribbleArea::drawCanvas(int frame, QRect rect)
     prepCanvas(frame);
     prepCameraPainter(frame);
     prepOverlays(frame);
+    StageScope stage(StageProfiler::Composite);
     mCanvasPainter.paint(rect);
     mCameraPainter.paint(rect);
 }

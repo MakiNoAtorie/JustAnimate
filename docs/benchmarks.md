@@ -87,4 +87,10 @@ python util/compare_replay.py before.txt after.txt
 It prints before/after ms, the speedup, and whether the layer and frame hashes are
 identical for every tool and size; exit code 1 if any differ.
 
+Stage profile: set `JUSTANIMATE_STAGE_PROFILE=1` to print time and call counts per
+stage (input, dab mask, composite, buffer paste, canvas update) after each replay case,
+and at no extra cost when unset (one branch per stage). Times are inclusive: input
+contains dab mask, canvas update contains composite. The replay sends no paint events,
+so composite and canvas update are rare there; run the app to see them in use.
+
 Replay timing baseline: TODO, not recorded yet (record on a quiet machine).

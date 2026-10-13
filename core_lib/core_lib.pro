@@ -94,6 +94,7 @@ HEADERS +=  \
     src/tool/transformtool.h \
     src/util/autosaverbytime.h \
     src/util/blitrect.h \
+    src/util/stageprofiler.h \
     src/util/cameraeasingtype.h \
     src/util/camerafieldoption.h \
     src/util/colordictionary.h \
