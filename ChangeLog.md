@@ -7,6 +7,7 @@ the original Pencil2D history is kept below for reference.
 
 - Deleting a layer while moving a selection no longer applies the move to the neighbouring layer (A15).
 - Importing a vector image or animated GIF into a hidden layer shows the hidden-layer warning instead of crashing (A16).
+- A tap (dot) with pressure on is sized by its own pressure, not by how the previous stroke ended (A17).
 - Timed autosave writes a complete `autosave.pclx` archive via the save's .tmp-and-rename, startup recovery restores the last completed autosave, and each edit counts once toward the autosave threshold (was up to 3x) (1.7).
 - Import Layers shows the load error for a corrupt or unreadable project instead of crashing (A11).
 - Command-line export prints the error and exits non-zero when an export fails (missing ffmpeg, odd size, empty frame range, unwritable path) and no longer shows the "already open" dialog (A9).

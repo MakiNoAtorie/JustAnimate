@@ -51,6 +51,7 @@ SOURCES += \
     src/test_propertyinfo.cpp \
     src/test_qminiz.cpp \
     src/test_shortcutfilter.cpp \
+    src/test_stroketool.cpp \
     src/test_toolsettings.cpp \
     src/test_undoredomanager.cpp \
     src/test_vectorimage.cpp \

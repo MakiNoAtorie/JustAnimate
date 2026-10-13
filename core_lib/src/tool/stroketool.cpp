@@ -169,8 +169,10 @@ void StrokeTool::startStroke(PointerEvent::InputType inputType)
     QPointF startStrokes = mInterpolator.interpolateStart(mLastPixel);
     mStrokePoints << mEditor->view()->mapScreenToCanvas(startStrokes);
 
+    // A tap never moves, so take the pressure from the press, not the previous stroke (A17).
+    mCurrentPressure = mInterpolator.getPressure();
     mStrokePressures.clear();
-    mStrokePressures << mInterpolator.getPressure();
+    mStrokePressures << mCurrentPressure;
 
     mCurrentInputType = inputType;
     mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
