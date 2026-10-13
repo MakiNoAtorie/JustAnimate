@@ -318,6 +318,21 @@ void UndoRedoManager::addUserState(SAVESTATE_ID saveStateId, const UserSaveState
     mSaveStates[saveStateId]->userState = userState;
 }
 
+void UndoRedoManager::recordLayerAdd(int layerId, const QString& description)
+{
+    if (!mNewBackupSystemEnabled) { return; }
+    pushCommand(new LayerAddRemoveCommand(layerId, nullptr, 0, description, editor()));
+}
+
+void UndoRedoManager::recordLayerRemove(Layer* layer, int index, const QString& description)
+{
+    if (!mNewBackupSystemEnabled) {
+        delete layer;
+        return;
+    }
+    pushCommand(new LayerAddRemoveCommand(layer->id(), layer, index, description, editor()));
+}
+
 void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState) const
 {
     const Layer* layer = editor()->layers()->currentLayer();

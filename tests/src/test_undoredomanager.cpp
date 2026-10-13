@@ -617,3 +617,189 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
     delete editor;
     delete scribbleArea;
 }
+
+TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
+{
+    Object* object = new Object;
+    object->init();
+    object->addNewCameraLayer();
+    Layer* cameraLayer = object->getLayer(0);
+    LayerBitmap* bitmapLayer = object->addNewBitmapLayer();
+    LayerVector* vectorLayer = object->addNewVectorLayer();
+    const int bitmapLayerId = bitmapLayer->id();
+    const int vectorLayerId = vectorLayer->id();
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    scribbleArea->setEditor(editor);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
+    editor->undoRedo()->init();
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    LayerManager* layers = editor->layers();
+
+    SECTION("Add layer")
+    {
+        layers->setCurrentLayer(bitmapLayer);
+        const int addedId = layers->createLayer(Layer::CAMERA, "Added")->id();
+        REQUIRE(layers->count() == 4);
+
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE(layers->count() == 3);
+        REQUIRE(layers->findLayerById(addedId) == nullptr);
+        REQUIRE(layers->currentLayer() == vectorLayer);
+        REQUIRE(layers->getLastCameraLayer() == cameraLayer);
+
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(layers->count() == 4);
+        REQUIRE(layers->getLayer(3)->id() == addedId);
+        REQUIRE(layers->getLayer(3)->name() == "Added");
+        REQUIRE(layers->currentLayerIndex() == 3);
+    }
+
+    SECTION("Delete a layer below the current layer")
+    {
+        const QRgb black = qRgba(0, 0, 0, 255);
+        REQUIRE(bitmapLayer->addNewKeyFrameAt(5));
+        bitmapLayer->getBitmapImageAtFrame(5)->setPixel(10, 10, black);
+        layers->setCurrentLayer(vectorLayer);
+
+        REQUIRE(layers->deleteLayer(1) == Status::OK);
+        REQUIRE(layers->count() == 2);
+        REQUIRE(layers->findLayerById(bitmapLayerId) == nullptr);
+        // The current layer stays the same layer when a layer below it goes away.
+        REQUIRE(layers->currentLayer() == vectorLayer);
+
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE(layers->count() == 3);
+        Layer* restored = layers->getLayer(1);
+        REQUIRE(restored->id() == bitmapLayerId);
+        REQUIRE(restored->type() == Layer::BITMAP);
+        REQUIRE(restored->keyFrameCount() == 2);
+        REQUIRE(restored->keyExists(1));
+        REQUIRE(restored->keyExists(5));
+        REQUIRE(static_cast<LayerBitmap*>(restored)->getBitmapImageAtFrame(5)->pixel(10, 10) == black);
+        REQUIRE(layers->getLayer(2)->id() == vectorLayerId);
+        REQUIRE(layers->currentLayer() == restored);
+
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(layers->count() == 2);
+        REQUIRE(layers->findLayerById(bitmapLayerId) == nullptr);
+        REQUIRE(layers->currentLayer()->id() == vectorLayerId);
+    }
+
+    SECTION("Delete the current top layer")
+    {
+        layers->setCurrentLayer(vectorLayer);
+        REQUIRE(layers->deleteLayer(2) == Status::OK);
+        REQUIRE(layers->currentLayer() == bitmapLayer);
+
+        undoAction->trigger();
+        REQUIRE(layers->count() == 3);
+        REQUIRE(layers->getLayer(2)->id() == vectorLayerId);
+        REQUIRE(layers->currentLayerIndex() == 2);
+    }
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    delete editor;
+    delete scribbleArea;
+}
+
+TEST_CASE("UndoRedoManager: an undone layer delete keeps its frames across saves")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString path = dir.filePath("project.pclx");
+    const QRgb black = qRgba(0, 0, 0, 255);
+    const QList<int> frames = { 1, 3, 5 };
+
+    Object* object = new Object;
+    object->init();
+    object->addNewCameraLayer();
+    LayerBitmap* layer = object->addNewBitmapLayer();
+    layer->setName("Kept");
+    const int layerId = layer->id();
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    scribbleArea->setEditor(editor);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
+    editor->undoRedo()->init();
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    for (int frame : frames)
+    {
+        if (!layer->keyExists(frame)) { REQUIRE(layer->addNewKeyFrameAt(frame)); }
+        layer->getBitmapImageAtFrame(frame)->setPixel(frame, frame, black);
+    }
+
+    FileManager fm;
+    auto save = [&]
+    {
+        editor->prepareSave();
+        REQUIRE(fm.save(object, path).ok());
+    };
+    save();
+
+    // A frame that is not in memory exists only as a file in the working folder.
+    for (int frame : frames)
+    {
+        BitmapImage* image = layer->getBitmapImageAtFrame(frame);
+        image->unloadFile();
+        REQUIRE_FALSE(image->isLoaded());
+    }
+
+    REQUIRE(editor->layers()->deleteLayer(1) == Status::OK);
+    save();
+
+    // A new layer gets the id of the deleted layer, so its frame files get the same names.
+    LayerBitmap* other = editor->layers()->createBitmapLayer("Other");
+    REQUIRE(other->id() == layerId);
+    // Two pixels wide: a frame of the deleted layer that reads this file gets a second pixel.
+    other->getBitmapImageAtFrame(1)->setPixel(40, 40, black);
+    other->getBitmapImageAtFrame(1)->setPixel(41, 40, black);
+    save();
+
+    undoAction->trigger(); // Add Layer
+    undoAction->trigger(); // Delete Layer
+    REQUIRE(object->getLayerCount() == 2);
+    save();
+
+    Object* loaded = fm.load(path);
+    REQUIRE(loaded != nullptr);
+    REQUIRE(loaded->getLayerCount() == 2);
+    Layer* restored = loaded->findLayerByName("Kept");
+    REQUIRE(restored != nullptr);
+    REQUIRE(restored->type() == Layer::BITMAP);
+    REQUIRE(restored->keyFrameCount() == 3);
+    for (int frame : frames)
+    {
+        BitmapImage* image = static_cast<LayerBitmap*>(restored)->getBitmapImageAtFrame(frame);
+        REQUIRE(image != nullptr);
+        image->loadFile(); // A loaded project reads a frame, and its bounds, on demand
+        INFO("frame " << frame);
+        REQUIRE(image->pixel(frame, frame) == black);
+        REQUIRE(qAlpha(image->pixel(frame + 1, frame)) == 0);
+    }
+    delete loaded;
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    delete editor;
+    delete scribbleArea;
+}

@@ -225,4 +225,30 @@ private:
     bool roundPixels;
 };
 
+/// Undo and redo of a layer add or a layer delete. The command owns the layer while it is out of the object.
+class LayerAddRemoveCommand : public UndoRedoCommand
+{
+public:
+    /// @param removedLayer The layer that was taken out of the object at removedIndex, or nullptr if the layer was added
+    LayerAddRemoveCommand(int layerId,
+                          Layer* removedLayer,
+                          int removedIndex,
+                          const QString& description,
+                          Editor* editor,
+                          QUndoCommand* parent = nullptr);
+    ~LayerAddRemoveCommand() override;
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void attach();
+    void detach();
+
+    const bool isAdd;
+    int layerId = 0;
+    int layerIndex = 0;
+    Layer* detachedLayer = nullptr;
+};
+
 #endif // UNDOREDOCOMMAND_H

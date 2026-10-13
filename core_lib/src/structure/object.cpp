@@ -301,6 +301,11 @@ Layer* Object::takeLayer(int layerId)
     return layer;
 }
 
+void Object::insertLayer(int index, Layer* layer)
+{
+    mLayers.insert(qBound(0, index, static_cast<int>(mLayers.size())), layer);
+}
+
 bool Object::swapLayers(int i, int j)
 {
     bool canSwap = canSwapLayers(i, j);

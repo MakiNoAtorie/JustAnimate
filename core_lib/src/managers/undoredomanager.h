@@ -159,6 +159,13 @@ public:
      */
     void addUserState(SAVESTATE_ID SaveStateId, const UserSaveState& userState);
 
+    /** Records that the layer with the given id was added to the object. */
+    void recordLayerAdd(int layerId, const QString& description);
+
+    /** Records that a layer was taken out of the object at index.
+     *  Takes ownership of the layer, so that undo can put the same layer back. */
+    void recordLayerRemove(Layer* layer, int index, const QString& description);
+
     QAction* createUndoAction(QObject* parent, const QIcon& icon);
     QAction* createRedoAction(QObject* parent, const QIcon& icon);
 

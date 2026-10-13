@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layervector.h"
 #include "layercamera.h"
+#include "undoredomanager.h"
 
 LayerManager::LayerManager(Editor* editor) : BaseManager(editor, __FUNCTION__)
 {
@@ -60,7 +61,7 @@ LayerCamera* LayerManager::getCameraLayerBelow(int layerIndex) const
 Layer* LayerManager::getLastCameraLayer()
 {
     Layer* layer = object()->getLayer(mLastCameraLayerIdx);
-    if (layer->type() == Layer::CAMERA)
+    if (layer && layer->type() == Layer::CAMERA)
     {
         return layer;
     }
@@ -208,6 +209,7 @@ Layer* LayerManager::createLayer(Layer::LAYER_TYPE type, const QString& strLayer
     layer->setName(strLayerName);
     emit layerCountChanged(count());
     setCurrentLayer(getLastLayerIndex());
+    recordLayerAdd(layer);
 
     return layer;
 }
@@ -219,6 +221,7 @@ LayerBitmap* LayerManager::createBitmapLayer(const QString& strLayerName)
 
     emit layerCountChanged(count());
     setCurrentLayer(getLastLayerIndex());
+    recordLayerAdd(layer);
 
     return layer;
 }
@@ -230,6 +233,7 @@ LayerVector* LayerManager::createVectorLayer(const QString& strLayerName)
 
     emit layerCountChanged(count());
     setCurrentLayer(getLastLayerIndex());
+    recordLayerAdd(layer);
 
     return layer;
 }
@@ -241,6 +245,7 @@ LayerCamera* LayerManager::createCameraLayer(const QString& strLayerName)
 
     emit layerCountChanged(count());
     setCurrentLayer(getLastLayerIndex());
+    recordLayerAdd(layer);
 
     return layer;
 }
@@ -252,6 +257,7 @@ LayerSound* LayerManager::createSoundLayer(const QString& strLayerName)
 
     emit layerCountChanged(count());
     setCurrentLayer(getLastLayerIndex());
+    recordLayerAdd(layer);
 
     return layer;
 }
@@ -329,20 +335,53 @@ Status LayerManager::deleteLayer(int index)
     }
     Q_ASSERT(object()->getLayerCount() >= 2);
 
+    layer = takeLayer(index);
+    // An editor that is not initialised has no undo manager
+    if (editor()->undoRedo())
+    {
+        editor()->undoRedo()->recordLayerRemove(layer, index, tr("Delete Layer"));
+    }
+    else
+    {
+        delete layer;
+    }
+
+    return Status::OK;
+}
+
+void LayerManager::recordLayerAdd(const Layer* layer)
+{
+    if (editor()->undoRedo())
+    {
+        editor()->undoRedo()->recordLayerAdd(layer->id(), tr("Add Layer"));
+    }
+}
+
+Layer* LayerManager::takeLayer(int index)
+{
+    Layer* layer = object()->getLayer(index);
+    const int current = currentLayerIndex();
+
     // Resolve a pending selection move while the layer it belongs to is still current
-    if (index == currentLayerIndex())
+    if (index == current)
     {
         emit currentLayerWillChange(index);
     }
 
     // current layer is the last layer && we are deleting it
     if (index == object()->getLayerCount() - 1 &&
-        index == currentLayerIndex())
+        index == current)
     {
-        setCurrentLayer(currentLayerIndex() - 1);
+        setCurrentLayer(current - 1);
     }
-    object()->deleteLayer(layer);
-    if (index >= currentLayerIndex())
+    object()->takeLayer(layer->id());
+    if (index < current)
+    {
+        // The current layer moved down one index. It is still the same layer.
+        editor()->setCurrentLayerIndex(current - 1);
+        emit currentLayerChanged(current - 1);
+    }
+    else
     {
         // current layer has changed, so trigger updates
         setCurrentLayer(currentLayerIndex());
@@ -351,7 +390,20 @@ Status LayerManager::deleteLayer(int index)
     emit layerDeleted(index);
     emit layerCountChanged(count());
 
-    return Status::OK;
+    return layer;
+}
+
+void LayerManager::insertLayer(int index, Layer* layer)
+{
+    object()->insertLayer(index, layer);
+    if (index <= currentLayerIndex())
+    {
+        // The current layer moved up one index.
+        editor()->setCurrentLayerIndex(currentLayerIndex() + 1);
+    }
+
+    emit layerCountChanged(count());
+    setCurrentLayer(layer);
 }
 
 Status LayerManager::renameLayer(Layer* layer, const QString& newName)

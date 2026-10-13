@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include "layer.h"
 
 #include "editor.h"
+#include "scribblearea.h"
 #include "undoredocommand.h"
 
 UndoRedoCommand::UndoRedoCommand(Editor* editor, QUndoCommand* parent) : QUndoCommand(parent)
@@ -410,4 +411,88 @@ void TransformCommand::apply(const QRectF& selectionRect,
     selectMan->setScale(scaleX, scaleY);
 
     selectMan->calculateSelectionTransformation();
+}
+
+// A new layer can get the id of a layer that is out of the object, and a save then
+// overwrites its frame files. Keep the frames in memory and make the next save write them.
+// ponytail: the whole layer stays in memory while it is in the undo stack; copy its files aside if that costs too much.
+static void keepFramesInMemory(const Layer* layer)
+{
+    layer->foreachKeyFrame([](KeyFrame* key)
+    {
+        key->loadFile();
+        key->setModified(true);
+    });
+}
+
+LayerAddRemoveCommand::LayerAddRemoveCommand(int layerId,
+                                             Layer* removedLayer,
+                                             int removedIndex,
+                                             const QString& description,
+                                             Editor* editor,
+                                             QUndoCommand* parent)
+    : UndoRedoCommand(editor, parent), isAdd(removedLayer == nullptr)
+{
+    this->layerId = layerId;
+    this->layerIndex = removedIndex;
+    this->detachedLayer = removedLayer;
+    if (removedLayer) { keepFramesInMemory(removedLayer); }
+
+    setText(description);
+}
+
+LayerAddRemoveCommand::~LayerAddRemoveCommand()
+{
+    delete detachedLayer;
+}
+
+void LayerAddRemoveCommand::undo()
+{
+    UndoRedoCommand::undo();
+
+    if (isAdd) { detach(); } else { attach(); }
+}
+
+void LayerAddRemoveCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    if (isAdd) { attach(); } else { detach(); }
+}
+
+void LayerAddRemoveCommand::attach()
+{
+    // An edit that is not in the undo stack (e.g. import layers) can have given the id to another layer
+    if (detachedLayer == nullptr || editor()->layers()->findLayerById(layerId) != nullptr) {
+        return setObsolete(true);
+    }
+
+    editor()->layers()->insertLayer(layerIndex, detachedLayer);
+    detachedLayer = nullptr;
+
+    editor()->layers()->notifyAnimationLengthChanged();
+    editor()->getScribbleArea()->onLayerChanged();
+    emit editor()->updateTimeLine();
+}
+
+void LayerAddRemoveCommand::detach()
+{
+    LayerManager* layers = editor()->layers();
+    Layer* layer = layers->findLayerById(layerId);
+    // The object keeps at least one layer
+    if (layer == nullptr || layers->count() < 2) {
+        return setObsolete(true);
+    }
+
+    layerIndex = 0;
+    while (layers->getLayer(layerIndex) != layer) { ++layerIndex; }
+    keepFramesInMemory(layer);
+    detachedLayer = layers->takeLayer(layerIndex);
+
+    layers->notifyAnimationLengthChanged();
+    editor()->getScribbleArea()->onLayerChanged();
+    emit editor()->updateTimeLine();
 }
