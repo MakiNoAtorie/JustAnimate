@@ -95,9 +95,7 @@ bool ScribbleArea::init()
     mDeltaFactor = mEditor->preference()->isOn(SETTING::INVERT_SCROLL_ZOOM_DIRECTION) ? -1 : 1;
 
     setMouseTracking(true); // reacts to mouse move events, even if the button is not pressed
-#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
     setTabletTracking(true); // tablet tracking first added in 5.9
-#endif
 
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
 
@@ -537,11 +535,7 @@ void ScribbleArea::wheelEvent(QWheelEvent* event)
     static const bool isX11 = QGuiApplication::platformName() == "xcb";
     const QPoint pixels = event->pixelDelta();
     const QPoint angle = event->angleDelta();
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     const QPointF offset = mEditor->view()->mapScreenToCanvas(event->position());
-#else
-    const QPointF offset = mEditor->view()->mapScreenToCanvas(event->posF());
-#endif
 
     const qreal currentScale = mEditor->view()->scaling();
 
@@ -567,11 +561,7 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
 {
     PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->posF()));
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     if (event.pointerType() == QPointingDevice::PointerType::Eraser)
-#else
-    if (event.pointerType() == QTabletEvent::Eraser)
-#endif
     {
         editor()->tools()->tabletSwitchToEraser();
     }

@@ -42,18 +42,5 @@ namespace PlatformHandler
         }
 #endif // _WIN32_WINNT >= _WIN32_WINNT_WIN7
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-        // Temporary solution for high DPI displays
-        // EnableHighDpiScaling is a just in case mechanism in the event that we
-        // want to disable this without recompiling, see #922
-        QSettings settings(PENCIL2D, PENCIL2D);
-        if (settings.value("EnableHighDpiScaling", "true").toBool())
-        {
-            // Enable auto screen scaling on high dpi display, for example, a 4k monitor
-            // This attr has to be set before the QApplication is constructed
-            // Only works on Windows & X11
-            QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-        }
-#endif // QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     };
 }

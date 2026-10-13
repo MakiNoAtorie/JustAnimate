@@ -107,11 +107,7 @@ QString ffmpegLocation()
 
 quint64 imageSize(const QImage& img)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
     return img.sizeInBytes();
-#else
-    return img.byteCount();
-#endif
 }
 
 QString uniqueString(int len)

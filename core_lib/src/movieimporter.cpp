@@ -122,11 +122,7 @@ Status MovieImporter::estimateFrames(const QString &filePath, int fps, int *fram
                 if (!ffmpeg.waitForReadyRead()) break;
 
                 QString output(ffmpeg.readAll());
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
                 QStringList sList = output.split(QRegularExpression("[\r\n]"), Qt::SkipEmptyParts);
-#else
-                QStringList sList = output.split(QRegularExpression("[\r\n]"), QString::SkipEmptyParts);
-#endif
                 for (const QString& s : sList)
                 {
                     index = s.indexOf("Duration: ");

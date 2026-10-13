@@ -19,11 +19,7 @@ GNU General Public License for more details.
 
 #include <QTextStream>
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
 const auto qEndl = Qt::endl;
-#else
-const auto qEndl = endl;
-#endif
 
 CommandLineParser::CommandLineParser() : mParser(), mInputPath(), mOutputPaths(), mCamera()
 {
@@ -42,9 +38,7 @@ CommandLineParser::CommandLineParser() : mParser(), mInputPath(), mOutputPaths()
     QCommandLineOption exportSeqOption(QStringList() << "export-sequence",
                                        tr("Render the file to <output_path>"),
                                        tr("output_path"));
-#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
     exportSeqOption.setFlags(QCommandLineOption::HiddenFromHelp);
-#endif
     mParser.addOption(exportSeqOption);
 
     QCommandLineOption cameraOption(QStringList() << "camera",

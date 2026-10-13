@@ -38,9 +38,6 @@ GNU General Public License for more details.
 #include "platformhandler.h"
 
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-#include <clocale>
-#endif
 
 Pencil2D::Pencil2D(int& argc, char** argv) :
     QApplication(argc, argv)
@@ -57,10 +54,8 @@ Pencil2D::Pencil2D(int& argc, char** argv) :
     // Set application icon
     setWindowIcon(QIcon(":/icons/icon.png"));
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     // Associate the application with our desktop entry
     setDesktopFileName(APP_DESKTOP_ID);
-#endif
     installTranslators();
 }
 
@@ -139,20 +134,9 @@ void Pencil2D::installTranslators()
     QLocale locale = userLocale.isEmpty() ? QLocale::system() : QLocale(userLocale);
     QLocale::setDefault(locale);
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-    // In versions prior to 5.14, Qt's DOM implementation erroneously used
-    // locale-dependent string conversion for double attributes (QTBUG-80068).
-    // To work around this, we override the numeric locale category to use the
-    // C locale.
-    std::setlocale(LC_NUMERIC, "C");
-#endif
 
     std::unique_ptr<QTranslator> qtTranslator(new QTranslator(this));
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     if (qtTranslator->load(locale, "qt", "_", QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
-#else
-    if (qtTranslator->load(locale, "qt", "_", QLibraryInfo::location(QLibraryInfo::TranslationsPath)))
-#endif
     {
         installTranslator(qtTranslator.release());
     }

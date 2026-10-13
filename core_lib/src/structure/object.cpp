@@ -308,11 +308,7 @@ bool Object::swapLayers(int i, int j)
 
     if (i != j)
     {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
         mLayers.swapItemsAt(i, j);
-#else
-        mLayers.swap(i, j);
-#endif
     }
     return true;
 }
@@ -579,11 +575,7 @@ void Object::importPaletteGPL(QFile& file)
 
         int countInLine = 0;
         QString name = "";
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
         for(const QString& snip : line.split(QRegularExpression("\\s|\\t"), Qt::SkipEmptyParts))
-#else
-        for(const QString& snip : line.split(QRegularExpression("\\s|\\t"), QString::SkipEmptyParts))
-#endif
         {
             switch (countInLine)
             {

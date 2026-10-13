@@ -35,11 +35,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "util.h"
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
 using Qt::SplitBehaviorFlags;
-#else
-using SplitBehaviorFlags = QString::SplitBehavior;
-#endif
 
 MovieExporter::MovieExporter()
 {
@@ -404,13 +400,8 @@ Status MovieExporter::generateMovie(
             obj->paintImage(painter, currentFrame, false, true);
             painter.end();
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
             int bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.sizeInBytes());
             Q_ASSERT(bytesWritten == imageToExport.sizeInBytes());
-#else
-            int bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.byteCount());
-            Q_ASSERT(bytesWritten == imageToExport.byteCount());
-#endif
 
             currentFrame++;
             failCounter = 0;
@@ -525,13 +516,8 @@ Status MovieExporter::generateGif(
 
         obj->paintImage(painter, currentFrame, false, true);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
         bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.sizeInBytes());
         Q_ASSERT(bytesWritten == imageToExport.sizeInBytes());
-#else
-        bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.byteCount());
-        Q_ASSERT(bytesWritten == imageToExport.byteCount());
-#endif
 
         currentFrame++;
 
