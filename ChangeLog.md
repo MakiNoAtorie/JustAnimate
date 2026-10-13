@@ -8,6 +8,7 @@ the original Pencil2D history is kept below for reference.
 - Timed autosave writes a complete `autosave.pclx` archive via the save's .tmp-and-rename, startup recovery restores the last completed autosave, and each edit counts once toward the autosave threshold (was up to 3x) (1.7).
 - A failed save no longer marks the project as saved, so quitting still asks to save and the work is kept (A1).
 - Add a benchmark target (`cmake --build <dir> --target benchmark`): open, scrub, play and draw on a 500-frame, 10-layer project; baseline in docs/benchmarks.md.
+- Keyboard shortcuts pressed while the pen is down no longer switch tool, frame or layer mid-stroke.
 - "Move frame forward" followed by a drag no longer drops a keyframe: the selection list stays sorted after the swap.
 - Fix crash when using the bitmap bucket, or the eraser on a vector layer, on a frame before the layer's first keyframe.
 - CI builds with CMake and runs pencil2d_tests on Linux, Windows and macOS; drop Pencil2D notarization/upload and the AppVeyor, docs and Transifex jobs.

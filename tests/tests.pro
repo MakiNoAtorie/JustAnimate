@@ -24,10 +24,12 @@ INCLUDEPATH += \
     ../core_lib/src/tool \
     ../core_lib/src/util \
     ../core_lib/ui \
-    ../core_lib/src/managers
+    ../core_lib/src/managers \
+    ../app/src
 
 HEADERS += \
-    src/catch.hpp
+    src/catch.hpp \
+    ../app/src/shortcutfilter.h
 
 SOURCES += \
     src/main.cpp \
@@ -46,11 +48,13 @@ SOURCES += \
     src/test_erasertool.cpp \
     src/test_propertyinfo.cpp \
     src/test_qminiz.cpp \
+    src/test_shortcutfilter.cpp \
     src/test_toolsettings.cpp \
     src/test_undoredomanager.cpp \
     src/test_vectorimage.cpp \
     src/test_viewmanager.cpp \
-    src/test_util.cpp
+    src/test_util.cpp \
+    ../app/src/shortcutfilter.cpp
 
 # --- core_lib ---
 

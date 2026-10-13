@@ -1361,6 +1361,18 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionEyedropper->installEventFilter(shortcutFilter);
     ui->actionEraser->installEventFilter(shortcutFilter);
 
+    // Frame and layer changes mid-stroke would land the stroke on another frame or layer
+    ui->actionPlay->installEventFilter(shortcutFilter);
+    ui->actionPrevious_Frame->installEventFilter(shortcutFilter);
+    ui->actionNext_Frame->installEventFilter(shortcutFilter);
+    ui->actionPrev_KeyFrame->installEventFilter(shortcutFilter);
+    ui->actionNext_KeyFrame->installEventFilter(shortcutFilter);
+    ui->actionNew_Bitmap_Layer->installEventFilter(shortcutFilter);
+    ui->actionNew_Vector_Layer->installEventFilter(shortcutFilter);
+    ui->actionNew_Camera_Layer->installEventFilter(shortcutFilter);
+    ui->actionNew_Sound_Layer->installEventFilter(shortcutFilter);
+    ui->actionDelete_Current_Layer->installEventFilter(shortcutFilter);
+
     // Layer menu
     ui->actionNew_Bitmap_Layer->setShortcut(cmdKeySeq(CMD_NEW_BITMAP_LAYER));
     ui->actionNew_Vector_Layer->setShortcut(cmdKeySeq(CMD_NEW_VECTOR_LAYER));

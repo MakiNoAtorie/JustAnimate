@@ -23,6 +23,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_erasertool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_propertyinfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolsettings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_undoredomanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_vectorimage.cpp
@@ -43,12 +44,15 @@ add_executable(pencil2d_tests
     ${TEST_HEADERS}
     ${TEST_SOURCES}
     ${TEST_RESOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
 )
 
 # Include directories
 target_include_directories(pencil2d_tests PRIVATE
     ${CORE_LIB_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src
 )
 
 # Link libraries
