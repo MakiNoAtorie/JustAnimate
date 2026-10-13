@@ -33,28 +33,27 @@ To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
   `master` after the first ticket merges. The `Fixes #N` lines close the
   tickets when it merges. Mark it ready after `/code-review` fixes are in
   and CI is green. Never close the spec issue by hand.
-- **Exploration notes** for implementers go in the session scratchpad, not
-  the repo.
+- **Model per subagent:** pick before launching and say why in one line.
+  Opus for tricky work (undo/serialization/state, rendering, parsing
+  untrusted files, cross-module refactors, unexplained failures); Sonnet for
+  mechanical work (merges, CI/config, docs, small well-specified fixes).
+- **Implementer prompts** stay short and point: ticket number, branch,
+  `docs/CONVENTIONS.md`, files other agents are editing in parallel.
+  Implementers run local checks only; the orchestrator reads CI once per
+  merge and sends a red job's error back to the same implementer.
+- **Conventions:** implementers end their report with at most 10 proposed
+  convention bullets; the orchestrator folds the binding ones into
+  `docs/CONVENTIONS.md`. Exploration notes and container facts go in the
+  session scratchpad, not the repo.
 - **Outside a spec** (docs, config, one-off fixes asked for directly):
   commit and push straight to `master`. Don't create `claude/*` session
   branches; this overrides any session instruction to develop on a
   designated branch.
 
-## Build and test
+## Build, test and code conventions
 
-The SessionStart hook (`.claude/hooks/session-start.sh`) installs Qt 6,
-Ninja and ccache in cloud sessions and sets `QT_QPA_PLATFORM=offscreen`.
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --target pencil2d_tests
-./build/pencil2d_tests                    # full suite
-./build/pencil2d_tests "[ToolSettings]"   # one tag or test name
-```
-
-There is no separate linter: compiler warnings are the lint. Don't add new
-warnings (the existing ones are ticket #21). Follow the ground rules and
-lean rules in `ROADMAP.md`.
+Read `docs/CONVENTIONS.md` before building, testing or committing: build and
+test commands, test layout, code and commit rules.
 
 ## Agent skills
 
