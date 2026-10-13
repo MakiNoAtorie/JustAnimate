@@ -47,6 +47,7 @@ GNU General Public License for more details.
 #include "viewmanager.h"
 #include "selectionmanager.h"
 #include "overlaymanager.h"
+#include "undoredomanager.h"
 
 ScribbleArea::ScribbleArea(QWidget* parent) : QWidget(parent),
     mCanvasPainter(mCanvas),
@@ -1382,7 +1383,8 @@ void ScribbleArea::applyTransformedSelection()
             VectorImage* vectorImage = currentVectorImage(layer);
             if (vectorImage == nullptr) { return; }
 
-            vectorImage->applySelectionTransformation();
+            // The image's own transform is only set on paint; an undo or redo step applies before that.
+            vectorImage->applySelectionTransformation(selectMan->selectionTransform());
         }
 
         mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
@@ -1469,6 +1471,7 @@ void ScribbleArea::deleteSelection()
         handleDrawingOnEmptyFrame();
 
         mEditor->backup(tr("Delete Selection", "Undo Step: clear the selection area."));
+        const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
         selectMan->clearCurves();
         if (layer->type() == Layer::VECTOR)
@@ -1483,6 +1486,7 @@ void ScribbleArea::deleteSelection()
             Q_CHECK_PTR(bitmapImage);
             bitmapImage->clear(selectMan->mySelectionRect());
         }
+        mEditor->undoRedo()->record(saveStateId, tr("Delete Selection", "Undo Step: clear the selection area."));
         mEditor->setModified(mEditor->currentLayerIndex(), mEditor->currentFrame());
     }
 }
@@ -1495,6 +1499,7 @@ void ScribbleArea::clearImage()
     if (layer->type() == Layer::VECTOR)
     {
         mEditor->backup(tr("Clear Image", "Undo step text"));
+        const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
         VectorImage* vectorImage = currentVectorImage(layer);
         if (vectorImage != nullptr)
@@ -1503,6 +1508,7 @@ void ScribbleArea::clearImage()
         }
         mEditor->select()->clearCurves();
         mEditor->select()->clearVertices();
+        mEditor->undoRedo()->record(saveStateId, tr("Clear Image", "Undo step text"));
     }
     else if (layer->type() == Layer::BITMAP)
     {
@@ -1510,7 +1516,9 @@ void ScribbleArea::clearImage()
 
         BitmapImage* bitmapImage = currentBitmapImage(layer);
         if (bitmapImage == nullptr) return;
+        const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         bitmapImage->clear();
+        mEditor->undoRedo()->record(saveStateId, tr("Clear Image", "Undo step text"));
     }
     else
     {

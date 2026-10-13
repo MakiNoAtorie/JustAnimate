@@ -15,11 +15,15 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <functional>
+
 #include <QAction>
 #include <QFile>
 #include <QIcon>
 #include <QTemporaryDir>
 
+#include "beziercurve.h"
+#include "bitmapimage.h"
 #include "editor.h"
 #include "filemanager.h"
 #include "layer.h"
@@ -29,7 +33,9 @@ GNU General Public License for more details.
 #include "object.h"
 #include "preferencemanager.h"
 #include "scribblearea.h"
+#include "selectionmanager.h"
 #include "undoredomanager.h"
+#include "vectorimage.h"
 
 TEST_CASE("UndoRedoManager legacy: undo/redo of Remove frame")
 {
@@ -192,6 +198,113 @@ TEST_CASE("Editor: each edit counts once toward autosave")
     {
         editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
         checkEditsCountOnce();
+    }
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);
+    delete editor;
+    delete scribbleArea;
+}
+
+TEST_CASE("UndoRedoManager: undo/redo of selection edits")
+{
+    Object* object = new Object;
+    object->init();
+    object->addNewCameraLayer();
+    LayerBitmap* bitmapLayer = object->addNewBitmapLayer();
+    LayerVector* vectorLayer = object->addNewVectorLayer();
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    scribbleArea->setEditor(editor);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+
+    editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, true);
+    editor->undoRedo()->init();
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    // Runs `edit`, then checks that `state` reads `before` after undo and `after` after redo.
+    auto checkUndoRedo = [&](const std::function<void()>& edit, const std::function<int()>& state, int before, int after)
+    {
+        REQUIRE(state() == before);
+        edit();
+        REQUIRE(state() == after);
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE(state() == before);
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(state() == after);
+    };
+    // An undo or redo step applies a pending flip and deselects; a flip shows either way.
+    auto flipPending = [&] { return editor->select()->somethingSelected() && editor->select()->myScaleX() < 0; };
+
+    SECTION("Bitmap layer")
+    {
+        editor->layers()->setCurrentLayer(bitmapLayer);
+        editor->scrubTo(1);
+        const QRgb black = qRgba(0, 0, 0, 255);
+        bitmapLayer->getBitmapImageAtFrame(1)->setPixel(10, 10, black);
+        bitmapLayer->getBitmapImageAtFrame(1)->setPixel(50, 50, black);
+
+        auto opaquePixels = [&]
+        {
+            const QImage* img = bitmapLayer->getBitmapImageAtFrame(1)->image();
+            int count = 0;
+            for (int y = 0; y < img->height(); ++y)
+                for (int x = 0; x < img->width(); ++x)
+                    if (qAlpha(img->pixel(x, y)) != 0) { ++count; }
+            return count;
+        };
+
+        checkUndoRedo([&] { editor->clearCurrentFrame(); }, opaquePixels, 2, 0);
+        undoAction->trigger();
+
+        editor->select()->setSelection(QRectF(5, 5, 10, 10));
+        checkUndoRedo([&] { scribbleArea->deleteSelection(); }, opaquePixels, 2, 1);
+        undoAction->trigger();
+
+        editor->select()->setSelection(QRectF(5, 5, 10, 10));
+        editor->copy();
+        editor->select()->setSelection(QRectF(20, 20, 10, 10));
+        checkUndoRedo([&] { editor->paste(); }, opaquePixels, 2, 3);
+
+        // (10, 10) mirrors to the right half of the selection.
+        auto flipped = [&] { return flipPending() || qAlpha(bitmapLayer->getBitmapImageAtFrame(1)->pixel(10, 10)) == 0 ? 1 : 0; };
+        editor->select()->setSelection(QRectF(0, 0, 40, 40));
+        checkUndoRedo([&] { editor->flipSelection(false); }, flipped, 0, 1);
+    }
+
+    SECTION("Vector layer")
+    {
+        editor->layers()->setCurrentLayer(vectorLayer);
+        editor->scrubTo(1);
+        BezierCurve curve({ QPointF(50, 50), QPointF(100, 100) });
+        vectorLayer->getVectorImageAtFrame(1)->addCurve(curve, 1.0);
+
+        auto hasCurves = [&] { return vectorLayer->getVectorImageAtFrame(1)->isEmpty() ? 0 : 1; };
+
+        checkUndoRedo([&] { editor->clearCurrentFrame(); }, hasCurves, 1, 0);
+        undoAction->trigger();
+
+        vectorLayer->getVectorImageAtFrame(1)->selectAll();
+        editor->select()->setSelection(QRectF(0, 0, 200, 200));
+        checkUndoRedo([&] { scribbleArea->deleteSelection(); }, hasCurves, 1, 0);
+        undoAction->trigger();
+
+        editor->copy();
+        vectorLayer->getVectorImageAtFrame(1)->clear();
+        checkUndoRedo([&] { editor->paste(); }, hasCurves, 0, 1);
+
+        // The curve starts at x = 50, which mirrors to x = 150.
+        auto flipped = [&] { return flipPending() || vectorLayer->getVectorImageAtFrame(1)->getVertex(0, -1).x() > 100 ? 1 : 0; };
+        vectorLayer->getVectorImageAtFrame(1)->selectAll();
+        editor->select()->setSelection(QRectF(0, 0, 200, 200));
+        checkUndoRedo([&] { editor->flipSelection(false); }, flipped, 0, 1);
     }
 
     editor->preference()->set(SETTING::NEW_UNDO_REDO_SYSTEM_ON, false);

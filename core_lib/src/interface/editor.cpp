@@ -233,6 +233,7 @@ void Editor::pasteFromPreviousFrame()
         return;
     }
 
+    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     if (currentLayer->type() == Layer::BITMAP)
     {
         backup(tr("Paste from Previous Keyframe"));
@@ -253,6 +254,7 @@ void Editor::pasteFromPreviousFrame()
         VectorImage* vectorImage = static_cast<VectorImage*>(currentLayer->getKeyFrameAt(prevFrame));
         pasteToCanvas(vectorImage, mFrame);
     }
+    undoRedo()->record(saveStateId, tr("Paste from Previous Keyframe"));
 }
 
 void Editor::pasteToCanvas(BitmapImage* bitmapImage, int frameNumber)
@@ -351,6 +353,10 @@ void Editor::paste()
 
         backup(tr("Paste"));
 
+        // Create the key first: the undo state must hold the frame that the paste changes.
+        mScribbleArea->handleDrawingOnEmptyFrame();
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+
         clipboards()->setFromSystemClipboard(mScribbleArea->getCentralPoint(), currentLayer);
 
         BitmapImage clipboardImage = clipboards()->getBitmapClipboard();
@@ -360,6 +366,7 @@ void Editor::paste()
         } else if (currentLayer->type() == Layer::VECTOR && !clipboardVectorImage.isEmpty()) {
             pasteToCanvas(&clipboardVectorImage, mFrame);
         }
+        undoRedo()->record(saveStateId, tr("Paste"));
     } else {
         // TODO: implement undo/redo
         pasteToFrames();
@@ -370,12 +377,13 @@ void Editor::paste()
 
 void Editor::flipSelection(bool flipVertical)
 {
-    if (flipVertical) {
-        backup(tr("Flip selection vertically"));
-    } else {
-        backup(tr("Flip selection horizontally"));
-    }
+    if (!select()->somethingSelected()) { return; }
+
+    const QString undoText = flipVertical ? tr("Flip selection vertically") : tr("Flip selection horizontally");
+    backup(undoText);
+    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     mScribbleArea->flipSelection(flipVertical);
+    undoRedo()->record(saveStateId, undoText);
 }
 
 void Editor::repositionImage(QPoint transform, int frame)
