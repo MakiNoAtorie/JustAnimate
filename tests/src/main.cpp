@@ -19,8 +19,22 @@ GNU General Public License for more details.
 
 #include <QApplication>
 
+#ifdef _MSC_VER
+#include <crtdbg.h>
+#include <cstdlib>
+#endif
+
 int main(int argc, char* argv[])
 {
+#ifdef _MSC_VER
+    // A failed assert must not open a dialog: it blocks unattended runs.
+    for (int type : { _CRT_WARN, _CRT_ERROR, _CRT_ASSERT })
+    {
+        _CrtSetReportMode(type, _CRTDBG_MODE_FILE);
+        _CrtSetReportFile(type, _CRTDBG_FILE_STDERR);
+    }
+    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#endif
     QApplication a(argc, argv);
 
     int result = Catch::Session().run(argc, argv);

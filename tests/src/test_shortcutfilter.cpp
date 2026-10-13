@@ -47,14 +47,11 @@ void sendMouse(ScribbleArea* area, QEvent::Type type, Qt::MouseButton button, Qt
     QCoreApplication::sendEvent(area, &e);
 }
 
-bool shortcutTriggers(QAction* action)
+// Ask the filter directly: Qt asserts on a QShortcutEvent sent to an action with a different shortcut id.
+bool shortcutTriggers(QObject& filter, QAction* action)
 {
-    int count = 0;
-    QMetaObject::Connection c = QObject::connect(action, &QAction::triggered, [&count] { ++count; });
     QShortcutEvent e(action->shortcut(), 0);
-    QCoreApplication::sendEvent(action, &e);
-    QObject::disconnect(c);
-    return count == 1;
+    return !filter.eventFilter(action, &e);
 }
 }
 
@@ -79,27 +76,27 @@ TEST_CASE("ShortcutFilter: shortcuts are blocked while a pointer is drawing")
 
     SECTION("No pointer down: the shortcut fires")
     {
-        REQUIRE(shortcutTriggers(&action));
+        REQUIRE(shortcutTriggers(filter, &action));
     }
 
     SECTION("Pen down: the shortcut is ignored until pen up")
     {
         sendPen(scribbleArea, QEvent::TabletPress, Qt::LeftButton, Qt::LeftButton);
         REQUIRE(scribbleArea->isTabletInUse());
-        REQUIRE_FALSE(shortcutTriggers(&action));
+        REQUIRE_FALSE(shortcutTriggers(filter, &action));
 
         sendPen(scribbleArea, QEvent::TabletRelease, Qt::LeftButton, Qt::NoButton);
-        REQUIRE(shortcutTriggers(&action));
+        REQUIRE(shortcutTriggers(filter, &action));
     }
 
     SECTION("Mouse down: the shortcut is ignored until mouse up")
     {
         sendMouse(scribbleArea, QEvent::MouseButtonPress, Qt::LeftButton, Qt::LeftButton);
         REQUIRE(scribbleArea->isMouseInUse());
-        REQUIRE_FALSE(shortcutTriggers(&action));
+        REQUIRE_FALSE(shortcutTriggers(filter, &action));
 
         sendMouse(scribbleArea, QEvent::MouseButtonRelease, Qt::LeftButton, Qt::NoButton);
-        REQUIRE(shortcutTriggers(&action));
+        REQUIRE(shortcutTriggers(filter, &action));
     }
 
     delete scribbleArea;
