@@ -17,6 +17,70 @@
 
 Sizes: **S** ≈ a day, **M** ≈ a few days, **L** ≈ a week or more.
 
+## How we build: lean rules (adapted from ponytail)
+
+Source: the `ponytail` skill set (MIT), https://github.com/dietrichgebert/ponytail.
+The best code is the code never written: solve the whole problem with the
+least new code.
+
+**Before writing**
+- Read the task and the code it touches. List every place the change must
+  reach: callers, tests, `.ui` files, settings keys, file format, both
+  build files while qmake still exists. That is scope; extra features are not.
+- Check what the change could break for users: project files it could
+  damage, settings it could reset, shortcuts that stop working.
+
+**Pick the first option that fully works**
+1. Does it need to exist? Skip options and flexibility nobody asked for,
+   and say so in one line.
+2. Already in this codebase? Reuse it the way the surrounding code does
+   (e.g. `TiledBuffer`, `BlitRect`, `PreferenceManager`, the new undo
+   system, existing camera easing for tweening).
+3. Qt or the C++ standard library already does it? Use it.
+4. An existing dependency (Qt, miniz)? Use it. Never add a dependency for
+   a few lines.
+5. Can it be one clear line? One line.
+6. Otherwise: the minimum code that works.
+
+**While writing**
+- No abstraction, wrapper, option, config or "for later" code nobody asked
+  for. An interface with one implementation, or a factory with one product,
+  is not allowed. Deletion beats addition.
+- Keep the structure the code already has (`core_lib` engine, `app` UI,
+  managers on `Editor`).
+- Bug fix: grep every caller first, then fix the root cause once in the
+  shared code, not in one caller.
+- Code that is moved or merged keeps its error handling and validation.
+- Comment only the *why* the code can't show, in one line.
+- New non-trivial logic (a branch, a loop, a parser, file I/O, an
+  algorithm such as fill or spacing) ships with one small test that fails
+  when it breaks. Trivial changes need none.
+- A deliberate shortcut gets a marker comment:
+  `// shortcut: <the limit>, <when to upgrade>`.
+- **Never cut:** validation of data from files and the command line,
+  error handling that prevents losing a user's work, security,
+  accessibility, tablet calibration, anything the user asked for.
+
+**Checks we run** (the ponytail commands, used as process even without the plugin)
+- `ponytail-review` on every PR: findings in priority order correct → safe
+  → holds under load → tested → fast → lean; each finding needs a concrete
+  failing case and the smallest fix; verdict "Ship" or "fix N first".
+- `ponytail-audit` of the whole repo before each milestone (first one: see
+  **Code audit** below).
+- `ponytail-debt` before each release: grep `shortcut:` markers into a
+  ledger; any marker without an upgrade trigger gets fixed or removed.
+
+**Applying it to this roadmap (the "ultra" pass: does each item need to exist?)**
+- Build the brush engine as **one** module with plain classes; no plugin
+  system, no paintop registry, no engine interface until B9 (MyPaint)
+  actually needs a second engine.
+- Start presets as a plain JSON file per preset; a `.jabrush` zip only when
+  tips or textures need packaging (B5/B6).
+- Fast paths only after B0 measurements show the bottleneck.
+- Deferred until users ask: X-sheet (3.9), command palette (4.4), shortcut
+  presets for other apps (4.5), GPU path (B10), segment fast path (B11),
+  MyPaint engine (B9).
+
 ---
 
 ## Phase 0 — Foundation (do first; everything else depends on it)
@@ -24,7 +88,7 @@ Sizes: **S** ≈ a day, **M** ≈ a few days, **L** ≈ a week or more.
 | # | Task | Where | Size |
 |---|------|-------|------|
 | 0.1 | Rewrite CI for this repo: Linux/Windows/macOS build + tests on every push/PR; drop Pencil2D notarization/upload steps | `.github/workflows/ci.yml`, `.github/actions/*` | M |
-| 0.2 | Fix the 3 "control reaches end of non-void function" warnings (real crash risk) | build log locations | S |
+| 0.2 | Fix the "control reaches end of non-void function" warning (one header, `toolproperties.h:95`, counted three times; every enum case already returns, so low risk; one line) and the Must-fix items from the **Code audit** | see audit | S–M |
 | 0.3 | Replace deprecated Qt 6 calls (`localPos()`, `posF()`, `x()/y()` → `position()`), then turn on `-Werror` in CI | tool/canvas event code | M |
 | 0.4 | Add sanitizer CI job (ASan/UBSan) running the test suite | CI | S |
 | 0.5 | Retire the old undo system: make `NEW_UNDO_REDO_SYSTEM_ON` always on, remove the legacy path | `undoredomanager`, 4 call sites | M |
