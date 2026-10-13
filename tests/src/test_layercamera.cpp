@@ -28,7 +28,8 @@ SCENARIO("Create camera keyframe with linear easing")
 {
     GIVEN("A Camera Layer with one keyframe")
     {
-        Layer* layer = new LayerCamera(1);
+        LayerCamera cameraLayer(1);
+        Layer* layer = &cameraLayer;
         LayerCamera* camLayer = static_cast<LayerCamera*>(layer);
 
         WHEN("Adding a keyframe")
@@ -50,7 +51,8 @@ SCENARIO("Add a second keyframe and see that the path point of the first keyfram
 {
     GIVEN("A Camera layer with multiple keyframes")
     {
-        Layer* layer = new LayerCamera(1);
+        LayerCamera cameraLayer(1);
+        Layer* layer = &cameraLayer;
         LayerCamera* camLayer = static_cast<LayerCamera*>(layer);
 
         layer->addNewKeyFrameAt(1);
@@ -75,7 +77,8 @@ SCENARIO("Add keyframe after having interpolated the previous keyframe and see t
 {
     GIVEN("A Camera layer with multiple keyframes")
     {
-        Layer* layer = new LayerCamera(1);
+        LayerCamera cameraLayer(1);
+        Layer* layer = &cameraLayer;
         LayerCamera* camLayer = static_cast<LayerCamera*>(layer);
 
         layer->addNewKeyFrameAt(1);
@@ -98,7 +101,8 @@ SCENARIO("Remove a camera keyframe and see that the path is properly reset")
 {
     GIVEN("A Camera layer with multiple keyframes")
     {
-        Layer* layer = new LayerCamera(1);
+        LayerCamera cameraLayer(1);
+        Layer* layer = &cameraLayer;
         LayerCamera* camLayer = static_cast<LayerCamera*>(layer);
 
         layer->addNewKeyFrameAt(1);
@@ -124,7 +128,8 @@ SCENARIO("When deleting an in between keyframe, the previous keyframe will try t
 {
     GIVEN("A Camera layer with multiple keyframes where the keys are added sequentially")
     {
-        Layer* layer = new LayerCamera(1);
+        LayerCamera cameraLayer(1);
+        Layer* layer = &cameraLayer;
         LayerCamera* camLayer = static_cast<LayerCamera*>(layer);
 
         layer->addNewKeyFrameAt(1);
@@ -151,7 +156,8 @@ SCENARIO("When deleting an in between keyframe, the previous keyframe will try t
 
     GIVEN("A Camera layer with multiple keyframes where the third frame is added in-between")
     {
-        Layer* layer = new LayerCamera(2);
+        LayerCamera cameraLayer(2);
+        Layer* layer = &cameraLayer;
         LayerCamera* camLayer = static_cast<LayerCamera*>(layer);
 
         layer->addNewKeyFrameAt(1);
@@ -184,7 +190,8 @@ SCENARIO("When adding a keyframe in-between two othes where the control points h
 {
     GIVEN("A Camera layer with multiple keyframes where the third frame is added in-between")
     {
-        Layer* layer = new LayerCamera(1);
+        LayerCamera cameraLayer(1);
+        Layer* layer = &cameraLayer;
         LayerCamera* camLayer = static_cast<LayerCamera*>(layer);
 
         layer->addNewKeyFrameAt(1);

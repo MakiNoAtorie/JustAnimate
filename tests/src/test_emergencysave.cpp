@@ -30,6 +30,17 @@ GNU General Public License for more details.
 #include <qt_windows.h>
 #endif
 
+// Not instrumented: UBSan and ASan report a null store and exit the process,
+// so the kernel never raises the signal that the handler is there for.
+#if defined(__GNUC__)
+__attribute__((no_sanitize("address"))) __attribute__((no_sanitize("undefined")))
+#endif
+static void writeToNull()
+{
+    int* volatile null = nullptr;
+    *null = 1;
+}
+
 /// Child half of the crash test, run as `pencil2d_tests --crash-after-autosave`
 /// (see main.cpp): autosave once, print the working folder, then crash.
 int crashAfterAutosave()
@@ -55,19 +66,23 @@ int crashAfterAutosave()
     SetErrorMode(SEM_NOGPFAULTERRORBOX); // no crash dialog in unattended runs
 #endif
     // A real fault, not raise(): on Windows raise() skips the exception filter.
-    int* volatile null = nullptr;
-    *null = 1;
+    writeToNull();
     return 3; // not reached
 }
 
 TEST_CASE("A crash after an autosave leaves it recoverable on next start", "[EmergencySave]")
 {
     QProcess child;
+    child.setProcessChannelMode(QProcess::ForwardedErrorChannel); // show a sanitizer report from the child
     child.start(QCoreApplication::applicationFilePath(), { "--crash-after-autosave" });
     REQUIRE(child.waitForFinished(60000));
     // Crashed: a signal on POSIX, a non-zero exit code on Windows.
     REQUIRE((child.exitStatus() == QProcess::CrashExit || child.exitCode() != 0));
     REQUIRE(child.exitCode() != 2);
+#ifndef Q_OS_WIN
+    // An exit code means something ended the process before the fault.
+    REQUIRE(child.exitStatus() == QProcess::CrashExit);
+#endif
 
     const QString workingDir = QString::fromLocal8Bit(child.readAllStandardOutput()).trimmed();
     REQUIRE_FALSE(workingDir.isEmpty());

@@ -48,7 +48,7 @@ TEST_CASE("BitmapImage constructors")
     SECTION("Clone a BitmapImage")
     {
         auto b = std::make_shared<BitmapImage>(QRect(20, 20, 100, 100), Qt::red);
-        auto b2 = b->clone();
+        std::unique_ptr<BitmapImage> b2(b->clone());
 
         REQUIRE(b->pos() == b2->pos());
         REQUIRE(b->length() == b2->length());

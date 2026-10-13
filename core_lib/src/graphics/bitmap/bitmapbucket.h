@@ -68,7 +68,7 @@ private:
     Editor* mEditor = nullptr;
     Layer* mTargetFillToLayer = nullptr;
 
-    QHash<QRgb, bool> *mPixelCache;
+    mutable QHash<QRgb, bool> mPixelCache; // compareColor results, filled from const checks
 
     BitmapImage mReferenceImage;
     QRgb mBucketColor = 0;

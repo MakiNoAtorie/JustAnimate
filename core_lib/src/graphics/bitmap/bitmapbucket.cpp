@@ -52,8 +52,6 @@ BitmapBucket::BitmapBucket(Editor* editor,
 
     Q_ASSERT(mTargetFillToLayer);
 
-    mPixelCache = new QHash<QRgb, bool>();
-
     BitmapImage* keyImage = static_cast<BitmapImage*>(initialLayer->getLastKeyFrameAtPosition(frameIndex));
     if (keyImage == nullptr) { return; } // Before the layer's first keyframe: nothing to fill, paint() does nothing
 
@@ -110,8 +108,8 @@ bool BitmapBucket::allowContinuousFill(const QPoint& checkPoint, const QRgb& che
         return false;
     }
 
-    return BitmapImage::compareColor(colorOfReferenceImage, mStartReferenceColor, mTolerance, mPixelCache) &&
-           (checkColor == 0 || BitmapImage::compareColor(checkColor, mStartReferenceColor, mTolerance, mPixelCache));
+    return BitmapImage::compareColor(colorOfReferenceImage, mStartReferenceColor, mTolerance, &mPixelCache) &&
+           (checkColor == 0 || BitmapImage::compareColor(checkColor, mStartReferenceColor, mTolerance, &mPixelCache));
 }
 
 void BitmapBucket::paint(const QPointF& updatedPoint, std::function<void(BucketState, int, int)> state)
