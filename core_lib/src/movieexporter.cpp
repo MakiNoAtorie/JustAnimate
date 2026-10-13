@@ -119,24 +119,28 @@ Status MovieExporter::run(const Object* obj,
 
     mTempWorkDir = mTempDir.path();
 
+    Status st = Status::OK;
     minorProgress(0.f);
     if (desc.strFileName.endsWith("gif", Qt::CaseInsensitive))
     {
         majorProgress(0.03f, 1.f);
         progressMessage(tr("Generating GIF..."));
         minorProgress(0.f);
-        STATUS_CHECK(generateGif(obj, ffmpegPath, desc.strFileName, minorProgress))
+        st = (generateGif(obj, ffmpegPath, desc.strFileName, minorProgress));
+        if (!st.ok()) { discardPartialOutput(st, desc.strFileName); return st; }
     }
     else
     {
         majorProgress(0.03f, 0.25f);
         progressMessage(tr("Assembling audio..."));
         minorProgress(0.f);
-        STATUS_CHECK(assembleAudio(obj, ffmpegPath, minorProgress))
+        st = (assembleAudio(obj, ffmpegPath, minorProgress));
+        if (!st.ok()) { discardPartialOutput(st, desc.strFileName); return st; }
         minorProgress(1.f);
         majorProgress(0.25f, 1.f);
         progressMessage(tr("Generating movie..."));
-        STATUS_CHECK(generateMovie(obj, ffmpegPath, desc.strFileName, minorProgress))
+        st = (generateMovie(obj, ffmpegPath, desc.strFileName, minorProgress));
+        if (!st.ok()) { discardPartialOutput(st, desc.strFileName); return st; }
     }
     minorProgress(1.f);
     majorProgress(1.f, 1.f);
@@ -146,6 +150,16 @@ Status MovieExporter::run(const Object* obj,
     qDebug("MOVIE = %.1f sec", static_cast<double>(t2 / CLOCKS_PER_SEC));
 
     return Status::OK;
+}
+
+void MovieExporter::discardPartialOutput(const Status& st, const QString& path)
+{
+    if (!st.ok()) { QFile::remove(path); }
+}
+
+bool MovieExporter::mayOverwrite(const QString& path, const std::function<bool()>& confirm)
+{
+    return !QFile::exists(path) || confirm();
 }
 
 QString MovieExporter::error()

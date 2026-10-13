@@ -13,6 +13,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colormanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movieexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerbitmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layercamera.cpp

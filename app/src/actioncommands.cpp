@@ -329,6 +329,13 @@ Status ActionCommands::exportMovie(bool isGif)
         return Status::SAFE;
     }
     QString strMoviePath = dialog->getFilePath();
+    if (!MovieExporter::mayOverwrite(strMoviePath, [this, &strMoviePath] {
+            return QMessageBox::question(mParent, APP_NAME,
+                       tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(strMoviePath))) == QMessageBox::Yes;
+        }))
+    {
+        return Status::SAFE;
+    }
 
     ExportMovieDesc desc;
     desc.strFileName = strMoviePath;

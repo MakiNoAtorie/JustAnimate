@@ -59,6 +59,11 @@ public:
     // The maximum number of sound frames that can be successfully rendered
     static const int MAX_SOUND_FRAMES = 63;
 
+    // Deletes the partial output file when st is a cancel or a failure.
+    static void discardPartialOutput(const Status& st, const QString& path);
+    // True if path is free or confirm() accepts overwriting it.
+    static bool mayOverwrite(const QString& path, const std::function<bool()>& confirm);
+
     static Status executeFFmpeg(const QString& cmd, const QStringList& args, std::function<bool(int)> progress);
 private:
     Status assembleAudio(const Object* obj, QString ffmpegPath, std::function<void(float)> progress);

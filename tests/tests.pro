@@ -35,6 +35,7 @@ SOURCES += \
     src/main.cpp \
     src/test_benchmark.cpp \
     src/test_colormanager.cpp \
+    src/test_movieexporter.cpp \
     src/test_layer.cpp \
     src/test_layerbitmap.cpp \
     src/test_layercamera.cpp \
