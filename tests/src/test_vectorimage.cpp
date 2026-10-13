@@ -84,3 +84,20 @@ TEST_CASE("Editor - Vector copy and paste")
     delete scribbleArea;
     delete editor;
 }
+
+TEST_CASE("VectorImage fillSelectedPath")
+{
+    VectorImage vImage;
+    BezierCurve square({ QPointF(10, 10), QPointF(90, 10), QPointF(90, 90), QPointF(10, 90), QPointF(10, 10) });
+    vImage.addCurve(square, 1.0);
+    vImage.selectAll();
+
+    REQUIRE_FALSE(vImage.curve(0).isFilled());
+    REQUIRE(vImage.getFirstAreaNumber(QPointF(50, 50)) == -1);
+
+    vImage.fillSelectedPath(3);
+
+    REQUIRE(vImage.curve(0).isFilled());
+    REQUIRE(vImage.getFirstAreaNumber(QPointF(50, 50)) >= 0);
+    REQUIRE(vImage.getFirstAreaNumber(QPointF(200, 200)) == -1);
+}

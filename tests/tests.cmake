@@ -5,6 +5,7 @@
 set(TEST_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/catch.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineparser.h
 )
 
 set(TEST_SOURCES
@@ -13,6 +14,8 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colormanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineparser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineparser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movieexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerbitmap.cpp

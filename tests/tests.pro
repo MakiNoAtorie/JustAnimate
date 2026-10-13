@@ -29,12 +29,14 @@ INCLUDEPATH += \
 
 HEADERS += \
     src/catch.hpp \
-    ../app/src/shortcutfilter.h
+    ../app/src/shortcutfilter.h \
+    ../app/src/commandlineparser.h
 
 SOURCES += \
     src/main.cpp \
     src/test_benchmark.cpp \
     src/test_colormanager.cpp \
+    src/test_commandlineparser.cpp \
     src/test_movieexporter.cpp \
     src/test_layer.cpp \
     src/test_layerbitmap.cpp \
@@ -60,7 +62,8 @@ SOURCES += \
     src/test_vectorimage.cpp \
     src/test_viewmanager.cpp \
     src/test_util.cpp \
-    ../app/src/shortcutfilter.cpp
+    ../app/src/shortcutfilter.cpp \
+    ../app/src/commandlineparser.cpp
 
 # --- core_lib ---
 

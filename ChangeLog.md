@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - With the new undo system on, importing an image (bitmap, vector or animated) can be undone and redone (0.5).
+- Add tests for bitmap flood fill, vector fill of a selected path and command-line parser bad arguments.
 - Eyedropper picks the true colour on soft (antialiased) bitmap edges instead of a darker one (A19).
 - Copy/paste on a vector layer pastes only the selected curves; with no selection it still pastes the whole frame (A18).
 - Stage profiler: set JUSTANIMATE_STAGE_PROFILE=1 to print per-stage time and call counts (input, dab mask, composite, buffer paste, canvas update); off costs one branch per stage.

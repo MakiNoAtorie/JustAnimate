@@ -437,3 +437,29 @@ TEST_CASE("BitmapImage autoCrop performance")
         REQUIRE(b->height() == 901);
     }
 }
+
+TEST_CASE("BitmapImage floodFill")
+{
+    // Closed black box (outline 3..7); fill from inside must stay inside
+    BitmapImage image(QRect(0, 0, 11, 11), Qt::transparent);
+    const QRgb black = qRgba(0, 0, 0, 255);
+    const QRgb red = qRgba(255, 0, 0, 255);
+    for (int i = 3; i <= 7; i++)
+    {
+        image.setPixel(i, 3, black);
+        image.setPixel(i, 7, black);
+        image.setPixel(3, i, black);
+        image.setPixel(7, i, black);
+    }
+
+    BitmapImage* result = nullptr;
+    REQUIRE(BitmapImage::floodFill(&result, &image, QRect(0, 0, 11, 11), QPoint(5, 5), red, 0, 0));
+    REQUIRE(result != nullptr);
+
+    REQUIRE(result->constScanLine(5, 5) == red);
+    REQUIRE(result->constScanLine(4, 6) == red);
+    REQUIRE(result->constScanLine(3, 3) == 0);
+    REQUIRE(result->constScanLine(1, 1) == 0);
+    REQUIRE(result->constScanLine(9, 5) == 0);
+    delete result;
+}
