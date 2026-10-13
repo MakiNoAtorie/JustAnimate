@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/x-pencil2d-pcl">
-    <comment>Pencil2D animation (old format)</comment>
+    <comment>Pencil2D/JustAnimate animation (old format)</comment>
     <comment xml:lang="de">Pencil2D-Animation (altes Format)</comment>
     <generic-icon name="video-x-generic"/>
     <glob pattern="*.pcl"/>
@@ -11,7 +11,7 @@
     <sub-class-of type="text/xml"/>
   </mime-type>
   <mime-type type="application/x-pencil2d-pclx">
-    <comment>Pencil2D animation</comment>
+    <comment>Pencil2D/JustAnimate animation</comment>
     <comment xml:lang="de">Pencil2D-Animation</comment>
     <generic-icon name="video-x-generic"/>
     <glob pattern="*.pclx"/>

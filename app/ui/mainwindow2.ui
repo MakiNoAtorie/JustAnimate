@@ -816,7 +816,7 @@
   </action>
   <action name="actionHelp">
    <property name="text">
-    <string>Help</string>
+    <string>User Manual</string>
    </property>
   </action>
   <action name="actionAbout">
@@ -891,7 +891,7 @@
   </action>
   <action name="actionWebsite">
    <property name="text">
-    <string>Pencil2D Website</string>
+    <string>JustAnimate on GitHub</string>
    </property>
   </action>
   <action name="actionReport_Bug">
@@ -924,12 +924,12 @@
   </action>
   <action name="actionForum">
    <property name="text">
-    <string>Pencil2D Forum</string>
+    <string>Pencil2D Community Forum</string>
    </property>
   </action>
   <action name="actionDiscord">
    <property name="text">
-    <string>Pencil2D Discord</string>
+    <string>Pencil2D Community Discord</string>
    </property>
   </action>
   <action name="actionZoom200">

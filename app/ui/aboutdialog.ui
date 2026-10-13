@@ -39,7 +39,7 @@
    <item>
     <widget class="QLabel" name="logoText">
      <property name="text">
-      <string notr="true">&lt;b&gt;Pencil2D&lt;/b&gt;</string>
+      <string notr="true">&lt;b&gt;JustAnimate&lt;/b&gt;</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -49,7 +49,7 @@
    <item>
     <widget class="QLabel" name="aboutText">
      <property name="text">
-      <string>Official site: &lt;a href=&quot;https://www.pencil2d.org&quot;&gt;pencil2d.org&lt;/a&gt;&lt;br&gt;Developed by: &lt;b&gt;Pascal Naidon, Patrick Corrieri, Matt Chang&lt;/b&gt;&lt;br&gt;Thanks to Qt Framework &lt;a href=&quot;https://www.qt.io/download&quot;&gt;https://www.qt.io/&lt;/a&gt;&lt;br&gt;miniz: &lt;a href=&quot;https://github.com/richgel999/miniz&quot;&gt;https://github.com/richgel999/miniz&lt;/a&gt;&lt;br&gt;Distributed under the &lt;a href=&quot;http://www.gnu.org/licenses/gpl-2.0.html&quot;&gt;GNU General Public License, version 2&lt;/a&gt;</string>
+      <string>Project page: &lt;a href=&quot;https://github.com/makinoatorie/justanimate&quot;&gt;github.com/makinoatorie/justanimate&lt;/a&gt;&lt;br&gt;Based on &lt;a href=&quot;https://www.pencil2d.org&quot;&gt;Pencil2D&lt;/a&gt;, originally developed by: &lt;b&gt;Pascal Naidon, Patrick Corrieri, Matt Chang&lt;/b&gt; and the Pencil2D contributors&lt;br&gt;Thanks to Qt Framework &lt;a href=&quot;https://www.qt.io/download&quot;&gt;https://www.qt.io/&lt;/a&gt;&lt;br&gt;miniz: &lt;a href=&quot;https://github.com/richgel999/miniz&quot;&gt;https://github.com/richgel999/miniz&lt;/a&gt;&lt;br&gt;Distributed under the &lt;a href=&quot;http://www.gnu.org/licenses/gpl-2.0.html&quot;&gt;GNU General Public License, version 2&lt;/a&gt;</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>

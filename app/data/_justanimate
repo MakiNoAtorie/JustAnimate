@@ -1,4 +1,4 @@
-#compdef pencil2d
+#compdef justanimate
 
 _arguments \
   {-h,--help}'[Display help]' \

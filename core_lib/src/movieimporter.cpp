@@ -194,7 +194,7 @@ Status MovieImporter::run(const QString &filePath, int fps, FileType type,
         if (mEditor->currentFrame() + frames > MaxFramesBound) {
             status = Status::FAIL;
             status.setTitle(tr("Imported movie too big!"));
-            status.setDescription(tr("The movie clip is too long. Pencil2D can only hold %1 frames, but this movie would go up to about frame %2. "
+            status.setDescription(tr("The movie clip is too long. JustAnimate can only hold %1 frames, but this movie would go up to about frame %2. "
                                               "Please make your video shorter and try again.")
                                               .arg(MaxFramesBound)
                                               .arg(mEditor->currentFrame() + frames));

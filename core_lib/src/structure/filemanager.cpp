@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 
 #include "filemanager.h"
+#include "appinfo.h"
 
 #include <ctime>
 #include <QDebug>
@@ -554,8 +555,7 @@ void FileManager::handleOpenProjectError(Status::ErrorCode error, const DebugDet
     QString title = tr("Could not open file");
     QString errorDesc;
     QString contactLinks = "<ul>"
-        "<li><a href=\"https://discuss.pencil2d.org/c/bugs\">Pencil2D Forum</a></li>"
-        "<li><a href=\"https://github.com/pencil2d/pencil/issues/new\">Github</a></li>"
+        "<li><a href=\"" APP_NEW_ISSUE_URL "\">GitHub</a></li>"
         "<li><a href=\"https://discord.gg/8FxdV2g\">Discord<\a></li>"
         "</ul>";
 
@@ -574,7 +574,7 @@ void FileManager::handleOpenProjectError(Status::ErrorCode error, const DebugDet
         // other cases
         errorDesc = tr("There was an error processing your file. "
             "This usually means that your project has been at least partially corrupted. "
-            "Try again with a newer version of Pencil2D, "
+            "Try again with a newer version of JustAnimate, "
             "or try to use a backup file if you have one. "
             "If you contact us through one of our official channels we may be able to help you."
             "For reporting issues, the best places to reach us are:");
@@ -863,7 +863,7 @@ Status FileManager::verifyObject(Object* obj)
 QStringList FileManager::searchForUnsavedProjects()
 {
     QDir pencil2DTempDir = QDir::temp();
-    bool folderExists = pencil2DTempDir.cd("Pencil2D");
+    bool folderExists = pencil2DTempDir.cd(APP_TEMP_DIR_NAME);
     if (!folderExists)
     {
         return QStringList();

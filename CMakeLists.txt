@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.21...3.31)
 set(CMAKE_OSX_ARCHITECTURES x86_64;arm64)
 
 # Set project name and version
-project(Pencil2D
+project(JustAnimate
     VERSION 0.7.0
-    DESCRIPTION "Pencil2D Animation Software"
+    DESCRIPTION "JustAnimate Animation Software (based on Pencil2D)"
     LANGUAGES CXX
 )
 

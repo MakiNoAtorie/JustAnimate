@@ -218,12 +218,12 @@ void GeneralPage::languageChanged(int i)
     {
         QMessageBox::warning(this,
                              newlangTr->translate(staticMetaObject.className(), "Restart Required"),
-                             newlangTr->translate(staticMetaObject.className(), "The language change will take effect after a restart of Pencil2D"));
+                             newlangTr->translate(staticMetaObject.className(), "The language change will take effect after a restart of JustAnimate"));
     } else {
         Q_ASSERT(false);
         QMessageBox::warning(this,
                              tr("Restart Required"),
-                             tr("The language change will take effect after a restart of Pencil2D"));
+                             tr("The language change will take effect after a restart of JustAnimate"));
     }
 }
 

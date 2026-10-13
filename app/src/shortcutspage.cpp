@@ -136,9 +136,9 @@ void ShortcutsPage::saveShortcutsButtonClicked()
         fDir = QDir::homePath();
 
     QString fileName = QFileDialog::getSaveFileName(this,
-                                                    tr("Save Pencil2D Shortcut file"),
+                                                    tr("Save JustAnimate Shortcut file"),
                                                     fDir + "/" + tr("untitled.pcls"),
-                                                    tr("Pencil2D Shortcut File(*.pcls)"));
+                                                    tr("JustAnimate Shortcut File(*.pcls)"));
     settings.setValue("Shortcuts", fileName);
     settings.endGroup();
 
@@ -162,9 +162,9 @@ void ShortcutsPage::loadShortcutsButtonClicked()
         fDir = QDir::homePath();
 
     QString fileName = QFileDialog::getOpenFileName(this,
-                                                    tr("Open Pencil2D Shortcut file"),
+                                                    tr("Open JustAnimate Shortcut file"),
                                                     fDir,
-                                                    tr("Pencil2D Shortcut File(*.pcls)"));
+                                                    tr("JustAnimate Shortcut File(*.pcls)"));
 
     if (!QFileInfo(fileName).isReadable())
     {

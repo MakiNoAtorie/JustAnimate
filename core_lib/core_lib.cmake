@@ -92,6 +92,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/onionskinpainteroptions.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/onionskinpaintstate.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/painterutils.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/appinfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pencildef.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pencilerror.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pencilsettings.h

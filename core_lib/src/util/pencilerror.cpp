@@ -58,11 +58,11 @@ void DebugDetails::appendSystemInfo()
     mDetails << "\n[System Info]\n";
     QString version(APP_VERSION);
     if (version.startsWith("99.0.0")) {
-        mDetails << "&nbsp;&nbsp;Pencil2D version: " APP_VERSION " (nightly)";
+        mDetails << "&nbsp;&nbsp;JustAnimate version: " APP_VERSION " (nightly)";
     } else if (version == "0.0.0.0") {
-        mDetails << "&nbsp;&nbsp;Pencil2D version: " APP_VERSION " (dev)";
+        mDetails << "&nbsp;&nbsp;JustAnimate version: " APP_VERSION " (dev)";
     } else {
-        mDetails << "&nbsp;&nbsp;Pencil2D version: " APP_VERSION " (stable)";
+        mDetails << "&nbsp;&nbsp;JustAnimate version: " APP_VERSION " (stable)";
     }
 
 #if defined(GIT_EXISTS)

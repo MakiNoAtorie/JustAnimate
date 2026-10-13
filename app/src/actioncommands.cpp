@@ -15,6 +15,7 @@ GNU General Public License for more details.
 */
 
 #include "actioncommands.h"
+#include "appinfo.h"
 
 #include <QInputDialog>
 #include <QMessageBox>
@@ -384,7 +385,7 @@ Status ActionCommands::exportMovie(bool isGif)
         if (QFile::exists(strMoviePath))
         {
             if (isGif) {
-                auto btn = QMessageBox::question(mParent, "Pencil2D",
+                auto btn = QMessageBox::question(mParent, APP_NAME,
                                                  tr("Finished. Open file location?"));
 
                 if (btn == QMessageBox::Yes)
@@ -394,7 +395,7 @@ Status ActionCommands::exportMovie(bool isGif)
                 }
                 return Status::OK;
             }
-            auto btn = QMessageBox::question(mParent, "Pencil2D",
+            auto btn = QMessageBox::question(mParent, APP_NAME,
                                              tr("Finished. Open movie now?", "When movie export done."));
             if (btn == QMessageBox::Yes)
             {
@@ -987,7 +988,7 @@ void ActionCommands::resetAllTools()
 
 void ActionCommands::help()
 {
-    QString url = "http://www.pencil2d.org/doc/";
+    QString url = UPSTREAM_DOCS_URL;
     QDesktopServices::openUrl(QUrl(url));
 }
 
@@ -1004,7 +1005,7 @@ void ActionCommands::quickGuide()
 
 void ActionCommands::website()
 {
-    QString url = "https://www.pencil2d.org/";
+    QString url = APP_REPO_URL;
     QDesktopServices::openUrl(QUrl(url));
 }
 
@@ -1022,7 +1023,7 @@ void ActionCommands::discord()
 
 void ActionCommands::reportbug()
 {
-    QString url = "https://github.com/pencil2d/pencil/issues";
+    QString url = APP_ISSUES_URL;
     QDesktopServices::openUrl(QUrl(url));
 }
 
@@ -1036,10 +1037,10 @@ void ActionCommands::checkForUpdates()
 // This action is a temporary measure until we have an automated recover mechanism in place
 void ActionCommands::openTemporaryDirectory()
 {
-    int ret = QMessageBox::warning(mParent, tr("Warning"), tr("The temporary directory is meant to be used only by Pencil2D. Do not modify it unless you know what you are doing."), QMessageBox::Cancel, QMessageBox::Ok);
+    int ret = QMessageBox::warning(mParent, tr("Warning"), tr("The temporary directory is meant to be used only by JustAnimate. Do not modify it unless you know what you are doing."), QMessageBox::Cancel, QMessageBox::Ok);
     if (ret == QMessageBox::Ok)
     {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(QDir::temp().filePath("Pencil2D")));
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QDir::temp().filePath(APP_TEMP_DIR_NAME)));
     }
 }
 

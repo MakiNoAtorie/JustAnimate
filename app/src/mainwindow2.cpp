@@ -17,6 +17,7 @@ GNU General Public License for more details.
 */
 
 #include "mainwindow2.h"
+#include "appinfo.h"
 #include "ui_mainwindow2.h"
 
 // Qt headers
@@ -97,11 +98,11 @@ namespace {
     QString getWindowTitle() {
         QString version(APP_VERSION);
         if (version.startsWith("99.0.0")) {
-            return QString("[*]Pencil2D Nightly Build %1").arg(BUILD_DATE);
+            return QString("[*]" APP_NAME " Nightly Build %1").arg(BUILD_DATE);
         } else if (version == "0.0.0.0") {
-            return QString("[*]Pencil2D Development Build %1").arg(BUILD_DATE);
+            return QString("[*]" APP_NAME " Development Build %1").arg(BUILD_DATE);
         } else {
-            return QString("[*]Pencil2D %1").arg(APP_VERSION);
+            return QString("[*]" APP_NAME " %1").arg(APP_VERSION);
         }
     }
 }
@@ -839,8 +840,8 @@ bool MainWindow2::saveObject(QString strSavedFileName)
 
         ErrorDialog errorDialog(st.title(),
                                 st.description().append(tr("<br><br>An error has occurred and your file may not have saved successfully."
-                                                           "\nIf you believe that this error is an issue with Pencil2D, please create a new issue at:"
-                                                           "<br><a href='https://github.com/pencil2d/pencil/issues'>https://github.com/pencil2d/pencil/issues</a><br>"
+                                                           "\nIf you believe that this error is an issue with JustAnimate, please create a new issue at:"
+                                                           "<br><a href='" APP_ISSUES_URL "'>" APP_ISSUES_URL "</a><br>"
                                                            "Please be sure to include the following details in your issue:")), st.details().html());
         errorDialog.exec();
         return false;
@@ -1655,7 +1656,7 @@ bool MainWindow2::checkForRecoverableProjects()
 bool MainWindow2::tryRecoverProject(const QString recoverPath)
 {
     QString caption = tr("Restore Project?");
-    QString text = tr("Pencil2D didn't close correctly. Would you like to restore the project?");
+    QString text = tr("JustAnimate didn't close correctly. Would you like to restore the project?");
 
     QMessageBox msgBox(this);
     hideQuestionMark(msgBox); // Must be before setDefaultButton
@@ -1693,7 +1694,7 @@ bool MainWindow2::startProjectRecovery(const QString recoverPath)
     {
         Q_ASSERT(o == nullptr);
         const QString title = tr("Recovery Failed.");
-        const QString text = tr("Sorry! Pencil2D is unable to restore your project");
+        const QString text = tr("Sorry! JustAnimate is unable to restore your project");
         QMessageBox::information(this, title, QString("<h4>%1</h4>%2").arg(title, text));
         return false;
     }

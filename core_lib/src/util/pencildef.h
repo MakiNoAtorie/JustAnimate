@@ -224,7 +224,9 @@ const static int MaxFramesBound = 9999;
 #define IMPORT_REPOSITION_TYPE      "ImportRepositionType"
 
 // Settings Group/Key Name
-#define PENCIL2D "Pencil"
+// Settings file name (QSettings organization/application); kept separate
+// from Pencil2D so both apps can be installed side by side.
+#define PENCIL2D "JustAnimate"
 #define SHORTCUTS_GROUP             "Shortcuts"
 #define SETTING_AUTO_SAVE           "AutoSave"
 #define SETTING_AUTO_SAVE_NUMBER    "AutosaveNumber"

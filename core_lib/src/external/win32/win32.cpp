@@ -34,11 +34,11 @@ namespace PlatformHandler
 #if _WIN32_WINNT >= _WIN32_WINNT_WIN7
         QString version(APP_VERSION);
         if (version.startsWith("99.0.0")) {
-            SetCurrentProcessExplicitAppUserModelID(L"Pencil2D.Pencil2D.Nightly");
+            SetCurrentProcessExplicitAppUserModelID(L"JustAnimate.JustAnimate.Nightly");
         } else if (version == "0.0.0.0") {
-            SetCurrentProcessExplicitAppUserModelID(L"Pencil2D.Pencil2D.Development");
+            SetCurrentProcessExplicitAppUserModelID(L"JustAnimate.JustAnimate.Development");
         } else {
-            SetCurrentProcessExplicitAppUserModelID(L"Pencil2D.Pencil2D.Release");
+            SetCurrentProcessExplicitAppUserModelID(L"JustAnimate.JustAnimate.Release");
         }
 #endif // _WIN32_WINNT >= _WIN32_WINNT_WIN7
 

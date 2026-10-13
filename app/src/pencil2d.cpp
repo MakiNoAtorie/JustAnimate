@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 */
 #include "pencil2d.h"
+#include "appinfo.h"
 
 #include <memory>
 
@@ -45,10 +46,10 @@ Pencil2D::Pencil2D(int& argc, char** argv) :
     QApplication(argc, argv)
 {
     // Set organization and application name
-    setOrganizationName("Pencil2D");
-    setOrganizationDomain("pencil2d.org");
-    setApplicationName("Pencil2D");
-    setApplicationDisplayName("Pencil2D");
+    setOrganizationName(APP_ORGANIZATION);
+    setOrganizationDomain(APP_DOMAIN);
+    setApplicationName(APP_NAME);
+    setApplicationDisplayName(APP_NAME);
 
     // Set application version
     setApplicationVersion(APP_VERSION);
@@ -58,7 +59,7 @@ Pencil2D::Pencil2D(int& argc, char** argv) :
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 7, 0)
     // Associate the application with our desktop entry
-    setDesktopFileName("org.pencil2d.Pencil2D");
+    setDesktopFileName(APP_DESKTOP_ID);
 #endif
     installTranslators();
 }
@@ -108,12 +109,12 @@ Status Pencil2D::handleCommandLineOptions()
 
 bool Pencil2D::isInstanceOpen()
 {
-    QDir appDir = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("Pencil2D");
+    QDir appDir = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath(APP_TEMP_DIR_NAME);
     appDir.mkpath(".");
-    mProcessLock.reset(new QLockFile(appDir.absoluteFilePath("pencil2d-process.lock")));
+    mProcessLock.reset(new QLockFile(appDir.absoluteFilePath("justanimate-process.lock")));
     if (!mProcessLock->tryLock(10))
     {
-        QMessageBox::StandardButton clickedButton = QMessageBox::warning(nullptr, tr("Warning"), tr("An instance of Pencil2D is already open. Running multiple instances of Pencil2D simultaneously is not recommended and could potentially result in data loss and other unexpected behavior."), QMessageBox::Close | QMessageBox::Open, QMessageBox::Close);
+        QMessageBox::StandardButton clickedButton = QMessageBox::warning(nullptr, tr("Warning"), tr("An instance of JustAnimate is already open. Running multiple instances of JustAnimate simultaneously is not recommended and could potentially result in data loss and other unexpected behavior."), QMessageBox::Close | QMessageBox::Open, QMessageBox::Close);
         if (clickedButton != QMessageBox::Open)
         {
             return true;

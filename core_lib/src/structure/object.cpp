@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 */
 #include "object.h"
+#include "appinfo.h"
 
 #include <QDomDocument>
 #include <QTextStream>
@@ -175,7 +176,8 @@ void Object::createWorkingDir()
     QString strWorkingDir;
     do
     {
-        strWorkingDir = QString("%1/Pencil2D/%2_%3_%4/").arg(QDir::tempPath(),
+        strWorkingDir = QString("%1/%2/%3_%4_%5/").arg(QDir::tempPath(),
+                                                             APP_TEMP_DIR_NAME,
                                                              projectName,
                                                              PFF_TMP_DECOMPRESS_EXT,
                                                              uniqueString(8));

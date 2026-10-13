@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en-US</string>
 	<key>CFBundleDisplayName</key>
-	<string>Pencil2D</string>
+	<string>JustAnimate</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -46,15 +46,15 @@
 		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
-	<string>pencil2d</string>
+	<string>justanimate</string>
 	<key>CFBundleIconFile</key>
 	<string>pencil2d.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.pencil2d.Pencil2D</string>
+	<string>io.github.makinoatorie.JustAnimate</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Pencil2D</string>
+	<string>JustAnimate</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

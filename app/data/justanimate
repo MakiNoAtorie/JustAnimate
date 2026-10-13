@@ -1,4 +1,4 @@
-_pencil2d()
+_justanimate()
 {
   local cur prev words cword opts
   _init_completion || return
@@ -24,4 +24,4 @@ _pencil2d()
     _filedir "pcl?(x)"
   fi
 } &&
-complete -F _pencil2d pencil2d
+complete -F _justanimate justanimate

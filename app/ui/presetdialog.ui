@@ -17,7 +17,7 @@
    <item>
     <widget class="QLabel" name="titleLabel">
      <property name="text">
-      <string>&lt;h1&gt;Welcome to Pencil2D!&lt;/h1&gt;</string>
+      <string>&lt;h1&gt;Welcome to JustAnimate!&lt;/h1&gt;</string>
      </property>
     </widget>
    </item>

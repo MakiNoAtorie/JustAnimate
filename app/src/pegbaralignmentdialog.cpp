@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 */
 #include "pegbaralignmentdialog.h"
+#include "appinfo.h"
 #include "ui_pegbaralignmentdialog.h"
 
 #include <QListWidget>
@@ -159,7 +160,7 @@ void PegBarAlignmentDialog::alignPegs()
     const QStringList bitmaplayers = getLayerList();
     if (bitmaplayers.isEmpty())
     {
-        QMessageBox::information(this, "Pencil2D",
+        QMessageBox::information(this, APP_NAME,
                                  tr("No layers selected!", "PegBar Dialog error message"),
                                  QMessageBox::Ok);
         return;
@@ -169,7 +170,7 @@ void PegBarAlignmentDialog::alignPegs()
     Status result = PegBarAligner(mEditor, mEditor->select()->mySelectionRect().toAlignedRect()).align(bitmaplayers);
     if (!result.ok())
     {
-        QMessageBox::information(this, "Pencil2D",
+        QMessageBox::information(this, APP_NAME,
                                  result.description(),
                                  QMessageBox::Ok);
         return;

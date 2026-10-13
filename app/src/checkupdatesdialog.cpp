@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 
 #include "checkupdatesdialog.h"
+#include "appinfo.h"
 #include <QDebug>
 #include <QNetworkReply>
 #include <QNetworkAccessManager>
@@ -100,7 +101,7 @@ void CheckUpdatesDialog::startChecking()
 void CheckUpdatesDialog::regularBuildCheck()
 {
     mNetworkManager = new QNetworkAccessManager(this);
-    QUrl url("https://github.com/pencil2d/pencil/releases.atom");
+    QUrl url(APP_RELEASES_FEED);
 
     QNetworkRequest req;
     req.setUrl(url);
@@ -112,9 +113,9 @@ void CheckUpdatesDialog::regularBuildCheck()
 
 void CheckUpdatesDialog::nightlyBuildCheck()
 {
-    mTitleLabel->setText(tr("<b>You are using a Pencil2D nightly build</b>"));
+    mTitleLabel->setText(tr("<b>You are using a JustAnimate nightly build</b>"));
     mDetailLabel->setText(tr("Please go %1 here %2 to check new nightly builds.")
-                          .arg("<a href=\"https://www.pencil2d.org/download/nightly/\">", "</a>"));
+                          .arg("<a href=\"" APP_RELEASES_URL "\">", "</a>"));
     mDetailLabel->setOpenExternalLinks(true);
     mProgressBar->setRange(0, 1);
     mProgressBar->setValue(1);
@@ -178,15 +179,15 @@ void CheckUpdatesDialog::networkRequestFinished(QNetworkReply* reply)
     bool isNewVersionAvailable = compareVersion(APP_VERSION, latestVersionString);
     if (isNewVersionAvailable)
     {
-        mTitleLabel->setText(tr("<b>A new version of Pencil2D is available!</b>"));
-        mDetailLabel->setText(tr("Pencil2D %1 is now available -- you have %2. Would you like to download it?")
+        mTitleLabel->setText(tr("<b>A new version of JustAnimate is available!</b>"));
+        mDetailLabel->setText(tr("JustAnimate %1 is now available -- you have %2. Would you like to download it?")
                               .arg(latestVersionString, APP_VERSION));
         mProgressBar->hide();
         mDownloadButton->setEnabled(true);
     }
     else
     {
-        mTitleLabel->setText(tr("<b>Pencil2D is up to date</b>"));
+        mTitleLabel->setText(tr("<b>JustAnimate is up to date</b>"));
         mDetailLabel->setText(tr("Version %1").arg(APP_VERSION));
         mProgressBar->setRange(0, 1);
         mProgressBar->setValue(1);
@@ -201,7 +202,7 @@ bool CheckUpdatesDialog::compareVersion(QString currentVersion, QString latestVe
 
 QString CheckUpdatesDialog::getVersionNumberFromXml(QString xml)
 {
-    // XML source: https://github.com/pencil2d/pencil/releases.atom
+    // XML source: APP_RELEASES_FEED
 
     QXmlStreamReader xmlReader(xml);
 
@@ -235,7 +236,7 @@ QString CheckUpdatesDialog::getVersionNumberFromXml(QString xml)
 
 void CheckUpdatesDialog::gotoDownloadPage()
 {
-    QString url = "https://pencil2d.org/download";
+    QString url = APP_RELEASES_URL;
     QDesktopServices::openUrl(QUrl(url));
 }
 

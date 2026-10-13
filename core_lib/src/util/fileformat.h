@@ -29,10 +29,10 @@ GNU General Public License for more details.
 #define PFF_BACKUP_IDENTIFIER           "backup"
 
 #define PFF_OPEN_PROJECT_EXT_FILTER \
-    QCoreApplication::translate("FileFormat", "Pencil2D formats") + " (*.pclx *.pcl);;" + QCoreApplication::translate("FileFormat", "Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Pencil2D Project") + " (*.pcl)"
+    QCoreApplication::translate("FileFormat", "Project formats") + " (*.pclx *.pcl);;" + QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Project") + " (*.pcl)"
 
 #define PFF_SAVE_PROJECT_EXT_FILTER \
-    QCoreApplication::translate("FileFormat", "Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Pencil2D Project") + " (*.pcl)"
+    QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Project") + " (*.pcl)"
 
 #define PFF_MOVIE_EXT \
     QCoreApplication::translate("FileFormat", "Movie formats") + "(*.avi *.mpg *.mpeg *.mov *.mp4 *.mkv *.ogv *.swf *.flv *.webm *.wmv);;" \
@@ -46,7 +46,7 @@ GNU General Public License for more details.
     QCoreApplication::translate("FileFormat",  "Image formats") + " (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp);;PNG (*.png);;JPG(*.jpg *.jpeg);;BMP(*.bmp);;TIFF(*.tif *.tiff);;WEBP(*.webp)"
 
 #define PFF_PALETTE_EXT_FILTER \
-    QCoreApplication::translate("FileFormat", "Palette formats") + " (*.xml *.gpl);;" + QCoreApplication::translate("FileFormat", "Pencil2D Palette") + " (*.xml);;" + QCoreApplication::translate("FileFormat", "GIMP Palette") + " (*.gpl)"
+    QCoreApplication::translate("FileFormat", "Palette formats") + " (*.xml *.gpl);;" + QCoreApplication::translate("FileFormat", "JustAnimate Palette") + " (*.xml);;" + QCoreApplication::translate("FileFormat", "GIMP Palette") + " (*.gpl)"
 
 #define PFF_GIF_EXT_FILTER \
     QCoreApplication::translate("FileFormat", "Animated GIF") + " (*.gif)"

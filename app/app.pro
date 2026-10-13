@@ -10,7 +10,7 @@ TEMPLATE = app
 CONFIG += precompile_header lrelease embed_translations
 QT += core widgets gui xml multimedia svg network
 
-TARGET = pencil2d
+TARGET = justanimate
 
 RESOURCES += data/app.qrc
 
@@ -241,8 +241,8 @@ macx {
     FILE_ICONS.path = Contents/Resources
     QMAKE_BUNDLE_DATA += FILE_ICONS
 
-    QMAKE_TARGET_BUNDLE_PREFIX += org.pencil2d
-    QMAKE_APPLICATION_BUNDLE_NAME = Pencil2D
+    QMAKE_TARGET_BUNDLE_PREFIX += io.github.makinoatorie
+    QMAKE_APPLICATION_BUNDLE_NAME = JustAnimate
 }
 
 win32 {
@@ -305,22 +305,22 @@ win32 {
 unix:!macx {
     target.path = $${PREFIX}/bin
 
-    bashcompletion.files = data/pencil2d
+    bashcompletion.files = data/justanimate
     bashcompletion.path = $${PREFIX}/share/bash-completion/completions
 
-    zshcompletion.files = data/_pencil2d
+    zshcompletion.files = data/_justanimate
     zshcompletion.path = $${PREFIX}/share/zsh/site-functions
 
-    metainfo.files = data/org.pencil2d.Pencil2D.metainfo.xml
+    metainfo.files = data/io.github.makinoatorie.JustAnimate.metainfo.xml
     metainfo.path = $${PREFIX}/share/metainfo
 
-    mimepackage.files = data/org.pencil2d.Pencil2D.xml
+    mimepackage.files = data/io.github.makinoatorie.JustAnimate.xml
     mimepackage.path = $${PREFIX}/share/mime/packages
 
-    desktopentry.files = data/org.pencil2d.Pencil2D.desktop
+    desktopentry.files = data/io.github.makinoatorie.JustAnimate.desktop
     desktopentry.path = $${PREFIX}/share/applications
 
-    icon.files = data/org.pencil2d.Pencil2D.png
+    icon.files = data/io.github.makinoatorie.JustAnimate.png
     icon.path = $${PREFIX}/share/icons/hicolor/256x256/apps
 
     INSTALLS += bashcompletion zshcompletion target metainfo mimepackage desktopentry icon

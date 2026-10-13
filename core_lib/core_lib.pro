@@ -104,6 +104,7 @@ HEADERS +=  \
     src/util/onionskinpainteroptions.h \
     src/util/onionskinpaintstate.h \
     src/util/painterutils.h \
+    src/util/appinfo.h \
     src/util/pencildef.h \
     src/util/pencilerror.h \
     src/util/pencilsettings.h \

@@ -236,8 +236,8 @@ add_executable(pencil2d
 if(APPLE)
     set_target_properties(pencil2d PROPERTIES
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_BUNDLE_NAME "Pencil2D"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "org.pencil2d.Pencil2D"
+        MACOSX_BUNDLE_BUNDLE_NAME "JustAnimate"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.makinoatorie.JustAnimate"
         MACOSX_BUNDLE_INFO_PLIST ${MACOSX_BUNDLE_INFO_PLIST}
     )
 elseif(WIN32)
@@ -263,6 +263,7 @@ target_include_directories(pencil2d PRIVATE
 # Set AUTOUIC search paths for UI files
 set_target_properties(pencil2d PROPERTIES
     AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/app/ui
+    OUTPUT_NAME justanimate
 )
 
 # Link libraries
@@ -293,22 +294,22 @@ if(UNIX AND NOT APPLE)
     # Linux installation
     install(TARGETS pencil2d DESTINATION bin)
     
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/pencil2d
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/justanimate
             DESTINATION share/bash-completion/completions)
     
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/_pencil2d
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/_justanimate
             DESTINATION share/zsh/site-functions)
     
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/org.pencil2d.Pencil2D.metainfo.xml
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/io.github.makinoatorie.JustAnimate.metainfo.xml
             DESTINATION share/metainfo)
     
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/org.pencil2d.Pencil2D.xml
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/io.github.makinoatorie.JustAnimate.xml
             DESTINATION share/mime/packages)
     
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/org.pencil2d.Pencil2D.desktop
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/io.github.makinoatorie.JustAnimate.desktop
             DESTINATION share/applications)
     
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/org.pencil2d.Pencil2D.png
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/io.github.makinoatorie.JustAnimate.png
             DESTINATION share/icons/hicolor/256x256/apps)
 elseif(APPLE)
     # macOS installation
