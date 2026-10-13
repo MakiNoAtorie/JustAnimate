@@ -329,6 +329,12 @@ Status LayerManager::deleteLayer(int index)
     }
     Q_ASSERT(object()->getLayerCount() >= 2);
 
+    // Resolve a pending selection move while the layer it belongs to is still current
+    if (index == currentLayerIndex())
+    {
+        emit currentLayerWillChange(index);
+    }
+
     // current layer is the last layer && we are deleting it
     if (index == object()->getLayerCount() - 1 &&
         index == currentLayerIndex())

@@ -19,6 +19,10 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "layermanager.h"
 #include "pencilerror.h"
+#include "scribblearea.h"
+#include "selectionmanager.h"
+#include "layerbitmap.h"
+#include "bitmapimage.h"
 
 
 TEST_CASE("LayerManager::init()")
@@ -92,6 +96,44 @@ TEST_CASE("LayerManager::deleteLayer()")
         REQUIRE(layerMgr->count() == 1);
         REQUIRE((st == Status::ERROR_NEED_AT_LEAST_ONE_CAMERA_LAYER));
     }
+    delete editor;
+}
+
+TEST_CASE("LayerManager::deleteLayer() with a pending selection move")
+{
+    Object* object = new Object;
+    object->init();
+    object->addNewCameraLayer();
+    LayerBitmap* doomed = object->addNewBitmapLayer();
+    LayerBitmap* neighbour = object->addNewBitmapLayer();
+
+    BitmapImage redSquare(QRect(0, 0, 10, 10), Qt::red);
+    neighbour->getBitmapImageAtFrame(1)->paste(&redSquare);
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(object);
+    editor->init();
+    scribbleArea->setEditor(editor);
+    scribbleArea->init();
+    editor->layers()->setCurrentLayer(doomed);
+    editor->scrubTo(1);
+
+    // Start moving a selection on the layer about to be deleted
+    editor->select()->setSelection(QRectF(0, 0, 10, 10));
+    editor->select()->setTranslation(QPointF(20, 20));
+    editor->select()->calculateSelectionTransformation();
+    REQUIRE_FALSE(editor->select()->selectionTransform().isIdentity());
+
+    REQUIRE(editor->layers()->deleteLayer(1) == Status::OK);
+    REQUIRE(editor->layers()->currentLayer() == neighbour);
+
+    BitmapImage* image = neighbour->getBitmapImageAtFrame(1);
+    REQUIRE(image->bounds() == QRect(0, 0, 10, 10));
+    REQUIRE(image->pixel(5, 5) == QColor(Qt::red).rgba());
+
+    delete scribbleArea;
     delete editor;
 }
 
