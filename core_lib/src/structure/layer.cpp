@@ -265,6 +265,9 @@ bool Layer::moveKeyFrame(int position, int offset)
             mSelectedFrames_byPosition[newPosIndex] = position;
             mSelectedFrames_byLast[newLastndex] = position;
         }
+
+        // Keep the list sorted, moveSelectedFrames() relies on it
+        std::sort(mSelectedFrames_byPosition.begin(), mSelectedFrames_byPosition.end(), sortAsc);
         return true;
     }
 
