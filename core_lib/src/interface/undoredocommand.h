@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "camera.h"
 #include "layer.h"
+#include "undoredomanager.h"
 
 class Editor;
 class UndoRedoManager;
@@ -117,6 +118,23 @@ private:
 
     int frameOffset = 0;
     QList<int> positions;
+};
+
+class MoveBitmapsCommand : public UndoRedoCommand
+{
+public:
+    MoveBitmapsCommand(const QList<BitmapOffset>& offsets,
+                       const QString& description,
+                       Editor* editor,
+                       QUndoCommand* parent = nullptr);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(int direction);
+
+    QList<BitmapOffset> offsets;
 };
 
 class BitmapReplaceCommand : public UndoRedoCommand

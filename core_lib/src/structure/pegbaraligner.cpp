@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include <bitmapimage.h>
 #include <layerbitmap.h>
 #include <layermanager.h>
+#include <undoredomanager.h>
 
 PegStatus::PegStatus(ErrorCode code, QPoint point)
     : Status(code), point(point)
@@ -37,18 +38,20 @@ PegBarAligner::PegBarAligner(Editor* editor, QRect searchRect) :
 
 Status PegBarAligner::align(const QStringList& layers)
 {
+    // The reference is the keyframe shown at the current frame, which may be a held frame
     LayerBitmap* layerBitmap = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
-    BitmapImage* img = layerBitmap->getBitmapImageAtFrame(mEditor->currentFrame());
-    PegStatus result = findPoint(*img);
+    BitmapImage* img = layerBitmap->getLastBitmapImageAtFrame(mEditor->currentFrame());
+    PegStatus result = img ? findPoint(*img) : PegStatus(Status::FAIL);
 
     if (!result.ok())
     {
         return Status(Status::FAIL, tr("Peg hole not found!\nCheck selection, and please try again.", "PegBar error message"));
     }
 
-    const int pegX = result.point.x();
-    const int pegY = result.point.y();
+    const QPoint peg = result.point;
 
+    // Find every offset first so a missing peg leaves the drawing untouched
+    UserSaveState userState;
     for (int i = 0; i < layers.count(); i++)
     {
         layerBitmap = static_cast<LayerBitmap*>(mEditor->layers()->findLayerByName(layers.at(i)));
@@ -57,19 +60,31 @@ Status PegBarAligner::align(const QStringList& layers)
             if (!layerBitmap->keyExists(k)) { continue; }
 
             img = layerBitmap->getBitmapImageAtFrame(k);
-            img->enableAutoCrop(false);
-
             result = findPoint(*img);
             if (!result.ok())
             {
                 const QString errorDescription = tr("Peg bar not found at %2, %1").arg(k).arg(layerBitmap->name());
                 return Status(result.code(), errorDescription);
             }
-            img->moveTopLeft(QPoint(img->left() + (pegX - result.point.x()), img->top() + (pegY - result.point.y())));
-
-            emit mEditor->frameModified(img->pos());
+            if (result.point != peg)
+            {
+                userState.bitmapOffsets.append({ layerBitmap->id(), k, peg - result.point });
+            }
         }
     }
+
+    UndoRedoManager* undoRedo = mEditor->undoRedo();
+    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::BITMAPS_MOVE);
+    for (const BitmapOffset& move : qAsConst(userState.bitmapOffsets))
+    {
+        layerBitmap = static_cast<LayerBitmap*>(mEditor->layers()->findLayerById(move.layerId));
+        img = layerBitmap->getBitmapImageAtFrame(move.frame);
+        img->enableAutoCrop(false);
+        img->moveTopLeft(img->topLeft() + move.offset);
+        emit mEditor->frameModified(move.frame);
+    }
+    undoRedo->addUserState(saveStateId, userState);
+    undoRedo->record(saveStateId, tr("Peg bar alignment"));
 
     mEditor->deselectAll();
 

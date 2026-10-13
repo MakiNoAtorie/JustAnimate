@@ -47,6 +47,7 @@ enum class UndoRedoRecordType {
     KEYFRAME_REMOVE, // Removing a keyframe
     KEYFRAME_ADD, // Adding a keyframe
     KEYFRAME_MOVE,
+    BITMAPS_MOVE, // Moving bitmap keyframes on the canvas, e.g. peg bar alignment
     // SCRUB_LAYER, // Scrubbing layer
     // SCRUB_KEYFRAME, // Scrubbing keyframe
     INVALID
@@ -92,6 +93,13 @@ struct MoveFramesSaveState {
     QList<int> positions;
 };
 
+/// Moves the bitmap keyframe at `frame` on layer `layerId` by `offset` canvas pixels
+struct BitmapOffset {
+    int layerId = 0;
+    int frame = 0;
+    QPoint offset;
+};
+
 /// Use this struct to store user related data that will later be added to the backup
 /// This struct is meant to be safely shared and stored temporarily,
 /// as such don't store ptrs here...
@@ -99,6 +107,7 @@ struct MoveFramesSaveState {
 /// Only store what you need.
 struct UserSaveState {
     MoveFramesSaveState moveFramesState = {};
+    QList<BitmapOffset> bitmapOffsets;
 };
 
 /// This is the main undo/redo state structure which is meant to populate
@@ -200,6 +209,7 @@ private:
     void addKeyFrame(const UndoSaveState& undoState, const QString& description);
     void removeKeyFrame(const UndoSaveState& undoState, const QString& description);
     void moveKeyFrames(const UndoSaveState& undoState, const QString& description);
+    void moveBitmaps(const UndoSaveState& undoState, const QString& description);
 
     void initCommonKeyFrameState(UndoSaveState* undoSaveState) const;
 

@@ -130,6 +130,10 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
             moveKeyFrames(*saveState, description);
             break;
         }
+        case UndoRedoRecordType::BITMAPS_MOVE: {
+            moveBitmaps(*saveState, description);
+            break;
+        }
         default: {
             QString reason("Unhandled case for: ");
             reason.append(description);
@@ -219,6 +223,11 @@ void UndoRedoManager::moveKeyFrames(const UndoSaveState& undoState, const QStrin
                                                              description,
                                                              editor());
     pushCommand(element);
+}
+
+void UndoRedoManager::moveBitmaps(const UndoSaveState& undoState, const QString& description)
+{
+    pushCommand(new MoveBitmapsCommand(undoState.userState.bitmapOffsets, description, editor()));
 }
 
 void UndoRedoManager::replaceBitmap(const UndoSaveState& undoState, const QString& description)

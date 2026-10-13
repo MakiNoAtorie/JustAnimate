@@ -205,6 +205,46 @@ void MoveKeyFramesCommand::redo()
 
     emit editor()->framesModified();
 }
+MoveBitmapsCommand::MoveBitmapsCommand(const QList<BitmapOffset>& offsets,
+                                       const QString& description,
+                                       Editor* editor,
+                                       QUndoCommand* parent)
+    : UndoRedoCommand(editor, parent), offsets(offsets)
+{
+    setText(description);
+}
+
+void MoveBitmapsCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(-1);
+}
+
+void MoveBitmapsCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(1);
+}
+
+void MoveBitmapsCommand::apply(int direction)
+{
+    for (const BitmapOffset& move : qAsConst(offsets))
+    {
+        Layer* layer = editor()->layers()->findLayerById(move.layerId);
+        if (layer == nullptr || layer->type() != Layer::BITMAP) { continue; }
+
+        BitmapImage* img = static_cast<LayerBitmap*>(layer)->getBitmapImageAtFrame(move.frame);
+        if (img == nullptr) { continue; }
+
+        img->moveTopLeft(img->topLeft() + direction * move.offset);
+        emit editor()->frameModified(move.frame);
+    }
+}
+
 BitmapReplaceCommand::BitmapReplaceCommand(const BitmapImage* undoBitmap,
                              const int undoLayerId,
                              const QString& description,
