@@ -19,6 +19,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_filemanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapbucket.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_erasertool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_propertyinfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolsettings.cpp

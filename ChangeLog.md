@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - "Move frame forward" followed by a drag no longer drops a keyframe: the selection list stays sorted after the swap.
+- Fix crash when using the bitmap bucket, or the eraser on a vector layer, on a frame before the layer's first keyframe.
 - CI builds with CMake and runs pencil2d_tests on Linux, Windows and macOS; drop Pencil2D notarization/upload and the AppVeyor, docs and Transifex jobs.
 - Fix crash when undoing "Remove frame" on a vector layer (legacy undo looked the layer up by index instead of id).
 - Save writes the project to `<name>.tmp` and renames it over the original only on success, so a failed save no longer corrupts the file; old backup-copy helpers removed (A4).

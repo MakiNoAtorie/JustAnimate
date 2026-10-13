@@ -52,7 +52,12 @@ BitmapBucket::BitmapBucket(Editor* editor,
 
     Q_ASSERT(mTargetFillToLayer);
 
-    BitmapImage singleLayerImage = *static_cast<BitmapImage*>(initialLayer->getLastKeyFrameAtPosition(frameIndex));
+    mPixelCache = new QHash<QRgb, bool>();
+
+    BitmapImage* keyImage = static_cast<BitmapImage*>(initialLayer->getLastKeyFrameAtPosition(frameIndex));
+    if (keyImage == nullptr) { return; } // Before the layer's first keyframe: nothing to fill, paint() does nothing
+
+    BitmapImage singleLayerImage = *keyImage;
     if (properties.fillReferenceMode() == 1) // All layers
     {
         mReferenceImage = flattenBitmapLayersToImage();
@@ -61,8 +66,6 @@ BitmapBucket::BitmapBucket(Editor* editor,
     }
     mStartReferenceColor = mReferenceImage.constScanLine(point.x(), point.y());
     mUseDragToFill = canUseDragToFill(point, color, singleLayerImage);
-
-    mPixelCache = new QHash<QRgb, bool>();
 }
 
 bool BitmapBucket::canUseDragToFill(const QPoint& fillPoint, const QColor& bucketColor, const BitmapImage& referenceImage)

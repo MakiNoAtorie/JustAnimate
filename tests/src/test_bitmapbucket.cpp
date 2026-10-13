@@ -152,3 +152,42 @@ TEST_CASE("BitmapBucket - Fill drag behaviour across four segments")
     delete scribbleArea;
     delete editor;
 }
+
+TEST_CASE("BitmapBucket - Fill before the layer's first keyframe does nothing")
+{
+    Object* obj = new Object;
+    obj->init();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(5);
+    layer->removeKeyFrame(1);
+
+    Editor* editor = new Editor;
+    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
+    editor->setScribbleArea(scribbleArea);
+    editor->setObject(obj);
+    editor->init();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    REQUIRE(layer->getLastKeyFrameAtPosition(1) == nullptr);
+
+    BucketToolProperties properties;
+    QHash<int, PropertyInfo> info;
+    info[BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE] = 0;
+    info[BucketToolProperties::FILLEXPAND_ENABLED] = false;
+    info[BucketToolProperties::FILLMODE_VALUE] = 0;
+    info[BucketToolProperties::COLORTOLERANCE_VALUE] = 25;
+    info[BucketToolProperties::COLORTOLERANCE_ENABLED] = true;
+    properties.toolProperties().insertProperties(info);
+
+    BitmapBucket bucket(editor, Qt::red, QRect(0, 0, 10, 10), QPointF(2, 2), properties);
+
+    int fillCount = 0;
+    bucket.paint(QPointF(2, 2), [&fillCount](BucketState, int, int) { fillCount++; });
+
+    REQUIRE(fillCount == 0);
+    REQUIRE(layer->keyFrameCount() == 1);
+    REQUIRE_FALSE(layer->keyExists(1));
+
+    delete scribbleArea;
+    delete editor;
+}
