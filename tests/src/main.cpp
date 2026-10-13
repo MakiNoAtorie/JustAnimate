@@ -18,6 +18,10 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QApplication>
+#include <QStandardPaths>
+#include <cstring>
+
+int crashAfterAutosave(); // test_emergencysave.cpp
 
 #ifdef _MSC_VER
 #include <crtdbg.h>
@@ -36,6 +40,10 @@ int main(int argc, char* argv[])
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
 #endif
     QApplication a(argc, argv);
+    QStandardPaths::setTestModeEnabled(true); // keep crash-recovery files out of the user's folders
+
+    if (argc == 2 && std::strcmp(argv[1], "--crash-after-autosave") == 0)
+        return crashAfterAutosave();
 
     int result = Catch::Session().run(argc, argv);
 

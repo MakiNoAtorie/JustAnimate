@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QVersionNumber>
 #include "qminiz.h"
+#include "emergencysave.h"
 #include "fileformat.h"
 #include "object.h"
 #include "layercamera.h"
@@ -406,10 +407,18 @@ Status FileManager::save(const Object* object, const QString& sFileName)
 
 /** Autosave: write the project into its working folder and archive it to
  *  PFF_AUTOSAVE_FILE_NAME there. The archive goes through save(), so it is
- *  replaced only once complete and recovery always finds a whole one. */
+ *  replaced only once complete and recovery always finds a whole one. A
+ *  completed archive is what EmergencySave publishes on a crash. */
 Status FileManager::writeToWorkingFolder(const Object* object)
 {
-    return save(object, QDir(object->workingDir()).filePath(PFF_AUTOSAVE_FILE_NAME));
+    const QDir workingDir(object->workingDir());
+    const QString archive = workingDir.filePath(PFF_AUTOSAVE_FILE_NAME);
+    Status st = save(object, archive);
+    if (st.ok())
+    {
+        EmergencySave::setCompletedAutosave(archive, workingDir.dirName());
+    }
+    return st;
 }
 
 ObjectData FileManager::loadProjectData(const QDomElement& docElem)
@@ -811,6 +820,25 @@ Status FileManager::verifyObject(Object* obj)
 
 QStringList FileManager::searchForUnsavedProjects()
 {
+    // Take in autosaves the crash handler published, in case the temp
+    // folder they came from was cleaned up since.
+    const QDir published(EmergencySave::publishDir());
+    const QStringList publishedFilter("*_" PFF_TMP_DECOMPRESS_EXT "_*" PFF_EXTENSION);
+    for (const QString& file : published.entryList(publishedFilter, QDir::Files))
+    {
+        const QString from = published.filePath(file);
+        const QString folder = QDir::temp().filePath(QString(APP_TEMP_DIR_NAME "/") + QFileInfo(file).completeBaseName());
+        const QString to = QDir(folder).filePath(PFF_AUTOSAVE_FILE_NAME);
+        if (QFile::exists(to))
+        {
+            QFile::remove(from); // the working folder survived, with this same archive
+        }
+        else if (QDir().mkpath(folder) && QFile::rename(from, to))
+        {
+            qDebug() << "Took in emergency save" << from;
+        }
+    }
+
     QDir pencil2DTempDir = QDir::temp();
     bool folderExists = pencil2DTempDir.cd(APP_TEMP_DIR_NAME);
     if (!folderExists)

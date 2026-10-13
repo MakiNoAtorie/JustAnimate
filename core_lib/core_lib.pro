@@ -97,6 +97,7 @@ HEADERS +=  \
     src/util/cameraeasingtype.h \
     src/util/camerafieldoption.h \
     src/util/colordictionary.h \
+    src/util/emergencysave.h \
     src/util/fileformat.h \
     src/util/filetype.h \
     src/util/importimageconfig.h \
@@ -188,6 +189,7 @@ SOURCES +=  src/graphics/bitmap/bitmapimage.cpp \
     src/util/autosaverbytime.cpp \
     src/util/blitrect.cpp \
     src/util/cameraeasingtype.cpp \
+    src/util/emergencysave.cpp \
     src/util/fileformat.cpp \
     src/util/pencilerror.cpp \
     src/util/pencilsettings.cpp \

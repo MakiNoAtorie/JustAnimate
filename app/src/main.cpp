@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 */
 
+#include "emergencysave.h"
 #include "log.h"
 #include "pencil2d.h"
 #include "pencilerror.h"
@@ -29,6 +30,7 @@ int main(int argc, char* argv[])
     Q_INIT_RESOURCE(core_lib);
     PlatformHandler::initialise();
     initCategoryLogging();
+    EmergencySave::install();
 
     Pencil2D app(argc, argv);
 

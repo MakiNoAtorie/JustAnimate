@@ -44,6 +44,7 @@ SOURCES += \
     src/test_object.cpp \
     src/test_pegbaraligner.cpp \
     src/test_filemanager.cpp \
+    src/test_emergencysave.cpp \
     src/test_bitmapimage.cpp \
     src/test_bitmapbucket.cpp \
     src/test_erasertool.cpp \

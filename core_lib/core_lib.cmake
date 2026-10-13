@@ -83,6 +83,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/cameraeasingtype.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/camerafieldoption.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/colordictionary.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/emergencysave.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/fileformat.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/filetype.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/importimageconfig.h
@@ -177,6 +178,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blitrect.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/cameraeasingtype.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/emergencysave.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/fileformat.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/log.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pencilerror.cpp
