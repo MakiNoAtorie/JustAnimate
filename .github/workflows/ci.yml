@@ -133,6 +133,35 @@ jobs:
           ./smoke-win/*/justanimate.exe tests/data/camera-path-test.pclx -o smoke.png
           test -s smoke0001.png
 
+      - name: Smoke test the installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Start-Process -Wait: the installer and the app are GUI programs, a plain call does not wait for them
+          function Run($exe, $argList) {
+            $p = Start-Process -FilePath $exe -ArgumentList $argList -Wait -PassThru -NoNewWindow
+            if ($p.ExitCode -ne 0) { throw "$exe $argList exited with code $($p.ExitCode)" }
+          }
+          $installer = (Get-ChildItem packages\*.exe | Select-Object -First 1).FullName
+          $dir = Join-Path $env:RUNNER_TEMP 'JustAnimate-installed'
+          Run $installer @('/S', "/D=$dir")  # /D must be last and unquoted
+          Run "$dir\justanimate.exe" @('--version')
+          Run "$dir\justanimate.exe" @('tests/data/camera-path-test.pclx', '-o', 'smoke-installed.png')
+          if (-not (Test-Path smoke-installed0001.png) -or (Get-Item smoke-installed0001.png).Length -eq 0) { throw 'the installed app exported nothing' }
+
+      - name: Smoke test the package (macOS)
+        if: runner.os == 'macOS'
+        env:
+          QT_QPA_PLATFORM: ''  # the bundle ships the cocoa platform plugin only
+        run: |
+          mkdir smoke-mac
+          hdiutil attach packages/*.dmg -nobrowse -readonly -mountpoint "$PWD/smoke-mac"
+          app="$PWD/smoke-mac/JustAnimate.app/Contents/MacOS/JustAnimate"
+          "$app" --version
+          "$app" tests/data/camera-path-test.pclx -o smoke-dmg.png
+          test -s smoke-dmg0001.png
+          hdiutil detach "$PWD/smoke-mac"
+
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
