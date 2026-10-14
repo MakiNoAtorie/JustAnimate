@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Shortcuts that add, duplicate, remove or move a frame, and the flip playback shortcuts, no longer fire while the pen is down (0.1).
 - A movie export that fails or is cancelled before it writes anything no longer deletes an existing file at the output path (0.1).
 - A failed save of a legacy .pcl project no longer damages the project file: it is written to a temporary file and renamed when complete (0.1).
 - Crash recovery: a project saved after its last autosave is no longer restored from the older autosave, an autosave that cannot be extracted no longer deletes the working files, and a recovered project asks to be saved before it closes (0.1).

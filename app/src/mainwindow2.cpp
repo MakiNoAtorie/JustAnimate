@@ -1353,6 +1353,13 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionNext_Frame->installEventFilter(shortcutFilter);
     ui->actionPrev_KeyFrame->installEventFilter(shortcutFilter);
     ui->actionNext_KeyFrame->installEventFilter(shortcutFilter);
+    ui->actionAdd_Frame->installEventFilter(shortcutFilter);
+    ui->actionDuplicate_Frame->installEventFilter(shortcutFilter);
+    ui->actionRemove_Frame->installEventFilter(shortcutFilter);
+    ui->actionMove_Frame_Forward->installEventFilter(shortcutFilter);
+    ui->actionMove_Frame_Backward->installEventFilter(shortcutFilter);
+    ui->actionFlip_inbetween->installEventFilter(shortcutFilter);
+    ui->actionFlip_rolling->installEventFilter(shortcutFilter);
     ui->actionNew_Bitmap_Layer->installEventFilter(shortcutFilter);
     ui->actionNew_Vector_Layer->installEventFilter(shortcutFilter);
     ui->actionNew_Camera_Layer->installEventFilter(shortcutFilter);
