@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- One undo step per action: importing or pasting an image onto an empty frame, and Add Frame on a frame that exists, no longer need two undos (0.5).
 - Shortcuts that add, duplicate, remove or move a frame, and the flip playback shortcuts, no longer fire while the pen is down (0.1).
 - A movie export that fails or is cancelled before it writes anything no longer deletes an existing file at the output path (0.1).
 - A failed save of a legacy .pcl project no longer damages the project file: it is written to a temporary file and renamed when complete (0.1).

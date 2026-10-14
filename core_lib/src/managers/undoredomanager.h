@@ -164,6 +164,11 @@ public:
      *  Takes ownership of the layer, so that undo can put the same layer back. */
     void recordLayerRemove(Layer* layer, int index, const QString& description);
 
+    /** Makes the records between beginMacro and endMacro one undo step.
+     *  Use UndoMacro. No step is made when nothing is recorded. */
+    void beginMacro(const QString& description);
+    void endMacro();
+
     QAction* createUndoAction(QObject* parent, const QIcon& icon);
     QAction* createRedoAction(QObject* parent, const QIcon& icon);
 
@@ -197,10 +202,25 @@ private:
     void clearSaveStates();
 
     QUndoStack mUndoStack;
+    int mMacroDepth = 0;
+    bool mMacroOpen = false; // the stack macro starts at the first record
+    QString mMacroDescription;
 
     QMap<SAVESTATE_ID, UndoSaveState*> mSaveStates;
 
     SAVESTATE_ID mSaveStateId = 1;
+};
+
+/// One user action = one undo step: groups the records made during its life.
+class UndoMacro
+{
+public:
+    UndoMacro(UndoRedoManager* manager, const QString& description) : mManager(manager) { mManager->beginMacro(description); }
+    ~UndoMacro() { mManager->endMacro(); }
+    Q_DISABLE_COPY(UndoMacro)
+
+private:
+    UndoRedoManager* mManager;
 };
 
 #endif // UNDOREDOMANAGER_H

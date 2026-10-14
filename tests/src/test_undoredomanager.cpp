@@ -36,6 +36,7 @@ GNU General Public License for more details.
 #include "preferencemanager.h"
 #include "scribblearea.h"
 #include "selectionmanager.h"
+#include "testfixture.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
 
@@ -784,4 +785,96 @@ TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
     settings.remove(oldKey);
     delete editor;
     delete scribbleArea;
+}
+
+TEST_CASE("UndoRedoManager: one user action is one undo step")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+
+    TestSession s;
+    s.object->addNewCameraLayer();
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    s.area->init(); // reads the empty-frame preference
+    editor->layers()->setCurrentLayer(layer);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&] { edits++; });
+
+    // One undo takes the new frame away again; one redo brings it back.
+    auto checkOneStep = [&](int frame, const std::function<void()>& edit)
+    {
+        editor->scrubTo(frame);
+        REQUIRE_FALSE(layer->keyExists(frame));
+        edit();
+        REQUIRE(layer->keyExists(frame));
+        REQUIRE(edits == 1);
+        undoAction->trigger();
+        REQUIRE_FALSE(layer->keyExists(frame));
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(layer->keyExists(frame));
+    };
+
+    SECTION("Import an image onto an empty frame")
+    {
+        const QString path = dir.filePath("image.png");
+        QImage source(4, 4, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::black);
+        REQUIRE(source.save(path));
+        ImportImageConfig config;
+        config.positionType = ImportImageConfig::None;
+
+        checkOneStep(5, [&] { REQUIRE(editor->importImage(path, config).ok()); });
+        REQUIRE(qAlpha(layer->getBitmapImageAtFrame(5)->pixel(0, 0)) == 255);
+    }
+
+    SECTION("Paste onto an empty frame")
+    {
+        const SettingsGuard guard({ SETTING_DRAW_ON_EMPTY_FRAME_ACTION });
+        editor->preference()->set(SETTING::DRAW_ON_EMPTY_FRAME_ACTION, CREATE_NEW_KEY);
+
+        layer->getBitmapImageAtFrame(1)->setPixel(10, 10, qRgba(0, 0, 0, 255));
+        editor->scrubTo(1);
+        editor->select()->setSelection(QRectF(5, 5, 10, 10));
+        editor->copy();
+        editor->deselectAll();
+
+        checkOneStep(5, [&] { editor->paste(); });
+        REQUIRE_FALSE(layer->getBitmapImageAtFrame(5)->bounds().isEmpty());
+    }
+
+    SECTION("Add exposure, then a frame, as the Add Frame action does")
+    {
+        REQUIRE(layer->addNewKeyFrameAt(2));
+        editor->scrubTo(1);
+        {
+            const UndoMacro macro(editor->undoRedo(), "Add frame");
+            const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
+            REQUIRE(layer->insertExposureAt(1));
+            editor->undoRedo()->record(saveStateId, "Add exposure");
+            REQUIRE(editor->addNewKey() != nullptr);
+        }
+        REQUIRE(layer->keyFrameCount() == 3);
+        REQUIRE(layer->keyExists(3));
+        REQUIRE(edits == 1);
+        undoAction->trigger();
+        REQUIRE(layer->keyFrameCount() == 2);
+        REQUIRE_FALSE(layer->keyExists(3));
+        redoAction->trigger();
+        REQUIRE(layer->keyFrameCount() == 3);
+        REQUIRE(layer->keyExists(3));
+    }
+
+    SECTION("A macro with no record makes no undo step")
+    {
+        { const UndoMacro macro(editor->undoRedo(), "Nothing"); }
+        REQUIRE(edits == 0);
+        REQUIRE_FALSE(undoAction->isEnabled());
+    }
 }

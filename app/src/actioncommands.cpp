@@ -746,6 +746,7 @@ Status ActionCommands::insertKeyFrameAtCurrentPosition()
     Layer* currentLayer = mEditor->layers()->currentLayer();
     int currentPosition = mEditor->currentFrame();
 
+    const UndoMacro macro(mEditor->undoRedo(), tr("Add frame"));
     const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
     currentLayer->insertExposureAt(currentPosition);
     mEditor->undoRedo()->record(saveStateId, tr("Add exposure"));

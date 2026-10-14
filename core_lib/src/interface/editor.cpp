@@ -355,6 +355,7 @@ void Editor::paste()
 
 
         // Create the key first: the undo state must hold the frame that the paste changes.
+        const UndoMacro macro(undoRedo(), tr("Paste"));
         mScribbleArea->handleDrawingOnEmptyFrame();
         const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
@@ -628,18 +629,21 @@ Status Editor::importBitmapImage(const QString& filePath, const QTransform& impo
     const QPoint pos = importTransform.map(QPoint(-img.width() / 2,
                                         -img.height() / 2));
 
-    if (!layer->keyExists(mFrame))
     {
-        const bool ok = addNewKey();
-        Q_ASSERT(ok);
+        const UndoMacro macro(undoRedo(), tr("Import Image"));
+        if (!layer->keyExists(mFrame))
+        {
+            const bool ok = addNewKey();
+            Q_ASSERT(ok);
+        }
+        BitmapImage* bitmapImage = layer->getBitmapImageAtFrame(mFrame);
+        BitmapImage importedBitmapImage(pos, img);
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        bitmapImage->paste(&importedBitmapImage);
+        emit frameModified(bitmapImage->pos());
+        // Record before the scrub: the record reads the image at the current frame.
+        undoRedo()->record(saveStateId, tr("Import Image"));
     }
-    BitmapImage* bitmapImage = layer->getBitmapImageAtFrame(mFrame);
-    BitmapImage importedBitmapImage(pos, img);
-    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
-    bitmapImage->paste(&importedBitmapImage);
-    emit frameModified(bitmapImage->pos());
-    // Record before the scrub: the record reads the image at the current frame.
-    undoRedo()->record(saveStateId, tr("Import Image"));
 
     scrubTo(mFrame+1);
 
@@ -663,6 +667,7 @@ Status Editor::importVectorImage(const QString& filePath)
     DebugDetails dd;
     dd << QString("Raw file path: %1").arg(filePath);
 
+    const UndoMacro macro(undoRedo(), tr("Import Image"));
     VectorImage* vectorImage = layer->getVectorImageAtFrame(currentFrame());
     if (vectorImage == nullptr)
     {
@@ -790,17 +795,20 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
             return Status(Status::FAIL, dd, tr("Import failed"), errorDesc);
         }
 
-        if (!bitmapLayer->keyExists(mFrame))
         {
-            addNewKey();
+            const UndoMacro macro(undoRedo(), tr("Import Image"));
+            if (!bitmapLayer->keyExists(mFrame))
+            {
+                addNewKey();
+            }
+            BitmapImage* bitmapImage = bitmapLayer->getBitmapImageAtFrame(mFrame);
+            BitmapImage importedBitmapImage(pos, img);
+            const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+            bitmapImage->paste(&importedBitmapImage);
+            emit frameModified(bitmapImage->pos());
+            // Record before the cancel check and the scrub: the record reads the image at the current frame.
+            undoRedo()->record(saveStateId, tr("Import Image"));
         }
-        BitmapImage* bitmapImage = bitmapLayer->getBitmapImageAtFrame(mFrame);
-        BitmapImage importedBitmapImage(pos, img);
-        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
-        bitmapImage->paste(&importedBitmapImage);
-        emit frameModified(bitmapImage->pos());
-        // Record before the cancel check and the scrub: the record reads the image at the current frame.
-        undoRedo()->record(saveStateId, tr("Import Image"));
 
         if (wasCanceled())
         {

@@ -161,7 +161,32 @@ bool UndoRedoManager::hasUnsavedChanges() const
 
 void UndoRedoManager::pushCommand(QUndoCommand* command)
 {
+    if (mMacroDepth > 0)
+    {
+        if (!mMacroOpen)
+        {
+            mUndoStack.beginMacro(mMacroDescription);
+            mMacroOpen = true;
+        }
+        mUndoStack.push(command);
+        return; // endMacro() reports the one edit
+    }
     mUndoStack.push(command);
+
+    emit didUpdateUndoStack();
+    emit didRecordEdit();
+}
+
+void UndoRedoManager::beginMacro(const QString& description)
+{
+    if (mMacroDepth++ == 0) { mMacroDescription = description; }
+}
+
+void UndoRedoManager::endMacro()
+{
+    if (--mMacroDepth > 0 || !mMacroOpen) { return; }
+    mMacroOpen = false;
+    mUndoStack.endMacro();
 
     emit didUpdateUndoStack();
     emit didRecordEdit();
