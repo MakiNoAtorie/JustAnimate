@@ -762,6 +762,7 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
 
 void ScribbleArea::showLayerNotVisibleWarning()
 {
+    if (mLayerNotVisibleWarning) { mLayerNotVisibleWarning(); return; }
     QMessageBox::warning(this, tr("Warning"),
                          tr("You are trying to modify a hidden layer! Please select another layer (or make the current layer visible)."),
                          QMessageBox::Ok,

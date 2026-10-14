@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <cstdint>
 #include <ctime>
 #include <deque>
+#include <functional>
 #include <memory>
 
 #include <QColor>
@@ -124,6 +125,9 @@ public:
     void keyEvent(QKeyEvent* event);
     void keyEventForSelection(QKeyEvent* event);
 
+private:
+    std::function<void()> mLayerNotVisibleWarning;
+
 signals:
     void multiLayerOnionSkinChanged(bool);
     void selectionUpdated();
@@ -142,6 +146,8 @@ public slots:
     void paletteColorChanged(QColor);
 
     void showLayerNotVisibleWarning();
+    /// Replaces the modal warning box, for callers with no user to close it.
+    void setLayerNotVisibleWarning(std::function<void()> warn) { mLayerNotVisibleWarning = std::move(warn); }
     void onTileUpdated(TiledBuffer* tiledBuffer, Tile* tile);
     void onTileCreated(TiledBuffer* tiledBuffer, Tile* tile);
 
