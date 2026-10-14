@@ -40,24 +40,22 @@ frame or stroke.
 
 ## Baseline
 
-Commit: the one adding this file (ticket #31). Release build, Linux cloud
-container, 4 cores, Qt 6 offscreen platform.
-
-**Caveat:** this run was taken while other builds shared the machine
-(load average about 45 on 4 cores), so the numbers are inflated and
-noisy; a second run under the same load was up to 2.6× slower. Re-record
-on a quiet machine before using them to accept or reject an
-optimization, and always compare before/after on the same machine.
+Recorded 2026-10-13 on the v0.1 integration tip (after ticket #37). Release
+build, Windows 11, AMD Ryzen 5 9600X, MSVC 19.51, Qt 6.8.3 offscreen
+platform, no other load. Always compare before/after on the same machine.
 
 ```
 JustAnimate benchmark: 500 frames x 10 bitmap layers (+camera), 1280x720 canvas, 20 strokes per draw, 3 reps
 scenario      median ms     min ms     max ms     median per
-open              894.4      545.2     2338.8   894.38 ms/file
-scrub           18126.7    13500.7    23514.1    36.25 ms/frame
-play            10680.2    10317.4    15894.7    21.36 ms/frame
-draw pencil     14160.3    11292.9    28298.2   708.01 ms/stroke
-draw brush      10790.9     9983.8    22323.4   539.55 ms/stroke
+open             8562.6     8434.2     8599.7  8562.57 ms/file
+scrub            1956.4     1890.0     2053.6     3.91 ms/frame
+play              954.8      878.5      956.4     1.91 ms/frame
+draw pencil      1104.0     1096.1     1175.0    55.20 ms/stroke
+draw brush       1280.0     1218.4     1280.3    64.00 ms/stroke
 ```
+
+`open` was 6186 ms on the same machine before the zip-slip check (ticket #3):
+the check resolves every archive entry on disk before extracting.
 
 ## Brush replay
 
@@ -93,4 +91,11 @@ and at no extra cost when unset (one branch per stage). Times are inclusive: inp
 contains dab mask, canvas update contains composite. The replay sends no paint events,
 so composite and canvas update are rare there; run the app to see them in use.
 
-Replay timing baseline: TODO, not recorded yet (record on a quiet machine).
+Replay timing baseline (same machine and build as above), ms per case:
+
+| Size | Pencil | Brush | Eraser |
+|---|---|---|---|
+| 4 | 28.3 | 27.8 | 27.4 |
+| 24 | 14.9 | 14.2 | 13.8 |
+| 96 | 16.5 | 15.8 | 22.4 |
+| 200 | 23.1 | 22.6 | 35.2 |
