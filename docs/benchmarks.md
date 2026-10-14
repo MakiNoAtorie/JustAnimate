@@ -40,22 +40,22 @@ frame or stroke.
 
 ## Baseline
 
-Recorded 2026-10-13 on the v0.1 integration tip (after ticket #37). Release
+Recorded 2026-10-13 on the v0.1 integration tip. Release
 build, Windows 11, AMD Ryzen 5 9600X, MSVC 19.51, Qt 6.8.3 offscreen
 platform, no other load. Always compare before/after on the same machine.
 
 ```
 JustAnimate benchmark: 500 frames x 10 bitmap layers (+camera), 1280x720 canvas, 20 strokes per draw, 3 reps
 scenario      median ms     min ms     max ms     median per
-open             8562.6     8434.2     8599.7  8562.57 ms/file
-scrub            1956.4     1890.0     2053.6     3.91 ms/frame
-play              954.8      878.5      956.4     1.91 ms/frame
-draw pencil      1104.0     1096.1     1175.0    55.20 ms/stroke
-draw brush       1280.0     1218.4     1280.3    64.00 ms/stroke
+open             4411.0     4381.1     4424.7  4410.96 ms/file
+scrub            1925.8     1868.2     1931.0     3.85 ms/frame
+play              869.8      865.5     1063.2     1.74 ms/frame
+draw pencil      1102.1     1076.2     1351.3    55.10 ms/stroke
+draw brush       1268.4     1211.1     1430.3    63.42 ms/stroke
 ```
 
-`open` was 6186 ms on the same machine before the zip-slip check (ticket #3):
-the check resolves every archive entry on disk before extracting.
+`open` is file extraction: about 4.3 s of it writes the 5003 archive entries
+to the working folder (about 0.85 ms per file on Windows).
 
 ## Brush replay
 
