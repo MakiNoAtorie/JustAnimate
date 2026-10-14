@@ -41,9 +41,15 @@ static void writeToNull()
     *null = 1;
 }
 
+static QString savedProjectPath(const QString& workingDir)
+{
+    return QDir::temp().filePath(QDir(workingDir).dirName() + "-saved.pclx");
+}
+
 /// Child half of the crash test, run as `pencil2d_tests --crash-after-autosave`
 /// (see main.cpp): autosave once, print the working folder, then crash.
-int crashAfterAutosave()
+/// With `--crash-after-save` a manual save comes between the two.
+int crashAfterAutosave(bool thenSave)
 {
     EmergencySave::install();
 
@@ -57,6 +63,8 @@ int crashAfterAutosave()
 
     FileManager fm;
     if (!fm.writeToWorkingFolder(obj).ok())
+        return 2;
+    if (thenSave && !fm.save(obj, savedProjectPath(obj->workingDir())).ok())
         return 2;
 
     std::fputs(qPrintable(obj->workingDir()), stdout);
@@ -117,4 +125,23 @@ TEST_CASE("A crash after an autosave leaves it recoverable on next start", "[Eme
     for (const QString& path : fm.searchForUnsavedProjects())
         again << QDir(path).dirName();
     REQUIRE(again.count(projectName) == 1);
+}
+
+TEST_CASE("A crash after a manual save publishes no older autosave", "[EmergencySave]")
+{
+    QProcess child;
+    child.setProcessChannelMode(QProcess::ForwardedErrorChannel);
+    child.start(QCoreApplication::applicationFilePath(), { "--crash-after-save" });
+    REQUIRE(child.waitForFinished(60000));
+    REQUIRE((child.exitStatus() == QProcess::CrashExit || child.exitCode() != 0));
+    REQUIRE(child.exitCode() != 2);
+
+    const QString workingDir = QString::fromLocal8Bit(child.readAllStandardOutput()).trimmed();
+    REQUIRE_FALSE(workingDir.isEmpty());
+    REQUIRE(QFile::remove(savedProjectPath(workingDir)));
+    REQUIRE(QDir(workingDir).removeRecursively());
+
+    FileManager fm;
+    for (const QString& path : fm.searchForUnsavedProjects())
+        REQUIRE(QDir(path).dirName() != QDir(workingDir).dirName());
 }

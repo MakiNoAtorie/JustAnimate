@@ -198,6 +198,11 @@ void setCompletedAutosave(const QString& archive, const QString& name)
     }
 }
 
+void clearCompletedAutosave()
+{
+    gActive.store(-1);
+}
+
 QString publishDir()
 {
     return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath("recovery");

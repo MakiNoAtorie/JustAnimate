@@ -35,6 +35,9 @@ namespace EmergencySave
     /// `name` is its working folder's name, used for the published copy.
     void setCompletedAutosave(const QString& archive, const QString& name);
 
+    /// Forget it: a manual save made it stale.
+    void clearCompletedAutosave();
+
     /// Where crash-time copies are published, as `<name>.pclx`.
     QString publishDir();
 }

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <cstring>
 #include <memory>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
@@ -595,6 +596,65 @@ TEST_CASE("FileManager autosave and crash recovery", "[FileManager]")
     BitmapImage* recoveredFrame = recoveredLayer->getBitmapImageAtFrame(1);
     REQUIRE(recoveredFrame != nullptr);
     REQUIRE(recoveredFrame->image()->pixel(4, 4) == qRgba(255, 0, 0, 255));
+}
+
+TEST_CASE("FileManager recovery never goes back behind a save or loses files", "[FileManager]")
+{
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    BitmapImage red(QRect(0, 0, 8, 8), Qt::red);
+    layer->getBitmapImageAtFrame(1)->paste(&red);
+    REQUIRE(fm.writeToWorkingFolder(obj.get()).ok());
+    const QDir workingDir(obj->workingDir());
+
+    auto recoveredPixel = [&] {
+        std::unique_ptr<Object> recovered(fm.recoverUnsavedProject(workingDir.path()));
+        REQUIRE(fm.error().ok());
+        REQUIRE(recovered != nullptr);
+        // Quitting a recovered project must prompt: it exists only in the temp folder.
+        REQUIRE(recovered->isModified());
+        for (int i = 0; i < recovered->getLayerCount(); ++i)
+            if (recovered->getLayer(i)->type() == Layer::BITMAP)
+                return static_cast<LayerBitmap*>(recovered->getLayer(i))->getBitmapImageAtFrame(1)->image()->pixel(4, 4);
+        return QRgb(0);
+    };
+
+    SECTION("A manual save after the autosave is what recovery gives back")
+    {
+        BitmapImage blue(QRect(0, 0, 8, 8), Qt::blue);
+        layer->getBitmapImageAtFrame(1)->paste(&blue);
+        QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+        REQUIRE(fm.save(obj.get(), testDir.filePath("shot.pclx")).ok());
+
+        REQUIRE(recoveredPixel() == qRgba(0, 0, 255, 255));
+    }
+
+    SECTION("An autosave archive that fails to extract keeps the working files")
+    {
+        // The central directory is whole, so the archive opens; the content
+        // no longer matches its checksum, so extracting it fails.
+        const QString archive = workingDir.filePath(PFF_AUTOSAVE_FILE_NAME);
+        mz_zip_archive zip;
+        memset(&zip, 0, sizeof(zip));
+        REQUIRE(mz_zip_writer_init_file(&zip, archive.toUtf8().data(), 0));
+        REQUIRE(mz_zip_writer_add_mem(&zip, PFF_XML_FILE_NAME, "AAAAAAAA", 8, MZ_NO_COMPRESSION));
+        REQUIRE(mz_zip_writer_finalize_archive(&zip));
+        mz_zip_writer_end(&zip);
+        QFile zf(archive);
+        REQUIRE(zf.open(QIODevice::ReadWrite));
+        QByteArray bytes = zf.readAll();
+        bytes.replace("AAAAAAAA", "BBBBBBBB");
+        zf.seek(0);
+        zf.write(bytes);
+        zf.close();
+        REQUIRE(MiniZ::sanityCheck(archive).ok());
+
+        REQUIRE(recoveredPixel() == qRgba(255, 0, 0, 255));
+        REQUIRE_FALSE(workingDir.exists("autosave.tmp"));
+    }
 }
 
 TEST_CASE("FileManager write errors fail the save", "[FileManager]")

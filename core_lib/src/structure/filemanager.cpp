@@ -402,6 +402,14 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("An internal error occurred. The project may not have been saved successfully."));
     }
 
+    // A manual save is newer than any autosave: recovery must not go back to one.
+    const QString autosave = QDir(object->workingDir()).filePath(PFF_AUTOSAVE_FILE_NAME);
+    if (!object->workingDir().isEmpty() && QFileInfo(sFileName) != QFileInfo(autosave))
+    {
+        EmergencySave::clearCompletedAutosave();
+        QFile::remove(autosave);
+    }
+
     return Status::OK;
 }
 
@@ -881,14 +889,19 @@ Object* FileManager::recoverUnsavedProject(QString intermeidatePath)
     const QString autosave = projectDir.filePath(PFF_AUTOSAVE_FILE_NAME);
     if (QFile::exists(autosave) && MiniZ::sanityCheck(autosave).ok())
     {
-        QFile::remove(mainXMLPath);
-        QDir(dataFolder).removeRecursively();
-        Status st = MiniZ::uncompressFolder(autosave, projectDir.absolutePath() + "/");
-        if (!st.ok())
+        // Extract beside the working files and swap in only a whole extract:
+        // a bad archive must not cost the files that are there.
+        QDir staging(projectDir.filePath("autosave.tmp"));
+        staging.removeRecursively();
+        if (MiniZ::uncompressFolder(autosave, staging.absolutePath() + "/").ok() &&
+            staging.exists(PFF_XML_FILE_NAME) && staging.exists(PFF_DATA_DIR))
         {
-            mError = st;
-            return nullptr;
+            QFile::remove(mainXMLPath);
+            QDir(dataFolder).removeRecursively();
+            QFile::rename(staging.filePath(PFF_XML_FILE_NAME), mainXMLPath);
+            QDir().rename(staging.filePath(PFF_DATA_DIR), dataFolder);
         }
+        staging.removeRecursively();
     }
 
     std::unique_ptr<Object> object(new Object);
@@ -902,6 +915,8 @@ Object* FileManager::recoverUnsavedProject(QString intermeidatePath)
         mError = st;
         return nullptr;
     }
+    // Not saved by the user yet: closing must prompt, not delete the working folder.
+    object->modification();
     // Transfer ownership to the caller
     return object.release();
 }
