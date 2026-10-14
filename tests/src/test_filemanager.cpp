@@ -701,10 +701,29 @@ TEST_CASE("FileManager write errors fail the save", "[FileManager]")
     {
         if (!haveFullDevice) { WARN("No /dev/full on this platform"); return; }
         REQUIRE(fm.save(obj.get(), folderProjectPath).ok());
+        const QByteArray originalXml = readAll(folderProjectPath);
 
-        replaceWithFullDevice(folderProjectPath);
+        // The XML is written to <name>.tmp first.
+        REQUIRE(QFile::link("/dev/full", folderProjectPath + ".tmp"));
 
         REQUIRE_FALSE(fm.save(obj.get(), folderProjectPath).ok());
+        const bool unchanged = (readAll(folderProjectPath) == originalXml);
+        REQUIRE(unchanged);
+    }
+
+    SECTION("A failed .pcl save leaves the project XML byte-identical")
+    {
+        REQUIRE(fm.save(obj.get(), folderProjectPath).ok());
+        REQUIRE_FALSE(QFile::exists(folderProjectPath + ".tmp"));
+        const QByteArray originalXml = readAll(folderProjectPath);
+
+        // Something in the way of the temporary file fails the write.
+        obj->addNewBitmapLayer();
+        REQUIRE(QDir().mkpath(folderProjectPath + ".tmp"));
+
+        REQUIRE_FALSE(fm.save(obj.get(), folderProjectPath).ok());
+        const bool unchanged = (readAll(folderProjectPath) == originalXml);
+        REQUIRE(unchanged);
     }
 
     SECTION("A write error in a vector frame fails the save")

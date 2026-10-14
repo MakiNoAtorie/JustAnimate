@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- A failed save of a legacy .pcl project no longer damages the project file: it is written to a temporary file and renamed when complete (0.1).
 - Crash recovery: a project saved after its last autosave is no longer restored from the older autosave, an autosave that cannot be extracted no longer deletes the working files, and a recovered project asks to be saved before it closes (0.1).
 - The new undo system is the only one: the legacy undo path and its "Enable New System" preference are gone (an old settings value is ignored). Cutting selected frames, a vector fill and a vector vertex move with the smudge tool can be undone and redone; removing selected frames no longer asks for confirmation (0.5).
 - Fixed memory leaks on each bucket fill and each copy of a vector frame (0.1).

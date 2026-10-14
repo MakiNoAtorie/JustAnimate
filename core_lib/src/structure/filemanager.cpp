@@ -662,15 +662,15 @@ Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPat
     DebugDetails dd;
     dd << "\n[XML WRITE diagnostics]\n";
 
-    QFile file(mainXmlPath);
+    // Written beside the target and renamed over it when complete: for a
+    // .pcl project this file is the project, and a failed save must keep it.
+    const QString tmpPath = mainXmlPath + ".tmp";
+    QFile file(tmpPath);
     if (!file.open(QFile::WriteOnly | QFile::Text))
     {
-        dd << QString("Error: Failed to open Main XML at: %1, \nReason: %2").arg(mainXmlPath).arg(file.errorString());
+        dd << QString("Error: Failed to open Main XML at: %1, \nReason: %2").arg(tmpPath).arg(file.errorString());
         return Status(Status::ERROR_FILE_CANNOT_OPEN, dd);
     }
-    ScopeGuard fileScopeGuard([&] {
-        file.close();
-    });
 
     QDomDocument xmlDoc("PencilDocument");
     QDomElement root = xmlDoc.createElement("document");
@@ -700,9 +700,19 @@ Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPat
     QTextStream out(&file);
     xmlDoc.save(out, indentSize);
     out.flush();
-    if (out.status() != QTextStream::Ok || !file.flush())
+    const bool written = out.status() == QTextStream::Ok && file.flush();
+    file.close();
+    std::error_code renameError;
+    if (written)
     {
-        dd << QString("Error: Failed to write Main XML at: %1, \nReason: %2").arg(mainXmlPath, file.errorString());
+        std::filesystem::rename(QFileInfo(tmpPath).filesystemFilePath(),
+                                QFileInfo(mainXmlPath).filesystemFilePath(), renameError);
+    }
+    if (!written || renameError)
+    {
+        QFile::remove(tmpPath);
+        dd << QString("Error: Failed to write Main XML at: %1, \nReason: %2").arg(mainXmlPath,
+                  renameError ? QString::fromStdString(renameError.message()) : file.errorString());
         return Status(Status::FAIL, dd);
     }
 
