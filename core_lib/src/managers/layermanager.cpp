@@ -216,50 +216,22 @@ Layer* LayerManager::createLayer(Layer::LAYER_TYPE type, const QString& strLayer
 
 LayerBitmap* LayerManager::createBitmapLayer(const QString& strLayerName)
 {
-    LayerBitmap* layer = object()->addNewBitmapLayer();
-    layer->setName(strLayerName);
-
-    emit layerCountChanged(count());
-    setCurrentLayer(getLastLayerIndex());
-    recordLayerAdd(layer);
-
-    return layer;
+    return static_cast<LayerBitmap*>(createLayer(Layer::BITMAP, strLayerName));
 }
 
 LayerVector* LayerManager::createVectorLayer(const QString& strLayerName)
 {
-    LayerVector* layer = object()->addNewVectorLayer();
-    layer->setName(strLayerName);
-
-    emit layerCountChanged(count());
-    setCurrentLayer(getLastLayerIndex());
-    recordLayerAdd(layer);
-
-    return layer;
+    return static_cast<LayerVector*>(createLayer(Layer::VECTOR, strLayerName));
 }
 
 LayerCamera* LayerManager::createCameraLayer(const QString& strLayerName)
 {
-    LayerCamera* layer = object()->addNewCameraLayer();
-    layer->setName(strLayerName);
-
-    emit layerCountChanged(count());
-    setCurrentLayer(getLastLayerIndex());
-    recordLayerAdd(layer);
-
-    return layer;
+    return static_cast<LayerCamera*>(createLayer(Layer::CAMERA, strLayerName));
 }
 
 LayerSound* LayerManager::createSoundLayer(const QString& strLayerName)
 {
-    LayerSound* layer = object()->addNewSoundLayer();
-    layer->setName(strLayerName);
-
-    emit layerCountChanged(count());
-    setCurrentLayer(getLastLayerIndex());
-    recordLayerAdd(layer);
-
-    return layer;
+    return static_cast<LayerSound*>(createLayer(Layer::SOUND, strLayerName));
 }
 
 int LayerManager::lastFrameAtFrame(int frameIndex)
