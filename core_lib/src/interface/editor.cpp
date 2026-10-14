@@ -212,12 +212,7 @@ void Editor::copyAndCut()
     Layer* currentLayer = layers()->currentLayer();
 
     if (currentLayer->hasAnySelectedFrames() && !select()->somethingSelected()) {
-        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_REMOVE);
-        for (int pos : currentLayer->selectedKeyFramesPositions()) {
-            currentLayer->removeKeyFrame(pos);
-        }
-        undoRedo()->record(saveStateId, tr("Cut"));
-        emit layers()->currentLayerChanged(currentLayerIndex());
+        removeSelectedKeyFrames(tr("Cut"));
         emit updateTimeLine();
         return;
     }
@@ -226,6 +221,17 @@ void Editor::copyAndCut()
         mScribbleArea->deleteSelection();
         deselectAll();
     }
+}
+
+void Editor::removeSelectedKeyFrames(const QString& undoText)
+{
+    Layer* currentLayer = layers()->currentLayer();
+    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_REMOVE);
+    for (int pos : currentLayer->selectedKeyFramesPositions()) {
+        currentLayer->removeKeyFrame(pos);
+    }
+    undoRedo()->record(saveStateId, undoText);
+    layers()->notifyLayerChanged(currentLayer); // timeline repaint
 }
 
 void Editor::pasteFromPreviousFrame()

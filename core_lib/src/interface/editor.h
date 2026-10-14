@@ -207,6 +207,8 @@ public: //slots
 
     void copy();
     void copyAndCut();
+    /// Removes the selected keyframes of the current layer as one undo step.
+    void removeSelectedKeyFrames(const QString& undoText);
     void pasteFromPreviousFrame();
     void paste();
 

@@ -759,12 +759,7 @@ void ActionCommands::removeSelectedFrames()
 
     if (!currentLayer->hasAnySelectedFrames()) { return; }
 
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_REMOVE);
-    for (int pos : currentLayer->selectedKeyFramesPositions()) {
-        currentLayer->removeKeyFrame(pos);
-    }
-    mEditor->undoRedo()->record(saveStateId, tr("Remove frames"));
-    mEditor->layers()->notifyLayerChanged(currentLayer);
+    mEditor->removeSelectedKeyFrames(tr("Remove frames"));
 }
 
 void ActionCommands::reverseSelectedFrames()
