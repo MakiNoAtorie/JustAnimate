@@ -115,6 +115,10 @@ Status MovieExporter::run(const Object* obj,
 
     mTempWorkDir = mTempDir.path();
 
+    const QFileInfo outputBefore(desc.strFileName);
+    const QDateTime modifiedBefore = outputBefore.lastModified();
+    const qint64 sizeBefore = outputBefore.size();
+
     Status st = Status::OK;
     minorProgress(0.f);
     if (desc.strFileName.endsWith("gif", Qt::CaseInsensitive))
@@ -123,7 +127,6 @@ Status MovieExporter::run(const Object* obj,
         progressMessage(tr("Generating GIF..."));
         minorProgress(0.f);
         st = (generateGif(obj, ffmpegPath, desc.strFileName, minorProgress));
-        if (!st.ok()) { discardPartialOutput(st, desc.strFileName); return st; }
     }
     else
     {
@@ -131,12 +134,18 @@ Status MovieExporter::run(const Object* obj,
         progressMessage(tr("Assembling audio..."));
         minorProgress(0.f);
         st = (assembleAudio(obj, ffmpegPath, minorProgress));
-        if (!st.ok()) { discardPartialOutput(st, desc.strFileName); return st; }
-        minorProgress(1.f);
-        majorProgress(0.25f, 1.f);
-        progressMessage(tr("Generating movie..."));
-        st = (generateMovie(obj, ffmpegPath, desc.strFileName, minorProgress));
-        if (!st.ok()) { discardPartialOutput(st, desc.strFileName); return st; }
+        if (st.ok())
+        {
+            minorProgress(1.f);
+            majorProgress(0.25f, 1.f);
+            progressMessage(tr("Generating movie..."));
+            st = (generateMovie(obj, ffmpegPath, desc.strFileName, minorProgress));
+        }
+    }
+    if (!st.ok())
+    {
+        discardPartialOutput(desc.strFileName, modifiedBefore, sizeBefore);
+        return st;
     }
     minorProgress(1.f);
     majorProgress(1.f, 1.f);
@@ -148,9 +157,11 @@ Status MovieExporter::run(const Object* obj,
     return Status::OK;
 }
 
-void MovieExporter::discardPartialOutput(const Status& st, const QString& path)
+void MovieExporter::discardPartialOutput(const QString& path, const QDateTime& modifiedBefore, qint64 sizeBefore)
 {
-    if (!st.ok()) { QFile::remove(path); }
+    const QFileInfo now(path);
+    const bool untouched = modifiedBefore.isValid() && now.lastModified() == modifiedBefore && now.size() == sizeBefore;
+    if (!untouched) { QFile::remove(path); }
 }
 
 bool MovieExporter::mayOverwrite(const QString& path, const std::function<bool()>& confirm)

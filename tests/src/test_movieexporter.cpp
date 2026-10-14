@@ -14,7 +14,9 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <QDateTime>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 
 #include "movieexporter.h"
@@ -34,19 +36,27 @@ TEST_CASE("MovieExporter::discardPartialOutput")
     REQUIRE(dir.isValid());
     const QString path = makeFile(dir);
 
-    SECTION("A cancel removes the partial file")
+    const QFileInfo before(path);
+
+    SECTION("A file the failed run created is removed")
     {
-        MovieExporter::discardPartialOutput(Status::CANCELED, path);
+        MovieExporter::discardPartialOutput(path, QDateTime(), 0);
         REQUIRE_FALSE(QFile::exists(path));
     }
-    SECTION("A failure removes the partial file")
+    SECTION("A file the failed run began to overwrite is removed")
     {
-        MovieExporter::discardPartialOutput(Status::FAIL, path);
+        const QDateTime modifiedBefore = before.lastModified();
+        const qint64 sizeBefore = before.size();
+        QFile f(path);
+        REQUIRE(f.open(QIODevice::WriteOnly));
+        f.write("cut");
+        f.close();
+        MovieExporter::discardPartialOutput(path, modifiedBefore, sizeBefore);
         REQUIRE_FALSE(QFile::exists(path));
     }
-    SECTION("A success keeps the file")
+    SECTION("A file the failed run never touched is kept")
     {
-        MovieExporter::discardPartialOutput(Status::OK, path);
+        MovieExporter::discardPartialOutput(path, before.lastModified(), before.size());
         REQUIRE(QFile::exists(path));
     }
 }
