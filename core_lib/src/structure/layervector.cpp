@@ -151,6 +151,7 @@ void LayerVector::loadDomElement(const QDomElement& element, QString dataDirPath
 {
     this->loadBaseDomElement(element);
 
+    const DataPathValidator dataPaths(dataDirPath);
     QDomNode imageTag = element.firstChild();
     while (!imageTag.isNull())
     {
@@ -161,7 +162,7 @@ void LayerVector::loadDomElement(const QDomElement& element, QString dataDirPath
             QString rawPath = imageElement.attribute("src");
             if (position > 0 && !rawPath.isNull())
             {
-                QString path = validateDataPath(rawPath, dataDirPath);
+                QString path = dataPaths.validate(rawPath);
                 if (!path.isEmpty())
                 {
                     loadImageAtFrame(path, position);

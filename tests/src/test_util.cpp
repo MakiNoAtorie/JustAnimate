@@ -168,6 +168,18 @@ TEST_CASE("validateDataPath")
         REQUIRE(result.isEmpty());
     }
 
+    SECTION("Symlink with a plain name pointing outside is rejected")
+    {
+        QTemporaryDir outsideDir;
+        REQUIRE(outsideDir.isValid());
+        QFile outsideFile(outsideDir.filePath("secret.dat"));
+        REQUIRE(outsideFile.open(QIODevice::WriteOnly));
+        outsideFile.close();
+
+        REQUIRE(QFile::link(outsideDir.filePath("secret.dat"), dataDir.filePath("plainlink")));
+        REQUIRE(validateDataPath("plainlink", dataDir.path()).isEmpty());
+    }
+
     SECTION("Dangling symlink inside data dir is rejected")
     {
         QString linkPath = dataDir.filePath("dangling");

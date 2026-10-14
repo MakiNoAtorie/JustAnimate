@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <QString>
 #include <cstddef>
 #include <functional>
 #include <QtGlobal>
@@ -111,5 +112,17 @@ QString closestCanonicalPath(const QString& path);
  * @return The closest canonical resolved path, or empty if the path did not pass validation or contains dangling symbolic links.
  */
 QString validateDataPath(const QString& filePath, const QString& dataDirPath);
+
+/** validateDataPath for many files of one data directory: the directory is resolved once. */
+class DataPathValidator
+{
+public:
+    explicit DataPathValidator(const QString& dataDirPath);
+    QString validate(const QString& filePath) const;
+
+private:
+    QString mDataDirPath;
+    QString mCanonicalDataDirPath;
+};
 
 #endif // UTIL_H

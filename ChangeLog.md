@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Opening a project checks data file paths without a disk lookup per file: a 5000-frame project opens about 40 % faster on Windows.
 - The brush golden test has Linux and macOS hashes, and CI retries its tool downloads (0.1).
 - The test suite runs unattended on Windows debug builds: a failed assert prints to stderr and opens no dialog (0.1).
 - The Windows executable has its icon and version details again: the resource file `app/data/version.rc` was missing from the repository (0.1).

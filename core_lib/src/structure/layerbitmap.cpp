@@ -218,6 +218,7 @@ void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath
 {
     this->loadBaseDomElement(element);
 
+    const DataPathValidator dataPaths(dataDirPath);
     QDomNode imageTag = element.firstChild();
     while (!imageTag.isNull())
     {
@@ -225,7 +226,7 @@ void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath
         if (!imageElement.isNull() && imageElement.tagName() == "image")
         {
             const int position = imageElement.attribute("frame").toInt();
-            QString path = validateDataPath(imageElement.attribute("src"), dataDirPath);
+            QString path = dataPaths.validate(imageElement.attribute("src"));
             if (!path.isEmpty() && position > 0)
             {
                 int x = imageElement.attribute("topLeftX").toInt();
