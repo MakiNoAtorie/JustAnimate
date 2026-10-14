@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "scribblearea.h"
 #include "shortcutfilter.h"
+#include "testfixture.h"
 
 namespace
 {
@@ -57,16 +58,12 @@ bool shortcutTriggers(QObject& filter, QAction* action)
 
 TEST_CASE("ShortcutFilter: shortcuts are blocked while a pointer is drawing")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewBitmapLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
-    scribbleArea->setEditor(editor);
+    session.start();
+    ScribbleArea* scribbleArea = session.area.get();
     scribbleArea->init();
 
     ShortcutFilter filter(scribbleArea, nullptr);
@@ -98,7 +95,4 @@ TEST_CASE("ShortcutFilter: shortcuts are blocked while a pointer is drawing")
         sendMouse(scribbleArea, QEvent::MouseButtonRelease, Qt::LeftButton, Qt::NoButton);
         REQUIRE(shortcutTriggers(filter, &action));
     }
-
-    delete scribbleArea;
-    delete editor;
 }

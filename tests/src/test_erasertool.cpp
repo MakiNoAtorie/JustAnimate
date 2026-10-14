@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "object.h"
 #include "layermanager.h"
+#include "testfixture.h"
 #include "toolmanager.h"
 #include "layervector.h"
 #include "scribblearea.h"
@@ -25,17 +26,14 @@ GNU General Public License for more details.
 
 TEST_CASE("EraserTool - Erasing on a vector layer before its first keyframe does nothing")
 {
-    Object* obj = new Object;
-    obj->init();
+    TestSession session;
+    Object* obj = session.object;
     LayerVector* layer = obj->addNewVectorLayer();
     layer->addNewKeyFrameAt(5);
     layer->removeKeyFrame(1);
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(obj);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
     editor->layers()->setCurrentLayer(layer);
     editor->scrubTo(1);
     REQUIRE(layer->getLastKeyFrameAtPosition(1) == nullptr);
@@ -46,7 +44,4 @@ TEST_CASE("EraserTool - Erasing on a vector layer before its first keyframe does
 
     REQUIRE(layer->keyFrameCount() == 1);
     REQUIRE_FALSE(layer->keyExists(1));
-
-    delete scribbleArea;
-    delete editor;
 }

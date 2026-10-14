@@ -1,3 +1,4 @@
+#include "testfixture.h"
 #include "vectorimage.h"
 #include "catch.hpp"
 
@@ -34,15 +35,12 @@ TEST_CASE("VectorImage removeColor")
 
 TEST_CASE("Editor - Vector copy and paste")
 {
-    Object* obj = new Object;
-    obj->init();
+    TestSession session;
+    Object* obj = session.object;
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(obj);
-    editor->init();
-    scribbleArea->setEditor(editor);
+    session.start();
+    Editor* editor = session.editor.get();
+    ScribbleArea* scribbleArea = session.area.get();
     scribbleArea->init();
 
     LayerVector* layer = obj->addNewVectorLayer();
@@ -80,9 +78,6 @@ TEST_CASE("Editor - Vector copy and paste")
     {
         REQUIRE(copyFrame1PasteFrame2() == 2);
     }
-
-    delete scribbleArea;
-    delete editor;
 }
 
 TEST_CASE("VectorImage fillSelectedPath")

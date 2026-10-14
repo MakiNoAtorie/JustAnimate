@@ -42,19 +42,15 @@ GNU General Public License for more details.
 
 TEST_CASE("UndoRedoManager: undo/redo of Remove frame")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     // A camera layer first, so that layer index and layer id differ.
     object->addNewCameraLayer();
     Layer* bitmapLayer = object->addNewBitmapLayer();
     Layer* vectorLayer = object->addNewVectorLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    scribbleArea->setEditor(editor);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -91,23 +87,16 @@ TEST_CASE("UndoRedoManager: undo/redo of Remove frame")
     {
         removeFrameThenUndoRedo(vectorLayer, 2);
     }
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: unsaved changes survive a failed save")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewBitmapLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    scribbleArea->setEditor(editor);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
 
     UndoRedoManager* undoRedo = editor->undoRedo();
     undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
@@ -141,22 +130,16 @@ TEST_CASE("UndoRedoManager: unsaved changes survive a failed save")
 
         REQUIRE_FALSE(undoRedo->hasUnsavedChanges());
     }
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: frame and layer edits flag the project as unsaved")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewBitmapLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
     UndoRedoManager* undoRedo = editor->undoRedo();
 
     REQUIRE_FALSE(undoRedo->hasUnsavedChanges());
@@ -182,23 +165,17 @@ TEST_CASE("UndoRedoManager: frame and layer edits flag the project as unsaved")
         editor->layers()->deleteLayer(editor->layers()->currentLayerIndex());
         REQUIRE(undoRedo->hasUnsavedChanges());
     }
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("Editor: each edit counts once toward autosave")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewCameraLayer();
     Layer* layer = object->addNewBitmapLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
     editor->layers()->setCurrentLayer(layer);
 
     int autosaves = 0;
@@ -221,25 +198,19 @@ TEST_CASE("Editor: each edit counts once toward autosave")
     REQUIRE(autosaves == 0);
     removeFrame(6);
     REQUIRE(autosaves == 1);
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: undo/redo of selection edits")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewCameraLayer();
     LayerBitmap* bitmapLayer = object->addNewBitmapLayer();
     LayerVector* vectorLayer = object->addNewVectorLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    scribbleArea->setEditor(editor);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
+    ScribbleArea* scribbleArea = session.area.get();
 
 
     QObject parent;
@@ -325,9 +296,6 @@ TEST_CASE("UndoRedoManager: undo/redo of selection edits")
         editor->select()->setSelection(QRectF(0, 0, 200, 200));
         checkUndoRedo([&] { editor->flipSelection(false); }, flipped, 0, 1);
     }
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: undo/redo of image import")
@@ -335,18 +303,14 @@ TEST_CASE("UndoRedoManager: undo/redo of image import")
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
 
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewCameraLayer();
     LayerBitmap* bitmapLayer = object->addNewBitmapLayer();
     LayerVector* vectorLayer = object->addNewVectorLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    scribbleArea->setEditor(editor);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
 
 
     QObject parent;
@@ -426,27 +390,20 @@ TEST_CASE("UndoRedoManager: undo/redo of image import")
 
         checkUndoRedo([&] { REQUIRE(editor->importImage(path, config).ok()); }, hasCurves, 0, 1);
     }
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: undo/redo of frame operations")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     // A camera layer first, so that layer index and layer id differ.
     object->addNewCameraLayer();
     LayerBitmap* layer = object->addNewBitmapLayer();
     REQUIRE(object->getLayer(1) == layer);
     REQUIRE(layer->id() != 1);
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    scribbleArea->setEditor(editor);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
 
     // Frames at 1, 3, 5 and 6. Each has one opaque pixel at (its first position, 0).
     editor->layers()->setCurrentLayer(layer);
@@ -566,15 +523,12 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
     {
         checkUndoRedo([&] { editor->repositionImage(QPoint(0, 20), 3); }, "6=6 5=5 3=0 1=1");
     }
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewCameraLayer();
     Layer* cameraLayer = object->getLayer(0);
     LayerBitmap* bitmapLayer = object->addNewBitmapLayer();
@@ -582,12 +536,8 @@ TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
     const int bitmapLayerId = bitmapLayer->id();
     const int vectorLayerId = vectorLayer->id();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    scribbleArea->setEditor(editor);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
 
 
     QObject parent;
@@ -660,9 +610,6 @@ TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
         REQUIRE(layers->getLayer(2)->id() == vectorLayerId);
         REQUIRE(layers->currentLayerIndex() == 2);
     }
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: an undone layer delete keeps its frames across saves")
@@ -673,19 +620,15 @@ TEST_CASE("UndoRedoManager: an undone layer delete keeps its frames across saves
     const QRgb black = qRgba(0, 0, 0, 255);
     const QList<int> frames = { 1, 3, 5 };
 
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewCameraLayer();
     LayerBitmap* layer = object->addNewBitmapLayer();
     layer->setName("Kept");
     const int layerId = layer->id();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    scribbleArea->setEditor(editor);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
 
 
     QObject parent;
@@ -729,7 +672,7 @@ TEST_CASE("UndoRedoManager: an undone layer delete keeps its frames across saves
     REQUIRE(object->getLayerCount() == 2);
     save();
 
-    Object* loaded = fm.load(path);
+    std::unique_ptr<Object> loaded(fm.load(path));
     REQUIRE(loaded != nullptr);
     REQUIRE(loaded->getLayerCount() == 2);
     Layer* restored = loaded->findLayerByName("Kept");
@@ -745,10 +688,6 @@ TEST_CASE("UndoRedoManager: an undone layer delete keeps its frames across saves
         REQUIRE(image->pixel(frame, frame) == black);
         REQUIRE(qAlpha(image->pixel(frame + 1, frame)) == 0);
     }
-    delete loaded;
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
@@ -760,16 +699,12 @@ TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
     settings.setValue(oldKey, false);
     settings.sync();
 
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     Layer* layer = object->addNewBitmapLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    scribbleArea->setEditor(editor);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    REQUIRE(editor->init());
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -783,9 +718,6 @@ TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
     REQUIRE(undoAction->isEnabled());
     undoAction->trigger();
     REQUIRE(layer->keyExists(5));
-
-    delete editor;
-    delete scribbleArea;
 }
 
 TEST_CASE("UndoRedoManager: one user action is one undo step")

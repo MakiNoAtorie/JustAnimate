@@ -123,16 +123,13 @@ TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous str
 
 TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
 {
-    Object* obj = new Object;
-    obj->init();
+    TestSession session;
+    Object* obj = session.object;
     LayerVector* layer = obj->addNewVectorLayer();
 
-    Editor* editor = new Editor;
-    ScribbleArea* area = new ScribbleArea(nullptr);
-    editor->setScribbleArea(area);
-    editor->setObject(obj);
-    editor->init();
-    area->setEditor(editor);
+    session.start();
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
     area->init();
     area->resize(800, 600);
     editor->layers()->setCurrentLayer(layer);
@@ -181,7 +178,4 @@ TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
         redoAction->trigger();
         REQUIRE(colorNumber() == 2);
     }
-
-    delete area;
-    delete editor;
 }

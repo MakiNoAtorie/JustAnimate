@@ -12,6 +12,7 @@
 #include "bitmapimage.h"
 
 #include "basetool.h"
+#include "testfixture.h"
 
 void dragAndFill(QPointF movePoint, Editor* editor, QColor color, QRect bounds, BucketToolProperties properties, int fillCountThreshold) {
     int moveX = 0;
@@ -58,12 +59,11 @@ void verifyOnlyPixelsInsideSegmentsAreFilled(QPoint referencePoint, const Bitmap
 TEST_CASE("BitmapBucket - Fill drag behaviour across four segments")
 {
     FileManager fm;
-    Object* obj = fm.load(":/fill-drag-test/fill-drag-test.pcl");
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(obj);
-    editor->init();
+    TestSession session(fm.load(":/fill-drag-test/fill-drag-test.pcl"));
+    Object* obj = session.object;
+    REQUIRE(obj != nullptr);
+    session.start();
+    Editor* editor = session.editor.get();
 
     BucketToolProperties properties;
     QSettings settings;
@@ -148,24 +148,18 @@ TEST_CASE("BitmapBucket - Fill drag behaviour across four segments")
             verifyOnlyPixelsInsideSegmentsAreFilled(pressPoint, image, fillColor.rgba());
         }
     }
-
-    delete scribbleArea;
-    delete editor;
 }
 
 TEST_CASE("BitmapBucket - Fill before the layer's first keyframe does nothing")
 {
-    Object* obj = new Object;
-    obj->init();
+    TestSession session;
+    Object* obj = session.object;
     LayerBitmap* layer = obj->addNewBitmapLayer();
     layer->addNewKeyFrameAt(5);
     layer->removeKeyFrame(1);
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(obj);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
     editor->layers()->setCurrentLayer(layer);
     editor->scrubTo(1);
     REQUIRE(layer->getLastKeyFrameAtPosition(1) == nullptr);
@@ -187,7 +181,4 @@ TEST_CASE("BitmapBucket - Fill before the layer's first keyframe does nothing")
     REQUIRE(fillCount == 0);
     REQUIRE(layer->keyFrameCount() == 1);
     REQUIRE_FALSE(layer->keyExists(1));
-
-    delete scribbleArea;
-    delete editor;
 }

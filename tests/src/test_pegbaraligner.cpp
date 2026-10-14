@@ -26,12 +26,13 @@ GNU General Public License for more details.
 #include "pegbaraligner.h"
 #include "preferencemanager.h"
 #include "scribblearea.h"
+#include "testfixture.h"
 #include "undoredomanager.h"
 
 TEST_CASE("PegBarAligner: align from a held frame, then undo and redo")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     LayerBitmap* layer = object->addNewBitmapLayer();
     layer->setName("Drawing");
 
@@ -41,11 +42,8 @@ TEST_CASE("PegBarAligner: align from a held frame, then undo and redo")
     layer->addNewKeyFrameAt(5);
     layer->getBitmapImageAtFrame(5)->setPixel(13, 14, black);
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -68,7 +66,4 @@ TEST_CASE("PegBarAligner: align from a held frame, then undo and redo")
     redoAction->trigger();
     REQUIRE(qAlpha(layer->getBitmapImageAtFrame(5)->pixel(10, 10)) == 255);
     REQUIRE(qAlpha(layer->getBitmapImageAtFrame(5)->pixel(13, 14)) == 0);
-
-    delete editor;
-    delete scribbleArea;
 }

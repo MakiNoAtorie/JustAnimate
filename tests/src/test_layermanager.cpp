@@ -23,12 +23,14 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "layerbitmap.h"
 #include "bitmapimage.h"
+#include "testfixture.h"
 
 
 TEST_CASE("LayerManager::init()")
 {
-    Object* object = new Object;
-    Editor* editor = new Editor;
+    std::unique_ptr<Editor> editorOwner(new Editor);
+    Editor* editor = editorOwner.get();
+    Object* object = new Object; // the editor owns it
     editor->setObject(object);
 
     SECTION("Test initial state")
@@ -46,13 +48,13 @@ TEST_CASE("LayerManager::init()")
         REQUIRE(layerMgr->getLayer(1)->type() == Layer::VECTOR);
         REQUIRE(layerMgr->getLayer(2)->type() == Layer::BITMAP);
     }
-    delete editor;
 }
 
 TEST_CASE("LayerManager::deleteLayer()")
 {
-    Object* object = new Object;
-    Editor* editor = new Editor;
+    std::unique_ptr<Editor> editorOwner(new Editor);
+    Editor* editor = editorOwner.get();
+    Object* object = new Object; // the editor owns it
     editor->setObject(object);
 
     SECTION("delete layers")
@@ -96,13 +98,12 @@ TEST_CASE("LayerManager::deleteLayer()")
         REQUIRE(layerMgr->count() == 1);
         REQUIRE((st == Status::ERROR_NEED_AT_LEAST_ONE_CAMERA_LAYER));
     }
-    delete editor;
 }
 
 TEST_CASE("LayerManager::deleteLayer() with a pending selection move")
 {
-    Object* object = new Object;
-    object->init();
+    TestSession session;
+    Object* object = session.object;
     object->addNewCameraLayer();
     LayerBitmap* doomed = object->addNewBitmapLayer();
     LayerBitmap* neighbour = object->addNewBitmapLayer();
@@ -110,12 +111,9 @@ TEST_CASE("LayerManager::deleteLayer() with a pending selection move")
     BitmapImage redSquare(QRect(0, 0, 10, 10), Qt::red);
     neighbour->getBitmapImageAtFrame(1)->paste(&redSquare);
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(object);
-    editor->init();
-    scribbleArea->setEditor(editor);
+    session.start();
+    Editor* editor = session.editor.get();
+    ScribbleArea* scribbleArea = session.area.get();
     scribbleArea->init();
     editor->layers()->setCurrentLayer(doomed);
     editor->scrubTo(1);
@@ -132,14 +130,12 @@ TEST_CASE("LayerManager::deleteLayer() with a pending selection move")
     BitmapImage* image = neighbour->getBitmapImageAtFrame(1);
     REQUIRE(image->bounds() == QRect(0, 0, 10, 10));
     REQUIRE(image->pixel(5, 5) == QColor(Qt::red).rgba());
-
-    delete scribbleArea;
-    delete editor;
 }
 
 TEST_CASE("Layer::setCurrentLayer(index)") {
-    Object* object = new Object;
-    Editor* editor = new Editor;
+    std::unique_ptr<Editor> editorOwner(new Editor);
+    Editor* editor = editorOwner.get();
+    Object* object = new Object; // the editor owns it
     editor->setObject(object);
 
     SECTION("Deselect previous layer") {
@@ -166,5 +162,4 @@ TEST_CASE("Layer::setCurrentLayer(index)") {
         REQUIRE(layerMgr->getLayer(1)->selectedKeyFrameCount() == 0);
 
     }
-    delete editor;
 }

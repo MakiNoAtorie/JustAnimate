@@ -69,7 +69,7 @@ struct Scenario
 
 QString createProject(const QString& dir, const BenchConfig& cfg)
 {
-    Object* object = new Object;
+    std::unique_ptr<Object> object(new Object);
     object->init();
     object->addNewCameraLayer();
     for (int l = 0; l < cfg.layers; ++l)
@@ -88,8 +88,7 @@ QString createProject(const QString& dir, const BenchConfig& cfg)
 
     const QString path = dir + "/benchmark.pclx";
     FileManager fm;
-    const Status st = fm.save(object, path);
-    delete object;
+    const Status st = fm.save(object.get(), path);
     REQUIRE(st.ok());
     return path;
 }

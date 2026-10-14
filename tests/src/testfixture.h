@@ -70,19 +70,21 @@ struct TestSession
 {
     std::unique_ptr<ScribbleArea> area{ new ScribbleArea(nullptr) };
     std::unique_ptr<Editor> editor{ new Editor }; // destroyed before the area
-    Object* object = new Object; // the editor owns it after start()
+    Object* object = nullptr; // the editor owns it after start()
 
-    TestSession() { object->init(); }
+    TestSession() : object(new Object) { object->init(); }
+    /// Takes a loaded object.
+    explicit TestSession(Object* loaded) : object(loaded) {}
     ~TestSession() { if (!mStarted) { delete object; } }
     Q_DISABLE_COPY(TestSession)
 
-    void start()
+    bool start()
     {
         area->setEditor(editor.get());
         editor->setScribbleArea(area.get());
         editor->setObject(object);
         mStarted = true;
-        editor->init();
+        return editor->init();
     }
 
 private:

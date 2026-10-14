@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layervector.h"
 #include "scribblearea.h"
+#include "testfixture.h"
 #include "vectorimage.h"
 #include "importimageconfig.h"
 
@@ -39,14 +40,12 @@ TEST_CASE("Editor - Importing into a hidden layer warns instead of crashing")
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
 
-    Object* obj = new Object;
-    obj->init();
+    TestSession session;
+    Object* obj = session.object;
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(obj);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
+    ScribbleArea* scribbleArea = session.area.get();
 
     int hiddenLayerWarnings = 0;
     scribbleArea->setLayerNotVisibleWarning([&] { hiddenLayerWarnings++; });
@@ -92,7 +91,4 @@ TEST_CASE("Editor - Importing into a hidden layer warns instead of crashing")
         REQUIRE(layer->keyFrameCount() == keys);
         REQUIRE_FALSE(st.code() == Status::FAIL);
     }
-
-    delete scribbleArea;
-    delete editor;
 }

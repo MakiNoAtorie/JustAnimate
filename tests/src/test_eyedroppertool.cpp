@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "object.h"
 #include "layermanager.h"
+#include "testfixture.h"
 #include "toolmanager.h"
 #include "colormanager.h"
 #include "layerbitmap.h"
@@ -27,17 +28,14 @@ GNU General Public License for more details.
 
 TEST_CASE("EyedropperTool - Picking a half-transparent red pixel gives full red")
 {
-    Object* obj = new Object;
-    obj->init();
+    TestSession session;
+    Object* obj = session.object;
     LayerBitmap* layer = obj->addNewBitmapLayer();
     layer->getBitmapImageAtFrame(1)->drawRect(QRectF(0, 0, 10, 10), Qt::NoPen, QColor(255, 0, 0, 128),
                                               QPainter::CompositionMode_Source, false);
 
-    Editor* editor = new Editor;
-    ScribbleArea* scribbleArea = new ScribbleArea(nullptr);
-    editor->setScribbleArea(scribbleArea);
-    editor->setObject(obj);
-    editor->init();
+    session.start();
+    Editor* editor = session.editor.get();
     editor->layers()->setCurrentLayer(layer);
     editor->scrubTo(1);
 
@@ -45,7 +43,4 @@ TEST_CASE("EyedropperTool - Picking a half-transparent red pixel gives full red"
     eyedropper->updateFrontColor(QPointF(5, 5));
 
     REQUIRE(editor->color()->frontColor() == QColor(255, 0, 0, 128));
-
-    delete scribbleArea;
-    delete editor;
 }
