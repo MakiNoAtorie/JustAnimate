@@ -122,6 +122,27 @@ TEST_CASE("QMiniZ::uncompressFolder rejects zip-slip entries")
         REQUIRE_FALSE(QFileInfo::exists(tempDir.path() + "/001.png"));
     }
 
+    SECTION("a folder that cannot be made fails the extract")
+    {
+        QTemporaryDir tempDir;
+        REQUIRE(tempDir.isValid());
+        QString zipPath = tempDir.path() + "/blocked.pclx";
+        mz_zip_archive zip;
+        memset(&zip, 0, sizeof(zip));
+        REQUIRE(mz_zip_writer_init_file(&zip, zipPath.toUtf8().data(), 0));
+        REQUIRE(mz_zip_writer_add_mem(&zip, "data/a.txt", "x", 1, MZ_NO_COMPRESSION));
+        REQUIRE(mz_zip_writer_finalize_archive(&zip));
+        mz_zip_writer_end(&zip);
+
+        // A file where the archive wants a folder.
+        QDir().mkpath(tempDir.path() + "/out");
+        QFile blocker(tempDir.path() + "/out/data");
+        REQUIRE(blocker.open(QIODevice::WriteOnly));
+        blocker.close();
+
+        REQUIRE_FALSE(MiniZ::uncompressFolder(zipPath, tempDir.path() + "/out/").ok());
+    }
+
     SECTION("normal nested entries still extract")
     {
         QTemporaryDir tempDir;

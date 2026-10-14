@@ -208,7 +208,11 @@ Status MiniZ::uncompressFolder(QString zipFilePath, QString destPath)
     static const QRegularExpression driveLetter("^[A-Za-z]:");
     for (int i = 0; i < num; ++i)
     {
-        if (!mz_zip_reader_file_stat(mz, i, stat)) continue;
+        if (!mz_zip_reader_file_stat(mz, i, stat))
+        {
+            dd << QString("Error: Entry %1 cannot be read.").arg(i);
+            return Status(Status::FAIL, dd);
+        }
         const QString name = QString::fromUtf8(stat->m_filename);
         const QString checked = QString(name).replace(QLatin1Char(0x5C), QLatin1Char('/'));
         if (checked.startsWith('/') || checked.contains(driveLetter) ||
@@ -221,31 +225,35 @@ Status MiniZ::uncompressFolder(QString zipFilePath, QString destPath)
 
     for (int i = 0; i < num; ++i)
     {
-        ok &= mz_zip_reader_file_stat(mz, i, stat);
+        if (!mz_zip_reader_file_stat(mz, i, stat)) { return Status(Status::FAIL, dd); }
 
         if (stat->m_is_directory)
         {
             QString sFolderPath = QString::fromUtf8(stat->m_filename);
             dd << QString("Make Dir: ").append(sFolderPath);
 
-            bool mkDirOK = baseDir.mkpath(sFolderPath);
-            Q_ASSERT(mkDirOK);
-            if (!mkDirOK)
+            if (!baseDir.mkpath(sFolderPath))
+            {
                 dd << "Make Dir failed.";
+                return Status(Status::FAIL, dd);
+            }
         }
     }
 
     for (int i = 0; i < num; ++i)
     {
-        ok &= mz_zip_reader_file_stat(mz, i, stat);
+        if (!mz_zip_reader_file_stat(mz, i, stat)) { return Status(Status::FAIL, dd); }
 
         if (!stat->m_is_directory)
         {
             if (QString(stat->m_filename) == "mimetype") continue;
             QString sFullPath = baseDir.filePath(QString::fromUtf8(stat->m_filename));
             dd << QString("Unzip file: ").append(sFullPath);
-            bool b = QFileInfo(sFullPath).absoluteDir().mkpath(".");
-            Q_ASSERT(b);
+            if (!QFileInfo(sFullPath).absoluteDir().mkpath("."))
+            {
+                dd << "Make Dir failed.";
+                return Status(Status::FAIL, dd);
+            }
 
             bool extractOK = mz_zip_reader_extract_to_file(mz, i, sFullPath.toUtf8(), 0);
             if (!extractOK)
