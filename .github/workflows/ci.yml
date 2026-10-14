@@ -157,6 +157,11 @@ jobs:
           mkdir smoke-mac
           hdiutil attach packages/*.dmg -nobrowse -readonly -mountpoint "$PWD/smoke-mac"
           app="$PWD/smoke-mac/JustAnimate.app/Contents/MacOS/JustAnimate"
+          # Diagnostics for a bundle that does not start; they never fail the step
+          otool -L "$app" || true
+          otool -l "$app" | grep -A2 LC_RPATH || true
+          ls "$PWD/smoke-mac/JustAnimate.app/Contents/Frameworks" || true
+          codesign --verify --deep --verbose=2 "$PWD/smoke-mac/JustAnimate.app" || true
           "$app" --version
           "$app" tests/data/camera-path-test.pclx -o smoke-dmg.png
           test -s smoke-dmg0001.png

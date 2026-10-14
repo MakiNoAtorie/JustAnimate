@@ -267,7 +267,11 @@ set_target_properties(pencil2d PROPERTIES
 )
 if(APPLE)
     # The bundle is named after the executable: JustAnimate.app
-    set_target_properties(pencil2d PROPERTIES OUTPUT_NAME JustAnimate)
+    # INSTALL_RPATH: macdeployqt adds no rpath to a binary that has none after install
+    set_target_properties(pencil2d PROPERTIES
+        OUTPUT_NAME JustAnimate
+        INSTALL_RPATH "@executable_path/../Frameworks"
+    )
 endif()
 
 # Link libraries

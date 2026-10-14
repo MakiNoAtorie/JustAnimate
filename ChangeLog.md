@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Opening a project checks data file paths without a disk lookup per file: a 5000-frame project opens about 40 % faster on Windows.
+- The macOS package starts: the app in the DMG finds its bundled Qt frameworks (0.1).
 - The brush golden test has Linux and macOS hashes, and CI retries its tool downloads (0.1).
 - The test suite runs unattended on Windows debug builds: a failed assert prints to stderr and opens no dialog (0.1).
 - The Windows executable has its icon and version details again: the resource file `app/data/version.rc` was missing from the repository (0.1).
@@ -13,7 +14,7 @@ the original Pencil2D history is kept below for reference.
 - Shortcuts that add, duplicate, remove or move a frame, and the flip playback shortcuts, no longer fire while the pen is down (0.1).
 - A movie export that fails or is cancelled before it writes anything no longer deletes an existing file at the output path (0.1).
 - A failed save of a legacy .pcl project no longer damages the project file: it is written to a temporary file and renamed when complete (0.1).
-- Crash recovery: a project saved after its last autosave is no longer restored from the older autosave, an autosave that cannot be extracted no longer deletes the working files, and a recovered project asks to be saved before it closes (0.1).
+- Crash recovery: a project saved after its last autosave is no longer restored from the older autosave, an autosave that cannot be extracted no longer deletes the working files, and a recovered project asks to be saved before it closes (0.1).
 - The new undo system is the only one: the legacy undo path and its "Enable New System" preference are gone (an old settings value is ignored). Cutting selected frames, a vector fill and a vector vertex move with the smudge tool can be undone and redone; removing selected frames no longer asks for confirmation (0.5).
 - Fixed memory leaks on each bucket fill and each copy of a vector frame (0.1).
 - Compiler warnings are fixed (deprecated Qt 6 mouse and tablet calls, a missing return) and CI now fails on any warning (0.1).
