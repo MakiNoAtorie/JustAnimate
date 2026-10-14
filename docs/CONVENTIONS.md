@@ -22,9 +22,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   time per worktree. Stop only processes you started (by PID).
 - Re-run `cmake -S . -B build` after a change to `tests/tests.cmake` or any
   `*.cmake` file.
-- Compiler warnings are the lint. Add none (existing ones are ticket #21).
-- CMake is the only build system. CI builds with Qt 6.5.3 on GCC, Clang and
-  MSVC: use no Qt 6.6+ API and no `QT_VERSION < 6` branches.
+- Compiler warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON`.
+- CMake is the only build system. CI builds with Qt 6.4 (Linux) and 6.5.3 on GCC, Clang and
+  MSVC: use no Qt 6.5+ API and no `QT_VERSION < 6` branches.
 - `pencil2d_tests` does not compile all of `app/src`: build target `pencil2d`
   too after an edit there.
 - Sanitizers: `-DJUSTANIMATE_SANITIZE=ON` (GCC/Clang, off by default); CI
