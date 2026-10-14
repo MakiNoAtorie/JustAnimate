@@ -166,7 +166,7 @@ void install()
     std::signal(SIGABRT, onFatalSignal);
 #else
     // Own stack, so a stack overflow can still run the handler.
-    // ponytail: main thread only; give worker threads one if they recurse.
+    // shortcut: main thread only, give worker threads a stack when one can overflow.
     static char altStack[65536];
     stack_t stack = {};
     stack.ss_sp = altStack;

@@ -415,7 +415,7 @@ void TransformCommand::apply(const QRectF& selectionRect,
 
 // A new layer can get the id of a layer that is out of the object, and a save then
 // overwrites its frame files. Keep the frames in memory and make the next save write them.
-// ponytail: the whole layer stays in memory while it is in the undo stack; copy its files aside if that costs too much.
+// shortcut: the whole layer stays in memory while it is in the undo stack, copy its files aside when that costs too much.
 static void keepFramesInMemory(const Layer* layer)
 {
     layer->foreachKeyFrame([](KeyFrame* key)
