@@ -25,11 +25,11 @@ QPointF PointerEvent::viewportPos() const
 {
     if (mMouseEvent)
     {
-        return mMouseEvent->localPos();
+        return mMouseEvent->position();
     }
     else if (mTabletEvent)
     {
-        return mTabletEvent->posF();
+        return mTabletEvent->position();
     }
     Q_ASSERT(false);
     return QPointF();
@@ -98,11 +98,11 @@ int PointerEvent::x() const
 {
     if (mMouseEvent)
     {
-        return mMouseEvent->x();
+        return qRound(mMouseEvent->position().x());
     }
     else if (mTabletEvent)
     {
-        return mTabletEvent->x();
+        return qRound(mTabletEvent->position().x());
     }
     else
     {
@@ -116,11 +116,11 @@ int PointerEvent::y() const
 {
     if (mMouseEvent)
     {
-        return mMouseEvent->y();
+        return qRound(mMouseEvent->position().y());
     }
     else if (mTabletEvent)
     {
-        return mTabletEvent->y();
+        return qRound(mTabletEvent->position().y());
     }
     else
     {

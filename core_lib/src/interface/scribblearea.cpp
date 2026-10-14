@@ -559,7 +559,7 @@ void ScribbleArea::wheelEvent(QWheelEvent* event)
 
 void ScribbleArea::tabletEvent(QTabletEvent *e)
 {
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->posF()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
 
     if (event.pointerType() == QPointingDevice::PointerType::Eraser)
     {
@@ -586,8 +586,8 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
         }
         else
         {
-            qreal distance = QLineF(e->posF(), mTabletPressPos).length();
-            mTabletPressPos = e->posF();
+            qreal distance = QLineF(e->position(), mTabletPressPos).length();
+            mTabletPressPos = e->position();
 
             if (mDoubleClickMillis <= DOUBLE_CLICK_THRESHOLD && distance < 5.0) {
                 currentTool()->pointerDoubleClickEvent(&event);
@@ -716,7 +716,7 @@ void ScribbleArea::mousePressEvent(QMouseEvent* e)
         return;
     }
 
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->localPos()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerPressEvent(&event);
     mMouseInUse = event.isAccepted();
 }
@@ -725,7 +725,7 @@ void ScribbleArea::mouseMoveEvent(QMouseEvent* e)
 {
     if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
 
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->localPos()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerMoveEvent(&event);
 }
 
@@ -733,7 +733,7 @@ void ScribbleArea::mouseReleaseEvent(QMouseEvent* e)
 {
     if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
 
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->localPos()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerReleaseEvent(&event);
     mMouseInUse = (e->buttons() & Qt::RightButton) || (e->buttons() & Qt::LeftButton);
 }
@@ -742,7 +742,7 @@ void ScribbleArea::mouseDoubleClickEvent(QMouseEvent* e)
 {
     if (mTabletInUse) { e->ignore(); return; }
 
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->localPos()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     currentTool()->pointerDoubleClickEvent(&event);
 }
 

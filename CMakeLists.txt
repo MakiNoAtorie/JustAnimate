@@ -63,6 +63,16 @@ if(MSVC)
     add_compile_options(/MP)  # Multi-processor compilation
 endif()
 
+# Warnings are errors in CI only: a new compiler must not break a user's build
+option(JUSTANIMATE_WERROR "Treat compiler warnings as errors" OFF)
+if(JUSTANIMATE_WERROR)
+    if(MSVC)
+        add_compile_options(/WX)
+    else()
+        add_compile_options(-Werror)
+    endif()
+endif()
+
 # Include subdirectories to build as single executable
 include(core_lib/core_lib.cmake)
 include(app/app.cmake)

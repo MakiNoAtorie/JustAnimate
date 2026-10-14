@@ -57,7 +57,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON
 
       - name: Build
         run: cmake --build build
@@ -85,7 +85,7 @@ jobs:
           echo "FFMPEG=$PWD/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
 
       - name: Configure release
-        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUSTANIMATE_FFMPEG="${{ env.FFMPEG }}"
+        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_FFMPEG="${{ env.FFMPEG }}"
 
       - name: Build release
         run: cmake --build build-release --target pencil2d
@@ -165,7 +165,7 @@ jobs:
           sudo apt-get install -yq --no-install-recommends             qt6-base-dev qt6-multimedia-dev qt6-svg-dev qt6-tools-dev             qt6-tools-dev-tools qt6-l10n-tools libgl-dev ninja-build
 
       - name: Configure
-        run: cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_SANITIZE=ON
+        run: cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_SANITIZE=ON
 
       - name: Build
         run: cmake --build build-san --target pencil2d_tests
