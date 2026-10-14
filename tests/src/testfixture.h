@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QVariant>
 
+#include "basetool.h"
 #include "editor.h"
 #include "object.h"
 #include "pencildef.h"
@@ -48,6 +49,20 @@ public:
 
 private:
     QHash<QString, QVariant> mSaved;
+};
+
+/// Puts a tool's settings back at scope exit: ~ToolManager saves them to QSettings.
+/// Declare it after the editor that owns the tool.
+class ToolSettingsGuard
+{
+public:
+    explicit ToolSettingsGuard(BaseTool* tool) : mTool(tool), mSaved(tool->toolProperties()) {}
+    ~ToolSettingsGuard() { mTool->toolProperties() = mSaved; }
+    Q_DISABLE_COPY(ToolSettingsGuard)
+
+private:
+    BaseTool* mTool;
+    ToolProperties mSaved;
 };
 
 /// An Editor with its ScribbleArea and Object. Add layers to `object`, then call start().

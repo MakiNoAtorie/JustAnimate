@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "object.h"
 #include "scribblearea.h"
+#include "testfixture.h"
 #include "toolmanager.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
@@ -81,24 +82,21 @@ int inkWidth(BitmapImage* image)
 
 TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous stroke's")
 {
-    Object* obj = new Object;
-    obj->init();
-    LayerBitmap* layer = obj->addNewBitmapLayer();
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
     for (int f = 2; f <= 4; ++f)
         layer->addNewKeyFrameAt(f);
 
-    Editor* editor = new Editor;
-    ScribbleArea* area = new ScribbleArea(nullptr);
-    editor->setScribbleArea(area);
-    editor->setObject(obj);
-    editor->init();
-    area->setEditor(editor);
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
     area->init();
     area->resize(800, 600);
     editor->layers()->setCurrentLayer(layer);
 
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
     brush->setWidth(40);
     brush->setPressureEnabled(true);
     brush->setFeatherEnabled(false);
@@ -121,9 +119,6 @@ TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous str
     CHECK(hardDot >= 30);
     CHECK(lightDot > 0);
     CHECK(lightDot <= 15);
-
-    delete area;
-    delete editor;
 }
 
 TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")

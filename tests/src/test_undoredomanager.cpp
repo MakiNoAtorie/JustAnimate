@@ -212,6 +212,7 @@ TEST_CASE("Editor: each edit counts once toward autosave")
         REQUIRE_FALSE(layer->keyExists(frame));
     };
 
+    const SettingsGuard guard({ SETTING_AUTO_SAVE, SETTING_AUTO_SAVE_NUMBER });
     editor->preference()->set(SETTING::AUTO_SAVE, true);
     editor->preference()->set(SETTING::AUTO_SAVE_NUMBER, 2);
     editor->resetAutoSaveCounter();
@@ -753,7 +754,8 @@ TEST_CASE("UndoRedoManager: an undone layer delete keeps its frames across saves
 TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
 {
     // A settings file written before the legacy undo system was removed can hold this key.
-    const QString oldKey = "NewUndoRedoOn";
+    const char* oldKey = "NewUndoRedoOn";
+    const SettingsGuard guard({ oldKey });
     QSettings settings(PENCIL2D, PENCIL2D);
     settings.setValue(oldKey, false);
     settings.sync();
@@ -782,7 +784,6 @@ TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
     undoAction->trigger();
     REQUIRE(layer->keyExists(5));
 
-    settings.remove(oldKey);
     delete editor;
     delete scribbleArea;
 }

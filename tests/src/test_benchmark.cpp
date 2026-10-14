@@ -45,6 +45,7 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "stageprofiler.h"
 #include "stroketool.h"
+#include "testfixture.h"
 #include "toolmanager.h"
 
 namespace
@@ -361,7 +362,7 @@ ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes)
 
     s.editor->tools()->setCurrentTool(c.tool);
     BaseTool* tool = s.editor->tools()->currentTool();
-    const ToolProperties userSettings = tool->toolProperties(); // put back so the user's settings aren't overwritten on save
+    const ToolSettingsGuard guard(tool);
     tool->resetSettings();
     static_cast<StrokeTool*>(tool)->setWidth(c.size);
 
@@ -379,7 +380,6 @@ ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes)
     }
     r.ms = t.nsecsElapsed() / 1e6;
 
-    tool->toolProperties() = userSettings;
     r.layerSha1 = layerHash(painted->getBitmapImageAtFrame(1));
     r.frameSha1 = frameHash(s.editor->object());
     return r;
