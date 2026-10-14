@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include <QTranslator>
 
 #include "pencildef.h"
+#include "platformhandler.h"
 #include "preferencemanager.h"
 
 #include "ui_generalpage.h"
@@ -114,6 +115,11 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     connect(ui->antialiasingBox, &QCheckBox::stateChanged, this, &GeneralPage::antiAliasCheckboxStateChanged);
     connect(ui->curveSmoothingLevel, &QSlider::valueChanged, this, &GeneralPage::curveSmoothingChanged);
     connect(ui->highResBox, &QCheckBox::stateChanged, this, &GeneralPage::highResCheckboxStateChanged);
+    connect(ui->tabletApiBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &GeneralPage::tabletApiChanged);
+#ifndef Q_OS_WIN
+    ui->tabletApiLabel->hide();
+    ui->tabletApiBox->hide();
+#endif
     connect(ui->canvasCursorBox, &QCheckBox::stateChanged, this, &GeneralPage::canvasCursorCheckboxStateChanged);
     connect(ui->gridSizeInputW, spinValueChanged, this, &GeneralPage::gridWidthChanged);
     connect(ui->gridSizeInputH, spinValueChanged, this, &GeneralPage::gridHeightChanged);
@@ -181,6 +187,9 @@ void GeneralPage::updateValues()
     QSignalBlocker b9(ui->highResBox);
     ui->highResBox->setChecked(mManager->isOn(SETTING::HIGH_RESOLUTION));
 
+    QSignalBlocker b19(ui->tabletApiBox);
+    ui->tabletApiBox->setCurrentIndex(PlatformHandler::applyTabletApi(mManager) ? 0 : 1);
+
     QSignalBlocker b10(ui->backgroundButtons);
     QString bgName = mManager->getString(SETTING::BACKGROUND_STYLE);
 
@@ -243,6 +252,14 @@ void GeneralPage::curveSmoothingChanged(int value)
 void GeneralPage::highResCheckboxStateChanged(int b)
 {
     mManager->set(SETTING::HIGH_RESOLUTION, b != Qt::Unchecked);
+}
+
+void GeneralPage::tabletApiChanged(int index)
+{
+    mManager->set(SETTING::TABLET_WINTAB, index == 0);
+    // Show the API in use: WinTab is not available without a WinTab driver.
+    QSignalBlocker b(ui->tabletApiBox);
+    ui->tabletApiBox->setCurrentIndex(PlatformHandler::applyTabletApi(mManager) ? 0 : 1);
 }
 
 void GeneralPage::shadowsCheckboxStateChanged(int b)

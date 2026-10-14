@@ -289,6 +289,10 @@ target_link_libraries(pencil2d PRIVATE
 if(APPLE)
     target_link_libraries(pencil2d PRIVATE ${APPKIT_FRAMEWORK})
 endif()
+if(WIN32)
+    # QWindowsApplication::setWinTabEnabled is private Qt API
+    target_link_libraries(pencil2d PRIVATE Qt6::GuiPrivate)
+endif()
 
 # Set precompiled header
 

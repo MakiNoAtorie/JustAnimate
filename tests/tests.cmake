@@ -36,6 +36,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_stroketool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tabletapi.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolsettings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_undoredomanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_vectorimage.cpp
@@ -100,6 +101,10 @@ target_link_libraries(pencil2d_tests PRIVATE
 # Platform-specific libraries
 if(APPLE)
     target_link_libraries(pencil2d_tests PRIVATE ${APPKIT_FRAMEWORK})
+endif()
+if(WIN32)
+    # QWindowsApplication::setWinTabEnabled is private Qt API
+    target_link_libraries(pencil2d_tests PRIVATE Qt6::GuiPrivate)
 endif()
 
 # Opt-in AddressSanitizer + UndefinedBehaviorSanitizer for the test binary (GCC/Clang).

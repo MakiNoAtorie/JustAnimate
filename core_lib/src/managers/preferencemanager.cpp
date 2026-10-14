@@ -75,6 +75,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::TOOL_CURSOR,              settings.value(SETTING_TOOL_CURSOR,            true).toBool());
     set(SETTING::CANVAS_CURSOR,            settings.value(SETTING_CANVAS_CURSOR,          true).toBool());
     set(SETTING::HIGH_RESOLUTION,          settings.value(SETTING_HIGH_RESOLUTION,        true).toBool());
+    set(SETTING::TABLET_WINTAB,            settings.value(SETTING_TABLET_WINTAB,          true).toBool());
     set(SETTING::SHADOW,                   settings.value(SETTING_SHADOW,                 false).toBool());
     set(SETTING::QUICK_SIZING,             settings.value(SETTING_QUICK_SIZING,           true).toBool());
     set(SETTING::SHOW_SELECTION_INFO,      settings.value(SETTING_SHOW_SELECTION_INFO,    false).toBool());
@@ -435,6 +436,9 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::HIGH_RESOLUTION:
         settings.setValue(SETTING_HIGH_RESOLUTION, value);
+        break;
+    case SETTING::TABLET_WINTAB:
+        settings.setValue(SETTING_TABLET_WINTAB, value);
         break;
     case SETTING::AUTO_SAVE:
         settings.setValue(SETTING_AUTO_SAVE, value);

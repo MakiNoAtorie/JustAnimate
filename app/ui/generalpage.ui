@@ -218,6 +218,27 @@
             </property>
            </widget>
           </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="tabletApiLabel">
+            <property name="text">
+             <string>Tablet input API</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QComboBox" name="tabletApiBox">
+            <item>
+             <property name="text">
+              <string notr="true">WinTab</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string notr="true">Windows Ink</string>
+             </property>
+            </item>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -582,6 +603,7 @@
   <tabstop>antialiasingBox</tabstop>
   <tabstop>curveSmoothingLevel</tabstop>
   <tabstop>highResBox</tabstop>
+  <tabstop>tabletApiBox</tabstop>
   <tabstop>gridCheckBox</tabstop>
   <tabstop>gridSizeInputW</tabstop>
   <tabstop>gridSizeInputH</tabstop>

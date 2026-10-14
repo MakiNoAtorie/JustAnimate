@@ -30,6 +30,8 @@ namespace PlatformHandler
 
     bool isDarkMode() { return false; }
 
+    bool setWinTabEnabled(bool) { return false; }
+
     void initialise()
     {
         /* If running as an AppImage, sets GStreamer environment variables to ensure

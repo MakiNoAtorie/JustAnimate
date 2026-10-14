@@ -19,9 +19,12 @@ GNU General Public License for more details.
 #include "platformhandler.h"
 
 #include <QCoreApplication>
+#include <QGuiApplication>
 #include <QSettings>
 
 #include <ShObjIdl.h>
+
+#include <QtGui/private/qguiapplication_p.h>
 
 #include "pencildef.h"
 
@@ -29,6 +32,15 @@ namespace PlatformHandler
 {
     void configurePlatformSpecificSettings() {}
     bool isDarkMode() { return false; }
+
+    bool setWinTabEnabled(bool enabled)
+    {
+        auto app = qGuiApp ? qGuiApp->nativeInterface<QNativeInterface::Private::QWindowsApplication>() : nullptr;
+        if (!app) { return false; }
+        // The return value of setWinTabEnabled() does not tell if a WinTab driver was found.
+        app->setWinTabEnabled(enabled);
+        return app->isWinTabEnabled();
+    }
     void initialise()
     {
 #if _WIN32_WINNT >= _WIN32_WINNT_WIN7

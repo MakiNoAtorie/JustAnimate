@@ -41,6 +41,7 @@ GNU General Public License for more details.
 
 // core_lib headers
 #include "pencildef.h"
+#include "platformhandler.h"
 #include "pencilsettings.h"
 #include "object.h"
 #include "editor.h"
@@ -120,6 +121,7 @@ MainWindow2::MainWindow2(QWidget* parent) :
     mEditor = new Editor(this);
     mEditor->setScribbleArea(ui->scribbleArea);
     mEditor->init();
+    PlatformHandler::applyTabletApi(mEditor->preference());
 
     newObject();
 

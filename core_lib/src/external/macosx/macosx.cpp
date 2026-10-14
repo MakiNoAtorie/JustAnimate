@@ -35,6 +35,8 @@ namespace PlatformHandler
         return MacOSXNative::isDarkMode();
     }
 
+    bool setWinTabEnabled(bool) { return false; }
+
     void initialise()
     {
     }

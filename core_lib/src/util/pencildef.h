@@ -235,6 +235,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_TOOL_CURSOR         "ToolCursors"
 #define SETTING_CANVAS_CURSOR       "DottedCursors"
 #define SETTING_HIGH_RESOLUTION     "HighResPosition"
+#define SETTING_TABLET_WINTAB       "TabletWinTab"
 #define SETTING_BACKGROUND_STYLE    "Background"
 #define SETTING_WINDOW_OPACITY      "WindowOpacity"
 #define SETTING_WINDOW_GEOMETRY     "WindowGeometry"
