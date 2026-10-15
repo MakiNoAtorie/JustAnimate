@@ -119,6 +119,13 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   call it from spacing or prediction.
 - Pen speed and tilt reach dabs only through `StrokeInterpolator::speed()`/
   `tilt()`. Dynamics amounts default to 0, and 0 leaves output unchanged.
+- Brush presets go only through `BrushPresets` (`brushpresets.*`): one
+  `<name>.json` per preset, name checked by `isValidName`. A preset holds
+  every `ToolProperties` value keyed by identifier, plus `tipImage`
+  (`StrokeTool::tipImagePath()`, empty = generated tip). Global preferences
+  never go in a preset. New keys are optional; preset JSON is untrusted
+  (wrong type or missing gives the default, numbers clamped, unknown keys
+  ignored, corrupt file skipped with `qWarning`).
 - New `StrokeToolProperties` ids take the next free number on the
   integration branch tip.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
