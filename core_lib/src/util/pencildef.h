@@ -314,5 +314,9 @@ const static int MaxFramesBound = 9999;
 #define SETTING_DRAW_ON_EMPTY_FRAME_ACTION  "DrawOnEmptyFrameAction"
 
 #define SETTING_LANGUAGE        "Language"
+#define SETTING_THEME           "Theme"
+
+#define SETTING_WORKSPACE_CURRENT   "Workspace/Current"
+#define SETTING_WORKSPACE_STATE     "Workspace/State/"
 
 #endif // PENCILDEF_H

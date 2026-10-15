@@ -486,7 +486,7 @@ void MainWindow2::createMenus()
     QSettings workspaceSettings(PENCIL2D, PENCIL2D);
     for (const QString& name : workspaceNames())
     {
-        QAction* a = workspaceMenu->addAction(tr(name.toUtf8().constData()));
+        QAction* a = workspaceMenu->addAction(QCoreApplication::translate("Workspace", name.toUtf8().constData()));
         a->setData(name);
         a->setCheckable(true);
         a->setChecked(name == currentWorkspace(workspaceSettings));
@@ -1094,9 +1094,7 @@ void MainWindow2::resetAndDockAllSubWidgets()
     QSettings settings(PENCIL2D, PENCIL2D);
     settings.remove(SETTING_WINDOW_GEOMETRY);
     settings.remove(SETTING_WINDOW_STATE);
-    settings.remove("Workspace");
-
-    applyDefaultDockLayout();
+    resetCurrentWorkspace(this, dockLayout(), availableScreenSize(), settings);
 }
 
 DefaultDockLayout MainWindow2::dockLayout() const

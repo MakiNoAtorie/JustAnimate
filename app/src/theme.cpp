@@ -9,8 +9,6 @@
 
 namespace
 {
-const char* const kKey = "Theme";
-
 QPalette darkPalette()
 {
     QPalette p;
@@ -53,13 +51,13 @@ namespace Theme
 Mode saved()
 {
     QSettings s(PENCIL2D, PENCIL2D);
-    const int v = s.value(kKey, System).toInt();
+    const int v = s.value(SETTING_THEME, System).toInt();
     return (v == Light || v == Dark) ? static_cast<Mode>(v) : System;
 }
 
 void save(Mode mode)
 {
-    QSettings(PENCIL2D, PENCIL2D).setValue(kKey, static_cast<int>(mode));
+    QSettings(PENCIL2D, PENCIL2D).setValue(SETTING_THEME, static_cast<int>(mode));
 }
 
 QPalette palette(Mode mode)

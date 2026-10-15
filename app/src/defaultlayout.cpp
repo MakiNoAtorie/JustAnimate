@@ -5,6 +5,8 @@
 #include <QSettings>
 #include <QtGlobal>
 
+#include "pencildef.h"
+
 void applyDefaultDockLayout(QMainWindow* window, const DefaultDockLayout& docks, QSize screen)
 {
     const auto place = [window](Qt::DockWidgetArea area, const QList<QDockWidget*>& list)
@@ -30,31 +32,14 @@ void applyDefaultDockLayout(QMainWindow* window, const DefaultDockLayout& docks,
     window->resizeDocks({docks.bottom}, {bottomHeight}, Qt::Vertical);
 }
 
-QStringList workspaceNames()
+namespace
 {
-    return {"Draw", "Animate", "Ink"};
-}
+// Untranslated names are the settings keys; menus show QCoreApplication::translate("Workspace", name).
+const char* const kWorkspaces[] = {QT_TRANSLATE_NOOP("Workspace", "Draw"), QT_TRANSLATE_NOOP("Workspace", "Animate"),
+                                   QT_TRANSLATE_NOOP("Workspace", "Ink")};
 
-QString currentWorkspace(QSettings& settings)
+void applyPreset(QMainWindow* window, const DefaultDockLayout& docks, QSize screen, const QString& name)
 {
-    const QString name = settings.value("Workspace/Current").toString();
-    return workspaceNames().contains(name) ? name : "Animate";
-}
-
-void saveCurrentWorkspace(QMainWindow* window, QSettings& settings)
-{
-    settings.setValue("Workspace/State/" + currentWorkspace(settings), window->saveState());
-}
-
-void switchWorkspace(QMainWindow* window, const DefaultDockLayout& docks, QSize screen, QSettings& settings, const QString& name)
-{
-    if (!workspaceNames().contains(name)) { return; }
-    saveCurrentWorkspace(window, settings);
-    settings.setValue("Workspace/Current", name);
-
-    const QByteArray saved = settings.value("Workspace/State/" + name).toByteArray();
-    if (!saved.isEmpty() && window->restoreState(saved)) { return; }
-
     applyDefaultDockLayout(window, docks, screen);
     QStringList hidden;
     if (name == "Draw") { hidden = {"TimeLine", "Onion Skin"}; }
@@ -63,4 +48,41 @@ void switchWorkspace(QMainWindow* window, const DefaultDockLayout& docks, QSize 
     {
         if (hidden.contains(dock->objectName())) { dock->hide(); }
     }
+}
+}
+
+QStringList workspaceNames()
+{
+    QStringList names;
+    for (const char* name : kWorkspaces) { names << QString::fromLatin1(name); }
+    return names;
+}
+
+QString currentWorkspace(QSettings& settings)
+{
+    const QString name = settings.value(SETTING_WORKSPACE_CURRENT).toString();
+    return workspaceNames().contains(name) ? name : "Animate";
+}
+
+void saveCurrentWorkspace(QMainWindow* window, QSettings& settings)
+{
+    settings.setValue(SETTING_WORKSPACE_STATE + currentWorkspace(settings), window->saveState());
+}
+
+void switchWorkspace(QMainWindow* window, const DefaultDockLayout& docks, QSize screen, QSettings& settings, const QString& name)
+{
+    if (!workspaceNames().contains(name)) { return; }
+    saveCurrentWorkspace(window, settings);
+    settings.setValue(SETTING_WORKSPACE_CURRENT, name);
+
+    const QByteArray saved = settings.value(SETTING_WORKSPACE_STATE + name).toByteArray();
+    if (!saved.isEmpty() && window->restoreState(saved)) { return; }
+    applyPreset(window, docks, screen, name);
+}
+
+void resetCurrentWorkspace(QMainWindow* window, const DefaultDockLayout& docks, QSize screen, QSettings& settings)
+{
+    const QString name = currentWorkspace(settings);
+    settings.remove(SETTING_WORKSPACE_STATE + name);
+    applyPreset(window, docks, screen, name);
 }

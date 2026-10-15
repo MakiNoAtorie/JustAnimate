@@ -1,13 +1,12 @@
 #include "catch.hpp"
 
-#include <QSettings>
-
 #include "pencildef.h"
+#include "testfixture.h"
 #include "theme.h"
 
 TEST_CASE("Theme choice applies and persists", "[Theme]")
 {
-    const Theme::Mode before = Theme::saved();
+    const SettingsGuard guard({ SETTING_THEME });
 
     Theme::save(Theme::Dark);
     CHECK(Theme::saved() == Theme::Dark);
@@ -20,6 +19,4 @@ TEST_CASE("Theme choice applies and persists", "[Theme]")
     CHECK_FALSE(Theme::isDark());
 
     Theme::apply(Theme::System);
-    Theme::save(before);
-    CHECK(Theme::saved() == before);
 }

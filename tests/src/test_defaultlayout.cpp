@@ -1,5 +1,7 @@
 #include "catch.hpp"
 
+#include <deque>
+
 #include <QApplication>
 #include <QDockWidget>
 #include <QMainWindow>
@@ -11,15 +13,24 @@
 
 namespace
 {
-QDockWidget* makeDock(QMainWindow* win, const char* name)
+struct TestDock
 {
-    auto* dock = new QDockWidget(name, win);
-    dock->setObjectName(name);
-    auto* body = new QWidget(dock);
-    body->setMinimumSize(120, 90);
-    dock->setWidget(body);
-    return dock;
-}
+    TestDock(QMainWindow* win, const char* name) : dock(name, win)
+    {
+        dock.setObjectName(name);
+        body.setMinimumSize(120, 90);
+        dock.setWidget(&body);
+    }
+    QDockWidget dock;
+    QWidget body;
+};
+
+// Declare after the window so the docks go first.
+struct Docks
+{
+    QDockWidget* add(QMainWindow* win, const char* name) { return &owned.emplace_back(win, name).dock; }
+    std::deque<TestDock> owned;
+};
 }
 
 TEST_CASE("Default dock layout", "[DockLayout]")
@@ -27,11 +38,13 @@ TEST_CASE("Default dock layout", "[DockLayout]")
     for (const QSize screen : {QSize(1366, 768), QSize(3840, 2160)})
     {
         QMainWindow win;
-        win.setCentralWidget(new QTextEdit);
+        QTextEdit central;
+        win.setCentralWidget(&central);
+        Docks owned;
         DefaultDockLayout docks;
-        docks.left = {makeDock(&win, "a"), makeDock(&win, "b"), makeDock(&win, "c")};
-        docks.right = {makeDock(&win, "d"), makeDock(&win, "e"), makeDock(&win, "f")};
-        docks.bottom = makeDock(&win, "g");
+        docks.left = {owned.add(&win, "a"), owned.add(&win, "b"), owned.add(&win, "c")};
+        docks.right = {owned.add(&win, "d"), owned.add(&win, "e"), owned.add(&win, "f")};
+        docks.bottom = owned.add(&win, "g");
         const QList<QDockWidget*> all = docks.left + docks.right + QList<QDockWidget*>{docks.bottom};
 
         // Scramble first so the test proves the function restores the layout
@@ -65,11 +78,13 @@ TEST_CASE("Workspaces", "[DockLayout]")
     QTemporaryDir dir;
     QSettings settings(dir.filePath("ws.ini"), QSettings::IniFormat);
     QMainWindow win;
-    win.setCentralWidget(new QTextEdit);
+    QTextEdit central;
+    win.setCentralWidget(&central);
+    Docks owned;
     DefaultDockLayout docks;
-    docks.left = {makeDock(&win, "ToolBox")};
-    docks.right = {makeDock(&win, "ColorPalette"), makeDock(&win, "Onion Skin")};
-    docks.bottom = makeDock(&win, "TimeLine");
+    docks.left = {owned.add(&win, "ToolBox")};
+    docks.right = {owned.add(&win, "ColorPalette"), owned.add(&win, "Onion Skin")};
+    docks.bottom = owned.add(&win, "TimeLine");
     const QSize screen(1366, 768);
     win.resize(screen);
     win.show();
@@ -91,4 +106,37 @@ TEST_CASE("Workspaces", "[DockLayout]")
     QApplication::processEvents();
     REQUIRE(docks.right[1]->isVisible());
     REQUIRE(currentWorkspace(settings) == "Ink");
+}
+
+TEST_CASE("Reset restores only the current workspace", "[DockLayout]")
+{
+    QTemporaryDir dir;
+    QSettings settings(dir.filePath("ws.ini"), QSettings::IniFormat);
+    QMainWindow win;
+    QTextEdit central;
+    win.setCentralWidget(&central);
+    Docks owned;
+    DefaultDockLayout docks;
+    docks.left = {owned.add(&win, "ToolBox")};
+    docks.right = {owned.add(&win, "ColorPalette"), owned.add(&win, "Onion Skin")};
+    docks.bottom = owned.add(&win, "TimeLine");
+    const QSize screen(1366, 768);
+    win.resize(screen);
+    win.show();
+
+    // Ink keeps an edit: Onion Skin shown
+    switchWorkspace(&win, docks, screen, settings, "Ink");
+    docks.right[1]->show();
+    switchWorkspace(&win, docks, screen, settings, "Draw");
+    docks.bottom->show();
+    saveCurrentWorkspace(&win, settings);
+
+    resetCurrentWorkspace(&win, docks, screen, settings);
+    QApplication::processEvents();
+    REQUIRE(currentWorkspace(settings) == "Draw");
+    REQUIRE(!docks.bottom->isVisible());
+
+    switchWorkspace(&win, docks, screen, settings, "Ink");
+    QApplication::processEvents();
+    REQUIRE(docks.right[1]->isVisible());
 }

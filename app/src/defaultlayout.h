@@ -32,4 +32,7 @@ void saveCurrentWorkspace(QMainWindow* window, QSettings& settings);
 // Saves the active workspace, then shows `name`: its saved state, or its built-in layout.
 void switchWorkspace(QMainWindow* window, const DefaultDockLayout& docks, QSize screen, QSettings& settings, const QString& name);
 
+// Drops the active workspace's saved state and shows its built-in layout. Other workspaces keep theirs.
+void resetCurrentWorkspace(QMainWindow* window, const DefaultDockLayout& docks, QSize screen, QSettings& settings);
+
 #endif // DEFAULTLAYOUT_H
