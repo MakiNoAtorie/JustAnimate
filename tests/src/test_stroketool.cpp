@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QIcon>
 #include <QPointingDevice>
 #include <QTabletEvent>
+#include <QTemporaryDir>
 
 #include "beziercurve.h"
 #include "bitmapimage.h"
@@ -330,6 +331,63 @@ TEST_CASE("DabTool - a flat tip keeps its angle or follows the stroke direction"
     CHECK(turnedWidth <= 10);
     CHECK(followWidth <= 10);
     CHECK(painted >= 39 * 39); // a 40 px circle covers about 1257 pixels
+}
+
+TEST_CASE("DabTool - an image tip from a file paints its shape and a bad file keeps the old tip")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    // 20 x 20 with the left half dark: a 40 px dab paints about 20 px wide.
+    QImage png(20, 20, QImage::Format_RGB32);
+    png.fill(Qt::white);
+    for (int y = 0; y < 20; ++y)
+        for (int x = 0; x < 10; ++x)
+            png.setPixel(x, y, qRgb(0, 0, 0));
+    REQUIRE(png.save(dir.filePath("tip.png")));
+    QFile bad(dir.filePath("bad.gbr"));
+    REQUIRE(bad.open(QIODevice::WriteOnly));
+    bad.write(QByteArray("\0\0\0\x1c\0\0\0\x02", 8)); // a .gbr cut off in its header
+    bad.close();
+
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 2; f <= 3; ++f)
+        layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(false);
+
+    editor->scrubTo(1);
+    tap(area, QPointF(300, 300), 1.0);
+    const int roundWidth = inkWidth(layer->getBitmapImageAtFrame(1));
+
+    REQUIRE(brush->setTipImage(dir.filePath("tip.png")).ok());
+    editor->scrubTo(2);
+    tap(area, QPointF(300, 300), 1.0);
+    const int imageWidth = inkWidth(layer->getBitmapImageAtFrame(2));
+
+    CHECK_FALSE(brush->setTipImage(dir.filePath("bad.gbr")).ok());
+    editor->scrubTo(3);
+    tap(area, QPointF(300, 300), 1.0);
+    const int afterBadWidth = inkWidth(layer->getBitmapImageAtFrame(3));
+    brush->setTipImage(QString());
+
+    INFO("round " << roundWidth << " image " << imageWidth << " after bad file " << afterBadWidth);
+    CHECK(roundWidth >= 39);
+    CHECK(imageWidth >= 19);
+    CHECK(imageWidth <= 23);
+    CHECK(afterBadWidth == imageWidth);
 }
 
 TEST_CASE("Pencil, Brush and Eraser - a tap paints a dab and a vector stroke edits curves")

@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define STROKETOOL_H
 
 #include "basetool.h"
+#include "pencilerror.h"
 #include "pointerevent.h"
 #include "preferencesdef.h"
 #include "strokeinterpolator.h"
@@ -27,6 +28,7 @@ GNU General Public License for more details.
 #include "canvascursorpainter.h"
 #include "radialoffsettool.h"
 
+#include <QImage>
 #include <QList>
 #include <QPointF>
 
@@ -73,6 +75,9 @@ public:
     void setTipAspect(qreal percent);
     void setTipAngle(qreal degrees);
     void setTipFollowsDirection(bool follow);
+    /// Loads an image tip from a PNG or .gbr file; an empty name restores the generated tip.
+    /// On failure the tip does not change.
+    Status setTipImage(const QString& fileName);
     virtual void setPressureEnabled(bool enabled);
     virtual void setFeatherEnabled(bool enabled);
     virtual void setAntiAliasingEnabled(bool enabled);
@@ -138,6 +143,7 @@ protected:
     QPointF mLastPixel { 0, 0 };
 
     StrokeInterpolator mInterpolator;
+    QImage mTipImage; // null for the generated tip
 
     static const qreal FEATHER_MIN;
     static const qreal FEATHER_MAX;

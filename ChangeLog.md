@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Pencil, Brush and Eraser can paint with an image tip loaded from a PNG or GIMP .gbr file; a damaged .gbr shows an error (B5).
 - Pencil, Brush and Eraser tips can be square, flattened (aspect %), turned to an angle, or turned with the stroke direction; Feather sets the hardness (B5).
 - Pressure curve: Preferences, Tools has an editable curve that maps pen pressure to Pencil, Brush and Eraser dab size and opacity; drag, double-click to add and right-click to remove points (B3).
 - Large Pencil, Brush and Eraser dabs render on all CPU cores, small ones stay on the main thread: about 5.7x the dabs per second of 0.1 with a 200 px brush at 128% zoom (256 screen px), same pixels (B2).

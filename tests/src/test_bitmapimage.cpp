@@ -19,7 +19,9 @@ GNU General Public License for more details.
 #include "tile.h"
 #include "tiledbuffer.h"
 #include <QElapsedTimer>
+#include <QTemporaryDir>
 #include <QThread>
+#include <QtEndian>
 #include <QDebug>
 
 TEST_CASE("BitmapImage constructors")
@@ -544,6 +546,108 @@ TEST_CASE("TiledBuffer drawDab: a generated tip is round or square with an aspec
     BrushTip upright = flat;
     upright.angle = 90; // 20 px wide, 40 px tall
     CHECK(alphaAt(upright, probes) == std::vector<int>{ 255, 0, 255, 0, 255, 0, 0 });
+}
+
+TEST_CASE("loadBrushTipImage: PNG and GIMP .gbr tips load and malformed .gbr files fail")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    auto writeFile = [&](const QString& name, const QByteArray& bytes) {
+        QFile f(dir.filePath(name));
+        REQUIRE(f.open(QIODevice::WriteOnly));
+        f.write(bytes);
+        return f.fileName();
+    };
+    // A version 2 .gbr: big-endian header fields, the name, then the pixels.
+    auto gbr = [](quint32 width, quint32 height, quint32 bytes, const QByteArray& pixels, quint32 headerSize = 33,
+                  const QByteArray& magic = "GIMP") {
+        QByteArray out;
+        for (quint32 v : { headerSize, 2u, width, height, bytes })
+        {
+            const quint32 be = qToBigEndian(v);
+            out.append(reinterpret_cast<const char*>(&be), 4);
+        }
+        out.append(magic);
+        const quint32 spacing = qToBigEndian(25u);
+        out.append(reinterpret_cast<const char*>(&spacing), 4);
+        out.append("tip\0\0", 5);
+        return out + pixels;
+    };
+    const QByteArray pixels("\xff\x80\x00\x00\x40\xff", 6); // 3 x 2, 255 is full paint
+
+    QImage mask;
+    REQUIRE(loadBrushTipImage(writeFile("ok.gbr", gbr(3, 2, 1, pixels)), mask).ok());
+    REQUIRE(mask.size() == QSize(3, 2));
+    CHECK(mask.pixelColor(0, 0).alpha() == 255);
+    CHECK(mask.pixelColor(1, 0).alpha() == 128);
+    CHECK(mask.pixelColor(2, 0).alpha() == 0);
+    CHECK(mask.pixelColor(2, 1).alpha() == 255);
+
+    // An RGBA .gbr uses its alpha.
+    REQUIRE(loadBrushTipImage(writeFile("rgba.gbr", gbr(1, 1, 4, QByteArray("\x10\x20\x30\x77", 4))), mask).ok());
+    CHECK(mask.pixelColor(0, 0).alpha() == 0x77);
+
+    // A PNG without alpha paints its dark parts; with alpha it paints its opaque dark parts.
+    QImage png(2, 1, QImage::Format_RGB32);
+    png.setPixel(0, 0, qRgb(0, 0, 0));
+    png.setPixel(1, 0, qRgb(255, 255, 255));
+    REQUIRE(png.save(dir.filePath("tip.png")));
+    REQUIRE(loadBrushTipImage(dir.filePath("tip.png"), mask).ok());
+    CHECK(mask.pixelColor(0, 0).alpha() == 255);
+    CHECK(mask.pixelColor(1, 0).alpha() == 0);
+    QImage pngAlpha(1, 1, QImage::Format_ARGB32);
+    pngAlpha.setPixel(0, 0, qRgba(0, 0, 0, 0x60));
+    REQUIRE(pngAlpha.save(dir.filePath("alpha.png")));
+    REQUIRE(loadBrushTipImage(dir.filePath("alpha.png"), mask).ok());
+    CHECK(mask.pixelColor(0, 0).alpha() == 0x60);
+
+    const QByteArray good = gbr(3, 2, 1, pixels);
+    const std::pair<const char*, QByteArray> bad[] = {
+        { "empty", QByteArray() },
+        { "short header", good.left(20) },
+        { "truncated pixels", good.left(good.size() - 1) },
+        { "bad magic", gbr(3, 2, 1, pixels, 33, "PMIG") },
+        { "header too small", gbr(3, 2, 1, pixels, 27) },
+        { "header past the end", gbr(3, 2, 1, pixels, 0x7fffffff) },
+        { "zero width", gbr(0, 2, 1, pixels) },
+        { "huge size", gbr(0xffffffff, 0xffffffff, 1, pixels) },
+        { "bad depth", gbr(3, 2, 3, pixels + pixels + pixels) },
+    };
+    for (const auto& [name, bytes] : bad)
+    {
+        CAPTURE(name);
+        mask = QImage();
+        CHECK_FALSE(loadBrushTipImage(writeFile("bad.gbr", bytes), mask).ok());
+        CHECK(mask.isNull());
+    }
+    CHECK_FALSE(loadBrushTipImage(dir.filePath("missing.gbr"), mask).ok());
+    CHECK_FALSE(loadBrushTipImage(writeFile("bad.png", "not a png"), mask).ok());
+}
+
+TEST_CASE("TiledBuffer drawDab: an image tip is scaled to the dab width and turned by the tip angle")
+{
+    // 4 x 2: the left half paints, the right half does not.
+    QImage image(4, 2, QImage::Format_Alpha8);
+    image.fill(0);
+    for (int y = 0; y < 2; ++y)
+        for (int x = 0; x < 2; ++x)
+            image.setPixelColor(x, y, QColor(0, 0, 0, 255));
+
+    auto alphaAt = [&](qreal angle, std::initializer_list<QPoint> points) {
+        BrushTip tip;
+        tip.image = image;
+        tip.angle = angle;
+        TiledBuffer buffer;
+        buffer.drawDab(QPointF(40, 40), 40, 0, QColor(255, 0, 0), 1.0, true, tip); // 40 x 20 px
+        BitmapImage out(QRect(0, 0, 80, 80), Qt::transparent);
+        out.paste(&buffer);
+        std::vector<int> alpha;
+        for (QPoint p : points) alpha.push_back(qAlpha(out.constScanLine(p.x(), p.y())));
+        return alpha;
+    };
+    CHECK(alphaAt(0, { {30, 40}, {22, 35}, {50, 40}, {30, 25}, {30, 55} }) == std::vector<int>{ 255, 255, 0, 0, 0 });
+    // Turned 90 degrees counter-clockwise, the left half of the image is at the bottom.
+    CHECK(alphaAt(90, { {40, 50}, {35, 58}, {40, 30}, {25, 50}, {55, 50} }) == std::vector<int>{ 255, 255, 0, 0, 0 });
 }
 
 TEST_CASE("TiledBuffer drawDab: a constant-colour stroke keeps its colour where translucent dabs overlap")

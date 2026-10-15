@@ -244,6 +244,30 @@
       </widget>
      </item>
      <item>
+      <layout class="QHBoxLayout" name="tipImageLayout">
+       <item>
+        <widget class="QPushButton" name="loadTipImageButton">
+         <property name="toolTip">
+          <string>Paint with an image tip from a PNG or GIMP .gbr file</string>
+         </property>
+         <property name="text">
+          <string comment="Tool options">Image Tip...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="clearTipImageButton">
+         <property name="toolTip">
+          <string>Go back to the round or square tip</string>
+         </property>
+         <property name="text">
+          <string comment="Tool options">Clear Image Tip</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
       <widget class="QCheckBox" name="fillContourBox">
        <property name="toolTip">
         <string>Contour will be filled</string>

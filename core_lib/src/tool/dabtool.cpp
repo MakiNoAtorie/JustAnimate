@@ -161,6 +161,7 @@ BrushTip DabTool::dabTip(QPointF direction) const
     tip.square = p.tipSquare();
     tip.aspect = p.tipAspect() / 100.0;
     tip.angle = p.tipAngle();
+    tip.image = mTipImage;
     // Canvas y points down, so the angle counts counter-clockwise on screen.
     if (p.tipFollowsDirection() && !direction.isNull())
         tip.angle += qRadiansToDegrees(std::atan2(-direction.y(), direction.x()));

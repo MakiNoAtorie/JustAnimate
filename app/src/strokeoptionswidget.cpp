@@ -11,6 +11,9 @@
 #include "toolmanager.h"
 #include "layermanager.h"
 
+#include <QFileDialog>
+#include <QMessageBox>
+
 StrokeOptionsWidget::StrokeOptionsWidget(Editor* editor, QWidget *parent) :
     BaseWidget(parent),
     ui(new Ui::StrokeOptionsWidget)
@@ -238,6 +241,16 @@ void StrokeOptionsWidget::makeConnectionFromUIToModel()
     connect(ui->followDirectionBox, &QCheckBox::clicked, [=](bool enabled) {
         mCurrentTool->setTipFollowsDirection(enabled);
     });
+    connect(ui->loadTipImageButton, &QPushButton::clicked, [=] {
+        const QString fileName = QFileDialog::getOpenFileName(this, tr("Open Brush Tip"), QString(),
+                                                              tr("Brush tips (*.png *.gbr);;All files (*)"));
+        if (fileName.isEmpty()) return;
+        const Status st = mCurrentTool->setTipImage(fileName);
+        if (!st.ok()) QMessageBox::warning(this, tr("Open Brush Tip"), st.description());
+    });
+    connect(ui->clearTipImageButton, &QPushButton::clicked, [=] {
+        mCurrentTool->setTipImage(QString());
+    });
 
     clearFocusOnFinished(ui->spacingSpinBox);
     clearFocusOnFinished(ui->sizeSpinBox);
@@ -265,6 +278,8 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->tipAngleSlider->setVisible(tip);
     ui->squareTipBox->setVisible(tip);
     ui->followDirectionBox->setVisible(tip);
+    ui->loadTipImageButton->setVisible(tip);
+    ui->clearTipImageButton->setVisible(tip);
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));
