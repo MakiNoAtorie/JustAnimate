@@ -410,19 +410,19 @@ struct Golden
 // The look of Pencil, Brush and Eraser before the brush engine work (ROADMAP B0).
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
-    // winnt: MSVC, Qt 6.8.3 and 6.5.3. linux and darwin: CI, Qt 6.5.3.
-    { "winnt x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
-    { "winnt x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
-    { "winnt x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
-    { "winnt x86_64", "pencil", 200, "b2621f11c3e6214dbd89014eafc12d22ac374589", "928eabfdfac9b0e3d9ce87e8e087350185e67b79" },
-    { "winnt x86_64", "brush", 4, "08ac3b83dbf641ffeb5b645d6b79fb4dc332f8e1", "646b6145475d7df921aa824535dbc5524350a989" },
-    { "winnt x86_64", "brush", 24, "ac77c286b9b6e9f907000f19a4327ec3ddbcc3e6", "93688a6d99a914987bf51ff7dcccdd8b27754938" },
-    { "winnt x86_64", "brush", 96, "875e33735b958bec8be54804e56cf8ae5220f03a", "fa9935dab752949aa2b61497f10381791b613ccc" },
-    { "winnt x86_64", "brush", 200, "0fa12608f628ee6bb7e05af77c82b9f2b3287ccb", "27cd857dc3e459c11ee8d134dd6ab88b20fac4cc" },
-    { "winnt x86_64", "eraser", 4, "d7e2f2e5e32b6b22059c24951ac933943fd957b7", "88130c67007948c838b5a64bb13667fcb08a1f69" },
-    { "winnt x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
-    { "winnt x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
-    { "winnt x86_64", "eraser", 200, "516a81d7c6b1d424b1a5e6f9beb9074cdd54dec2", "3aca31806a5bda175678e38b2d0043338db1c7ce" },
+    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1). linux and darwin: CI, Qt 6.5.3.
+    { "winnt x86_64", "pencil", 4, "9eae127eae8d7bb42d8f23f83ff3717af212831b", "28b259f4a75fa5a8b0eb9f7888cfa1ad7f702769" },
+    { "winnt x86_64", "pencil", 24, "50ea844df6420ef4c6727d017d8c9adebaa64d5f", "61464aeece271c2fa11accfb6d884db06e22ec1b" },
+    { "winnt x86_64", "pencil", 96, "5ace17c756683c1c15ee45fe4de84fe74759c100", "14e1248ce9ca05cd84455c4fe3d8a366f0aef7ef" },
+    { "winnt x86_64", "pencil", 200, "3d7b1056b282ea720b2d6f025e3ab1f8bb251e08", "9bffaaa199d91066055745061d8dd8d9483dab7d" },
+    { "winnt x86_64", "brush", 4, "b41f93a235f7c2bbb035a7375ed49a9366335f8b", "89b970520ad5430003c0de34bd00d8f2967003d5" },
+    { "winnt x86_64", "brush", 24, "25b3df621f94d6105a98712b3011b6ee9d28b6a8", "ffec486e8339c26f8d5c7c6539d3ad606d1bc98c" },
+    { "winnt x86_64", "brush", 96, "da6f3cbce0e8f6fdaf54f14b517f1ffd02c667ae", "bbf87f449b6a73bcdf0f290d05f1efd57a01d423" },
+    { "winnt x86_64", "brush", 200, "99d83ff4e63e6a82227739b63f88883053c7c277", "fd9ee796618a34facf534f11e880382c4f622084" },
+    { "winnt x86_64", "eraser", 4, "e04b7a00643afc2e9b5b5460be88c093650149f5", "ae8fc055243ebb96d8f46be61d42b3e52c04b39e" },
+    { "winnt x86_64", "eraser", 24, "78398091e8bba82f80297e501977b317a8224522", "1f1582bc0384668f59cb2585fc1235c9e587abd1" },
+    { "winnt x86_64", "eraser", 96, "5ddc06506a386893e116fab79387328cb7cb8840", "cbf62d3050eebf269f6a04143c772adffc55b398" },
+    { "winnt x86_64", "eraser", 200, "eac77f788e077692c657bb6a193c6f666ef8d107", "42177c14c2cda4f41138a6c3242b8bbcb4d27ac2" },
     { "linux x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
     { "linux x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
     { "linux x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
