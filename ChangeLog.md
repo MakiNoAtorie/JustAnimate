@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Canvas: onion skin frames are tinted once and reused, so scrubbing with onion skin on is faster (1.4).
 - Keyframes more than 50 frames from the playhead are unloaded and reload from disk on demand, so large projects use much less RAM; frames with unsaved changes stay in memory (1.5).
 - Lasso fill tool (L): drag a freehand loop to fill it with the current color, on bitmap and vector layers (2.5).
 - Canvas: opt-in "Fast rendering of layers above" (Preferences > General) also caches the layers above the one you paint (1.3).
