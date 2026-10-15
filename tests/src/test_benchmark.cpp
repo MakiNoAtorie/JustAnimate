@@ -70,7 +70,8 @@ struct Scenario
     std::vector<double> ms;
 };
 
-QString createProject(const QString& dir, const BenchConfig& cfg)
+// Builds the project in memory (not timed) and saves it; saveMs gets the time of the save.
+QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs)
 {
     std::unique_ptr<Object> object(new Object);
     object->init();
@@ -91,7 +92,10 @@ QString createProject(const QString& dir, const BenchConfig& cfg)
 
     const QString path = dir + "/benchmark.pclx";
     FileManager fm;
+    QElapsedTimer t;
+    t.start();
     const Status st = fm.save(object.get(), path);
+    saveMs = t.nsecsElapsed() / 1e6;
     REQUIRE(st.ok());
     return path;
 }
@@ -177,9 +181,8 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
 {
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
-    const QString path = createProject(dir.path(), cfg);
-
     std::vector<Scenario> sc = {
+        { "save",         "file",   1 },
         { "open",         "file",   1 },
         { "scrub",        "frame",  cfg.frames },
         { "play",         "frame",  cfg.frames },
@@ -187,6 +190,13 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "draw brush",   "stroke", cfg.strokes },
         { "draw top",     "stroke", cfg.strokes },
     };
+    QString path;
+    for (int rep = 0; rep < cfg.reps; ++rep)
+    {
+        double ms = 0;
+        path = createProject(dir.path(), cfg, ms);
+        sc[0].ms.push_back(ms);
+    }
 
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
@@ -195,7 +205,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
 
         t.start();
         const Status st = s.editor->openObject(path, [](int) {}, [](int) {});
-        sc[0].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[1].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(st.ok());
         REQUIRE(s.editor->object()->getLayerCount() == cfg.layers + 1);
 
@@ -208,7 +218,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             s.editor->scrubTo(f);
             s.area->repaint();
         }
-        sc[1].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[2].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(s.counter.paints == cfg.frames);
 
         // Play: playback state on, frames rendered back to back as fast as possible.
@@ -222,26 +232,26 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             s.area->repaint();
             s.editor->scrubForward();
         }
-        sc[2].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[3].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(s.counter.paints == cfg.frames);
         s.editor->playback()->stop();
         REQUIRE(s.editor->currentFrame() == cfg.frames + 1);
 
         t.start();
         drawStrokes(s, PENCIL, cfg.strokes);
-        sc[3].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[4].ms.push_back(t.nsecsElapsed() / 1e6);
         auto* layer = static_cast<LayerBitmap*>(s.editor->layers()->currentLayer());
         REQUIRE(layer->getBitmapImageAtFrame(1)->bounds().width() > 500); // the strokes landed
 
         t.start();
         drawStrokes(s, BRUSH, cfg.strokes);
-        sc[4].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[5].ms.push_back(t.nsecsElapsed() / 1e6);
 
         // Pencil on the top layer: every other bitmap layer is below it.
         s.editor->layers()->setCurrentLayer(cfg.layers);
         t.start();
         drawStrokes(s, PENCIL, cfg.strokes);
-        sc[5].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[6].ms.push_back(t.nsecsElapsed() / 1e6);
     }
     return sc;
 }
@@ -501,7 +511,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 6);
+    REQUIRE(sc.size() == 7);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

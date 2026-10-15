@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include <QDomElement>
 #include <QSet>
 #include "keyframe.h"
+#include "util.h"
 
 // Used to sort the selected frames list
 bool sortAsc(int left, int right)
@@ -346,23 +347,35 @@ Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, Progr
 
     bool ok = true;
 
+    std::vector<KeyFrame*> keys;
     for (auto pair : mKeyFrames)
+        keys.push_back(pair.second);
+    std::vector<Status> results(keys.size(), Status::OK);
+
+    // Bitmap keys are independent PNG files: encode them in parallel, a chunk at a time for progress.
+    const int count = static_cast<int>(keys.size());
+    const int chunk = (type() == BITMAP) ? parallelWorkerCount() * 4 : 1;
+    for (int start = 0; start < count; start += chunk)
     {
-        KeyFrame* keyFrame = pair.second;
-        Status st = saveKeyFrameFile(keyFrame, sDataFolder);
-        if (st.ok())
+        const int end = std::min(start + chunk, count);
+        parallelFor(end - start, [&](int i) { results[start + i] = saveKeyFrameFile(keys[start + i], sDataFolder); });
+
+        for (int i = start; i < end; ++i)
         {
-            //qDebug() << "Layer [" << name() << "] FN=" << keyFrame->fileName();
-            if (!keyFrame->fileName().isEmpty())
-                attachedFiles.append(keyFrame->fileName());
+            KeyFrame* keyFrame = keys[i];
+            if (results[i].ok())
+            {
+                if (!keyFrame->fileName().isEmpty())
+                    attachedFiles.append(keyFrame->fileName());
+            }
+            else
+            {
+                ok = false;
+                dd.collect(results[i].details());
+                dd << QString("- Keyframe[%1] failed to save").arg(keyFrame->pos());
+            }
+            progressStep();
         }
-        else
-        {
-            ok = false;
-            dd.collect(st.details());
-            dd << QString("- Keyframe[%1] failed to save").arg(keyFrame->pos());
-        }
-        progressStep();
     }
     if (!ok)
     {
