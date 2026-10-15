@@ -56,6 +56,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   Windows and forwards the child's stderr.
 - Golden values change only in a commit that means to change output.
 - Catch2 test names contain no commas (the CLI filter splits on them).
+  Filter by name (`"UndoRedoManager:*"`) unless the test has a `[Tag]`.
 
 ## Code
 

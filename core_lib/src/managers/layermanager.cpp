@@ -522,6 +522,54 @@ void LayerManager::selectFrames(int fromLayer, int toLayer, int fromFrame, int t
     }
 }
 
+// Moves every keyframe after `position` by `offset` and records the move. Clears the layer's frame selection.
+static void shiftFramesAfter(UndoRedoManager* undoRedo, Layer* layer, int position, int offset, const QString& description)
+{
+    if (layer->getMaxKeyFramePosition() <= position) { return; }
+    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
+    layer->selectAllFramesAfter(position + 1);
+    layer->moveSelectedFrames(offset);
+    layer->deselectAll();
+    undoRedo->record(saveStateId, description);
+}
+
+bool LayerManager::rippleInsertFrame()
+{
+    Layer* layer = currentLayer();
+    if (!layer->visible()) { return false; }
+
+    const int position = editor()->currentFrame();
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const QString description = tr("Insert Frame");
+    const UndoMacro macro(undoRedo, description);
+    shiftFramesAfter(undoRedo, layer, position, 1, description);
+    const bool added = editor()->addKeyFrame(currentLayerIndex(), position + 1) != nullptr;
+    emit editor()->framesModified();
+    return added;
+}
+
+bool LayerManager::rippleRemoveFrame()
+{
+    Layer* layer = currentLayer();
+    const KeyFrame* key = layer->getLastKeyFrameAtPosition(editor()->currentFrame());
+    if (!layer->visible() || key == nullptr || layer->keyFrameCount() == 1) { return false; }
+
+    const int start = key->pos();
+    const int next = layer->getNextKeyFramePosition(start + 1);
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const QString description = tr("Delete Frame");
+    const UndoMacro macro(undoRedo, description);
+    // The remove state records the keyframe shown at the current frame.
+    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_REMOVE, layer);
+    layer->removeKeyFrame(start);
+    undoRedo->record(saveStateId, description);
+    if (next > start) { shiftFramesAfter(undoRedo, layer, start, start - next, description); }
+
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+    return true;
+}
+
 bool LayerManager::moveSelectedFrames(int offset)
 {
     QList<Layer*> selected;

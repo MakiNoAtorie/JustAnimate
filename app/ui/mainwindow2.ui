@@ -247,6 +247,8 @@
     <addaction name="actionAdd_Frame"/>
     <addaction name="actionDuplicate_Frame"/>
     <addaction name="actionRemove_Frame"/>
+    <addaction name="actionRipple_Insert_Frame"/>
+    <addaction name="actionRipple_Delete_Frame"/>
     <addaction name="separator"/>
     <addaction name="actionMove_Frame_Forward"/>
     <addaction name="actionMove_Frame_Backward"/>
@@ -674,6 +676,22 @@
    </property>
    <property name="text">
     <string>Remove Frame</string>
+   </property>
+  </action>
+  <action name="actionRipple_Insert_Frame">
+   <property name="text">
+    <string>Insert Frame (Ripple)</string>
+   </property>
+   <property name="toolTip">
+    <string>Add a blank frame after the current frame and push every later frame of the layer</string>
+   </property>
+  </action>
+  <action name="actionRipple_Delete_Frame">
+   <property name="text">
+    <string>Delete Frame (Ripple)</string>
+   </property>
+   <property name="toolTip">
+    <string>Delete the current drawing and its hold and pull every later frame of the layer</string>
    </property>
   </action>
   <action name="actionMove">
