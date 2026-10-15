@@ -176,6 +176,8 @@ qreal DabTool::dabOpacity(qreal pressure) const
 
 qreal DabTool::spacedDabOpacity(qreal pressure, qreal brushWidth) const
 {
+    if (strokeToolProperties().flowPerDab())
+        return dabOpacity(pressure);
     // About width / spacing dabs cover each pixel; this alpha makes them add up to dabOpacity.
     const qreal overlap = brushWidth > 0 ? qMin(1.0, dabSpacing(brushWidth) / brushWidth) : 1.0;
     return 1 - std::pow(1 - dabOpacity(pressure), overlap);

@@ -35,6 +35,7 @@ GNU General Public License for more details.
 #include <QWindow>
 
 #include "bitmapimage.h"
+#include "brushpresets.h"
 #include "colormanager.h"
 #include "dabtool.h"
 #include "editor.h"
@@ -344,10 +345,10 @@ void tablet(QWidget* w, const QPointingDevice* pen, QEvent::Type type, const Sam
 }
 
 // Replays the strokes as tablet input with one tool at its default settings and the given size,
-// on a fresh canvas: a blue layer below and a half-transparent yellow block on the painted layer
+// or with the Classic preset from presetFolder, on a fresh canvas: a blue layer below and a half-transparent yellow block on the painted layer
 // (so the eraser has something to erase). Events carry no timestamp, so smoothing takes them as
 // 1 ms apart and the result only depends on the input.
-ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes)
+ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes, const QString& presetFolder = {})
 {
     Session s;
     s.editor->color()->setFrontColor(QColor(200, 30, 90));
@@ -363,6 +364,8 @@ ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes)
     BaseTool* tool = s.editor->tools()->currentTool();
     const ToolSettingsGuard guard(tool);
     tool->resetSettings();
+    if (!presetFolder.isEmpty())
+        REQUIRE(BrushPresets(presetFolder).apply("Classic", *static_cast<StrokeTool*>(tool)));
     static_cast<StrokeTool*>(tool)->setWidth(c.size);
 
     const QPointingDevice pen("replay pen", 1, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
@@ -428,6 +431,58 @@ const Golden kGolden[] = {
     { "winnt x86_64", "eraser", 200, "578233e5f4786b044186df2f7b1f0347018c5db2", "75dbd2674f0b43f1a46f9b83c3a75d2610059678" },
 };
 
+// Pencil, Brush and Eraser at their defaults on master before v0.3 (git 042a65c); the Classic
+// preset must keep drawing exactly this. These rows matched on winnt, linux and darwin.
+const Golden kClassicGolden[] = {
+    { "", "pencil", 4, "70e0944a3098804b8acead5d0d6cfb3c8099cad2", "c9660a81966d70e76615ef094ad6a48078e4c1c0" },
+    { "", "pencil", 24, "4c2cee44f4d356e5d9625b0ca68c10c213156dc1", "5866b97d3919072dafaea551411b48dfd7d36df8" },
+    { "", "pencil", 96, "c9e416bc6d2810adb19b98ff9bfbb99ae7032ea9", "a797264ccade2bb6503b11b8149c6a958e6c8860" },
+    { "", "pencil", 200, "b1d8db552adac8a0e58a0e288c500aba848b1868", "e082b6fe6f36108b89b93171a5afea5f654249be" },
+    { "", "brush", 4, "f3b5888ffdf1700367ed51862bb23d54ea87fc15", "2fa829005dd1999bc697278016beb56e84589224" },
+    { "", "brush", 24, "d568cb5847668c80f99e20e05c01da6eb50d2f5e", "6bbab1562be890b1037577d093afc966d4b07f3c" },
+    { "", "brush", 96, "3fbe9bcae98fc4ed0e2084599a27b78354aeed37", "c632ee22c20ced7de612ed941bde749b7c568028" },
+    { "", "brush", 200, "e75f6cde6bcca74a7383b00284225ebd67957a4a", "198bddb5c44b3eca0b9ae91a8fec5c5b7b80777e" },
+    { "", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
+    { "", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
+    { "", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
+    { "", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
+};
+
+// Replays every case and checks it against the table's rows for this platform ("" = any platform).
+template <size_t N>
+void checkGolden(const Golden (&table)[N], const QString& presetFolder)
+{
+    const QString platform = replayPlatform();
+    const std::vector<Stroke> strokes = goldenStrokes();
+    std::vector<ReplayResult> results;
+    QString lines; // ready to paste into the table
+    for (const ReplayCase& c : kReplayCases)
+    {
+        results.push_back(replay(c, strokes, presetFolder));
+        lines += QString("    { \"%1\", \"%2\", %3, \"%4\", \"%5\" },\n")
+                     .arg(platform, c.name).arg(c.size).arg(results.back().layerSha1, results.back().frameSha1);
+    }
+    INFO("Hashes on this platform:\n" << lines.toStdString());
+
+    int checked = 0;
+    for (size_t i = 0; i < results.size(); ++i)
+    {
+        const ReplayCase& c = kReplayCases[i];
+        for (const Golden& g : table)
+        {
+            if ((*g.platform && platform != g.platform) || qstrcmp(c.name, g.tool) != 0 || c.size != g.size) continue;
+            CAPTURE(c.name, c.size);
+            CHECK(results[i].layerSha1 == g.layerSha1);
+            CHECK(results[i].frameSha1 == g.frameSha1);
+            ++checked;
+        }
+    }
+    if (checked == 0)
+        WARN("No golden brush hashes for " << platform.toStdString() << " yet; add to the table:\n" << lines.toStdString());
+    else
+        REQUIRE(checked == static_cast<int>(results.size()));
+}
+
 } // namespace
 
 TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkSmoke]")
@@ -473,35 +528,14 @@ TEST_CASE("Brush replay: replaying the same strokes twice gives identical hashes
 
 TEST_CASE("Brush replay: today's Pencil, Brush and Eraser match the golden hashes", "[BrushReplay]")
 {
-    const QString platform = replayPlatform();
-    const std::vector<Stroke> strokes = goldenStrokes();
-    std::vector<ReplayResult> results;
-    QString lines; // ready to paste into kGolden
-    for (const ReplayCase& c : kReplayCases)
-    {
-        results.push_back(replay(c, strokes));
-        lines += QString("    { \"%1\", \"%2\", %3, \"%4\", \"%5\" },\n")
-                     .arg(platform, c.name).arg(c.size).arg(results.back().layerSha1, results.back().frameSha1);
-    }
-    INFO("Hashes on this platform:\n" << lines.toStdString());
+    checkGolden(kGolden, {});
+}
 
-    int checked = 0;
-    for (size_t i = 0; i < results.size(); ++i)
-    {
-        const ReplayCase& c = kReplayCases[i];
-        for (const Golden& g : kGolden)
-        {
-            if (platform != g.platform || qstrcmp(c.name, g.tool) != 0 || c.size != g.size) continue;
-            CAPTURE(c.name, c.size);
-            CHECK(results[i].layerSha1 == g.layerSha1);
-            CHECK(results[i].frameSha1 == g.frameSha1);
-            ++checked;
-        }
-    }
-    if (checked == 0)
-        WARN("No golden brush hashes for " << platform.toStdString() << " yet; add to kGolden:\n" << lines.toStdString());
-    else
-        REQUIRE(checked == static_cast<int>(results.size()));
+TEST_CASE("Brush replay: the Classic preset draws like Pencil, Brush and Eraser before v0.3", "[BrushReplay]")
+{
+    QTemporaryDir dir;
+    REQUIRE(BrushPresets(dir.path()).addClassic());
+    checkGolden(kClassicGolden, dir.path());
 }
 
 TEST_CASE("Stage profiler: counts the paint stages and leaves the painted pixels unchanged", "[BrushReplay]")

@@ -76,6 +76,7 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::FLOW_VALUE] = { 1.0, 100.0, 100.0 };
     info[StrokeToolProperties::OPACITY_VALUE] = { 1.0, 100.0, 100.0 };
     info[StrokeToolProperties::WASH_ENABLED] = false;
+    info[StrokeToolProperties::FLOW_PER_DAB_ENABLED] = false;
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;

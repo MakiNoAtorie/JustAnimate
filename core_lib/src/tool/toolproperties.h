@@ -416,6 +416,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
         FLOW_VALUE               = 114,
         OPACITY_VALUE            = 115,
         WASH_ENABLED             = 116,
+        FLOW_PER_DAB_ENABLED     = 117,
 
         END                 = 199,
     };
@@ -440,7 +441,8 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { TIP_FOLLOW_DIRECTION_ENABLED, "TipFollowDirection" },
             { FLOW_VALUE,            "Flow" },
             { OPACITY_VALUE,         "Opacity" },
-            { WASH_ENABLED,          "WashEnabled" }
+            { WASH_ENABLED,          "WashEnabled" },
+            { FLOW_PER_DAB_ENABLED,  "FlowPerDab" }
         });
     }
 
@@ -466,6 +468,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
     qreal flow() const { return getInfo(FLOW_VALUE).realValue(); }
     qreal opacity() const { return getInfo(OPACITY_VALUE).realValue(); }
     bool washEnabled() const { return getInfo(WASH_ENABLED).boolValue(); }
+    bool flowPerDab() const { return getInfo(FLOW_PER_DAB_ENABLED).boolValue(); }
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }
