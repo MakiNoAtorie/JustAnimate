@@ -44,6 +44,9 @@ public:
     /// nothing when the preset is missing or corrupt.
     bool apply(const QString& name, StrokeTool& tool) const;
 
+    /// The optional "description" text of the preset; empty when absent or not a string.
+    QString description(const QString& name) const;
+
     /// Fails if `to` already exists.
     bool rename(const QString& from, const QString& to) const;
     bool remove(const QString& name) const;

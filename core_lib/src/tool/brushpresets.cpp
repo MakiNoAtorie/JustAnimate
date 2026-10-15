@@ -162,6 +162,14 @@ bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
     return true;
 }
 
+QString BrushPresets::description(const QString& name) const
+{
+    if (!isValidName(name))
+        return QString();
+    const std::optional<QJsonObject> preset = readPreset(filePath(name));
+    return preset ? preset->value("description").toString() : QString();
+}
+
 bool BrushPresets::rename(const QString& from, const QString& to) const
 {
     if (!isValidName(from) || !isValidName(to) || QFile::exists(filePath(to)))
