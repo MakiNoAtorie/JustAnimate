@@ -24,7 +24,8 @@ GNU General Public License for more details.
 #include "errordialog.h"
 #include "filemanager.h"
 #include "pencilerror.h"
-#include "presetdialog.h"
+#include "welcomehelper.h"
+#include "preferencemanager.h"
 
 #include "ui_filespage.h"
 
@@ -92,7 +93,7 @@ void FilesPage::addPreset()
 
     // 1. save the current object to the preset folder
     FileManager fm(this);
-    Status st = fm.save(mManager->object(), PresetDialog::getPresetPath(newPresetIndex));
+    Status st = fm.save(mManager->object(), Welcome::presetPath(newPresetIndex));
     if (!st.ok())
     {
         ErrorDialog errorDialog(st.title(),
@@ -135,7 +136,7 @@ void FilesPage::removePreset()
     for (QListWidgetItem* item : itemsToRemove)
     {
         int index = item->data(Qt::UserRole).toInt();
-        QFile presetFile(PresetDialog::getPresetPath(index));
+        QFile presetFile(Welcome::presetPath(index));
         presetFile.remove();
     }
 

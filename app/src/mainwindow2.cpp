@@ -90,7 +90,8 @@ GNU General Public License for more details.
 #include "recentfilemenu.h"
 #include "shortcutfilter.h"
 #include "app_util.h"
-#include "presetdialog.h"
+#include "welcomedialog.h"
+#include "welcomehelper.h"
 #include "pegbaralignmentdialog.h"
 #include "autosaverbytime.h"
 
@@ -891,6 +892,7 @@ bool MainWindow2::saveObject(QString strSavedFileName)
     QSettings settings(PENCIL2D, PENCIL2D);
     settings.setValue(LAST_PCLX_PATH, strSavedFileName);
 
+    Welcome::saveThumbnail(mEditor->object(), strSavedFileName, mEditor->currentFrame());
     mRecentFileMenu->addRecentFile(strSavedFileName);
     mRecentFileMenu->saveToDisk();
 
@@ -1172,7 +1174,7 @@ void MainWindow2::newObject()
 
 bool MainWindow2::newObjectFromPresets(int presetIndex)
 {
-    QString presetFilePath = PresetDialog::getPresetPath(presetIndex);
+    QString presetFilePath = Welcome::presetPath(presetIndex);
 
     if (presetFilePath.isEmpty())
     {
@@ -1220,16 +1222,28 @@ bool MainWindow2::tryLoadPreset()
         return newObjectFromPresets(defaultPreset);
     }
 
-    PresetDialog* presetDialog = new PresetDialog(mEditor->preference(), this);
+    auto* presetDialog = new WelcomeDialog(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET),
+                                           mRecentFileMenu->getRecentFiles(), this);
     presetDialog->setAttribute(Qt::WA_DeleteOnClose);
-    connect(presetDialog, &PresetDialog::finished, [=](int result)
+    connect(presetDialog, &WelcomeDialog::finished, [=](int result)
     {
         if (result != QDialog::Accepted)
         {
             return;
         }
 
-        int presetIndex = presetDialog->getPresetIndex();
+        if (presetDialog->browseRequested())
+        {
+            openDocument();
+            return;
+        }
+        if (!presetDialog->openPath().isEmpty())
+        {
+            openObject(presetDialog->openPath());
+            return;
+        }
+
+        int presetIndex = presetDialog->presetIndex();
         if (presetDialog->shouldAlwaysUse())
         {
             mEditor->preference()->set(SETTING::ASK_FOR_PRESET, false);
