@@ -655,6 +655,28 @@ TEST_CASE("FileManager recovery never goes back behind a save or loses files", "
         REQUIRE(recoveredPixel() == qRgba(255, 0, 0, 255));
         REQUIRE_FALSE(workingDir.exists("autosave.tmp"));
     }
+
+    SECTION("A swap that fails part-way gives back the working files")
+    {
+        // The archive holds red; the working files hold blue.
+        const QString archive = workingDir.filePath(PFF_AUTOSAVE_FILE_NAME);
+        REQUIRE(QFile::copy(archive, archive + ".red"));
+        BitmapImage blue(QRect(0, 0, 8, 8), Qt::blue);
+        layer->getBitmapImageAtFrame(1)->paste(&blue);
+        REQUIRE(fm.writeToWorkingFolder(obj.get()).ok());
+        REQUIRE(QFile::remove(archive));
+        REQUIRE(QFile::rename(archive + ".red", archive));
+
+        // A file where the data folder is kept aside makes the swap fail after main.xml moved.
+        {
+            QFile blocker(workingDir.filePath(QString(PFF_DATA_DIR) + ".old"));
+            REQUIRE(blocker.open(QFile::WriteOnly));
+        }
+
+        REQUIRE(recoveredPixel() == qRgba(0, 0, 255, 255));
+        REQUIRE_FALSE(workingDir.exists(QString(PFF_XML_FILE_NAME) + ".old"));
+        REQUIRE_FALSE(workingDir.exists("autosave.tmp"));
+    }
 }
 
 TEST_CASE("FileManager write errors fail the save", "[FileManager]")

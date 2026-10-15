@@ -906,10 +906,33 @@ Object* FileManager::recoverUnsavedProject(QString intermeidatePath)
         if (MiniZ::uncompressFolder(autosave, staging.absolutePath() + "/").ok() &&
             staging.exists(PFF_XML_FILE_NAME) && staging.exists(PFF_DATA_DIR))
         {
-            QFile::remove(mainXMLPath);
-            QDir(dataFolder).removeRecursively();
-            QFile::rename(staging.filePath(PFF_XML_FILE_NAME), mainXMLPath);
-            QDir().rename(staging.filePath(PFF_DATA_DIR), dataFolder);
+            // Keep the working files aside until the extract is in place, and put them back if a rename fails.
+            const QString oldXML = mainXMLPath + ".old";
+            const QString oldData = dataFolder + ".old";
+            QFile::remove(oldXML);
+            QDir(oldData).removeRecursively();
+            const bool swapped = (!QFile::exists(mainXMLPath) || QFile::rename(mainXMLPath, oldXML)) &&
+                                 (!QDir(dataFolder).exists() || QDir().rename(dataFolder, oldData)) &&
+                                 QFile::rename(staging.filePath(PFF_XML_FILE_NAME), mainXMLPath) &&
+                                 QDir().rename(staging.filePath(PFF_DATA_DIR), dataFolder);
+            if (swapped)
+            {
+                QFile::remove(oldXML);
+                QDir(oldData).removeRecursively();
+            }
+            else
+            {
+                if (QFile::exists(oldXML))
+                {
+                    QFile::remove(mainXMLPath);
+                    QFile::rename(oldXML, mainXMLPath);
+                }
+                if (QDir(oldData).exists())
+                {
+                    QDir(dataFolder).removeRecursively();
+                    QDir().rename(oldData, dataFolder);
+                }
+            }
         }
         staging.removeRecursively();
     }

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Crash recovery keeps the working files when moving the extracted autosave into place fails part-way (1.7).
 - Windows: pen pressure works with "Use Windows Ink" off in the tablet driver. The app uses WinTab when a WinTab driver is present; Preferences > General > "Tablet input API" selects WinTab or Windows Ink.
 - Opening a project checks data file paths without a disk lookup per file: a 5000-frame project opens about 40 % faster on Windows.
 - The macOS package starts: the app in the DMG finds its bundled Qt frameworks (0.1).
