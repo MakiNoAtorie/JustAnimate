@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- CI: the macOS package smoke test no longer fails when the DMG is slow to unmount (0.1).
 - Legacy .pcl projects open but no longer save: Save on a .pcl project asks for a .pclx name, so a failed save can never damage the .pcl original (A12).
 - Opening a .pclx whose entry cannot be checked or whose folder cannot be made fails with an error instead of extracting part of it (A3).
 - Reposition Frames is one undo step for all the frames and layers it moves, and undo no longer moves the first frame again (0.5).

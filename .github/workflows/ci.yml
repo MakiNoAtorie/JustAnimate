@@ -165,7 +165,8 @@ jobs:
           "$app" --version
           "$app" tests/data/camera-path-test.pclx -o smoke-dmg.png
           test -s smoke-dmg0001.png
-          hdiutil detach "$PWD/smoke-mac"
+          # The exited app can still hold the volume for a moment; cleanup never fails the step
+          hdiutil detach "$PWD/smoke-mac" || hdiutil detach -force "$PWD/smoke-mac" || true
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
