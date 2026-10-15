@@ -85,6 +85,12 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   Input smoothing lives only in `InputSmoother` and runs on
   `PointerEvent::timestamp()`, never a `QTimer`. Preview-only drawing goes in
   the tool's `paint()` overlay, never the tiled buffer.
+- Pen pressure reaches dab width and opacity only through
+  `DabTool::dabWidth`/`dabOpacity`, which apply the global `PressureCurve`.
+  Read preferences once per press, never once per dab.
+- A structured preference is a string read through a parser (such as
+  `PressureCurve::fromString`); an empty or invalid value gives the neutral
+  default.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
   branchless loops, no `QPainter`; mask math uses float and `sqrt` only, so
   platforms hash alike. Read pixels only via `TiledBuffer::tiles()`; call
