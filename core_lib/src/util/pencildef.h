@@ -175,6 +175,8 @@ const static int MaxFramesBound = 9999;
 #define CMD_ADD_FRAME "CmdAddFrame"
 #define CMD_DUPLICATE_FRAME "CmdDuplicateFrame"
 #define CMD_REMOVE_FRAME "CmdRemoveFrame"
+#define CMD_RIPPLE_INSERT_FRAME "CmdRippleInsertFrame"
+#define CMD_RIPPLE_DELETE_FRAME "CmdRippleDeleteFrame"
 #define CMD_REVERSE_SELECTED_FRAMES "CmdReverseSelectedFrames"
 #define CMD_REMOVE_SELECTED_FRAMES "CmdRemoveSelectedFrames"
 #define CMD_SELECTION_REPOSITION_FRAMES "CmdSelectionRepositionFrames"

@@ -444,6 +444,13 @@ void MainWindow2::createMenus()
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
+    auto rippleEdit = [this](bool (LayerManager::*edit)())
+    {
+        if (!mEditor->layers()->currentLayer()->visible()) { ui->scribbleArea->showLayerNotVisibleWarning(); return; }
+        (mEditor->layers()->*edit)();
+    };
+    connect(ui->actionRipple_Insert_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleInsertFrame); });
+    connect(ui->actionRipple_Delete_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleRemoveFrame); });
     connect(ui->actionAdd_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::addExposureToSelectedFrames);
     connect(ui->actionSubtract_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::subtractExposureFromSelectedFrames);
     connect(ui->actionNext_Frame, &QAction::triggered, mCommands, &ActionCommands::GotoNextFrame);
@@ -1381,6 +1388,8 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionAdd_Frame->setShortcut(cmdKeySeq(CMD_ADD_FRAME));
     ui->actionDuplicate_Frame->setShortcut(cmdKeySeq(CMD_DUPLICATE_FRAME));
     ui->actionRemove_Frame->setShortcut(cmdKeySeq(CMD_REMOVE_FRAME));
+    ui->actionRipple_Insert_Frame->setShortcut(cmdKeySeq(CMD_RIPPLE_INSERT_FRAME));
+    ui->actionRipple_Delete_Frame->setShortcut(cmdKeySeq(CMD_RIPPLE_DELETE_FRAME));
     ui->actionAdd_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_ADD_FRAME_EXPOSURE));
     ui->actionSubtract_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_SUBTRACT_FRAME_EXPOSURE));
     ui->actionReverse_Frames_Order->setShortcut(cmdKeySeq(CMD_REVERSE_SELECTED_FRAMES));

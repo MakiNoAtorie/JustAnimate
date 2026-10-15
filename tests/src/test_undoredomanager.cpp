@@ -639,6 +639,87 @@ TEST_CASE("UndoRedoManager: box-select across layers and move the frames as one 
     }
 }
 
+TEST_CASE("UndoRedoManager: ripple insert and delete shift the later frames of the layer")
+{
+    TestSession session;
+    Object* object = session.object;
+    object->addNewCameraLayer();
+    LayerBitmap* layer = object->addNewBitmapLayer();
+    LayerBitmap* other = object->addNewBitmapLayer();
+
+    session.start();
+    Editor* editor = session.editor.get();
+    LayerManager* layers = editor->layers();
+    layers->setCurrentLayer(layer);
+
+    // Each frame has one opaque pixel at (its first position, 0).
+    for (LayerBitmap* l : { layer, other })
+    {
+        for (int pos : { 1, 3, 4, 8 })
+        {
+            l->addNewKeyFrameAt(pos);
+            l->getBitmapImageAtFrame(pos)->setPixel(pos, 0, qRgba(0, 0, 0, 255));
+        }
+    }
+
+    // Lists "position=mark" per layer, frames last to first; mark 0 is a blank frame.
+    auto frames = [&]
+    {
+        QString list;
+        for (LayerBitmap* l : { layer, other })
+        {
+            l->foreachKeyFrame([&](KeyFrame* key)
+            {
+                int mark = 0;
+                for (int x = 1; x <= 8; ++x)
+                {
+                    if (qAlpha(static_cast<BitmapImage*>(key)->pixel(x, 0)) != 0) { mark = x; }
+                }
+                list += QString("%1=%2 ").arg(key->pos()).arg(mark);
+            });
+            list += "| ";
+        }
+        return list.trimmed().toStdString();
+    };
+    const std::string before = "8=8 4=4 3=3 1=1 | 8=8 4=4 3=3 1=1 |";
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto undoRedoUndo = [&](const std::string& after)
+    {
+        REQUIRE(frames() == after);
+        undoAction->trigger();
+        REQUIRE(frames() == before);
+        REQUIRE_FALSE(undoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(frames() == after);
+        undoAction->trigger();
+        REQUIRE(frames() == before);
+    };
+
+    SECTION("Insert adds a blank frame after the current frame and pushes every later frame")
+    {
+        editor->scrubTo(3);
+        REQUIRE(layers->rippleInsertFrame());
+        undoRedoUndo("9=8 5=4 4=0 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
+    }
+
+    SECTION("Delete removes the frame with its hold and pulls every later frame")
+    {
+        editor->scrubTo(5);
+        REQUIRE(layers->rippleRemoveFrame());
+        undoRedoUndo("4=8 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
+    }
+
+    SECTION("Delete the last frame")
+    {
+        editor->scrubTo(8);
+        REQUIRE(layers->rippleRemoveFrame());
+        undoRedoUndo("4=4 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
+    }
+}
+
 TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
 {
     TestSession session;
