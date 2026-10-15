@@ -125,7 +125,14 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Project thumbnails (welcome screen): app side, written after a successful
   save to `QStandardPaths::CacheLocation/thumbnails/<sha1 of canonical
   path>.png`. No file-format change. Recent projects reuse the existing
-  recent-files settings; templates are a fixed list in app code.
+  recent-files settings; templates are a fixed list in app code. Logic
+  lives in `Welcome::` free functions (`app/src/welcomehelper.*`).
+- A timeline frame selection can span layers: clear it with
+  `LayerManager::deselectAllFrames`. Multi-layer frame edits go through
+  `LayerManager`, one `createState(type, layer)` per layer in one `UndoMacro`.
+- A cache that must survive a scrub is keyed by content only (`onScrubbed`
+  resets layer caches). Pixel-identical caches carry a golden hash
+  recorded on the code before the change.
 
 ## Commits
 
