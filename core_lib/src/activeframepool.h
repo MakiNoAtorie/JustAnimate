@@ -41,6 +41,8 @@ public:
     void resize(quint64 memoryBudget);
     bool isFrameInPool(KeyFrame*);
     void setMinFrameCount(size_t frameCount);
+    /** Unloads pooled frames more than `distance` frames away from `frame`, whatever the budget */
+    void unloadFramesFarFrom(int frame, int distance);
 
     void onKeyFrameDestroy(KeyFrame*) override;
 

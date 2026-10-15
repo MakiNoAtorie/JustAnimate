@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 
 #include "activeframepool.h"
+#include <cstdlib>
 #include "keyframe.h"
 
 
@@ -85,6 +86,24 @@ bool ActiveFramePool::isFrameInPool(KeyFrame* key)
 void ActiveFramePool::setMinFrameCount(size_t frameCount)
 {
     mMinFrameCount = frameCount;
+}
+
+void ActiveFramePool::unloadFramesFarFrom(int frame, int distance)
+{
+    for (auto it = mCacheFramesList.begin(); it != mCacheFramesList.end();)
+    {
+        KeyFrame* key = *it;
+        if (std::abs(key->pos() - frame) <= distance)
+        {
+            ++it;
+            continue;
+        }
+        key->unloadFile(); // keeps frames with unsaved changes loaded
+        key->removeEventListner(this);
+        mCacheFramesMap.erase(key);
+        it = mCacheFramesList.erase(it);
+    }
+    recalcuateTotalUsedMemory();
 }
 
 void ActiveFramePool::onKeyFrameDestroy(KeyFrame* key)

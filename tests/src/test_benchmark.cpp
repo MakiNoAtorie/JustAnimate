@@ -51,8 +51,36 @@ GNU General Public License for more details.
 #include "toolmanager.h"
 #include "viewmanager.h"
 
+#ifdef Q_OS_WIN
+#define NOMINMAX
+#include <windows.h>
+#include <psapi.h>
+#endif
+
 namespace
 {
+
+// Highest resident set seen by sampleRam(); 0 on platforms without a reading.
+quint64 peakRamBytes = 0;
+
+void sampleRam()
+{
+    quint64 rss = 0;
+#if defined(Q_OS_WIN)
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
+        rss = pmc.WorkingSetSize;
+#elif defined(Q_OS_LINUX)
+    if (std::FILE* f = std::fopen("/proc/self/statm", "r"))
+    {
+        unsigned long size = 0, resident = 0;
+        if (std::fscanf(f, "%lu %lu", &size, &resident) == 2)
+            rss = quint64(resident) * 4096;
+        std::fclose(f);
+    }
+#endif
+    peakRamBytes = std::max(peakRamBytes, rss);
+}
 
 struct BenchConfig
 {
@@ -217,6 +245,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         {
             s.editor->scrubTo(f);
             s.area->repaint();
+            sampleRam();
         }
         sc[2].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(s.counter.paints == cfg.frames);
@@ -231,6 +260,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         {
             s.area->repaint();
             s.editor->scrubForward();
+            sampleRam();
         }
         sc[3].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(s.counter.paints == cfg.frames);
@@ -268,6 +298,7 @@ void printResults(const BenchConfig& cfg, std::vector<Scenario>& sc)
         std::printf("%-12s %10.1f %10.1f %10.1f %8.2f ms/%s\n", s.name, median, s.ms.front(), s.ms.back(),
                     median / s.units, s.unit);
     }
+    std::printf("peak RAM during scrub and play: %.1f MB\n", peakRamBytes / (1024.0 * 1024.0));
     std::fflush(stdout);
 }
 
