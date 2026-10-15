@@ -139,6 +139,8 @@ MainWindow2::MainWindow2(QWidget* parent) :
     createMenus();
     createToolbars();
     setupKeyboardShortcuts();
+    // A shortcut mid-stroke can land the stroke on another frame, layer or tool.
+    (new ShortcutFilter(ui->scribbleArea, this))->installOnActions(this);
 
     readSettings();
 
@@ -1323,7 +1325,6 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionFlip_rolling->setShortcut(cmdKeySeq(CMD_FLIP_ROLLING));
     ui->actionReposition_Selected_Frames->setShortcut(cmdKeySeq(CMD_SELECTION_REPOSITION_FRAMES));
 
-    ShortcutFilter* shortcutFilter = new ShortcutFilter(ui->scribbleArea, this);
     ui->actionMove->setShortcut(cmdKeySeq(CMD_TOOL_MOVE));
     ui->actionSelect->setShortcut(cmdKeySeq(CMD_TOOL_SELECT));
     ui->actionBrush->setShortcut(cmdKeySeq(CMD_TOOL_BRUSH));
@@ -1337,36 +1338,6 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionEraser->setShortcut(cmdKeySeq(CMD_TOOL_ERASER));
     ui->actionResetToolsDefault->setShortcut(cmdKeySeq(CMD_RESET_ALL_TOOLS));
 
-    ui->actionMove->installEventFilter(shortcutFilter);
-    ui->actionSelect->installEventFilter(shortcutFilter);
-    ui->actionBrush->installEventFilter(shortcutFilter);
-    ui->actionPolyline->installEventFilter(shortcutFilter);
-    ui->actionSmudge->installEventFilter(shortcutFilter);
-    ui->actionPen->installEventFilter(shortcutFilter);
-    ui->actionHand->installEventFilter(shortcutFilter);
-    ui->actionPencil->installEventFilter(shortcutFilter);
-    ui->actionBucket->installEventFilter(shortcutFilter);
-    ui->actionEyedropper->installEventFilter(shortcutFilter);
-    ui->actionEraser->installEventFilter(shortcutFilter);
-
-    // Frame and layer changes mid-stroke would land the stroke on another frame or layer
-    ui->actionPlay->installEventFilter(shortcutFilter);
-    ui->actionPrevious_Frame->installEventFilter(shortcutFilter);
-    ui->actionNext_Frame->installEventFilter(shortcutFilter);
-    ui->actionPrev_KeyFrame->installEventFilter(shortcutFilter);
-    ui->actionNext_KeyFrame->installEventFilter(shortcutFilter);
-    ui->actionAdd_Frame->installEventFilter(shortcutFilter);
-    ui->actionDuplicate_Frame->installEventFilter(shortcutFilter);
-    ui->actionRemove_Frame->installEventFilter(shortcutFilter);
-    ui->actionMove_Frame_Forward->installEventFilter(shortcutFilter);
-    ui->actionMove_Frame_Backward->installEventFilter(shortcutFilter);
-    ui->actionFlip_inbetween->installEventFilter(shortcutFilter);
-    ui->actionFlip_rolling->installEventFilter(shortcutFilter);
-    ui->actionNew_Bitmap_Layer->installEventFilter(shortcutFilter);
-    ui->actionNew_Vector_Layer->installEventFilter(shortcutFilter);
-    ui->actionNew_Camera_Layer->installEventFilter(shortcutFilter);
-    ui->actionNew_Sound_Layer->installEventFilter(shortcutFilter);
-    ui->actionDelete_Current_Layer->installEventFilter(shortcutFilter);
 
     // Layer menu
     ui->actionNew_Bitmap_Layer->setShortcut(cmdKeySeq(CMD_NEW_BITMAP_LAYER));

@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QPointingDevice>
 #include <QShortcutEvent>
 #include <QTabletEvent>
+#include <QWidget>
 
 #include "editor.h"
 #include "object.h"
@@ -54,6 +55,18 @@ bool shortcutTriggers(QObject& filter, QAction* action)
     QShortcutEvent e(action->shortcut(), 0);
     return !filter.eventFilter(action, &e);
 }
+
+// Records the shortcut events that reach it and stops them before QAction::event.
+struct ShortcutProbe : QObject
+{
+    bool reached = false;
+    bool eventFilter(QObject*, QEvent* event) override
+    {
+        if (event->type() != QEvent::Shortcut) { return false; }
+        reached = true;
+        return true;
+    }
+};
 }
 
 TEST_CASE("ShortcutFilter: shortcuts are blocked while a pointer is drawing")
@@ -95,4 +108,33 @@ TEST_CASE("ShortcutFilter: shortcuts are blocked while a pointer is drawing")
         sendMouse(scribbleArea, QEvent::MouseButtonRelease, Qt::LeftButton, Qt::NoButton);
         REQUIRE(shortcutTriggers(filter, &action));
     }
+}
+
+TEST_CASE("ShortcutFilter: every action under the main window is guarded")
+{
+    TestSession session;
+    session.object->addNewBitmapLayer();
+    session.start();
+    ScribbleArea* scribbleArea = session.area.get();
+    scribbleArea->init();
+
+    // An action in a nested widget, as in a dock or the timeline.
+    QWidget window;
+    QWidget* dock = new QWidget(&window);
+    QAction* action = new QAction(dock);
+    action->setShortcut(QKeySequence(Qt::Key_Period));
+    ShortcutProbe probe;
+    action->installEventFilter(&probe);
+
+    ShortcutFilter filter(scribbleArea, nullptr);
+    filter.installOnActions(&window);
+
+    QShortcutEvent e(action->shortcut(), 0);
+    sendPen(scribbleArea, QEvent::TabletPress, Qt::LeftButton, Qt::LeftButton);
+    QCoreApplication::sendEvent(action, &e);
+    REQUIRE_FALSE(probe.reached);
+
+    sendPen(scribbleArea, QEvent::TabletRelease, Qt::LeftButton, Qt::NoButton);
+    QCoreApplication::sendEvent(action, &e);
+    REQUIRE(probe.reached);
 }

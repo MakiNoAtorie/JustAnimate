@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- No keyboard shortcut acts while the pen or mouse is down on the canvas: clear frame, exposure, reverse, remove frames and the rest are now blocked like frame navigation (A7).
 - Pasting frames can be undone and redone in one step, including the frames it pushed back (0.5).
 - Crash recovery keeps the working files when moving the extracted autosave into place fails part-way (1.7).
 - Windows: pen pressure works with "Use Windows Ink" off in the tablet driver. The app uses WinTab when a WinTab driver is present; Preferences > General > "Tablet input API" selects WinTab or Windows Ink.
