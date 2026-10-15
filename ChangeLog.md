@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Light, Dark or System theme in Preferences, General; applies at once, persists, and icons follow it (4.1).
 - Onion skin: choose the opacity falloff (linear, gentle, steep) and the previous/next tint colours, and turn onion skin off per layer from the layer's right-click menu (3.1).
 - Pencil, Brush and Eraser share one press, release and dab-placement path; strokes look the same (B1 prefactor).
 - The default dock layout fits 1366x768 and 4K screens without overlap (side columns full height, timeline under the canvas), and Reset Windows restores it (4.2).
