@@ -49,6 +49,7 @@ enum ToolType : int
     BUCKET,
     EYEDROPPER,
     BRUSH,
+    SHAPE,
     TOOL_TYPE_COUNT
 };
 
@@ -186,6 +187,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOOL_SELECT "CmdToolSelect"
 #define CMD_TOOL_BRUSH "CmdToolBrush"
 #define CMD_TOOL_POLYLINE "CmdToolPolyline"
+#define CMD_TOOL_SHAPE "CmdToolShape"
 #define CMD_TOOL_SMUDGE "CmdToolSmudge"
 #define CMD_TOOL_PEN "CmdToolPen"
 #define CMD_TOOL_HAND "CmdToolHand"

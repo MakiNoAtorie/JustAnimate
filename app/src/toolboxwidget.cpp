@@ -63,6 +63,7 @@ void ToolBoxWidget::initUI()
     ui->penButton->setStyleSheet(sStyle);
     ui->eraserButton->setStyleSheet(sStyle);
     ui->polylineButton->setStyleSheet(sStyle);
+    ui->shapeButton->setStyleSheet(sStyle);
     ui->bucketButton->setStyleSheet(sStyle);
     ui->brushButton->setStyleSheet(sStyle);
     ui->eyedropperButton->setStyleSheet(sStyle);
@@ -83,6 +84,9 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_ERASER ) ) );
     ui->polylineButton->setToolTip( tr( "Polyline Tool (%1): Create line/curves" )
         .arg( GetToolTips( CMD_TOOL_POLYLINE ) ) );
+    ui->shapeButton->setToolTip( tr( "Shape Tool (%1): Draw a line, rectangle or ellipse<br>"
+            "[Shift]: Constrain, [Alt]: From the center" )
+        .arg( GetToolTips( CMD_TOOL_SHAPE ) ) );
     ui->bucketButton->setToolTip( tr( "Paint Bucket Tool (%1): Fill selected area with a color" )
         .arg( GetToolTips( CMD_TOOL_BUCKET ) ) );
     ui->brushButton->setToolTip( tr( "Brush Tool (%1): Paint smooth stroke with a brush" )
@@ -108,6 +112,8 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_ERASER ) ) );
     ui->polylineButton->setWhatsThis( tr( "Polyline Tool (%1)" )
         .arg( GetToolTips( CMD_TOOL_POLYLINE ) ) );
+    ui->shapeButton->setWhatsThis( tr( "Shape Tool (%1)" )
+        .arg( GetToolTips( CMD_TOOL_SHAPE ) ) );
     ui->bucketButton->setWhatsThis( tr( "Paint Bucket Tool (%1)" )
         .arg( GetToolTips( CMD_TOOL_BUCKET ) ) );
     ui->brushButton->setWhatsThis( tr( "Brush Tool (%1)" )
@@ -124,6 +130,7 @@ void ToolBoxWidget::initUI()
     connect(ui->penButton, &QToolButton::clicked, this, &ToolBoxWidget::penOn);
     connect(ui->handButton, &QToolButton::clicked, this, &ToolBoxWidget::handOn);
     connect(ui->polylineButton, &QToolButton::clicked, this, &ToolBoxWidget::polylineOn);
+    connect(ui->shapeButton, &QToolButton::clicked, this, &ToolBoxWidget::shapeOn);
     connect(ui->bucketButton, &QToolButton::clicked, this, &ToolBoxWidget::bucketOn);
     connect(ui->eyedropperButton, &QToolButton::clicked, this, &ToolBoxWidget::eyedropperOn);
     connect(ui->brushButton, &QToolButton::clicked, this, &ToolBoxWidget::brushOn);
@@ -138,6 +145,7 @@ void ToolBoxWidget::initUI()
     mFlowlayout->addWidget(ui->penButton);
     mFlowlayout->addWidget(ui->handButton);
     mFlowlayout->addWidget(ui->polylineButton);
+    mFlowlayout->addWidget(ui->shapeButton);
     mFlowlayout->addWidget(ui->bucketButton);
     mFlowlayout->addWidget(ui->eyedropperButton);
     mFlowlayout->addWidget(ui->brushButton);
@@ -158,6 +166,7 @@ void ToolBoxWidget::initUI()
     buttonGroup->addButton(ui->penButton);
     buttonGroup->addButton(ui->handButton);
     buttonGroup->addButton(ui->polylineButton);
+    buttonGroup->addButton(ui->shapeButton);
     buttonGroup->addButton(ui->bucketButton);
     buttonGroup->addButton(ui->eyedropperButton);
     buttonGroup->addButton(ui->brushButton);
@@ -231,6 +240,9 @@ void ToolBoxWidget::setActiveTool(ToolType toolType)
     case ToolType::POLYLINE:
         polylineOn();
         break;
+    case ToolType::SHAPE:
+        shapeOn();
+        break;
     case ToolType::SMUDGE:
         smudgeOn();
         break;
@@ -284,6 +296,11 @@ void ToolBoxWidget::polylineOn()
     toolOn(POLYLINE, ui->polylineButton);
 }
 
+void ToolBoxWidget::shapeOn()
+{
+    toolOn(SHAPE, ui->shapeButton);
+}
+
 void ToolBoxWidget::bucketOn()
 {
     toolOn(BUCKET, ui->bucketButton);
@@ -313,6 +330,7 @@ void ToolBoxWidget::deselectAllTools()
     ui->handButton->setChecked(false);
     ui->penButton->setChecked(false);
     ui->polylineButton->setChecked(false);
+    ui->shapeButton->setChecked(false);
     ui->bucketButton->setChecked(false);
     ui->eyedropperButton->setChecked(false);
     ui->brushButton->setChecked(false);

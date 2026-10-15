@@ -32,6 +32,7 @@ GNU General Public License for more details.
 #include "selecttool.h"
 #include "smudgetool.h"
 #include "cameratool.h"
+#include "shapetool.h"
 #include "editor.h"
 
 
@@ -61,6 +62,7 @@ bool ToolManager::init()
     mToolSetHash.insert(SELECT, new SelectTool(this));
     mToolSetHash.insert(SMUDGE, new SmudgeTool(this));
     mToolSetHash.insert(CAMERA, new CameraTool(this));
+    mToolSetHash.insert(SHAPE, new ShapeTool(this));
 
     foreach(BaseTool* pTool, mToolSetHash.values())
     {

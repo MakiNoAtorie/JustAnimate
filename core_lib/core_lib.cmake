@@ -73,6 +73,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/polylinetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/radialoffsettool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/selecttool.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/shapetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/inputsmoother.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.h
@@ -175,6 +176,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/polylinetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/radialoffsettool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/selecttool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/shapetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/inputsmoother.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.cpp
