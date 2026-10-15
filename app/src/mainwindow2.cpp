@@ -1250,6 +1250,18 @@ bool MainWindow2::tryLoadPreset()
             return;
         }
 
+        if (presetDialog->templateIndex() >= 0)
+        {
+            if (Object* object = Welcome::newObjectFromTemplate(presetDialog->templateIndex()))
+            {
+                mEditor->setObject(object);
+                mEditor->setFps(mEditor->playback()->fps());
+                closeDialogs();
+                setWindowTitle(getWindowTitle());
+                return;
+            }
+        }
+
         int presetIndex = presetDialog->presetIndex();
         if (presetDialog->shouldAlwaysUse())
         {

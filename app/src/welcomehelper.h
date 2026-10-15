@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #define WELCOMEHELPER_H
 
 #include <QList>
+#include <QSize>
 #include <QString>
 #include <QStringList>
 
@@ -32,6 +33,17 @@ struct RecentEntry
     QString thumbnail; // empty when no cached thumbnail exists
     bool missing = false;
 };
+
+struct Template
+{
+    QString name;
+    QSize size;
+    int fps;
+};
+
+const QList<Template>& templates();
+// Caller owns the result. Null when index is out of range.
+Object* newObjectFromTemplate(int index);
 
 QString presetPath(int index);
 QString thumbnailPath(const QString& projectPath);

@@ -30,6 +30,37 @@ namespace Welcome
 {
 static const QSize THUMBNAIL_SIZE(256, 144);
 
+const QList<Template>& templates()
+{
+    static const QList<Template> list = {
+        { "HD 1080p", QSize(1920, 1080), 24 },
+        { "HD 720p", QSize(1280, 720), 24 },
+        { "4K UHD", QSize(3840, 2160), 24 },
+        { "Vertical 1080 x 1920", QSize(1080, 1920), 30 },
+        { "Square 1080", QSize(1080, 1080), 30 },
+        { "GIF 480 x 480", QSize(480, 480), 12 },
+    };
+    return list;
+}
+
+Object* newObjectFromTemplate(int index)
+{
+    if (index < 0 || index >= templates().size())
+    {
+        return nullptr;
+    }
+    const Template& t = templates().at(index);
+
+    auto* object = new Object();
+    object->init();
+    LayerCamera* camera = object->addNewCameraLayer();
+    camera->setViewRect(QRect(QPoint(-t.size.width() / 2, -t.size.height() / 2), t.size));
+    object->addNewBitmapLayer();
+    object->data()->setCurrentLayer(1);
+    object->data()->setFrameRate(t.fps);
+    return object;
+}
+
 QString presetPath(int index)
 {
     if (index == 0)
