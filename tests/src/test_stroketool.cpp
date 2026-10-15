@@ -727,8 +727,6 @@ TEST_CASE("DabTool - spacing does not change how dark a low-flow stroke is")
 
 TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter replays the same")
 {
-    const SettingsGuard settingsGuard({ SETTING_SPEED_TO_SIZE, SETTING_TILT_TO_SIZE, SETTING_TILT_TO_ANGLE, SETTING_SIZE_JITTER,
-                                       SETTING_SCATTER, SETTING_ANGLE_JITTER, SETTING_DAB_COUNT });
     TestSession s;
     LayerBitmap* layer = s.object->addNewBitmapLayer();
     for (int f = 2; f <= 6; ++f)
@@ -775,7 +773,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
 
     SECTION("Speed to size: a fast stroke is thinner than a slow one")
     {
-        editor->preference()->set(SETTING::SPEED_TO_SIZE, -100);
+        brush->setDynamic(StrokeToolProperties::SPEED_TO_SIZE_VALUE, -100);
         const int slow = strokeAt(1, 100, QPointF()); // 0.5 px/ms
         const int fast = strokeAt(2, 5, QPointF());   // 10 px/ms
         INFO("slow " << slow << "px fast " << fast << "px");
@@ -784,7 +782,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     }
     SECTION("Tilt to size: a tilted pen paints a wider stroke")
     {
-        editor->preference()->set(SETTING::TILT_TO_SIZE, 100);
+        brush->setDynamic(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
         const int upright = strokeAt(1, 20, QPointF());
         const int tilted = strokeAt(2, 20, QPointF(60, 0));
         INFO("upright " << upright << "px tilted " << tilted << "px");
@@ -794,7 +792,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     SECTION("Tilt to angle: a flat tip turns with the pen tilt")
     {
         brush->setTipAspect(10); // 20 px wide, 2 px tall
-        editor->preference()->set(SETTING::TILT_TO_ANGLE, 100);
+        brush->setDynamic(StrokeToolProperties::TILT_TO_ANGLE_VALUE, 100);
         const int upright = strokeAt(1, 20, QPointF());
         const int tilted = strokeAt(2, 20, QPointF(0, -60)); // tip turns to 90 degrees
         INFO("upright " << upright << "px tilted " << tilted << "px");
@@ -804,7 +802,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     SECTION("Size jitter: the same seed paints the same stroke")
     {
         strokeAt(1, 20, QPointF());
-        editor->preference()->set(SETTING::SIZE_JITTER, 100);
+        brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 100);
         brush->seedRandom(7);
         strokeAt(2, 20, QPointF());
         brush->seedRandom(7);
@@ -822,7 +820,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     SECTION("Scatter: position, angle and dab count scatter dabs and a seed replays them")
     {
         const int plain = strokeAt(1, 20, QPointF());
-        editor->preference()->set(SETTING::SCATTER, 100); // up to one dab width off the line
+        brush->setDynamic(StrokeToolProperties::SCATTER_VALUE, 100); // up to one dab width off the line
         brush->seedRandom(7);
         const int scattered = strokeAt(2, 20, QPointF());
         brush->seedRandom(7);
@@ -833,7 +831,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
         CHECK(scattered > 30);
 
         // More dabs per step cover more of the scatter band.
-        editor->preference()->set(SETTING::DAB_COUNT, 8);
+        brush->setDynamic(StrokeToolProperties::DAB_COUNT_VALUE, 8);
         brush->seedRandom(7);
         strokeAt(4, 20, QPointF());
         auto inked = [&](int frame) {
@@ -848,11 +846,11 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
         CHECK(inked(4) > inked(2) * 1.15);
 
         // Angle jitter turns a flat tip off the line.
-        editor->preference()->set(SETTING::SCATTER, 0);
-        editor->preference()->set(SETTING::DAB_COUNT, 1);
+        brush->setDynamic(StrokeToolProperties::SCATTER_VALUE, 0);
+        brush->setDynamic(StrokeToolProperties::DAB_COUNT_VALUE, 1);
         brush->setTipAspect(10);
         const int flat = strokeAt(5, 20, QPointF());
-        editor->preference()->set(SETTING::ANGLE_JITTER, 180);
+        brush->setDynamic(StrokeToolProperties::ANGLE_JITTER_VALUE, 180);
         const int turned = strokeAt(6, 20, QPointF());
         INFO("flat " << flat << "px turned " << turned << "px");
         CHECK(flat < 6);

@@ -17,7 +17,6 @@ GNU General Public License for more details.
 
 #include "toolspage.h"
 
-#include <QFormLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QSpinBox>
@@ -58,27 +57,6 @@ ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
     };
     mTaperStart = taperBox(tr("Stroke start taper (Pencil, Brush, Eraser):"), SETTING::TAPER_START);
     mTaperEnd = taperBox(tr("Stroke end taper (Pencil, Brush, Eraser):"), SETTING::TAPER_END);
-    auto* dynamics = new QFormLayout;
-    struct Row { SETTING setting; QString label; int min; int max; QString suffix; };
-    const Row rows[] = {
-        { SETTING::SPEED_TO_SIZE, tr("Speed to size:"), -100, 100, "%" },
-        { SETTING::TILT_TO_SIZE, tr("Tilt to size:"), -100, 100, "%" },
-        { SETTING::TILT_TO_ANGLE, tr("Tilt to tip angle:"), -100, 100, "%" },
-        { SETTING::SIZE_JITTER, tr("Size jitter:"), 0, 100, "%" },
-        { SETTING::SCATTER, tr("Scatter:"), 0, 500, "%" },
-        { SETTING::ANGLE_JITTER, tr("Angle jitter:"), 0, 180, QString(QChar(0x00B0)) },
-        { SETTING::DAB_COUNT, tr("Dabs per step:"), 1, 16, "" },
-    };
-    for (const auto& [setting, label, min, max, suffix] : rows)
-    {
-        auto* box = new QSpinBox(this);
-        box->setRange(min, max);
-        box->setSuffix(suffix);
-        dynamics->addRow(label, box);
-        mDynamicsBoxes.append({ setting, box });
-        connect(box, &QSpinBox::valueChanged, this, [this, setting = setting](int value) { mManager->set(setting, value); });
-    }
-    ui->verticalLayout_2->addLayout(dynamics);
 
     connect(ui->useQuickSizingBox, &QCheckBox::stateChanged, this, &ToolsPage::quickSizingChange);
     connect(ui->rotationIncrementSlider, &QSlider::valueChanged, this, &ToolsPage::rotationIncrementChange);
@@ -98,11 +76,6 @@ void ToolsPage::updateValues()
     mPressureCurve->setCurve(PressureCurve::fromString(mManager->getString(SETTING::PRESSURE_CURVE)));
     mTaperStart->setValue(mManager->getInt(SETTING::TAPER_START));
     mTaperEnd->setValue(mManager->getInt(SETTING::TAPER_END));
-    for (const auto& [setting, box] : mDynamicsBoxes)
-    {
-        QSignalBlocker blocker(box);
-        box->setValue(mManager->getInt(setting));
-    }
 }
 
 void ToolsPage::quickSizingChange(int b)

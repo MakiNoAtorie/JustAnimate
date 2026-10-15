@@ -12,6 +12,7 @@
 #include "layermanager.h"
 
 #include <QFileDialog>
+#include <QFormLayout>
 #include <QMessageBox>
 
 StrokeOptionsWidget::StrokeOptionsWidget(Editor* editor, QWidget *parent) :
@@ -54,6 +55,31 @@ void StrokeOptionsWidget::initUI()
     ui->tipAspectSlider->init(tr("Tip Aspect %"), SpinSlider::LINEAR, aspectInfo.minReal(), aspectInfo.maxReal());
     auto angleInfo = p.getInfo(StrokeToolProperties::TIP_ANGLE_VALUE);
     ui->tipAngleSlider->init(tr("Tip Angle"), SpinSlider::LINEAR, angleInfo.minReal(), angleInfo.maxReal());
+
+    mDynamicsBox = new QWidget(this);
+    auto* dynamics = new QFormLayout(mDynamicsBox);
+    dynamics->setContentsMargins(0, 0, 0, 0);
+    struct Row { int type; QString label; QString suffix; };
+    const Row rows[] = {
+        { StrokeToolProperties::SPEED_TO_SIZE_VALUE, tr("Speed to size"), "%" },
+        { StrokeToolProperties::TILT_TO_SIZE_VALUE, tr("Tilt to size"), "%" },
+        { StrokeToolProperties::TILT_TO_ANGLE_VALUE, tr("Tilt to tip angle"), "%" },
+        { StrokeToolProperties::SIZE_JITTER_VALUE, tr("Size jitter"), "%" },
+        { StrokeToolProperties::SCATTER_VALUE, tr("Scatter"), "%" },
+        { StrokeToolProperties::ANGLE_JITTER_VALUE, tr("Angle jitter"), QString(QChar(0x00B0)) },
+        { StrokeToolProperties::DAB_COUNT_VALUE, tr("Dabs per step"), "" },
+    };
+    for (const auto& [type, label, suffix] : rows)
+    {
+        const PropertyInfo info = p.getInfo(type);
+        auto* box = new QSpinBox(mDynamicsBox);
+        box->setRange(info.minInt(), info.maxInt());
+        box->setSuffix(suffix);
+        dynamics->addRow(label, box);
+        mDynamicsSpinBoxes.append({ type, box });
+        connect(box, &QSpinBox::valueChanged, this, [this, type = type](int value) { mCurrentTool->setDynamic(type, value); });
+    }
+    ui->verticalLayout_2->insertWidget(ui->verticalLayout_2->indexOf(ui->tipImageLayout) + 1, mDynamicsBox);
 
     mCurrentTool = strokeTool;
 
@@ -107,6 +133,10 @@ void StrokeOptionsWidget::updateUI()
 
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::TIP_ASPECT_VALUE)) {
         updateTip();
+    }
+
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::SCATTER_VALUE)) {
+        updateDynamics();
     }
 
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::FLOW_VALUE)) {
@@ -165,6 +195,7 @@ void StrokeOptionsWidget::makeConnectionFromModelToUI(StrokeTool* strokeTool)
     connect(strokeTool, &StrokeTool::featherChanged, this, &StrokeOptionsWidget::setFeatherValue);
     connect(strokeTool, &StrokeTool::spacingChanged, this, &StrokeOptionsWidget::setSpacingValue);
     connect(strokeTool, &StrokeTool::tipChanged, this, &StrokeOptionsWidget::updateTip);
+    connect(strokeTool, &StrokeTool::dynamicsChanged, this, &StrokeOptionsWidget::updateDynamics);
     connect(strokeTool, &StrokeTool::flowChanged, this, &StrokeOptionsWidget::setFlowValue);
     connect(strokeTool, &StrokeTool::strokeOpacityChanged, this, &StrokeOptionsWidget::setStrokeOpacityValue);
     connect(strokeTool, &StrokeTool::washEnabledChanged, this, &StrokeOptionsWidget::setWashEnabled);
@@ -306,6 +337,7 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->washBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::WASH_ENABLED));
     ui->loadTipImageButton->setVisible(tip);
     ui->clearTipImageButton->setVisible(tip);
+    if (mDynamicsBox) mDynamicsBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SCATTER_VALUE));
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));
@@ -374,6 +406,16 @@ void StrokeOptionsWidget::updateTip()
     ui->squareTipBox->setChecked(p.tipSquare());
     QSignalBlocker b4(ui->followDirectionBox);
     ui->followDirectionBox->setChecked(p.tipFollowsDirection());
+}
+
+void StrokeOptionsWidget::updateDynamics()
+{
+    const StrokeToolProperties& p = mCurrentTool->strokeToolProperties();
+    for (const auto& [type, box] : mDynamicsSpinBoxes)
+    {
+        QSignalBlocker b(box);
+        box->setValue(p.getInfo(type).intValue());
+    }
 }
 
 void StrokeOptionsWidget::setFeatherEnabled(bool enabled)

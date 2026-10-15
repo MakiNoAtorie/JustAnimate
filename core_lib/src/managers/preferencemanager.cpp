@@ -149,13 +149,6 @@ void PreferenceManager::loadPrefs()
 
     set(SETTING::LANGUAGE,                 settings.value(SETTING_LANGUAGE).toString());
     set(SETTING::PRESSURE_CURVE,           settings.value(SETTING_PRESSURE_CURVE).toString());
-    set(SETTING::SPEED_TO_SIZE,            settings.value(SETTING_SPEED_TO_SIZE,          0).toInt());
-    set(SETTING::TILT_TO_SIZE,             settings.value(SETTING_TILT_TO_SIZE,           0).toInt());
-    set(SETTING::TILT_TO_ANGLE,            settings.value(SETTING_TILT_TO_ANGLE,          0).toInt());
-    set(SETTING::SIZE_JITTER,              settings.value(SETTING_SIZE_JITTER,            0).toInt());
-    set(SETTING::SCATTER,                  settings.value(SETTING_SCATTER,                0).toInt());
-    set(SETTING::ANGLE_JITTER,             settings.value(SETTING_ANGLE_JITTER,           0).toInt());
-    set(SETTING::DAB_COUNT,                settings.value(SETTING_DAB_COUNT,              1).toInt());
 }
 
 void PreferenceManager::turnOn(SETTING option)
@@ -360,27 +353,6 @@ void PreferenceManager::set(SETTING option, int value)
         break;
     case SETTING::TAPER_END:
         settings.setValue(SETTING_TAPER_END, value);
-        break;
-    case SETTING::SPEED_TO_SIZE:
-        settings.setValue(SETTING_SPEED_TO_SIZE, value);
-        break;
-    case SETTING::TILT_TO_SIZE:
-        settings.setValue(SETTING_TILT_TO_SIZE, value);
-        break;
-    case SETTING::TILT_TO_ANGLE:
-        settings.setValue(SETTING_TILT_TO_ANGLE, value);
-        break;
-    case SETTING::SIZE_JITTER:
-        settings.setValue(SETTING_SIZE_JITTER, value);
-        break;
-    case SETTING::SCATTER:
-        settings.setValue(SETTING_SCATTER, value);
-        break;
-    case SETTING::ANGLE_JITTER:
-        settings.setValue(SETTING_ANGLE_JITTER, value);
-        break;
-    case SETTING::DAB_COUNT:
-        settings.setValue(SETTING_DAB_COUNT, value);
         break;
     case SETTING::FPS:
         settings.setValue(SETTING_FPS, value);

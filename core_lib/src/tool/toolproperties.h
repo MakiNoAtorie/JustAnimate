@@ -416,6 +416,13 @@ struct StrokeToolProperties: public ToolPropertiesBase
         FLOW_VALUE               = 114,
         OPACITY_VALUE            = 115,
         WASH_ENABLED             = 116,
+        SPEED_TO_SIZE_VALUE      = 117,
+        TILT_TO_SIZE_VALUE       = 118,
+        TILT_TO_ANGLE_VALUE      = 119,
+        SIZE_JITTER_VALUE        = 120,
+        SCATTER_VALUE            = 121,
+        ANGLE_JITTER_VALUE       = 122,
+        DAB_COUNT_VALUE          = 123,
 
         END                 = 199,
     };
@@ -440,7 +447,14 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { TIP_FOLLOW_DIRECTION_ENABLED, "TipFollowDirection" },
             { FLOW_VALUE,            "Flow" },
             { OPACITY_VALUE,         "Opacity" },
-            { WASH_ENABLED,          "WashEnabled" }
+            { WASH_ENABLED,          "WashEnabled" },
+            { SPEED_TO_SIZE_VALUE,   "SpeedToSize" },
+            { TILT_TO_SIZE_VALUE,    "TiltToSize" },
+            { TILT_TO_ANGLE_VALUE,   "TiltToAngle" },
+            { SIZE_JITTER_VALUE,     "SizeJitter" },
+            { SCATTER_VALUE,         "Scatter" },
+            { ANGLE_JITTER_VALUE,    "AngleJitter" },
+            { DAB_COUNT_VALUE,       "DabCount" }
         });
     }
 
@@ -466,6 +480,13 @@ struct StrokeToolProperties: public ToolPropertiesBase
     qreal flow() const { return getInfo(FLOW_VALUE).realValue(); }
     qreal opacity() const { return getInfo(OPACITY_VALUE).realValue(); }
     bool washEnabled() const { return getInfo(WASH_ENABLED).boolValue(); }
+    int speedToSize() const { return getInfo(SPEED_TO_SIZE_VALUE).intValue(); } // percent
+    int tiltToSize() const { return getInfo(TILT_TO_SIZE_VALUE).intValue(); } // percent
+    int tiltToAngle() const { return getInfo(TILT_TO_ANGLE_VALUE).intValue(); } // percent
+    int sizeJitter() const { return getInfo(SIZE_JITTER_VALUE).intValue(); } // percent
+    int scatter() const { return getInfo(SCATTER_VALUE).intValue(); } // percent of dab width
+    int angleJitter() const { return getInfo(ANGLE_JITTER_VALUE).intValue(); } // degrees
+    int dabCount() const { return getInfo(DAB_COUNT_VALUE).intValue(); }
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }

@@ -87,6 +87,21 @@ TEST_CASE("Brush presets survive a restart", "[BrushPresets]")
     CHECK(p.width() == 50.0);
 }
 
+TEST_CASE("Brush presets keep dynamics and scatter", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    BrushSession b;
+    b.brush->setDynamic(StrokeToolProperties::SCATTER_VALUE, 250);
+    b.brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 40);
+    REQUIRE(BrushPresets(dir.path()).save("Chalk", *b.brush));
+
+    b.brush->resetSettings();
+    REQUIRE(b.brush->strokeToolProperties().scatter() == 0);
+    REQUIRE(BrushPresets(dir.path()).apply("Chalk", *b.brush));
+    CHECK(b.brush->strokeToolProperties().scatter() == 250);
+    CHECK(b.brush->strokeToolProperties().sizeJitter() == 40);
+}
+
 TEST_CASE("Brush presets can be renamed and deleted", "[BrushPresets]")
 {
     QTemporaryDir dir;
