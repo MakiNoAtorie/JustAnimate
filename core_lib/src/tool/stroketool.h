@@ -71,6 +71,8 @@ public:
     virtual void setWidth(qreal width);
     virtual void setFeather(qreal feather);
     virtual void setSpacing(qreal percent);
+    /// Sets a dynamics or scatter property, such as StrokeToolProperties::SCATTER_VALUE.
+    void setDynamic(int type, int value);
     void setTipSquare(bool square);
     void setTipAspect(qreal percent);
     void setTipAngle(qreal degrees);
@@ -96,6 +98,7 @@ signals:
     void featherChanged(qreal value);
     void spacingChanged(qreal value);
     void tipChanged();
+    void dynamicsChanged();
     void flowChanged(qreal value);
     void strokeOpacityChanged(qreal value);
     void washEnabledChanged(bool enabled);

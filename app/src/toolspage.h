@@ -50,7 +50,6 @@ private:
     PressureCurveWidget* mPressureCurve = nullptr;
     QSpinBox* mTaperStart = nullptr;
     QSpinBox* mTaperEnd = nullptr;
-    QList<std::pair<SETTING, QSpinBox*>> mDynamicsBoxes;
 };
 
 #endif // TOOLSPAGE_H

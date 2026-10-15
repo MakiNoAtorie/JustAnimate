@@ -37,6 +37,7 @@ private:
     void setFeatherEnabled(bool);
     void setSpacingValue(qreal);
     void updateTip();
+    void updateDynamics();
     void setFlowValue(qreal);
     void setStrokeOpacityValue(qreal);
     void setWashEnabled(bool);
@@ -55,6 +56,8 @@ private:
     Ui::StrokeOptionsWidget *ui;
 
     StrokeTool* mCurrentTool = nullptr;
+    QWidget* mDynamicsBox = nullptr;
+    QList<std::pair<int, QSpinBox*>> mDynamicsSpinBoxes;
 
     Editor* mEditor = nullptr;
 

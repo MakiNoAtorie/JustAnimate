@@ -103,7 +103,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   back pen points until release; do not assume `mLastBrushPoint` is the
   current point.
 - Global stroke shaping outside a preset (pressure curve, taper) is a
-  `PreferenceManager` setting read in `DabTool::pointerPressEvent`.
+  `PreferenceManager` setting read in `DabTool::pointerPressEvent`. Any other
+  brush setting is a `StrokeToolProperties` value, so presets keep it.
 - Dab alpha: `DabTool::dabOpacity` is what the whole stroke reaches;
   `spacedDabOpacity` is one dab's alpha, `1-(1-a)^(spacing/width)`, so
   spacing does not change darkness. Wash mode is per stroke
@@ -118,7 +119,10 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `sizeDynamics()` runs once per placed dab and consumes the RNG, so never
   call it from spacing or prediction.
 - Pen speed and tilt reach dabs only through `StrokeInterpolator::speed()`/
-  `tilt()`. Dynamics amounts default to 0, and 0 leaves output unchanged.
+  `tilt()`. Dynamics, jitter, scatter and dabs per step are per-tool
+  `StrokeToolProperties` (set through `StrokeTool::setDynamic`, shown in the
+  stroke options widget). They default to 0 (dab count 1), which leaves
+  output unchanged.
 - Brush presets go only through `BrushPresets` (`brushpresets.*`): one
   `<name>.json` per preset, name checked by `isValidName`. A preset holds
   every `ToolProperties` value keyed by identifier, plus `tipImage`

@@ -76,6 +76,13 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::FLOW_VALUE] = { 1.0, 100.0, 100.0 };
     info[StrokeToolProperties::OPACITY_VALUE] = { 1.0, 100.0, 100.0 };
     info[StrokeToolProperties::WASH_ENABLED] = false;
+    info[StrokeToolProperties::SPEED_TO_SIZE_VALUE] = { -100, 100, 0 };
+    info[StrokeToolProperties::TILT_TO_SIZE_VALUE] = { -100, 100, 0 };
+    info[StrokeToolProperties::TILT_TO_ANGLE_VALUE] = { -100, 100, 0 };
+    info[StrokeToolProperties::SIZE_JITTER_VALUE] = { 0, 100, 0 };
+    info[StrokeToolProperties::SCATTER_VALUE] = { 0, 500, 0 };
+    info[StrokeToolProperties::ANGLE_JITTER_VALUE] = { 0, 180, 0 };
+    info[StrokeToolProperties::DAB_COUNT_VALUE] = { 1, 16, 1 };
     info[StrokeToolProperties::FLOW_PER_DAB_ENABLED] = false;
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
@@ -462,6 +469,12 @@ void StrokeTool::setWashEnabled(bool enabled)
 {
     toolProperties().setBaseValue(StrokeToolProperties::WASH_ENABLED, enabled);
     emit washEnabledChanged(enabled);
+}
+
+void StrokeTool::setDynamic(int type, int value)
+{
+    toolProperties().setBaseValue(type, value);
+    emit dynamicsChanged();
 }
 
 void StrokeTool::setTipSquare(bool square)
