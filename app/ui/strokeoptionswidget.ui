@@ -131,6 +131,16 @@
          <string comment="Smoothing mode">1-euro filter</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string comment="Smoothing mode">Weighted</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string comment="Smoothing mode">Stabilizer</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item>

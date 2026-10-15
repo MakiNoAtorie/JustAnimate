@@ -122,6 +122,54 @@ TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous str
     CHECK(lightDot <= 15);
 }
 
+TEST_CASE("StrokeTool - a stabilized stroke ends at the pen on lift")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(2);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(10);
+    brush->setPressureEnabled(false);
+    brush->setFeatherEnabled(false);
+
+    auto rightEdge = [](BitmapImage* image) {
+        const int left = image->left();
+        const QImage* img = image->image();
+        int right = -1;
+        for (int y = 0; y < img->height(); ++y)
+            for (int x = right + 1; x < img->width(); ++x)
+                if (qAlpha(img->pixel(x, y)) != 0) right = x;
+        return left + right;
+    };
+
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    editor->scrubTo(1);
+    stroke(area, QPointF(100, 300), QPointF(500, 300), 1.0);
+    const int pen = rightEdge(layer->getBitmapImageAtFrame(1));
+
+    for (SmoothingMode mode : { SmoothingMode::Weighted, SmoothingMode::Stabilizer })
+    {
+        CAPTURE(static_cast<int>(mode));
+        brush->setSmoothingMode(static_cast<int>(mode));
+        brush->setSmoothingStrength(100);
+        layer->removeKeyFrame(2);
+        layer->addNewKeyFrameAt(2);
+        editor->scrubTo(2);
+        stroke(area, QPointF(100, 300), QPointF(500, 300), 1.0);
+        CHECK(rightEdge(layer->getBitmapImageAtFrame(2)) == pen);
+    }
+}
+
 TEST_CASE("DabTool - dabs are evenly spaced at any input speed and take pressure per dab")
 {
     TestSession s;

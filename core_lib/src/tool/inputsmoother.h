@@ -15,6 +15,7 @@ GNU General Public License for more details.
 #ifndef INPUTSMOOTHER_H
 #define INPUTSMOOTHER_H
 
+#include <QList>
 #include <QPointF>
 
 /// Stored as an int in tool settings: append new modes, do not reorder.
@@ -22,6 +23,8 @@ enum class SmoothingMode
 {
     None = 0,
     OneEuro = 1,
+    Weighted = 2,
+    Stabilizer = 3,
 };
 
 struct SmoothingPreset
@@ -34,7 +37,7 @@ struct SmoothingPreset
 class InputSmoother
 {
 public:
-    static constexpr SmoothingMode LAST_MODE = SmoothingMode::OneEuro;
+    static constexpr SmoothingMode LAST_MODE = SmoothingMode::Stabilizer;
 
     void setMode(SmoothingMode mode, int strength);
 
@@ -42,17 +45,23 @@ public:
     void reset(QPointF pos, quint64 timestampMs);
     /// Returns the smoothed position for a new input sample.
     QPointF filter(QPointF pos, quint64 timestampMs);
+    /// Returns the last position of the stroke when the pen lifts at pos.
+    QPointF release(QPointF pos, quint64 timestampMs);
 
     /// The preset for an old StabilizationLevel (NONE, SIMPLE, STRONG).
     static SmoothingPreset presetForLegacyLevel(int level);
 
 private:
+    QPointF weighted(QPointF pos);
+    QPointF stabilized(QPointF pos);
+
     SmoothingMode mMode = SmoothingMode::None;
     int mStrength = 50;
 
     QPointF mPos;      // last output
     QPointF mVelocity; // filtered, px/s
     quint64 mTime = 0;
+    QList<QPointF> mHistory; // Weighted: raw samples, newest last
 };
 
 #endif // INPUTSMOOTHER_H

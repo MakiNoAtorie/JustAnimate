@@ -75,6 +75,61 @@ TEST_CASE("InputSmoother - 1-euro removes jitter with little lag, more with more
     CHECK(medium.lag < strong.lag);
 }
 
+TEST_CASE("InputSmoother - Weighted removes jitter and more with more strength", "[InputSmoother]")
+{
+    const Jitter light = filterJitteryLine(SmoothingMode::Weighted, 10);
+    const Jitter strong = filterJitteryLine(SmoothingMode::Weighted, 100);
+    INFO("off line " << light.meanOffLine << " " << strong.meanOffLine);
+    INFO("lag " << light.lag << " " << strong.lag);
+
+    CHECK(strong.meanOffLine < 0.5); // raw input is 2 px off the line
+    CHECK(light.meanOffLine > strong.meanOffLine);
+    CHECK(light.lag < strong.lag);
+}
+
+TEST_CASE("InputSmoother - Stabilizer holds still inside its dead zone and trails on a string", "[InputSmoother]")
+{
+    InputSmoother s;
+    s.setMode(SmoothingMode::Stabilizer, 100);
+    s.reset(QPointF(0, 0), 1000);
+
+    // Small wobble inside the dead zone: the output does not move.
+    CHECK(s.filter(QPointF(3, -2), 1005) == QPointF(0, 0));
+    CHECK(s.filter(QPointF(-2, 3), 1010) == QPointF(0, 0));
+
+    // A long move: the output trails the pen by a fixed string length, on the line to the pen.
+    const QPointF a = s.filter(QPointF(200, 0), 1015);
+    const QPointF b = s.filter(QPointF(400, 0), 1020);
+    CHECK(a.x() > 0);
+    CHECK(a.y() == Approx(0.0).margin(1e-9));
+    CHECK(200 - a.x() == Approx(400 - b.x()));
+
+    // A weaker stabilizer uses a shorter string.
+    InputSmoother weak;
+    weak.setMode(SmoothingMode::Stabilizer, 20);
+    weak.reset(QPointF(0, 0), 1000);
+    CHECK(weak.filter(QPointF(400, 0), 1005).x() > b.x());
+}
+
+TEST_CASE("InputSmoother - Weighted and Stabilizer catch up to the pen on release; 1-euro does not", "[InputSmoother]")
+{
+    for (SmoothingMode mode : { SmoothingMode::Weighted, SmoothingMode::Stabilizer })
+    {
+        CAPTURE(static_cast<int>(mode));
+        InputSmoother s;
+        s.setMode(mode, 100);
+        s.reset(QPointF(0, 0), 1000);
+        for (int i = 1; i <= 10; ++i)
+            CHECK(s.filter(QPointF(i * 20.0, 0), 1000 + i * 5).x() < i * 20.0);
+        CHECK(s.release(QPointF(200, 0), 1055) == QPointF(200, 0));
+    }
+
+    InputSmoother e;
+    e.setMode(SmoothingMode::OneEuro, 100);
+    e.reset(QPointF(0, 0), 1000);
+    CHECK(e.release(QPointF(200, 0), 1005).x() < 200);
+}
+
 TEST_CASE("InputSmoother - runs on input timestamps: a longer gap lets the output follow further", "[InputSmoother]")
 {
     auto stepAfter = [](quint64 gapMs) {

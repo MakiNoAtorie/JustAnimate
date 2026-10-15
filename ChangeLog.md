@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Weighted and Stabilizer smoothing modes: pick them in the stroke options with the strength slider; the stroke catches up to the pen when you lift it (B4).
 - Saved workspaces: Window, Workspace switches between Draw, Animate and Ink dock layouts, and each remembers your changes across restarts (4.2).
 - Stroke smoothing: None or 1-euro filter with a 0-100 strength slider, run on input timestamps instead of a 5 ms timer; old None/Simple/Strong stabilizer settings carry over (B4).
 - Pencil, Brush and Eraser space dabs evenly at any stroke speed and change pressure smoothly along each stroke (B1).
