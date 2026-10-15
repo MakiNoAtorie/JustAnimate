@@ -550,6 +550,95 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
     }
 }
 
+TEST_CASE("UndoRedoManager: box-select across layers and move the frames as one step")
+{
+    TestSession session;
+    Object* object = session.object;
+    object->addNewCameraLayer();
+    LayerBitmap* bottom = object->addNewBitmapLayer();
+    LayerBitmap* top = object->addNewBitmapLayer();
+    LayerBitmap* outside = object->addNewBitmapLayer();
+    REQUIRE(object->getLayer(1) == bottom);
+    REQUIRE(object->getLayer(3) == outside);
+
+    session.start();
+    Editor* editor = session.editor.get();
+    LayerManager* layers = editor->layers();
+    layers->setCurrentLayer(bottom);
+
+    // Each frame has one opaque pixel at (its first position, 0).
+    for (LayerBitmap* layer : { bottom, top, outside })
+    {
+        for (int pos : { 1, 3, 4, 8 })
+        {
+            layer->addNewKeyFrameAt(pos);
+            layer->getBitmapImageAtFrame(pos)->setPixel(pos, 0, qRgba(0, 0, 0, 255));
+        }
+    }
+
+    // Lists "position=mark" per layer, layers bottom to top, frames last to first.
+    auto frames = [&]
+    {
+        QString list;
+        for (LayerBitmap* layer : { bottom, top, outside })
+        {
+            layer->foreachKeyFrame([&](KeyFrame* key)
+            {
+                int mark = 0;
+                for (int x = 1; x <= 8; ++x)
+                {
+                    if (qAlpha(static_cast<BitmapImage*>(key)->pixel(x, 0)) != 0) { mark = x; }
+                }
+                list += QString("%1=%2 ").arg(key->pos()).arg(mark);
+            });
+            list += "| ";
+        }
+        return list.trimmed().toStdString();
+    };
+    const std::string before = "8=8 4=4 3=3 1=1 | 8=8 4=4 3=3 1=1 | 8=8 4=4 3=3 1=1 |";
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    // Drag a box from frame 2 on the top layer to frame 5 on the bottom layer.
+    layers->selectFrames(2, 1, 5, 2);
+    REQUIRE(bottom->selectedKeyFramesPositions() == QList<int>({ 3, 4 }));
+    REQUIRE(top->selectedKeyFramesPositions() == QList<int>({ 3, 4 }));
+    REQUIRE_FALSE(outside->hasAnySelectedFrames());
+
+    SECTION("Move")
+    {
+        const std::string after = "8=8 6=4 5=3 1=1 | 8=8 6=4 5=3 1=1 | 8=8 4=4 3=3 1=1 |";
+        REQUIRE(layers->moveSelectedFrames(2));
+        REQUIRE(frames() == after);
+
+        undoAction->trigger();
+        REQUIRE(frames() == before);
+        REQUIRE_FALSE(undoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(frames() == after);
+        undoAction->trigger();
+        REQUIRE(frames() == before);
+    }
+
+    SECTION("A new box replaces the selection on every layer")
+    {
+        layers->selectFrames(3, 3, 8, 8);
+        REQUIRE_FALSE(bottom->hasAnySelectedFrames());
+        REQUIRE_FALSE(top->hasAnySelectedFrames());
+        REQUIRE(outside->selectedKeyFramesPositions() == QList<int>({ 8 }));
+    }
+
+    SECTION("A frame in the way on one layer moves nothing")
+    {
+        top->setFrameSelected(8, true);
+        REQUIRE_FALSE(layers->moveSelectedFrames(4));
+        REQUIRE(frames() == before);
+        REQUIRE_FALSE(undoAction->isEnabled());
+    }
+}
+
 TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
 {
     TestSession session;

@@ -77,6 +77,14 @@ public:
 
     int animationLength(bool includeSounds = true);
 
+    /** Selects the keyframes from frame `fromFrame` to `toFrame` on the layers from `fromLayer` to `toLayer`.
+     *  Deselects the frames of every other layer. The bounds can be in any order. */
+    void selectFrames(int fromLayer, int toLayer, int fromFrame, int toFrame);
+    void deselectAllFrames();
+    /** Moves the selected frames of every layer by `offset` as one undo step.
+     *  Stops at frame 1. Moves nothing and returns false when a frame is in the way on any layer. */
+    bool moveSelectedFrames(int offset);
+
     /** This should be emitted whenever the animation length frames, eg. adding, removing, duplicating */
     void notifyAnimationLengthChanged();
 
