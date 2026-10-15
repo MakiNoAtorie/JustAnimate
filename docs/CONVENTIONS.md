@@ -104,6 +104,14 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   current point.
 - Global stroke shaping outside a preset (pressure curve, taper) is a
   `PreferenceManager` setting read in `DabTool::pointerPressEvent`.
+- Dab alpha: `DabTool::dabOpacity` is what the whole stroke reaches;
+  `spacedDabOpacity` is one dab's alpha, `1-(1-a)^(spacing/width)`, so
+  spacing does not change darkness. Wash mode is per stroke
+  (`ScribbleArea::setWashOpacity` on every press); with wash off the
+  SourceOver loop is unchanged.
+- Tests that check exact brush alpha call `setFeather(1)`.
+- New `StrokeToolProperties` ids take the next free number on the
+  integration branch tip.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
   branchless loops, no `QPainter`; mask math uses float and `sqrt` only, so
   platforms hash alike. Read pixels only via `TiledBuffer::tiles()`; call
