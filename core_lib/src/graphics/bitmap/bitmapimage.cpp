@@ -865,7 +865,8 @@ bool BitmapImage::floodFill(BitmapImage** replaceImage,
                             const QPoint& point,
                             const QRgb& fillColor,
                             int tolerance,
-                            const int expandValue)
+                            const int expandValue,
+                            const int closeGaps)
 {
     // Fill region must be 1 pixel larger than the target image to fill regions on the edge connected only by transparent pixels
     const QRect& fillBounds = targetImage->mBounds.adjusted(-1, -1, 1, 1);
@@ -875,8 +876,32 @@ bool BitmapImage::floodFill(BitmapImage** replaceImage,
     // Square tolerance for use with compareColor
     tolerance = static_cast<int>(qPow(tolerance, 2));
 
+    // Dilate everything that differs from the seed colour so gaps up to closeGaps px seal
+    BitmapImage closedImage;
+    if (closeGaps > 0)
+    {
+        closedImage = *targetImage;
+        const QRgb seed = targetImage->constScanLine(point.x(), point.y());
+        const int radius = (closeGaps + 1) / 2;
+        QHash<QRgb, bool> cache;
+        const QRect& b = targetImage->mBounds;
+        for (int y = b.top(); y <= b.bottom(); y++)
+        {
+            for (int x = b.left(); x <= b.right(); x++)
+            {
+                const QRgb c = targetImage->constScanLine(x, y);
+                if (compareColor(c, seed, tolerance, &cache)) continue;
+                for (int dy = -radius; dy <= radius; dy++)
+                    for (int dx = -radius; dx <= radius; dx++)
+                        if ((dx || dy) && QPoint(x + dx, y + dy) != point &&
+                            compareColor(targetImage->constScanLine(x + dx, y + dy), seed, tolerance, &cache))
+                            closedImage.scanLine(x + dx, y + dy, c);
+            }
+        }
+    }
+
     QRect newBounds;
-    bool *filledPixels = floodFillPoints(targetImage, maxBounds, point, tolerance, newBounds);
+    bool *filledPixels = floodFillPoints(closeGaps > 0 ? &closedImage : targetImage, maxBounds, point, tolerance, newBounds);
 
     QRect translatedSearchBounds = newBounds.translated(-maxBounds.topLeft());
 

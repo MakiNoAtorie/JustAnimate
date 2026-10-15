@@ -469,6 +469,33 @@ TEST_CASE("BitmapImage floodFill")
     delete result;
 }
 
+TEST_CASE("BitmapImage floodFill: close gaps seals a 3 px gap")
+{
+    // Box outline 3..13 with a 3 px gap (y 7..9) in the right side
+    BitmapImage image(QRect(0, 0, 17, 17), Qt::transparent);
+    const QRgb black = qRgba(0, 0, 0, 255);
+    const QRgb red = qRgba(255, 0, 0, 255);
+    for (int i = 3; i <= 13; i++)
+    {
+        image.setPixel(i, 3, black);
+        image.setPixel(i, 13, black);
+        image.setPixel(3, i, black);
+        if (i < 7 || i > 9) image.setPixel(13, i, black);
+    }
+
+    BitmapImage* open = nullptr;
+    REQUIRE(BitmapImage::floodFill(&open, &image, QRect(0, 0, 17, 17), QPoint(8, 8), red, 0, 0, 0));
+    REQUIRE(open->constScanLine(1, 1) == red); // leaks without close gaps
+    delete open;
+
+    BitmapImage* closed = nullptr;
+    REQUIRE(BitmapImage::floodFill(&closed, &image, QRect(0, 0, 17, 17), QPoint(8, 8), red, 0, 0, 4));
+    REQUIRE(closed->constScanLine(8, 8) == red);
+    REQUIRE(closed->constScanLine(1, 1) == 0);
+    REQUIRE(closed->constScanLine(15, 8) == 0);
+    delete closed;
+}
+
 TEST_CASE("BitmapImage paste: brush tiles are premultiplied images")
 {
     TiledBuffer buffer;

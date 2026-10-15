@@ -46,6 +46,7 @@ public:
     void setColorToleranceEnabled(bool enabled);
     void setFillExpandEnabled(bool enabled);
     void setFillExpand(int value);
+    void setFillCloseGaps(int value);
     void setColorTolerance(int tolerance);
     void setFillReferenceMode(int referenceMode);
     void setFillMode(int mode);

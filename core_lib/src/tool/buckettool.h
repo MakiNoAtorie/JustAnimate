@@ -56,12 +56,14 @@ public:
     void setFillExpandEnabled(bool enabled);
     void setFillReferenceMode(int referenceMode);
     void setFillMode(int mode);
+    void setFillCloseGaps(int pixels);
 
     QPointF getCurrentPoint() const;
     QPointF getCurrentPixel() const;
 
 signals:
     void fillModeChanged(int mode);
+    void fillCloseGapsChanged(int pixels);
     void fillReferenceModeChanged(int referenceMode);
     void fillExpandEnabledChanged(bool isON);
     void fillExpandChanged(int fillExpandValue);
