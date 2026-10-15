@@ -29,6 +29,10 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   too after an edit there.
 - Sanitizers: `-DJUSTANIMATE_SANITIZE=ON` (GCC/Clang, off by default); CI
   runs the suite with ASan, UBSan and LeakSanitizer.
+- Windows (MSVC): run `vcvars64.bat`, configure with `-G Ninja
+  -DCMAKE_PREFIX_PATH=<Qt>/msvc2022_64`; put Qt's `bin` on `PATH` to run tests.
+- Edit files with the Edit tool or a byte-level script: keep each file's
+  line endings (`git ls-files --eol`). Git Bash `sed -i` drops CRLF.
 
 ## Tests
 
@@ -47,6 +51,11 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   Windows and forwards the child's stderr.
 - Golden values are keyed per platform; change them only in a commit that
   means to change output.
+- A commit that changes brush output regenerates the rows it can run and
+  drops the rest; CI prints the missing rows to paste in a `Refs` commit.
+- Catch2 test names contain no commas (the CLI filter splits on them).
+- Count dabs with `StageProfiler::calls(DabMask)`, not pixels. Brush timing:
+  Release build, interleaved before/after runs, ranges in the commit message.
 
 ## Code
 
@@ -69,6 +78,25 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   renames it over the target only after a successful write.
 - `.gitignore` ignores `*.rc`; add a `!` exception for a resource file you
   mean to commit.
+- New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
+  `loadPrefs` and `set()` in `preferencemanager.cpp`. A renamed setting
+  migrates the old key once, only while the new key is absent.
+- Brush engine: Pencil, Brush and Eraser stroke code lives in `DabTool`.
+  Input smoothing lives only in `InputSmoother` and runs on
+  `PointerEvent::timestamp()`, never a `QTimer`. Preview-only drawing goes in
+  the tool's `paint()` overlay, never the tiled buffer.
+- Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
+  branchless loops, no `QPainter`; mask math uses float and `sqrt` only, so
+  platforms hash alike. Read pixels only via `TiledBuffer::tiles()`; call
+  `endCoverage()`/`flushDabs()` before any other tile write. Workers write
+  tile pixels only inside `flushDabs`; tile creation and the pool stay on
+  the main thread.
+- Dark/light decisions use `Theme::isDark()`, never
+  `PlatformHandler::isDarkMode()`.
+- Dock layouts and workspaces: free functions in `app/src/defaultlayout.*`
+  taking widget pointers and `QSettings&`. Dock `objectName`s are stable keys.
+- App files compiled into a test are listed in both `app/app.cmake` and
+  `tests/tests.cmake`.
 
 ## Commits
 
@@ -76,4 +104,5 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   the top of "JustAnimate - Unreleased".
 - The message ends `Fixes #<ticket>` (`Refs #<n>` for follow-ups such as CI
   fixes), then the attribution trailers.
-- `ChangeLog.md` conflicts: keep every line.
+- `ChangeLog.md` conflicts: take the integration bytes and re-add your
+  line; `git diff --stat` against the integration branch shows +1.
