@@ -7,7 +7,8 @@ if not exist "%VCVARS%" echo vcvars64.bat not found; set VCVARS& exit /b 1
 call "%VCVARS%" >nul 2>&1
 set "PATH=%QTDIR%\bin;%PATH%"
 rem Offscreen keeps test windows off the desktop.
-if not defined QT_QPA_PLATFORM if exist "%QTDIR%\plugins\platforms\qoffscreen.dll" set "QT_QPA_PLATFORM=offscreen"
+rem The build folder deploys only the windows plugin, so load platform plugins from QTDIR.
+if not defined QT_QPA_PLATFORM if exist "%QTDIR%\plugins\platforms\qoffscreen.dll" set "QT_QPA_PLATFORM=offscreen"& set "QT_QPA_PLATFORM_PLUGIN_PATH=%QTDIR%\plugins\platforms"
 cd /d "%~dp0.."
 if not exist build\build.ninja cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON "-DCMAKE_PREFIX_PATH=%QTDIR%" >nul || exit /b 1
 cmake --build build -j2 --target pencil2d pencil2d_tests > build\build.log 2>&1

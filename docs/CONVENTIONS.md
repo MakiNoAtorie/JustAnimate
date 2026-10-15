@@ -30,9 +30,10 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Sanitizers: `-DJUSTANIMATE_SANITIZE=ON` (GCC/Clang, off by default); CI
   runs the suite with ASan, UBSan and LeakSanitizer.
 - Windows (MSVC): `toolsuild-test.cmd [filter]` builds both targets and
-  runs the suite (set `VCVARS`/`QTDIR` for another install). It sets
-  `QT_QPA_PLATFORM=offscreen` when the plugin is installed; set it yourself
-  for the `benchmark` target so no window opens on the user's desktop.
+  runs the suite (set `VCVARS`/`QTDIR` for another install). It runs Qt
+  offscreen when the plugin is installed. For the `benchmark` target set
+  `QT_QPA_PLATFORM=offscreen` and `QT_QPA_PLATFORM_PLUGIN_PATH` to
+  `%QTDIR%\plugins\platforms` so no window opens on the user's desktop.
 - Edit files with the Edit tool or a byte-level script: keep each file's
   line endings (`git ls-files --eol`). Git Bash `sed -i` drops CRLF.
 
