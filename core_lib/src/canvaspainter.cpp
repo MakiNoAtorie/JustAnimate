@@ -282,11 +282,11 @@ void CanvasPainter::paintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPa
 
         if (nFrame < mFrameNumber)
         {
-            colorBrush = Qt::red;
+            colorBrush = mOnionSkinPainterOptions.prevColor;
         }
         else if (nFrame > mFrameNumber)
         {
-            colorBrush = Qt::blue;
+            colorBrush = mOnionSkinPainterOptions.nextColor;
         }
         onionSkinPainter.setWorldMatrixEnabled(false);
 

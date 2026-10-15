@@ -17,6 +17,10 @@ GNU General Public License for more details.
 #include "onionskinwidget.h"
 #include "ui_onionskin.h"
 
+#include <QColorDialog>
+#include <QComboBox>
+#include <QPixmap>
+
 #include "preferencemanager.h"
 #include "editor.h"
 #include "flowlayout.h"
@@ -41,6 +45,12 @@ OnionSkinWidget::~OnionSkinWidget()
 
 void OnionSkinWidget::initUI()
 {
+    mPrevColorButton = addColorButton(ui->onionPrevLayout, SETTING::ONION_PREV_COLOR, tr("Previous frames tint color"));
+    mNextColorButton = addColorButton(ui->onionNextlLayout, SETTING::ONION_NEXT_COLOR, tr("Next frames tint color"));
+    mFalloffBox = new QComboBox(this);
+    mFalloffBox->addItems({ tr("Linear"), tr("Gentle"), tr("Steep") });
+    mFalloffBox->setToolTip(tr("How opacity falls from max to min with distance from the current frame"));
+
     updateUI();
     makeConnections();
 
@@ -53,6 +63,7 @@ void OnionSkinWidget::initUI()
     ui->opacityGroup->layout()->removeWidget(ui->maxOpacityGroup);
     opacityLayout->addWidget(ui->minOpacityGroup);
     opacityLayout->addWidget(ui->maxOpacityGroup);
+    opacityLayout->addWidget(mFalloffBox);
     delete ui->opacityGroup->layout();
     ui->opacityGroup->setLayout(opacityLayout);
 
@@ -96,6 +107,9 @@ void OnionSkinWidget::makeConnections()
     connect(ui->onionSkinMode, &QCheckBox::stateChanged, this, &OnionSkinWidget::onionSkinModeChange);
     connect(ui->onionWhilePlayback, &QCheckBox::stateChanged, this, &OnionSkinWidget::playbackStateChanged);
     connect(ui->onionSkinMultiLayer, &QCheckBox::stateChanged, this, &OnionSkinWidget::onionSkinMultipleLayersEnabled);
+    connect(mFalloffBox, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, [this](int index) {
+        editor()->preference()->set(SETTING::ONION_FALLOFF, index);
+    });
 
     PreferenceManager* prefs = editor()->preference();
     connect(prefs, &PreferenceManager::optionChanged, this, &OnionSkinWidget::updateUI);
@@ -128,6 +142,31 @@ void OnionSkinWidget::updateUI()
 
     QSignalBlocker b7(ui->onionSkinMultiLayer);
     ui->onionSkinMultiLayer->setChecked(prefs->isOn(SETTING::ONION_MUTLIPLE_LAYERS));
+
+    QSignalBlocker b8(mFalloffBox);
+    mFalloffBox->setCurrentIndex(prefs->getInt(SETTING::ONION_FALLOFF));
+
+    const auto swatch = [prefs](SETTING setting) {
+        QPixmap pixmap(16, 16);
+        pixmap.fill(QColor(prefs->getString(setting)));
+        return QIcon(pixmap);
+    };
+    mPrevColorButton->setIcon(swatch(SETTING::ONION_PREV_COLOR));
+    mNextColorButton->setIcon(swatch(SETTING::ONION_NEXT_COLOR));
+}
+
+QToolButton* OnionSkinWidget::addColorButton(QLayout* layout, SETTING setting, const QString& toolTip)
+{
+    QToolButton* button = new QToolButton(this);
+    button->setToolTip(toolTip);
+    button->setAutoRaise(true);
+    layout->addWidget(button);
+    connect(button, &QToolButton::clicked, this, [this, setting] {
+        PreferenceManager* prefs = editor()->preference();
+        const QColor color = QColorDialog::getColor(QColor(prefs->getString(setting)), this, tr("Onion Skin Color"));
+        if (color.isValid()) { prefs->set(setting, color.name()); }
+    });
+    return button;
 }
 
 void OnionSkinWidget::prevFramesGroupClicked(bool isOn)

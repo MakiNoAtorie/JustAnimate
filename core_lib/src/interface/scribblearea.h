@@ -46,6 +46,7 @@ class BaseTool;
 class PointerEvent;
 class BitmapImage;
 class VectorImage;
+struct OnionSkinPainterOptions;
 
 
 class ScribbleArea : public QWidget
@@ -208,6 +209,7 @@ private:
     void invalidateOnionSkinsCacheAround(int frame);
 
     void prepOverlays(int frame);
+    OnionSkinPainterOptions onionSkinOptions() const;
     void prepCameraPainter(int frame);
     void prepCanvas(int frame);
     void drawCanvas(int frame, QRect rect);

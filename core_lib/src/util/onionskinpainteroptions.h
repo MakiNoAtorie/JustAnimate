@@ -17,6 +17,11 @@ GNU General Public License for more details.
 #ifndef ONIONSKINPAINTEROPTIONS_H
 #define ONIONSKINPAINTEROPTIONS_H
 
+#include <QColor>
+
+/// How onion skin opacity falls from max to min with distance from the current frame.
+enum class OnionSkinFalloff { Linear, Gentle, Steep };
+
 struct OnionSkinPainterOptions {
     bool enabledWhilePlaying = false;
     bool isPlaying = false;
@@ -29,5 +34,8 @@ struct OnionSkinPainterOptions {
     int framesToSkinPrev = 0;
     int framesToSkinNext = 0;
     bool isAbsolute = false;
+    OnionSkinFalloff falloff = OnionSkinFalloff::Linear;
+    QColor prevColor = Qt::red;
+    QColor nextColor = Qt::blue;
 };
 #endif // ONIONSKINPAINTEROPTIONS_H

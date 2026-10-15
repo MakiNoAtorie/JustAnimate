@@ -194,14 +194,14 @@ void CameraPainter::paintOnionSkinning(QPainter& painter, const LayerCamera* cam
         if (state == OnionSkinPaintState::PREV) {
 
             if (mOnionSkinOptions.colorizePrevFrames) {
-                onionSkinPen.setColor(Qt::red);
+                onionSkinPen.setColor(mOnionSkinOptions.prevColor);
             }
 
             painter.setPen(onionSkinPen);
             painter.drawPolygon(cameraPolygon);
         } else if (state == OnionSkinPaintState::NEXT) {
             if (mOnionSkinOptions.colorizeNextFrames) {
-                onionSkinPen.setColor(Qt::blue);
+                onionSkinPen.setColor(mOnionSkinOptions.nextColor);
             }
 
             painter.setPen(onionSkinPen);

@@ -199,6 +199,7 @@ public: //slots
     void removeKey();
 
     void switchVisibilityOfLayer(int layerNumber);
+    void switchOnionSkinOfLayer(int layerNumber);
     void swapLayers(int i, int j);
     bool canSwapLayers(int layerIndexLeft, int layerIndexRight) const;
 

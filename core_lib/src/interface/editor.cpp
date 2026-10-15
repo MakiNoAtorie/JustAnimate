@@ -1035,6 +1035,17 @@ void Editor::switchVisibilityOfLayer(int layerNumber)
     emit updateTimeLine();
 }
 
+void Editor::switchOnionSkinOfLayer(int layerNumber)
+{
+    Layer* layer = mObject->getLayer(layerNumber);
+    if (layer == nullptr) { return; }
+    layer->setOnionSkin(!layer->onionSkin());
+    mObject->modification();
+    mScribbleArea->onLayerChanged();
+
+    emit updateTimeLine();
+}
+
 void Editor::swapLayers(int i, int j)
 {
     bool didSwapLayer = mObject->swapLayers(i, j);
