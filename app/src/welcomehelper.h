@@ -14,35 +14,29 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 */
-#ifndef PRESETDIALOG_H
-#define PRESETDIALOG_H
+#ifndef WELCOMEHELPER_H
+#define WELCOMEHELPER_H
 
-#include <QDialog>
-#include "preferencemanager.h"
+#include <QList>
+#include <QString>
+#include <QStringList>
 
-namespace Ui
+class Object;
+
+namespace Welcome
 {
-class PresetDialog;
-}
-
-class PresetDialog : public QDialog
+struct RecentEntry
 {
-    Q_OBJECT
-
-public:
-    explicit PresetDialog(PreferenceManager* preferences, QWidget* parent = nullptr);
-    ~PresetDialog() override;
-
-    static QString getPresetPath(int index);
-
-    int getPresetIndex();
-    bool shouldAlwaysUse();
-
-private:
-    void initPresets();
-
-    Ui::PresetDialog* ui;
-    PreferenceManager* mPrefs = nullptr;
+    QString path;
+    QString name;
+    QString thumbnail; // empty when no cached thumbnail exists
+    bool missing = false;
 };
 
-#endif // PRESETDIALOG_H
+QString presetPath(int index);
+QString thumbnailPath(const QString& projectPath);
+QList<RecentEntry> recentEntries(const QStringList& recentFiles);
+bool saveThumbnail(const Object* object, const QString& projectPath, int frame);
+}
+
+#endif // WELCOMEHELPER_H

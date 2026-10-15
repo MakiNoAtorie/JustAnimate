@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- A welcome screen replaces the preset dialog: recent projects with thumbnails (missing files are marked), open, and new from a preset (4.3).
 - Canvas: onion skin frames are tinted once and reused, so scrubbing with onion skin on is faster (1.4).
 - Timeline: drag a box across layers to select frames on all of them, then drag to move them together as one undo step (3.4).
 - Keyframes more than 50 frames from the playhead are unloaded and reload from disk on demand, so large projects use much less RAM; frames with unsaved changes stay in memory (1.5).
