@@ -727,7 +727,8 @@ TEST_CASE("DabTool - spacing does not change how dark a low-flow stroke is")
 
 TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter replays the same")
 {
-    const SettingsGuard settingsGuard({ SETTING_SPEED_TO_SIZE, SETTING_TILT_TO_SIZE, SETTING_TILT_TO_ANGLE, SETTING_SIZE_JITTER });
+    const SettingsGuard settingsGuard({ SETTING_SPEED_TO_SIZE, SETTING_TILT_TO_SIZE, SETTING_TILT_TO_ANGLE, SETTING_SIZE_JITTER,
+                                       SETTING_SCATTER, SETTING_ANGLE_JITTER, SETTING_DAB_COUNT });
     TestSession s;
     LayerBitmap* layer = s.object->addNewBitmapLayer();
     for (int f = 2; f <= 6; ++f)
@@ -817,5 +818,44 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
         CHECK(a == b);
         CHECK(a != plain);
         CHECK(a != other);
+    }
+    SECTION("Scatter: position, angle and dab count scatter dabs and a seed replays them")
+    {
+        const int plain = strokeAt(1, 20, QPointF());
+        editor->preference()->set(SETTING::SCATTER, 100); // up to one dab width off the line
+        brush->seedRandom(7);
+        const int scattered = strokeAt(2, 20, QPointF());
+        brush->seedRandom(7);
+        strokeAt(3, 20, QPointF());
+        CHECK(*layer->getBitmapImageAtFrame(2)->image() == *layer->getBitmapImageAtFrame(3)->image());
+        INFO("plain " << plain << "px scattered " << scattered << "px");
+        CHECK(plain < 23);
+        CHECK(scattered > 30);
+
+        // More dabs per step cover more of the scatter band.
+        editor->preference()->set(SETTING::DAB_COUNT, 8);
+        brush->seedRandom(7);
+        strokeAt(4, 20, QPointF());
+        auto inked = [&](int frame) {
+            const QImage* img = layer->getBitmapImageAtFrame(frame)->image();
+            int n = 0;
+            for (int y = 0; y < img->height(); ++y)
+                for (int x = 0; x < img->width(); ++x)
+                    n += qAlpha(img->pixel(x, y)) != 0;
+            return n;
+        };
+        INFO("one dab " << inked(2) << " eight dabs " << inked(4));
+        CHECK(inked(4) > inked(2) * 1.15);
+
+        // Angle jitter turns a flat tip off the line.
+        editor->preference()->set(SETTING::SCATTER, 0);
+        editor->preference()->set(SETTING::DAB_COUNT, 1);
+        brush->setTipAspect(10);
+        const int flat = strokeAt(5, 20, QPointF());
+        editor->preference()->set(SETTING::ANGLE_JITTER, 180);
+        const int turned = strokeAt(6, 20, QPointF());
+        INFO("flat " << flat << "px turned " << turned << "px");
+        CHECK(flat < 6);
+        CHECK(turned > 8);
     }
 }

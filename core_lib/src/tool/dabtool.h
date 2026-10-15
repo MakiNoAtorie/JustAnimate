@@ -97,12 +97,17 @@ private:
     QRect predictionRect() const;
     /// Size factor from pen speed, tilt and random jitter; draws one random number per call.
     qreal sizeDynamics();
+    /// A random number in -1..1 from mRandom.
+    qreal randomSigned();
 
     // Preferences in -1..1 (jitter 0..1), read at each press.
     qreal mSpeedToSize = 0;
     qreal mTiltToSize = 0;
     qreal mTiltToAngle = 0;
     qreal mSizeJitter = 0;
+    qreal mScatter = 0; // dab offset as a fraction of dab width
+    qreal mAngleJitter = 0; // degrees
+    int mDabCount = 1; // dabs per spacing step
     std::mt19937 mRandom{ 1 };
 
     bool mPredictionEnabled = true;
