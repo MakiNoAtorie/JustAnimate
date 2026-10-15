@@ -413,7 +413,7 @@ struct Golden
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
     // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1), 1-euro smoothing (B4), cached dab masks and coverage-only strokes (B2).
-    // linux: same as winnt, to confirm on CI. darwin: add from the CI warning.
+    // linux and darwin: same as winnt, confirmed on CI.
     { "winnt x86_64", "pencil", 4, "21c33f69d1bea6e82ff240fc7ec282cdd650e2f3", "1ee3a32cfa348fd5db12eb59cec137fc9206dbbc" },
     { "winnt x86_64", "pencil", 24, "538ed1c6545f7a6fd37b4aeb45b635d0fca103bd", "3f86e7846e71106dc9799190cada0764e807692f" },
     { "winnt x86_64", "pencil", 96, "1f69c7e6f4daf060570b0111c972e8d8974c0aa1", "e987849c0af0bc4733e133dcc9ca0c668d5e0872" },
@@ -438,6 +438,18 @@ const Golden kGolden[] = {
     { "linux x86_64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
     { "linux x86_64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
     { "linux x86_64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
+    { "darwin arm64", "pencil", 4, "21c33f69d1bea6e82ff240fc7ec282cdd650e2f3", "1ee3a32cfa348fd5db12eb59cec137fc9206dbbc" },
+    { "darwin arm64", "pencil", 24, "538ed1c6545f7a6fd37b4aeb45b635d0fca103bd", "3f86e7846e71106dc9799190cada0764e807692f" },
+    { "darwin arm64", "pencil", 96, "1f69c7e6f4daf060570b0111c972e8d8974c0aa1", "e987849c0af0bc4733e133dcc9ca0c668d5e0872" },
+    { "darwin arm64", "pencil", 200, "33ae6e1a86e1de45a2e063610fc3825735c07a56", "d1be77224775aef99492484005e9e00b9b05504f" },
+    { "darwin arm64", "brush", 4, "982f0a17b185b7731c80bd18c95e3f28f6145b9c", "e128f70af7c1212edba73a960634684fd863d200" },
+    { "darwin arm64", "brush", 24, "1b9ead2529093650c26eac75c8d848675e2a2f47", "b1f4c61653c8865e892691d7a99e13130a7ff0c1" },
+    { "darwin arm64", "brush", 96, "0908ae74f1aefda0846e6030f81550bfc2aef2e9", "c28484bb39789852ad2c3b85a88c2c2e233457b1" },
+    { "darwin arm64", "brush", 200, "aaf8e239cbd9423b512a82cbdc1d7666f002314b", "08e76354c41498209619439f760a2a64b3150fdd" },
+    { "darwin arm64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
+    { "darwin arm64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
+    { "darwin arm64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
+    { "darwin arm64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
 };
 
 } // namespace
