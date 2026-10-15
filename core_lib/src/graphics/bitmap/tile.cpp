@@ -41,6 +41,13 @@ void Tile::load(const QImage& image, const QPoint& topLeft)
     painter.end();
 }
 
+void Tile::moveTo(const QPoint& pos)
+{
+    mPos = pos;
+    mPosF = pos;
+    mBounds.moveTopLeft(pos);
+}
+
 void Tile::clear()
 {
     mTileImage.fill(Qt::transparent);

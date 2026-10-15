@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- One-colour Pencil, Brush and Eraser strokes build up a 1-byte alpha buffer and get their colour once, in reused tiles (pool capped at 128 MiB): about 1.4x faster dabs at large sizes; overlapping translucent dabs no longer drift in colour (B2).
 - Pencil, Brush and Eraser dabs are written from cached masks instead of a gradient painter per tile: up to 9x faster on small brushes; edges and feather differ slightly (B2).
 - Pencil, Brush and Eraser have a "Spacing %" setting for dab density; the default 12.5% keeps strokes unchanged (B1).
 - Weighted and Stabilizer smoothing modes: pick them in the stroke options with the strength slider; the stroke catches up to the pen when you lift it (B4).
