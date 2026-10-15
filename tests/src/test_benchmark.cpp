@@ -107,8 +107,10 @@ struct PaintCounter : QObject
 // Mirrors the app's setup in MainWindow2 (editor, scribble area, connections).
 struct Session
 {
-    Editor* editor = new Editor;
-    ScribbleArea* area = new ScribbleArea(nullptr);
+    std::unique_ptr<Editor> ownedEditor{ new Editor };
+    std::unique_ptr<ScribbleArea> ownedArea{ new ScribbleArea(nullptr) }; // destroyed before the editor
+    Editor* editor = ownedEditor.get();
+    ScribbleArea* area = ownedArea.get();
     PaintCounter counter;
 
     Session()
@@ -140,11 +142,7 @@ struct Session
         REQUIRE(area->windowHandle()->isExposed());
         area->installEventFilter(&counter);
     }
-    ~Session()
-    {
-        delete area;
-        delete editor;
-    }
+    Q_DISABLE_COPY(Session)
 };
 
 void mouse(QWidget* w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
