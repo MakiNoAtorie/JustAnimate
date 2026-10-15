@@ -59,6 +59,8 @@ public:
 
     bool visible() const { return mVisible; }
     void setVisible(bool b) { mVisible = b; }
+    bool onionSkin() const { return mOnionSkin; }
+    void setOnionSkin(bool b) { mOnionSkin = b; }
 
     /** Get selected keyframe positions sorted by position */
     QList<int> selectedKeyFramesPositions() const { return mSelectedFrames_byPosition; }
@@ -189,6 +191,7 @@ private:
     LAYER_TYPE meType = UNDEFINED;
     int        mId = 0;
     bool       mVisible = true;
+    bool       mOnionSkin = true;
     QString    mName;
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;

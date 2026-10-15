@@ -24,6 +24,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layersound.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layervector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_object.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_onionskin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pegbaraligner.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pointerevent.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_filemanager.cpp

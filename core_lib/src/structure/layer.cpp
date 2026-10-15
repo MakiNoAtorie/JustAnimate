@@ -740,6 +740,8 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     layerTag.setAttribute("name", name());
     layerTag.setAttribute("visibility", visible());
     layerTag.setAttribute("type", type());
+    // Optional: only written when off, so older versions still read the file.
+    if (!onionSkin()) { layerTag.setAttribute("onion", 0); }
     return layerTag;
 }
 
@@ -752,4 +754,5 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     }
     setName(elem.attribute("name", "untitled"));
     setVisible(elem.attribute("visibility", "1").toInt());
+    setOnionSkin(elem.attribute("onion", "1").toInt());
 }

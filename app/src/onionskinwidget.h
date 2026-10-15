@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #define ONIONSKINWIDGET_H
 
 #include "basedockwidget.h"
+#include "preferencesdef.h"
 
 namespace Ui
 {
@@ -25,6 +26,7 @@ namespace Ui
 }
 
 class Editor;
+class QComboBox;
 class QToolButton;
 class ViewManager;
 
@@ -54,7 +56,11 @@ private slots:
 
 private:
     void makeConnections();
+    QToolButton* addColorButton(QLayout* layout, SETTING setting, const QString& toolTip);
     Ui::OnionSkin* ui = nullptr;
+    QComboBox* mFalloffBox = nullptr;
+    QToolButton* mPrevColorButton = nullptr;
+    QToolButton* mNextColorButton = nullptr;
 };
 
 #endif // ONIONSKINWIDGET_H
