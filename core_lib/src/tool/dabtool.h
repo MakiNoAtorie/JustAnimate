@@ -52,9 +52,14 @@ protected:
     virtual void finishVectorStroke(Layer* layer) = 0;
     virtual void strokeStarted() {}
     virtual void strokeMoved() {}
+    /// Whether the canvas preview shows the predicted pen path.
+    virtual bool showsPrediction() const { return true; }
 
     /// Distance between dab centres for a dab of this width.
     qreal dabSpacing(qreal brushWidth) const;
+    /// Dab width and opacity at this pen pressure; both ignore pressure when it is off.
+    qreal dabWidth(qreal pressure) const;
+    qreal dabOpacity(qreal pressure) const;
 
     QPointF mLastBrushPoint{ 0, 0 };
     qreal mLastBrushPressure = 1.0;

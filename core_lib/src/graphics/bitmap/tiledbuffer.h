@@ -69,7 +69,7 @@ public:
     void drawImage(const QImage& image, const QRect& imageBounds, QPainter::CompositionMode cm, bool antialiasing);
 
     /** The tiles, colourized from the stroke coverage first. */
-    QHash<TileIndex, Tile*> tiles() const;
+    QHash<TileIndex, Tile*> tiles();
 
     const QRect& bounds() const { return mTileBounds; }
 
@@ -130,13 +130,13 @@ private:
     };
     void blendDab(Tile* tile, const QueuedDab& dab) const;
     /** Renders queued dabs on the thread pool, one tile per task, each tile in dab order. */
-    void flushDabs() const;
-    mutable std::vector<QueuedDab> mQueuedDabs;
-    mutable std::vector<Tile*> mQueuedTiles;
-    mutable double mQueuedNs = 0; // predicted inline time of the queued dabs
+    void flushDabs();
+    std::vector<QueuedDab> mQueuedDabs;
+    std::vector<Tile*> mQueuedTiles;
+    double mQueuedNs = 0; // predicted inline time of the queued dabs
     // A member, not a local: a helper may still be inside release() when acquire() returns.
-    mutable QSemaphore mDabsDone;
-    mutable int mLastDabWorkers = 0;
+    QSemaphore mDabsDone;
+    int mLastDabWorkers = 0;
     double mDabNsPerPixel = 1.0; // rolling mean of inline dab time
 };
 

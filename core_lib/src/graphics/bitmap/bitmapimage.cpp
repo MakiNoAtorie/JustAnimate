@@ -207,7 +207,7 @@ void BitmapImage::paste(BitmapImage* bitmapImage, QPainter::CompositionMode cm)
     modification();
 }
 
-void BitmapImage::paste(const TiledBuffer* tiledBuffer, QPainter::CompositionMode cm)
+void BitmapImage::paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm)
 {
     StageScope stage(StageProfiler::BufferPaste);
     if(tiledBuffer->bounds().width() <= 0 || tiledBuffer->bounds().height() <= 0)

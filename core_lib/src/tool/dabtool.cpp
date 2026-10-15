@@ -45,8 +45,7 @@ void DabTool::pointerPressEvent(PointerEvent* event)
 
     startStroke(event->inputType());
     mLastBrushPressure = mCurrentPressure;
-    const qreal pressure = strokeToolProperties().pressureEnabled() ? mCurrentPressure : 1.0;
-    mDistanceToNextDab = dabSpacing(strokeToolProperties().width() * pressure);
+    mDistanceToNextDab = dabSpacing(dabWidth(mCurrentPressure));
     strokeStarted();
 
     StrokeTool::pointerPressEvent(event);
@@ -111,13 +110,13 @@ void DabTool::updatePrediction()
 {
     const QRect before = predictionRect();
     mPrediction = QLineF();
-    if (mPredictionEnabled && mInterpolator.isActive() && type() != ERASER &&
+    if (mPredictionEnabled && mInterpolator.isActive() && showsPrediction() &&
         mEditor->layers()->currentLayer()->type() == Layer::BITMAP)
     {
         const QPointF ahead = mEditor->view()->mapScreenToCanvas(
             mInterpolator.predictedPixel(kPredictionHorizonMs, kPredictionMaxPx));
         mPrediction = QLineF(getCurrentPoint(), ahead);
-        mPredictionWidth = strokeToolProperties().width() * (strokeToolProperties().pressureEnabled() ? mCurrentPressure : 1.0);
+        mPredictionWidth = dabWidth(mCurrentPressure);
     }
     mScribbleArea->update(before | predictionRect());
 }
@@ -127,9 +126,8 @@ void DabTool::paint(QPainter& painter, const QRect& blitRect)
     StrokeTool::paint(painter, blitRect);
     if (mPrediction.isNull()) return;
 
-    const bool pressureOn = strokeToolProperties().pressureEnabled();
     QColor color = mEditor->color()->frontColor();
-    color.setAlphaF(color.alphaF() * (pressureOn ? mCurrentPressure * 0.5 : 1.0));
+    color.setAlphaF(color.alphaF() * dabOpacity(mCurrentPressure));
     painter.save();
     painter.setTransform(mEditor->view()->getView());
     painter.setRenderHint(QPainter::Antialiasing);
@@ -143,17 +141,23 @@ qreal DabTool::dabSpacing(qreal brushWidth) const
     return qMax(0.25, brushWidth * (strokeToolProperties().spacing() / 100.0));
 }
 
+qreal DabTool::dabWidth(qreal pressure) const
+{
+    return strokeToolProperties().width() * (strokeToolProperties().pressureEnabled() ? pressure : 1.0);
+}
+
+qreal DabTool::dabOpacity(qreal pressure) const
+{
+    return strokeToolProperties().pressureEnabled() ? pressure * 0.5 : 1.0;
+}
+
 void DabTool::paintAt(QPointF point)
 {
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer->type() == Layer::BITMAP)
     {
-        const StrokeToolProperties& settings = strokeToolProperties();
-        qreal pressure = (settings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal opacity = (settings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;
-        qreal brushWidth = settings.width() * pressure;
-        mCurrentWidth = brushWidth;
-        drawDab(point, brushWidth, opacity);
+        mCurrentWidth = dabWidth(mCurrentPressure);
+        drawDab(point, mCurrentWidth, dabOpacity(mCurrentPressure));
     }
 }
 
@@ -166,10 +170,8 @@ void DabTool::drawStroke()
 
     if (layer->type() == Layer::BITMAP)
     {
-        const StrokeToolProperties& settings = strokeToolProperties();
-        const bool pressureOn = settings.pressureEnabled();
-        const qreal startPressure = pressureOn ? mLastBrushPressure : 1.0;
-        const qreal endPressure = pressureOn ? mCurrentPressure : 1.0;
+        const qreal startPressure = mLastBrushPressure;
+        const qreal endPressure = mCurrentPressure;
         const QPointF a = mLastBrushPoint;
         const QPointF b = getCurrentPoint();
         const qreal length = QLineF(a, b).length();
@@ -180,9 +182,9 @@ void DabTool::drawStroke()
         {
             const qreal f = (length > 0) ? t / length : 1.0;
             const qreal pressure = startPressure + (endPressure - startPressure) * f;
-            const qreal brushWidth = settings.width() * pressure;
+            const qreal brushWidth = dabWidth(pressure);
             mCurrentWidth = brushWidth;
-            drawDab(a + (b - a) * f, brushWidth, pressureOn ? pressure * 0.5 : 1.0);
+            drawDab(a + (b - a) * f, brushWidth, dabOpacity(pressure));
             t += dabSpacing(brushWidth);
         }
         mDistanceToNextDab = t - length;

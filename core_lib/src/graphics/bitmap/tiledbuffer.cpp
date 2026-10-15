@@ -200,7 +200,7 @@ void TiledBuffer::blendDab(Tile* tile, const QueuedDab& dab) const
     }
 }
 
-void TiledBuffer::flushDabs() const
+void TiledBuffer::flushDabs()
 {
     if (mQueuedDabs.empty()) return;
     // Each task owns whole tiles, so no two threads write the same pixels.
@@ -232,7 +232,7 @@ void TiledBuffer::flushDabs() const
     mQueuedNs = 0;
 }
 
-QHash<TileIndex, Tile*> TiledBuffer::tiles() const
+QHash<TileIndex, Tile*> TiledBuffer::tiles()
 {
     flushDabs();
     if (!mCoverageMode) return mTiles;

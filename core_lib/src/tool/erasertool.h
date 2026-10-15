@@ -41,6 +41,7 @@ protected:
     void drawDab(QPointF point, qreal width, qreal opacity) override;
     QPen vectorPreviewPen() override;
     void finishVectorStroke(Layer* layer) override;
+    bool showsPrediction() const override { return false; }
 
     StrokeToolProperties mSettings;
 };
