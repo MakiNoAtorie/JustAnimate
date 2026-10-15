@@ -93,7 +93,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `brushpresets.*` or the preset dock and editor.
 - Shape and path strokes on bitmap layers go through `DabTool::dabPath`.
   A tool subclass skips its base tool's legacy settings migration. A tool
-  that uses Shift or Alt clears `mQuickSizingProperties`.
+  that uses Shift or Alt clears `mQuickSizingProperties`. A vector fill
+  from a new loop is `BezierCurve(points, false)` plus a `BezierArea` on all
+  its vertices, not `VectorImage::fillContour`.
 - Dark/light decisions use `Theme::isDark()`, never
   `PlatformHandler::isDarkMode()`.
 - Dock layouts and workspaces: free functions in `app/src/defaultlayout.*`
