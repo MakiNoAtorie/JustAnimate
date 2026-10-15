@@ -10,10 +10,10 @@ the original Pencil2D history is kept below for reference.
 - Brush presets export to and import from .jabrush files that carry the tip image; malformed or path-escaping files are rejected (B8).
 - Brush Presets dock: each row shows a sample stroke painted by the brush engine and the preset description; select a row to use the preset (B8).
 - Classic brush preset: Pencil, Brush and Eraser draw exactly as before v0.3 (per-dab flow, half alpha with pressure) (B8).
-- Scatter: Preferences, Tools sets seeded random position scatter, angle jitter and dabs per step for Pencil, Brush and Eraser (B5).
+- Scatter: the tool options set seeded random position scatter, angle jitter and dabs per step for Pencil, Brush and Eraser (B5).
 - Brush presets: Pencil, Brush and Eraser settings and the tip image save as one JSON file per preset in the app data folder; corrupt files are skipped (B8).
 - Pencil, Brush and Eraser can paint with an image tip loaded from a PNG or GIMP .gbr file; a damaged .gbr shows an error (B5).
-- Brush dynamics: Preferences, Tools sets how pen speed and tilt change Pencil, Brush and Eraser dab size, how tilt turns the tip, and a seeded random size jitter (B3).
+- Brush dynamics: the tool options set how pen speed and tilt change Pencil, Brush and Eraser dab size, how tilt turns the tip, and a seeded random size jitter (B3).
 - Flow and opacity: Pencil and Brush have Flow (per dab, builds up), Opacity (per stroke) and a Wash mode that keeps overlaps at the stroke opacity; spacing no longer changes how dark a stroke is (B3).
 - Stroke taper: the stroke options of Pencil, Brush and Eraser set start and end taper lengths, saved in brush presets, so mouse strokes also get thin ends (B3).
 - Pencil, Brush and Eraser tips can be square, flattened (aspect %), turned to an angle, or turned with the stroke direction; Feather sets the hardness (B5).
