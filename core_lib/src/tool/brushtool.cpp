@@ -65,6 +65,8 @@ void BrushTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::SCATTER_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::ANGLE_JITTER_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::DAB_COUNT_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::FLOW_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::OPACITY_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::WASH_ENABLED] = { Layer::BITMAP };

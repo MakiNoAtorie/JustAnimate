@@ -68,6 +68,9 @@ void StrokeOptionsWidget::initUI()
         { StrokeToolProperties::SCATTER_VALUE, tr("Scatter"), "%" },
         { StrokeToolProperties::ANGLE_JITTER_VALUE, tr("Angle jitter"), QString(QChar(0x00B0)) },
         { StrokeToolProperties::DAB_COUNT_VALUE, tr("Dabs per step"), "" },
+        // Taper also gives mouse strokes thin ends, like simulated pressure.
+        { StrokeToolProperties::TAPER_START_VALUE, tr("Start taper"), tr(" px") },
+        { StrokeToolProperties::TAPER_END_VALUE, tr("End taper"), tr(" px") },
     };
     for (const auto& [type, label, suffix] : rows)
     {

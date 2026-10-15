@@ -145,7 +145,7 @@ bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
                 break;
             case PropertyInfo::REAL:
                 if (value.isDouble())
-                    properties.setBaseValue(key, PropertyInfo(static_cast<qreal>(value.toDouble())));
+                    properties.setBaseValue(key, PropertyInfo(qBound<qreal>(info.minReal(), value.toDouble(), info.maxReal())));
                 break;
             case PropertyInfo::BOOL:
                 if (value.isBool())
@@ -167,16 +167,32 @@ bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
     return true;
 }
 
+bool BrushPresets::seed(const QString& name, const QByteArray& json) const
+{
+    // The marker lists the built-ins seeded before, so a deleted built-in stays deleted.
+    const QString marker = QDir(mFolder).filePath(".seeded");
+    QStringList seeded;
+    {
+        QFile in(marker); // closed before the marker is replaced: Windows cannot replace an open file
+        if (in.open(QIODevice::ReadOnly))
+            seeded = QString::fromUtf8(in.read(MAX_PRESET_BYTES)).split('\n', Qt::SkipEmptyParts);
+    }
+    if (seeded.contains(name))
+        return true;
+    if (!QDir().mkpath(mFolder) || (!QFile::exists(filePath(name)) && !writeFile(filePath(name), json)))
+        return false;
+    seeded << name;
+    return writeFile(marker, seeded.join('\n').toUtf8());
+}
+
 void BrushPresets::addDefaults() const
 {
-    if (!QDir().mkpath(mFolder))
-        return;
     const QDir pack(":/brushpresets");
-    for (const QString& file : pack.entryList({ "*.json" }, QDir::Files))
+    for (const QFileInfo& info : pack.entryInfoList({ "*.json" }, QDir::Files))
     {
-        const QString target = QDir(mFolder).filePath(file);
-        if (!QFile::exists(target) && QFile::copy(pack.filePath(file), target))
-            QFile::setPermissions(target, QFile::ReadOwner | QFile::WriteOwner);
+        QFile file(info.filePath());
+        if (file.open(QIODevice::ReadOnly))
+            seed(info.completeBaseName(), file.readAll());
     }
 }
 
@@ -190,29 +206,43 @@ QString BrushPresets::description(const QString& name) const
 
 bool BrushPresets::addClassic() const
 {
-    if (QFile::exists(filePath("Classic")))
-        return true;
-    if (!QDir().mkpath(mFolder))
-        return false;
     // Missing keys give each tool's default; only these differ from the defaults.
     const QJsonObject settings{ { "Flow", 50 }, { "FlowPerDab", true }, { "PressureEnabled", true } };
-    QSaveFile file(filePath("Classic"));
-    if (!file.open(QIODevice::WriteOnly))
-        return false;
-    file.write(QJsonDocument(QJsonObject{ { "settings", settings }, { "tipImage", "" } }).toJson());
-    return file.commit();
+    return seed("Classic", QJsonDocument(QJsonObject{ { "settings", settings }, { "tipImage", "" } }).toJson());
 }
 
 bool BrushPresets::rename(const QString& from, const QString& to) const
 {
-    if (!isValidName(from) || !isValidName(to) || QFile::exists(filePath(to)))
+    if (!isValidName(from) || !isValidName(to) || exists(to))
         return false;
     return QFile::rename(filePath(from), filePath(to));
 }
 
 bool BrushPresets::remove(const QString& name) const
 {
-    return isValidName(name) && QFile::remove(filePath(name));
+    if (!isValidName(name))
+        return false;
+    const std::optional<QJsonObject> preset = readPreset(filePath(name));
+    if (!QFile::remove(filePath(name)))
+        return false;
+
+    // An imported tip goes with the last preset that uses it; other tip files are the user's.
+    const QString tip = preset ? preset->value("tipImage").toString() : QString();
+    if (tip.isEmpty() || QFileInfo(tip).absolutePath() != QFileInfo(QDir(mFolder).filePath("tips")).absoluteFilePath())
+        return true;
+    for (const QString& other : names())
+    {
+        const std::optional<QJsonObject> p = readPreset(filePath(other));
+        if (p && p->value("tipImage").toString() == tip)
+            return true;
+    }
+    QFile::remove(tip);
+    return true;
+}
+
+bool BrushPresets::exists(const QString& name) const
+{
+    return isValidName(name) && QFile::exists(filePath(name));
 }
 
 Status BrushPresets::exportPreset(const QString& name, const QString& fileName) const
@@ -304,7 +334,7 @@ Status BrushPresets::importPreset(const QString& fileName) const
     if (!hasPreset || error.error != QJsonParseError::NoError || !doc.isObject() || !isValidName(name) ||
         preset.value("tipImage").toString() != tipEntry)
         return bad;
-    if (QFile::exists(filePath(name)))
+    if (exists(name))
         return Status(Status::FAIL, QObject::tr("A brush preset named %1 exists.").arg(name));
 
     // The tip loader reads files, so the tip is checked from a temporary copy.
@@ -315,7 +345,11 @@ Status BrushPresets::importPreset(const QString& fileName) const
         QImage mask;
         if (!temp.isValid() || !writeFile(temp.filePath(tipEntry), tipData) || !loadBrushTipImage(temp.filePath(tipEntry), mask).ok())
             return bad;
-        tipPath = QDir(mFolder).filePath("tips/" + name + "." + QFileInfo(tipEntry).suffix());
+        // Never overwrite a tip file: another preset can use it.
+        const QString suffix = "." + QFileInfo(tipEntry).suffix();
+        tipPath = QDir(mFolder).filePath("tips/" + name + suffix);
+        for (int i = 2; QFile::exists(tipPath); ++i)
+            tipPath = QDir(mFolder).filePath(QString("tips/%1 %2%3").arg(name).arg(i).arg(suffix));
     }
 
     const QJsonObject stored{ { "settings", preset.value("settings").toObject() }, { "tipImage", tipPath },

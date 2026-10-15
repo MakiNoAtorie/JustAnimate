@@ -17,9 +17,7 @@ GNU General Public License for more details.
 #include <QApplication>
 #include <QCheckBox>
 #include <QDialogButtonBox>
-#include <QDir>
 #include <QDoubleSpinBox>
-#include <QFile>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -211,7 +209,7 @@ BrushPresetEditor::BrushPresetEditor(const BrushPresets& presets, const QString&
                 continue;
             }
             control->setObjectName(props.identifier(key));
-            form->addRow(props.identifier(key), control);
+            form->addRow(settingLabel(key, props.identifier(key)), control);
         }
     }
 
@@ -255,6 +253,42 @@ BrushPresetEditor::BrushPresetEditor(const BrushPresets& presets, const QString&
 
 BrushPresetEditor::~BrushPresetEditor() = default;
 
+QString BrushPresetEditor::settingLabel(int key, const QString& identifier)
+{
+    // The stroke options labels, so their translations apply here too.
+    switch (key)
+    {
+    case StrokeToolProperties::WIDTH_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Width");
+    case StrokeToolProperties::FEATHER_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Feather");
+    case StrokeToolProperties::FEATHER_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Use Feather");
+    case StrokeToolProperties::SMOOTHING_MODE: return QCoreApplication::translate("StrokeOptionsWidget", "Smoothing");
+    case StrokeToolProperties::SMOOTHING_STRENGTH: return QCoreApplication::translate("StrokeOptionsWidget", "Smoothing strength");
+    case StrokeToolProperties::PRESSURE_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Pressure", "Tool options");
+    case StrokeToolProperties::INVISIBILITY_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Invisible", "Tool options");
+    case StrokeToolProperties::ANTI_ALIASING_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Anti-Aliasing", "Brush AA");
+    case StrokeToolProperties::FILLCONTOUR_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Fill Contour");
+    case StrokeToolProperties::SPACING_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Spacing %");
+    case StrokeToolProperties::TIP_SQUARE_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Square Tip", "Tool options");
+    case StrokeToolProperties::TIP_ASPECT_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Tip Aspect %");
+    case StrokeToolProperties::TIP_ANGLE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Tip Angle");
+    case StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Follow Direction", "Tool options");
+    case StrokeToolProperties::FLOW_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Flow %");
+    case StrokeToolProperties::OPACITY_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Opacity %");
+    case StrokeToolProperties::WASH_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Wash");
+    case StrokeToolProperties::SPEED_TO_SIZE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Speed to size");
+    case StrokeToolProperties::TILT_TO_SIZE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Tilt to size");
+    case StrokeToolProperties::TILT_TO_ANGLE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Tilt to tip angle");
+    case StrokeToolProperties::SIZE_JITTER_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Size jitter");
+    case StrokeToolProperties::SCATTER_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Scatter");
+    case StrokeToolProperties::ANGLE_JITTER_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Angle jitter");
+    case StrokeToolProperties::DAB_COUNT_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Dabs per step");
+    case StrokeToolProperties::TAPER_START_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Start taper");
+    case StrokeToolProperties::TAPER_END_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "End taper");
+    case StrokeToolProperties::FLOW_PER_DAB_ENABLED: return tr("Flow per dab (Classic)");
+    default: return identifier;
+    }
+}
+
 QString BrushPresetEditor::name() const
 {
     return mName->text().trimmed();
@@ -280,7 +314,7 @@ bool BrushPresetEditor::save()
         mMessage->setText(tr("Enter a name without path characters."));
         return false;
     }
-    if (newName != mOriginal && QFile::exists(QDir(mPresets.folder()).filePath(newName + ".json")))
+    if (newName != mOriginal && mPresets.exists(newName))
     {
         mMessage->setText(tr("A brush preset named %1 exists.").arg(newName));
         return false;

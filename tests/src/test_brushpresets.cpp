@@ -119,13 +119,18 @@ TEST_CASE("Brush presets keep dynamics and scatter", "[BrushPresets]")
     BrushSession b;
     b.brush->setDynamic(StrokeToolProperties::SCATTER_VALUE, 250);
     b.brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 40);
+    b.brush->setDynamic(StrokeToolProperties::TAPER_START_VALUE, 80);
+    b.brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 120);
     REQUIRE(BrushPresets(dir.path()).save("Chalk", *b.brush));
 
     b.brush->resetSettings();
     REQUIRE(b.brush->strokeToolProperties().scatter() == 0);
+    REQUIRE(b.brush->strokeToolProperties().taperStart() == 0);
     REQUIRE(BrushPresets(dir.path()).apply("Chalk", *b.brush));
     CHECK(b.brush->strokeToolProperties().scatter() == 250);
     CHECK(b.brush->strokeToolProperties().sizeJitter() == 40);
+    CHECK(b.brush->strokeToolProperties().taperStart() == 80);
+    CHECK(b.brush->strokeToolProperties().taperEnd() == 120);
 }
 
 TEST_CASE("Brush presets can be renamed and deleted", "[BrushPresets]")
@@ -142,6 +147,44 @@ TEST_CASE("Brush presets can be renamed and deleted", "[BrushPresets]")
 
     REQUIRE(presets.remove("Pen"));
     REQUIRE(BrushPresets(dir.path()).names() == QStringList{ "Wash" });
+}
+
+TEST_CASE("Deleting a preset deletes its imported tip and import never overwrites a tip", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    QImage tip(4, 4, QImage::Format_RGB32);
+    tip.fill(Qt::black);
+    REQUIRE(tip.save(dir.filePath("tip.png")));
+    BrushSession b;
+    REQUIRE(b.brush->setTipImage(dir.filePath("tip.png")).ok());
+    const BrushPresets source(dir.filePath("source"));
+    REQUIRE(source.save("Ink", *b.brush));
+    REQUIRE(source.exportPreset("Ink", dir.filePath("Ink.jabrush")).ok());
+
+    const BrushPresets presets(dir.filePath("presets"));
+    const QDir tips(dir.filePath("presets/tips"));
+    REQUIRE(presets.importPreset(dir.filePath("Ink.jabrush")).ok());
+    REQUIRE(presets.rename("Ink", "Pen"));
+    REQUIRE(presets.importPreset(dir.filePath("Ink.jabrush")).ok());
+    CHECK(tips.entryList(QDir::Files).size() == 2);
+    REQUIRE(presets.apply("Ink", *b.brush));
+    const QString inkTip = b.brush->tipImagePath();
+    REQUIRE(presets.apply("Pen", *b.brush));
+    const QString penTip = b.brush->tipImagePath();
+    CHECK(inkTip != penTip);
+
+    // A tip stays while another preset uses it.
+    REQUIRE(presets.save("Pen copy", *b.brush));
+    REQUIRE(presets.remove("Pen"));
+    CHECK(QFile::exists(penTip));
+    REQUIRE(presets.remove("Pen copy"));
+    CHECK_FALSE(QFile::exists(penTip));
+    REQUIRE(presets.remove("Ink"));
+    CHECK(tips.entryList(QDir::Files).isEmpty());
+
+    // A tip outside the tips folder is the user's file.
+    REQUIRE(source.remove("Ink"));
+    CHECK(QFile::exists(dir.filePath("tip.png")));
 }
 
 TEST_CASE("Brush preset names cannot leave the preset folder", "[BrushPresets]")
@@ -239,6 +282,24 @@ TEST_CASE("Default brush pack is added and keeps user edits", "[BrushPresets]")
     QFile marker(dir.filePath("Marker.json"));
     REQUIRE(marker.open(QIODevice::ReadOnly));
     CHECK(marker.readAll().contains("77"));
+}
+
+TEST_CASE("A deleted built-in preset stays deleted after a restart", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    BrushPresets presets(dir.path());
+    presets.addDefaults();
+    REQUIRE(presets.remove("Marker"));
+    BrushPresets(dir.path()).addDefaults(); // the next start
+    CHECK_FALSE(presets.names().contains("Marker"));
+    CHECK(presets.names().contains("Chalk"));
+
+    // A built-in that was never added is added, once.
+    REQUIRE(presets.addClassic());
+    CHECK(presets.names().contains("Classic"));
+    REQUIRE(presets.remove("Classic"));
+    REQUIRE(presets.addClassic());
+    CHECK_FALSE(presets.names().contains("Classic"));
 }
 
 TEST_CASE("Every default brush preset paints a stroke", "[BrushPresets]")

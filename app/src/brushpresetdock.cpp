@@ -90,7 +90,7 @@ void BrushPresetDock::updateUI()
     if (!mWatcher.files().isEmpty())
         mWatcher.removePaths(mWatcher.files());
     for (const QString& name : names)
-        mWatcher.addPath(QDir(mPresets.folder()).filePath(name + ".json"));
+        mWatcher.addPath(mPresets.filePath(name));
 }
 
 void BrushPresetDock::applyRow(int row)

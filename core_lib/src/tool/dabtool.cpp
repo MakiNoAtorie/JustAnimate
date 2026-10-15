@@ -64,8 +64,8 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     mAngleJitter = p.angleJitter();
     mDabCount = qMax(1, p.dabCount());
     mLastBrushPressure = mCurrentPressure;
-    mTaperStart = mEditor->preference()->getInt(SETTING::TAPER_START);
-    mTaperEnd = mEditor->preference()->getInt(SETTING::TAPER_END);
+    mTaperStart = p.taperStart();
+    mTaperEnd = p.taperEnd();
     mStrokeLength = 0;
     mBrushDistance = 0;
     mStrokeEnding = false;
@@ -175,7 +175,9 @@ qreal DabTool::dabWidth(qreal pressure) const
 qreal DabTool::dabOpacity(qreal pressure) const
 {
     const StrokeToolProperties& p = strokeToolProperties();
-    const qreal flow = p.flow() / 100 * (p.pressureEnabled() ? mPressureCurve.value(pressure) : 1.0);
+    // Flow per dab with pressure off gives full flow, like the tools before v0.3.
+    const qreal flow = p.pressureEnabled() ? p.flow() / 100 * mPressureCurve.value(pressure)
+                                           : (p.flowPerDab() ? 1.0 : p.flow() / 100);
     return p.washEnabled() ? flow : flow * p.opacity() / 100;
 }
 
@@ -208,17 +210,16 @@ BrushTip DabTool::dabTip(QPointF direction) const
     if (p.tipFollowsDirection() && !direction.isNull())
         tip.angle += qRadiansToDegrees(std::atan2(-direction.y(), direction.x()));
     // Tablet y tilt points toward the user (down), like canvas y.
-    const QPointF tilt = mInterpolator.tilt();
-    if (mTiltToAngle != 0 && !tilt.isNull())
-        tip.angle += mTiltToAngle * qRadiansToDegrees(std::atan2(-tilt.y(), tilt.x()));
+    if (mTiltToAngle != 0 && !mDabTilt.isNull())
+        tip.angle += mTiltToAngle * qRadiansToDegrees(std::atan2(-mDabTilt.y(), mDabTilt.x()));
     return tip;
 }
 
 qreal DabTool::sizeDynamics()
 {
     // Speed reaches full effect at kFullSpeedPxPerMs; tilt at 60 degrees.
-    const qreal speed = qMin(mInterpolator.speed() / kFullSpeedPxPerMs, 1.0);
-    const QPointF tiltDeg = mInterpolator.tilt();
+    const qreal speed = qMin(mDabSpeed / kFullSpeedPxPerMs, 1.0);
+    const QPointF tiltDeg = mDabTilt;
     const qreal tilt = qMin(std::sqrt(tiltDeg.x() * tiltDeg.x() + tiltDeg.y() * tiltDeg.y()) / 60.0, 1.0);
     // mt19937 raw output only: std distributions differ between platforms.
     const qreal random = (mRandom() % 10001) / 10000.0;
@@ -237,24 +238,28 @@ void DabTool::paintAt(QPointF point)
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer->type() == Layer::BITMAP)
     {
+        mDabSpeed = mInterpolator.speed();
+        mDabTilt = mInterpolator.tilt();
         mCurrentWidth = dabWidth(mCurrentPressure) * sizeDynamics();
         drawDab(point, mCurrentWidth, dabOpacity(mCurrentPressure), dabTip(QPointF()));
     }
 }
 
-void DabTool::dabSegment(QPointF b, qreal endPressure)
+void DabTool::dabSegment(const PenPoint& b)
 {
     const qreal startPressure = mLastBrushPressure;
     const QPointF a = mLastBrushPoint;
-    const qreal length = QLineF(a, b).length();
+    const qreal length = QLineF(a, b.pos).length();
+    mDabSpeed = b.speed;
+    mDabTilt = b.tilt;
 
     // Carry the leftover distance to the next event, so spacing does not depend on the event rate.
     qreal t = mDistanceToNextDab;
-    const BrushTip tip = dabTip(b - a);
+    const BrushTip tip = dabTip(b.pos - a);
     while (t <= length)
     {
         const qreal f = (length > 0) ? t / length : 1.0;
-        const qreal pressure = startPressure + (endPressure - startPressure) * f;
+        const qreal pressure = startPressure + (b.pressure - startPressure) * f;
         const qreal baseWidth = dabWidth(pressure) * taperAt(mBrushDistance + t);
         qreal brushWidth = baseWidth;
         for (int i = 0; i < mDabCount; ++i)
@@ -268,14 +273,14 @@ void DabTool::dabSegment(QPointF b, qreal endPressure)
                 offset = QPointF(randomSigned(), randomSigned()) * mScatter * baseWidth;
             if (mAngleJitter > 0)
                 scattered.angle += randomSigned() * mAngleJitter;
-            drawDab(a + (b - a) * f + offset, brushWidth, spacedDabOpacity(pressure, brushWidth), scattered);
+            drawDab(a + (b.pos - a) * f + offset, brushWidth, spacedDabOpacity(pressure, brushWidth), scattered);
         }
         t += dabSpacing(brushWidth);
     }
     mDistanceToNextDab = t - length;
     mBrushDistance += length;
-    mLastBrushPoint = b;
-    mLastBrushPressure = endPressure;
+    mLastBrushPoint = b.pos;
+    mLastBrushPressure = b.pressure;
 }
 
 void DabTool::drawStroke()
@@ -288,26 +293,26 @@ void DabTool::drawStroke()
     if (layer->type() == Layer::BITMAP)
     {
         const QPointF b = getCurrentPoint();
-        mStrokeLength += QLineF(mPendingPoints.isEmpty() ? mLastBrushPoint : mPendingPoints.last().first, b).length();
-        mPendingPoints.append({ b, mCurrentPressure });
+        mStrokeLength += QLineF(mPendingPoints.isEmpty() ? mLastBrushPoint : mPendingPoints.last().pos, b).length();
+        mPendingPoints.append({ b, mCurrentPressure, mInterpolator.speed(), mInterpolator.tilt() });
 
         // Dab up to the point where the end taper can start; all of it once the stroke ends.
         const qreal limit = mStrokeEnding ? mStrokeLength : mStrokeLength - mTaperEnd;
         while (!mPendingPoints.isEmpty())
         {
-            const auto [point, pressure] = mPendingPoints.first();
-            const qreal length = QLineF(mLastBrushPoint, point).length();
+            const PenPoint point = mPendingPoints.first();
+            const qreal length = QLineF(mLastBrushPoint, point.pos).length();
             if (mBrushDistance + length <= limit)
             {
-                dabSegment(point, pressure);
+                dabSegment(point);
                 mPendingPoints.removeFirst();
                 continue;
             }
             if (limit > mBrushDistance)
             {
                 const qreal f = (limit - mBrushDistance) / length;
-                dabSegment(mLastBrushPoint + (point - mLastBrushPoint) * f,
-                           mLastBrushPressure + (pressure - mLastBrushPressure) * f);
+                dabSegment({ mLastBrushPoint + (point.pos - mLastBrushPoint) * f,
+                             mLastBrushPressure + (point.pressure - mLastBrushPressure) * f, point.speed, point.tilt });
             }
             break;
         }

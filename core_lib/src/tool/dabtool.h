@@ -81,17 +81,28 @@ protected:
     PressureCurve mPressureCurve; // read from preferences at each press
 
 private:
-    /// Places dabs from mLastBrushPoint to b.
-    void dabSegment(QPointF b, qreal endPressure);
+    /// A pen point with the pen state its dabs use.
+    struct PenPoint
+    {
+        QPointF pos;
+        qreal pressure;
+        qreal speed;
+        QPointF tilt;
+    };
+    /// Places dabs from mLastBrushPoint to b.pos, with b's speed and tilt.
+    void dabSegment(const PenPoint& b);
 
-    // Taper lengths in canvas px, 0 is off; read from preferences at each press.
+    // Taper lengths in canvas px, 0 is off; read from the tool at each press.
     qreal mTaperStart = 0;
     qreal mTaperEnd = 0;
     qreal mStrokeLength = 0; // to the newest pen point
     qreal mBrushDistance = 0; // to mLastBrushPoint
     bool mStrokeEnding = false;
     // Pen points not yet dabbed: the last mTaperEnd px wait until the end of the stroke is known.
-    QList<QPair<QPointF, qreal>> mPendingPoints;
+    QList<PenPoint> mPendingPoints;
+    // Speed and tilt of the dabs being placed: the pen state of their pen point.
+    qreal mDabSpeed = 0;
+    QPointF mDabTilt;
     /// Moves the prediction to the current pen state and repaints where it was and is.
     void updatePrediction();
     QRect predictionRect() const;

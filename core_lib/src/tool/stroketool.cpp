@@ -84,6 +84,8 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::ANGLE_JITTER_VALUE] = { 0, 180, 0 };
     info[StrokeToolProperties::DAB_COUNT_VALUE] = { 1, 16, 1 };
     info[StrokeToolProperties::FLOW_PER_DAB_ENABLED] = false;
+    info[StrokeToolProperties::TAPER_START_VALUE] = { 0, 1000, 0 };
+    info[StrokeToolProperties::TAPER_END_VALUE] = { 0, 1000, 0 };
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;

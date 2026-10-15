@@ -18,6 +18,7 @@ GNU General Public License for more details.
 
 #include <QElapsedTimer>
 #include <QFile>
+#include <QImageReader>
 #include <QPainterPath>
 #include <QThreadPool>
 #include <QtEndian>
@@ -305,7 +306,11 @@ Status loadBrushTipImage(const QString& fileName, QImage& mask)
     const Status bad(Status::ERROR_LOAD_IMAGE_FAIL, QObject::tr("This file is not a valid brush tip: %1").arg(fileName));
     if (!fileName.endsWith(".gbr", Qt::CaseInsensitive))
     {
-        QImage image(fileName);
+        // Check the size from the header before the decoder allocates the image.
+        QImageReader reader(fileName);
+        const QSize size = reader.size();
+        if (!size.isValid() || size.width() > int(kMaxSide) || size.height() > int(kMaxSide)) return bad;
+        QImage image = reader.read();
         if (image.isNull() || image.width() > int(kMaxSide) || image.height() > int(kMaxSide)) return bad;
         const bool hasAlpha = image.hasAlphaChannel();
         image = image.convertToFormat(QImage::Format_ARGB32);
@@ -425,9 +430,10 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
 {
     // Key: diameter in 1/4 px, tip angle in degrees, aspect in %, feather in 1/16 %, sub-pixel phase in 1/4 px.
     const int dq = qMax(0, qRound(diameter * 4));
-    const int fq = qBound(0, qRound(feather * 16), 1600);
-    const int aq = qBound(1, qRound(tip.aspect * 100), 100);
     const bool image = !tip.image.isNull();
+    // Feather does not shape an image mask.
+    const int fq = image ? 0 : qBound(0, qRound(feather * 16), 1600);
+    const int aq = qBound(1, qRound(tip.aspect * 100), 100);
     const bool square = tip.square && !image;
     const bool circle = !image && !square && aq == 100;
     // The shape repeats every 90 degrees for a square, every 180 degrees for other generated tips.
