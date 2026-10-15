@@ -34,6 +34,8 @@ public:
     QString openPath() const { return mOpenPath; }
     bool browseRequested() const { return mBrowse; }
     int presetIndex() const;
+    // -1 unless the user chose a template.
+    int templateIndex() const { return mTemplate; }
     bool shouldAlwaysUse() const;
 
 private:
@@ -44,6 +46,7 @@ private:
     QListWidget* mRecent = nullptr;
     QString mOpenPath;
     bool mBrowse = false;
+    int mTemplate = -1;
 };
 
 #endif // WELCOMEDIALOG_H

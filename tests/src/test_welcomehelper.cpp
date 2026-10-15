@@ -3,8 +3,11 @@
 #include <QFile>
 #include <QImage>
 #include <QTemporaryDir>
+#include <memory>
 
+#include "layercamera.h"
 #include "object.h"
+#include "objectdata.h"
 #include "welcomehelper.h"
 
 TEST_CASE("Welcome screen helper", "[Welcome]")
@@ -47,4 +50,22 @@ TEST_CASE("Welcome screen helper", "[Welcome]")
         CHECK_FALSE(QImage(entries[0].thumbnail).isNull());
         QFile::remove(entries[0].thumbnail);
     }
+}
+
+TEST_CASE("Welcome templates", "[Welcome]")
+{
+    REQUIRE_FALSE(Welcome::templates().isEmpty());
+    for (int i = 0; i < Welcome::templates().size(); ++i)
+    {
+        const Welcome::Template& t = Welcome::templates().at(i);
+        std::unique_ptr<Object> obj(Welcome::newObjectFromTemplate(i));
+        REQUIRE(obj);
+        CHECK(obj->data()->getFrameRate() == t.fps);
+        auto cameras = obj->getLayersByType<LayerCamera>();
+        REQUIRE(cameras.size() == 1);
+        CHECK(cameras.front()->getViewSize() == t.size);
+        CHECK(obj->getLayerCount() == 2);
+    }
+    CHECK(Welcome::newObjectFromTemplate(-1) == nullptr);
+    CHECK(Welcome::newObjectFromTemplate(Welcome::templates().size()) == nullptr);
 }
