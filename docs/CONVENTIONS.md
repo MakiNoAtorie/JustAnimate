@@ -98,6 +98,12 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Tip angles are degrees, counter-clockwise on screen (canvas y points down).
 - Stroke settings shared by Pencil, Brush and Eraser get defaults in
   `StrokeTool::loadSettings`; each tool only adds `mPropertyUsed`.
+- Bitmap dabs are placed only in `DabTool::dabSegment`. Width modifiers
+  (taper, jitter) multiply `dabWidth`, never replace it. `drawStroke` may hold
+  back pen points until release; do not assume `mLastBrushPoint` is the
+  current point.
+- Global stroke shaping outside a preset (pressure curve, taper) is a
+  `PreferenceManager` setting read in `DabTool::pointerPressEvent`.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
   branchless loops, no `QPainter`; mask math uses float and `sqrt` only, so
   platforms hash alike. Read pixels only via `TiledBuffer::tiles()`; call
