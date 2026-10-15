@@ -110,6 +110,15 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   (`ScribbleArea::setWashOpacity` on every press); with wash off the
   SourceOver loop is unchanged.
 - Tests that check exact brush alpha call `setFeather(1)`.
+- Brush tip files (.gbr, PNG) are untrusted: bound every header field and
+  check data length against file size before reading. A tip image is a
+  `Format_Alpha8` coverage mask (255 = full paint).
+- Per-dab random values come from the raw output of `DabTool::mRandom`
+  (`mt19937`), never std distributions; tests seed it with `seedRandom()`.
+  `sizeDynamics()` runs once per placed dab and consumes the RNG, so never
+  call it from spacing or prediction.
+- Pen speed and tilt reach dabs only through `StrokeInterpolator::speed()`/
+  `tilt()`. Dynamics amounts default to 0, and 0 leaves output unchanged.
 - New `StrokeToolProperties` ids take the next free number on the
   integration branch tip.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
