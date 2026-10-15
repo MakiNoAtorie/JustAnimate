@@ -91,7 +91,7 @@ void StrokeOptionsWidget::initUI()
     mShapeModeCombo->addItems({ tr("Line"), tr("Rectangle"), tr("Ellipse"), tr("Polygon") });
     ui->verticalLayout_2->insertWidget(0, mShapeModeCombo);
     connect(mShapeModeCombo, &QComboBox::activated, this, [this](int mode) {
-        static_cast<ShapeTool*>(mCurrentTool)->setShapeMode(mode);
+        static_cast<ShapeTool*>(mCurrentTool)->setShapeMode(static_cast<ShapeTool::Mode>(mode));
     });
 
     mCurrentTool = strokeTool;

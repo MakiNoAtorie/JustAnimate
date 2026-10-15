@@ -5,6 +5,9 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The welcome screen shows at every startup unless a file is opened from the command line; turn it off in Preferences > Files (4.3).
+- Timeline: Delete Frame (Ripple) removes one frame: inside a hold it shortens the hold, on a drawing it removes the drawing, and later frames move one frame left (3.4).
+- Shape tool: Esc, a tool switch or a layer change drops an unfinished polygon (2.3).
 - Playback loads the next 12 frames ahead of the playhead on worker threads, so playing a large project is faster; edits made during playback show on the next loop (1.2).
 - Timeline Selection: Exposure 1s/2s/3s sets the hold of each selected drawing in one step, Clean Exposure removes drawings that repeat the one before, and exposure on long selections is fast (3.5).
 - Timeline: Insert Frame (Ripple) and Delete Frame (Ripple) shift every later frame of the layer, as one undo step (3.4).
@@ -20,7 +23,7 @@ the original Pencil2D history is kept below for reference.
 - Shape tool (U): line, rectangle and ellipse on bitmap and vector layers; Shift constrains, Alt draws from the center; bitmap shapes use the tool's brush settings (2.3).
 - Canvas: the layers below the one you paint are cached in 64 px cells and redrawn only when they change, so repaints with many layers are faster (1.3).
 - Fill behind lines is the bucket's existing Behind blend mode; a test now checks it keeps antialiased line edges over the fill (2.6).
-- Saving encodes bitmap frames to PNG on up to 8 cores at once; files are byte-identical to before (1.6).
+- Saving encodes bitmap frames to PNG on up to 8 cores at once; the saved pixels are unchanged (1.6).
 - Bucket "close gaps" option: line gaps up to N px count as closed when filling (0 = off, default) (2.4).
 - Brush preset editor (New, Edit, Duplicate in the preset dock) edits every engine setting, the tip image, a per-preset pressure curve and the description with a live preview stroke (B8).
 - Brush presets: a default pack (HB and 2B pencil, G-pen, marker, soft airbrush, chalk, watercolour, hard and soft eraser) installs into the preset folder on first launch and never overwrites your presets (B8).

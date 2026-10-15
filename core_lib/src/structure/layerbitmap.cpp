@@ -86,6 +86,8 @@ Status LayerBitmap::saveKeyFrameFile(KeyFrame* keyframe, QString path)
 
     bitmapImage->setFileName(strFilePath);
 
+    // Write minimal bounds: else the crop on load marks the frame modified and it can never unload.
+    bitmapImage->autoCrop();
     Status st = bitmapImage->writeFile(strFilePath);
     if (!st.ok())
     {

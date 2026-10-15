@@ -67,19 +67,20 @@ QCursor ShapeTool::cursor()
     return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
 }
 
-int ShapeTool::shapeMode() const
+ShapeTool::Mode ShapeTool::shapeMode() const
 {
     const PropertyInfo info = mSettings.getInfo(ShapeToolProperties::SHAPEMODE_VALUE);
-    return info.type() == PropertyInfo::INTEGER ? info.intValue() : RECTANGLE;
+    return info.type() == PropertyInfo::INTEGER ? static_cast<Mode>(info.intValue()) : RECTANGLE;
 }
 
-void ShapeTool::setShapeMode(int mode)
+void ShapeTool::setShapeMode(Mode mode)
 {
-    toolProperties().setBaseValue(ShapeToolProperties::SHAPEMODE_VALUE, mode);
+    clearToolData();
+    toolProperties().setBaseValue(ShapeToolProperties::SHAPEMODE_VALUE, static_cast<int>(mode));
     emit shapeModeChanged(shapeMode());
 }
 
-QPolygonF ShapeTool::outline(int mode, QPointF from, QPointF to, Qt::KeyboardModifiers modifiers)
+QPolygonF ShapeTool::outline(Mode mode, QPointF from, QPointF to, Qt::KeyboardModifiers modifiers)
 {
     QPointF d = to - from;
     if (modifiers & Qt::ShiftModifier)
@@ -128,13 +129,22 @@ void ShapeTool::pointerPressEvent(PointerEvent* event)
     if (event->button() != Qt::LeftButton || (layerType != Layer::BITMAP && layerType != Layer::VECTOR))
         return;
 
-    if (mDrawing && shapeMode() == POLYGON)
+    if (shapeMode() == POLYGON)
     {
+        // The stroke and its undo state start only on the closing click.
         mInterpolator.pointerPressEvent(event);
         const QPointF p = getCurrentPoint();
+        if (!mDrawing)
+        {
+            mDrawing = true;
+            mPolygon = QPolygonF({ p });
+            emit isActiveChanged(SHAPE, true);
+            setOutline(mPolygon);
+            return;
+        }
         const QPointF d = mEditor->view()->mapCanvasToScreen(p) - mEditor->view()->mapCanvasToScreen(mPolygon[0]);
         if (mPolygon.size() >= 3 && d.manhattanLength() < 10)
-            finishShape(mPolygon);
+            finishShape(mPolygon, event);
         else
             setOutline(mPolygon << p);
         return;
@@ -144,9 +154,7 @@ void ShapeTool::pointerPressEvent(PointerEvent* event)
     DabTool::pointerPressEvent(event);
     mDrawing = true;
     mFrom = getCurrentPoint();
-    if (shapeMode() == POLYGON)
-        mPolygon = QPolygonF({ mFrom });
-    setOutline(shapeMode() == POLYGON ? mPolygon : outline(shapeMode(), mFrom, mFrom, event->modifiers()));
+    setOutline(outline(shapeMode(), mFrom, mFrom, event->modifiers()));
 }
 
 void ShapeTool::pointerMoveEvent(PointerEvent* event)
@@ -168,25 +176,28 @@ void ShapeTool::pointerReleaseEvent(PointerEvent* event)
         StrokeTool::pointerReleaseEvent(event);
         return;
     }
-    finishShape(outline(shapeMode(), mFrom, getCurrentPoint(), event->modifiers()));
+    finishShape(outline(shapeMode(), mFrom, getCurrentPoint(), event->modifiers()), nullptr);
     StrokeTool::pointerReleaseEvent(event);
 }
 
 void ShapeTool::pointerDoubleClickEvent(PointerEvent* event)
 {
     if (mDrawing && shapeMode() == POLYGON)
-        finishShape(mPolygon);
+        finishShape(mPolygon, event);
     else
         pointerPressEvent(event);
 }
 
-void ShapeTool::finishShape(const QPolygonF& points)
+void ShapeTool::finishShape(const QPolygonF& points, PointerEvent* event)
 {
-    mDrawing = false;
     QPolygonF shape = points;
     if (shapeMode() == POLYGON)
+    {
         shape << shape.first();
-    mPolygon.clear();
+        clearToolData();
+        DabTool::pointerPressEvent(event);
+    }
+    mDrawing = false;
     setOutline(QPolygonF());
 
     Layer* layer = mEditor->layers()->currentLayer();
@@ -213,8 +224,35 @@ void ShapeTool::finishShape(const QPolygonF& points)
     endStroke();
 }
 
+bool ShapeTool::enteringThisTool()
+{
+    BrushTool::enteringThisTool();
+    mActiveConnections.append(connect(mEditor->layers(), &LayerManager::currentLayerChanged, this, &ShapeTool::clearToolData));
+    return true;
+}
+
+bool ShapeTool::leavingThisTool()
+{
+    clearToolData();
+    return BrushTool::leavingThisTool();
+}
+
+void ShapeTool::clearToolData()
+{
+    if (mPolygon.isEmpty()) return;
+    mDrawing = false;
+    mPolygon.clear();
+    setOutline(QPolygonF());
+    emit isActiveChanged(SHAPE, false);
+}
+
 bool ShapeTool::keyPressEvent(QKeyEvent* event)
 {
+    if (event->key() == Qt::Key_Escape && !mPolygon.isEmpty())
+    {
+        clearToolData();
+        return true;
+    }
     // Alt draws from the centre here, so it does not switch to the eyedropper.
     if (event->key() == Qt::Key_Alt)
         return false;

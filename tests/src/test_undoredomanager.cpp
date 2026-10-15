@@ -705,11 +705,27 @@ TEST_CASE("UndoRedoManager: ripple insert and delete shift the later frames of t
         undoRedoUndo("9=8 5=4 4=0 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
     }
 
-    SECTION("Delete removes the frame with its hold and pulls every later frame")
+    SECTION("Delete inside a hold shortens the hold by one frame")
     {
         editor->scrubTo(5);
         REQUIRE(layers->rippleRemoveFrame());
-        undoRedoUndo("4=8 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
+        undoRedoUndo("7=8 4=4 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
+    }
+
+    SECTION("Delete on a keyframe removes the drawing and pulls later frames by one")
+    {
+        editor->scrubTo(4); // frame 3 now holds 3 to 6
+        REQUIRE(layers->rippleRemoveFrame());
+        undoRedoUndo("7=8 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
+    }
+
+    SECTION("Delete keeps the frame selection on the moved frames")
+    {
+        layers->currentLayer()->setFrameSelected(8, true);
+        editor->scrubTo(6);
+        REQUIRE(layers->rippleRemoveFrame());
+        CHECK(layers->currentLayer()->selectedKeyFramesPositions() == QList<int>({ 7 }));
+        undoRedoUndo("7=8 4=4 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
     }
 
     SECTION("Delete the last frame")

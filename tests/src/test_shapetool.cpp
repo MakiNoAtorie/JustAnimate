@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QApplication>
 #include <QIcon>
+#include <QKeyEvent>
 #include <QPointingDevice>
 #include <QTabletEvent>
 
@@ -128,7 +129,7 @@ TEST_CASE("ShapeTool - draws each shape on bitmap and vector layers")
         auto inkAt = [&](QPointF screen) {
             return qAlpha(bitmap->getBitmapImageAtFrame(1)->pixel(canvas(screen).toPoint())) != 0;
         };
-        for (int mode : { ShapeTool::LINE, ShapeTool::RECTANGLE, ShapeTool::ELLIPSE })
+        for (ShapeTool::Mode mode : { ShapeTool::LINE, ShapeTool::RECTANGLE, ShapeTool::ELLIPSE })
         {
             CAPTURE(mode);
             tool->setShapeMode(mode);
@@ -156,7 +157,7 @@ TEST_CASE("ShapeTool - draws each shape on bitmap and vector layers")
         BezierCurve first({ QPointF(0, 0), QPointF(5, 0) });
         first.setColorNumber(1);
         vector->getVectorImageAtFrame(1)->addCurve(first, 1.0);
-        for (int mode : { ShapeTool::LINE, ShapeTool::RECTANGLE, ShapeTool::ELLIPSE })
+        for (ShapeTool::Mode mode : { ShapeTool::LINE, ShapeTool::RECTANGLE, ShapeTool::ELLIPSE })
         {
             CAPTURE(mode);
             tool->setShapeMode(mode);
@@ -245,5 +246,76 @@ TEST_CASE("ShapeTool - polygon closes on the first point or a double click")
         CHECK(curve.getBoundingRect().bottom() == Approx(canvas(C).y()).margin(3));
         undoAction->trigger();
         CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() == 0);
+    }
+}
+
+TEST_CASE("ShapeTool - an open polygon ends on layer change or Esc")
+{
+    TestSession s;
+    LayerBitmap* layerA = s.object->addNewBitmapLayer();
+    LayerBitmap* layerB = s.object->addNewBitmapLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->tools()->setCurrentTool(SHAPE);
+    ShapeTool* tool = static_cast<ShapeTool*>(editor->tools()->getTool(SHAPE));
+    const ToolSettingsGuard guard(tool);
+    tool->setWidth(4);
+    tool->setShapeMode(ShapeTool::POLYGON);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    auto canvas = [&](QPointF screen) { return editor->view()->mapScreenToCanvas(screen); };
+    auto click = [&](QPointF p) {
+        tablet(area, QEvent::TabletPress, p, Qt::NoModifier);
+        tablet(area, QEvent::TabletRelease, p, Qt::NoModifier);
+    };
+    auto inkAt = [&](LayerBitmap* layer, QPointF screen) {
+        return qAlpha(layer->getBitmapImageAtFrame(1)->pixel(canvas(screen).toPoint())) != 0;
+    };
+    const QPointF A(200, 200), B(400, 200), C(300, 400), edgeAB(300, 200);
+    const QPointF closeA = A + QPointF(3, 2);
+
+    editor->layers()->setCurrentLayer(layerA);
+    click(A);
+    click(B);
+    click(C);
+
+    SECTION("Layer change")
+    {
+        editor->layers()->setCurrentLayer(layerB);
+        click(closeA); // starts a new polygon, does not close the old one
+        CHECK_FALSE(inkAt(layerA, edgeAB));
+        CHECK_FALSE(inkAt(layerB, edgeAB));
+        CHECK_FALSE(undoAction->isEnabled());
+
+        click(B);
+        click(C);
+        click(A);
+        CHECK(inkAt(layerB, edgeAB));
+        CHECK_FALSE(inkAt(layerA, edgeAB));
+        undoAction->trigger();
+        CHECK_FALSE(inkAt(layerB, edgeAB));
+        CHECK_FALSE(undoAction->isEnabled());
+    }
+
+    SECTION("Esc")
+    {
+        QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+        QApplication::sendEvent(area, &esc);
+        click(closeA);
+        CHECK_FALSE(inkAt(layerA, edgeAB));
+        CHECK_FALSE(undoAction->isEnabled());
+    }
+
+    SECTION("Tool switch")
+    {
+        editor->tools()->setCurrentTool(PENCIL);
+        editor->tools()->setCurrentTool(SHAPE);
+        click(closeA);
+        CHECK_FALSE(inkAt(layerA, edgeAB));
+        CHECK_FALSE(undoAction->isEnabled());
     }
 }

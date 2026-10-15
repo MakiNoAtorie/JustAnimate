@@ -69,3 +69,11 @@ TEST_CASE("Welcome templates", "[Welcome]")
     CHECK(Welcome::newObjectFromTemplate(-1) == nullptr);
     CHECK(Welcome::newObjectFromTemplate(Welcome::templates().size()) == nullptr);
 }
+
+TEST_CASE("Welcome screen shows at startup unless turned off or a file is given", "[Welcome]")
+{
+    CHECK(Welcome::showAtStartup(true, false, QString()));
+    CHECK(Welcome::showAtStartup(false, true, QString()));
+    CHECK_FALSE(Welcome::showAtStartup(false, false, QString()));
+    CHECK_FALSE(Welcome::showAtStartup(true, true, "shot.pclx"));
+}

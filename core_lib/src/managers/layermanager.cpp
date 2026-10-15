@@ -522,15 +522,24 @@ void LayerManager::selectFrames(int fromLayer, int toLayer, int fromFrame, int t
     }
 }
 
-// Moves every keyframe after `position` by `offset` and records the move. Clears the layer's frame selection.
+// Moves every keyframe after `position` by `offset` in one pass and records the move. Keeps the frame selection.
 static void shiftFramesAfter(UndoRedoManager* undoRedo, Layer* layer, int position, int offset, const QString& description)
 {
     if (layer->getMaxKeyFramePosition() <= position) { return; }
+    QList<QPair<int, int>> fromTo;
+    layer->foreachKeyFrame([&](KeyFrame* key) {
+        if (key->pos() > position) { fromTo.append(qMakePair(key->pos(), key->pos() + offset)); }
+    });
+    const QList<int> selected = layer->selectedKeyFramesByLast();
     const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
-    layer->selectAllFramesAfter(position + 1);
-    layer->moveSelectedFrames(offset);
-    layer->deselectAll();
+    layer->moveKeyFrames(fromTo);
     undoRedo->record(saveStateId, description);
+    // setFrameSelected puts each frame first in the by-last list, so restore from the oldest.
+    for (auto it = selected.crbegin(); it != selected.crend(); ++it)
+    {
+        const int pos = *it > position ? *it + offset : *it;
+        if (layer->keyExists(pos)) { layer->setFrameSelected(pos, true); }
+    }
 }
 
 bool LayerManager::rippleInsertFrame()
@@ -551,19 +560,22 @@ bool LayerManager::rippleInsertFrame()
 bool LayerManager::rippleRemoveFrame()
 {
     Layer* layer = currentLayer();
-    const KeyFrame* key = layer->getLastKeyFrameAtPosition(editor()->currentFrame());
-    if (!layer->visible() || key == nullptr || layer->keyFrameCount() == 1) { return false; }
+    const int position = editor()->currentFrame();
+    const bool onKey = layer->keyExists(position);
+    if (!layer->visible()) { return false; }
+    if (onKey ? layer->keyFrameCount() == 1 : layer->getMaxKeyFramePosition() <= position) { return false; }
 
-    const int start = key->pos();
-    const int next = layer->getNextKeyFramePosition(start + 1);
     UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = tr("Delete Frame");
     const UndoMacro macro(undoRedo, description);
-    // The remove state records the keyframe shown at the current frame.
-    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_REMOVE, layer);
-    layer->removeKeyFrame(start);
-    undoRedo->record(saveStateId, description);
-    if (next > start) { shiftFramesAfter(undoRedo, layer, start, start - next, description); }
+    if (onKey)
+    {
+        // The remove state records the keyframe at the current frame.
+        const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_REMOVE, layer);
+        layer->removeKeyFrame(position);
+        undoRedo->record(saveStateId, description);
+    }
+    shiftFramesAfter(undoRedo, layer, position, -1, description);
 
     notifyAnimationLengthChanged();
     emit editor()->framesModified();

@@ -1,5 +1,7 @@
 #include "catch.hpp"
 
+#include <QPainter>
+
 #include "layermanager.h"
 #include "filemanager.h"
 #include "scribblearea.h"
@@ -215,6 +217,12 @@ TEST_CASE("BitmapBucket - Behind mode fills under antialiased line art")
 
     image = layer->getLastBitmapImageAtFrame(1);
     REQUIRE(image->constScanLine(2, 2) != 0);
-    // Overlay eats the edge; Behind keeps the line over the fill
-    REQUIRE((image->constScanLine(5, 5) == qRgba(255, 0, 0, 255)) != behind);
+    // Overlay eats the edge; Behind puts the fill under the edge (DestinationOver).
+    QImage expected(1, 1, QImage::Format_ARGB32_Premultiplied);
+    expected.setPixel(0, 0, edge);
+    QPainter painter(&expected);
+    painter.setCompositionMode(QPainter::CompositionMode_DestinationOver);
+    painter.fillRect(expected.rect(), Qt::red);
+    painter.end();
+    REQUIRE(image->constScanLine(5, 5) == (behind ? reinterpret_cast<const QRgb*>(expected.constScanLine(0))[0] : qRgba(255, 0, 0, 255)));
 }

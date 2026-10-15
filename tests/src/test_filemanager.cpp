@@ -591,6 +591,26 @@ TEST_CASE("FileManager reports progress while it zips and unzips", "[FileManager
         REQUIRE_FALSE(QFile::exists(testDir.filePath("autosave.pclx")));
     }
 
+    SECTION("A zip that fails on the worker thread leaves the original and no .tmp")
+    {
+        QFile file(projectPath);
+        REQUIRE(file.open(QFile::ReadOnly));
+        const QByteArray original = file.readAll();
+        file.close();
+
+        // A sound clip that points at a missing file fails inside MiniZ::compressFolder.
+        SoundClip* clip = new SoundClip;
+        clip->setFileName(QDir(obj->dataDir()).filePath("missing.wav"));
+        REQUIRE(obj->addNewSoundLayer()->addKeyFrame(1, clip));
+
+        const Status st = fm.save(obj.get(), projectPath);
+        REQUIRE(st.code() == Status::ERROR_MINIZ_FAIL);
+        REQUIRE_FALSE(QFile::exists(projectPath + ".tmp"));
+        REQUIRE(file.open(QFile::ReadOnly));
+        const bool unchanged = file.readAll() == original;
+        REQUIRE(unchanged);
+    }
+
     FileManager loader;
     int loadMax = 0;
     int loadLast = 0;
