@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Large Pencil, Brush and Eraser dabs render on all CPU cores, small ones stay on the main thread: about 5.7x the dabs per second of 0.1 at 256 px, same pixels (B2).
 - Lower drawing latency: Pencil and Brush preview a short prediction of the pen path that never reaches the drawing, and queued tablet moves are merged (B4).
 - One-colour Pencil, Brush and Eraser strokes build up a 1-byte alpha buffer and get their colour once, in reused tiles (pool capped at 128 MiB): about 1.4x faster dabs at large sizes; overlapping translucent dabs no longer drift in colour (B2).
 - Pencil, Brush and Eraser dabs are written from cached masks instead of a gradient painter per tile: up to 9x faster on small brushes; edges and feather differ slightly (B2).

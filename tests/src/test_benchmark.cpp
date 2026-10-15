@@ -669,3 +669,52 @@ TEST_CASE("Brush replay: time every tool and size, print hashes", "[.replay]")
     }
     std::fflush(stdout);
 }
+
+// Hidden: Brush dab throughput with pressure off, to compare dab engines. Width tops out at 200
+// canvas px, so 128 % zoom makes the large case 256 screen px. Prints dabs/s per size. Use a Release build.
+TEST_CASE("Brush replay: dabs per second at 256 and 4 screen px", "[.dabrate]")
+{
+    const std::vector<Stroke> strokes = seededStrokes(2, 4, 1500); // long strokes: dabs outweigh the paste per stroke
+    const QPointingDevice pen("dabrate pen", 3, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
+                              QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
+    const bool wasOn = StageProfiler::enabled();
+    StageProfiler::enabled() = true; // counts the dabs
+    for (int screenPx : { 256, 4 })
+    {
+        std::vector<double> rates;
+        unsigned long long dabs = 0;
+        for (int rep = 0; rep < 5; ++rep)
+        {
+            Session s;
+            s.editor->layers()->setCurrentLayer(1);
+            s.editor->tools()->setCurrentTool(BRUSH);
+            BaseTool* tool = s.editor->tools()->currentTool();
+            const ToolSettingsGuard guard(tool);
+            tool->resetSettings();
+            auto* strokeTool = static_cast<StrokeTool*>(tool);
+            strokeTool->setWidth(screenPx / 1.28);
+            strokeTool->setPressureEnabled(false);
+            s.editor->view()->scale(1.28);
+            StageProfiler::reset();
+            QElapsedTimer t;
+            t.start();
+            for (const Stroke& stroke : strokes)
+            {
+                tablet(s.area, &pen, QEvent::TabletPress, stroke.front(), Qt::LeftButton, Qt::LeftButton);
+                for (size_t i = 1; i < stroke.size(); ++i)
+                    tablet(s.area, &pen, QEvent::TabletMove, stroke[i], Qt::NoButton, Qt::LeftButton);
+                tablet(s.area, &pen, QEvent::TabletRelease, stroke.back(), Qt::LeftButton, Qt::NoButton);
+            }
+            const double sec = t.nsecsElapsed() / 1e9;
+            dabs = StageProfiler::calls(StageProfiler::DabMask);
+            rates.push_back(dabs / sec);
+        }
+        if (wasOn) StageProfiler::report(); // last repetition only
+        std::sort(rates.begin(), rates.end());
+        std::printf("dabrate %d px: median %.0f dabs/s (%.0f-%.0f) over %llu dabs\n", screenPx, rates[2], rates.front(),
+                    rates.back(), dabs);
+    }
+    StageProfiler::enabled() = wasOn;
+    StageProfiler::reset();
+    std::fflush(stdout);
+}

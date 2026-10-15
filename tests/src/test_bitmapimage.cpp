@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "tile.h"
 #include "tiledbuffer.h"
 #include <QElapsedTimer>
+#include <QThread>
 #include <QDebug>
 
 TEST_CASE("BitmapImage constructors")
@@ -544,6 +545,35 @@ TEST_CASE("TiledBuffer: a stroke that changes colour keeps the first colour's pi
     CHECK(image.constScanLine(20, 20) == qRgba(255, 0, 0, 255));
     CHECK(image.constScanLine(40, 20) == qRgba(0, 0, 255, 255));
     CHECK(image.constScanLine(30, 20) == 0);
+}
+
+TEST_CASE("TiledBuffer drawDab: large dabs render on worker threads with the same pixels as one dab at a time")
+{
+    // Translucent overlapping dabs: the result depends on dab order in every tile.
+    auto draw = [](TiledBuffer& buffer, bool flushEachDab) {
+        const QColor red(200, 30, 90);
+        const QColor blue(20, 60, 220);
+        for (int i = 0; i < 8; ++i)
+        {
+            // From dab 4 on the colour changes, so the second half uses the image path, not coverage.
+            buffer.drawDab(QPointF(800 + i * 40, 800 + i * 25), 1500, 30, i < 4 ? red : blue, 0.3, true);
+            buffer.drawDab(QPointF(700 + i * 60, 760), 4, 0, i < 4 ? red : blue, 0.5, true); // a small dab between
+            if (flushEachDab) buffer.tiles();
+        }
+        BitmapImage image(QRect(0, 0, 1700, 1700), Qt::transparent);
+        image.paste(&buffer);
+        return *image.image();
+    };
+    TiledBuffer batched;
+    const QImage threaded = draw(batched, false);
+    const int workers = batched.lastDabWorkers();
+    TiledBuffer oneByOne;
+    const QImage serial = draw(oneByOne, true);
+
+    REQUIRE(qAlpha(serial.pixel(800, 800)) > 0);
+    CHECK(threaded == serial);
+    if (QThread::idealThreadCount() > 1)
+        CHECK(workers > 1);
 }
 
 TEST_CASE("TiledBuffer: cleared tiles go to a pool that stays under its cap and comes back clean")

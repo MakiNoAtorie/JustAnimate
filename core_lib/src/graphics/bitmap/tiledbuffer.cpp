@@ -16,9 +16,12 @@ GNU General Public License for more details.
 */
 #include "tiledbuffer.h"
 
+#include <QElapsedTimer>
 #include <QPainterPath>
+#include <QThreadPool>
 #include <QtMath>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 
 #include "tile.h"
@@ -159,8 +162,79 @@ inline quint32 mul255(quint32 x, quint32 a)
 }
 }
 
+void TiledBuffer::blendDab(Tile* tile, const QueuedDab& dab) const
+{
+    const QRect& rect = dab.rect;
+    const QRect area = rect & tile->bounds();
+    const QPoint tilePos = tile->pos();
+    const quint8* mask = dab.mask->alpha.data();
+    if (mCoverageMode)
+    {
+        // Same alpha as the image path below: byteMul's alpha lane is mul255.
+        tile->coverageDirty = true;
+        for (int y = area.top(); y <= area.bottom(); ++y)
+        {
+            quint8* d = tile->coverage().data() + (y - tilePos.y()) * UNIFORM_TILE_SIZE + (area.left() - tilePos.x());
+            const quint8* m = mask + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+            for (int k = 0, w = area.width(); k < w; ++k)
+            {
+                const quint32 s = mul255(dab.srcAlpha, m[k]);
+                d[k] = static_cast<quint8>(s + mul255(d[k], 255 - s));
+            }
+        }
+    }
+    else
+    {
+        QImage& image = tile->image();
+        for (int y = area.top(); y <= area.bottom(); ++y)
+        {
+            QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
+            const quint8* m = mask + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+            // Branchless: a zero mask gives s = 0, and byteMul(d, 255) == d.
+            for (int k = 0, w = area.width(); k < w; ++k)
+            {
+                const quint32 s = byteMul(dab.src, m[k]);
+                d[k] = s + byteMul(d[k], 255 - (s >> 24));
+            }
+        }
+    }
+}
+
+void TiledBuffer::flushDabs() const
+{
+    if (mQueuedDabs.empty()) return;
+    // Each task owns whole tiles, so no two threads write the same pixels.
+    const int count = int(mQueuedTiles.size());
+    std::atomic<int> next{0};
+    auto work = [&] {
+        for (int i = next++; i < count; i = next++)
+        {
+            Tile* tile = mQueuedTiles[i];
+            for (int d : tile->pendingDabs)
+                blendDab(tile, mQueuedDabs[d]);
+            tile->pendingDabs.clear();
+        }
+    };
+    // ponytail: pool threads expire after 30 s idle, so the first big flush after a pause pays ~3 ms
+    // to start them; keep them alive if that hitch shows.
+    QThreadPool* pool = QThreadPool::globalInstance();
+    int helpers = 0;
+    // A batch under ~50 us runs here: waking threads costs more. tryStart: a busy pool leaves
+    // the work to this thread instead of making it wait.
+    const int maxHelpers = mQueuedNs < 50000 ? 0 : qMin(pool->maxThreadCount(), count) - 1;
+    while (helpers < maxHelpers && pool->tryStart([&] { work(); mDabsDone.release(); }))
+        ++helpers;
+    work();
+    mDabsDone.acquire(helpers);
+    mLastDabWorkers = helpers + 1;
+    mQueuedTiles.clear();
+    mQueuedDabs.clear();
+    mQueuedNs = 0;
+}
+
 QHash<TileIndex, Tile*> TiledBuffer::tiles() const
 {
+    flushDabs();
     if (!mCoverageMode) return mTiles;
     const quint32 color = mCoverageColor | 0xff000000;
     for (Tile* tile : mTiles)
@@ -181,6 +255,7 @@ QHash<TileIndex, Tile*> TiledBuffer::tiles() const
 
 void TiledBuffer::endCoverage()
 {
+    flushDabs();
     if (!mCoverageMode) return;
     tiles();
     mCoverageMode = false;
@@ -194,6 +269,7 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
     const quint64 key = (quint64(dq) << 32) | (quint64(fq) << 8) | (phaseX << 4) | (phaseY << 1) | (antialiasing ? 1 : 0);
     auto it = mDabMasks.constFind(key);
     if (it != mDabMasks.constEnd()) return *it;
+    flushDabs(); // queued dabs point into the cache
 
     // ponytail: drops the whole cache past 16 MB; use LRU if pressure strokes thrash it.
     if (mDabMaskBytes > 16 * 1024 * 1024)
@@ -293,45 +369,36 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
     const QRect rect = mask.rect.translated(origin);
     if (rect.isEmpty()) return;
 
+    // Small dabs blend here; larger ones queue for flushDabs. Once one is queued, the rest queue
+    // behind it to keep dab order.
+    const QueuedDab dab{ &mask, rect, src, srcAlpha };
+    const double pixels = double(rect.width()) * rect.height();
+    const double predictedNs = mDabNsPerPixel * pixels;
+    const bool inlineDab = mQueuedDabs.empty() && predictedNs < 5000;
+    if (!inlineDab) mQueuedNs += predictedNs;
+    // Timing costs as much as a tiny dab, so only dabs near the limit update the mean.
+    const bool timed = inlineDab && predictedNs > 500;
+    QElapsedTimer timer;
+    if (timed) timer.start();
+
     const qreal tileSize = UNIFORM_TILE_SIZE;
     for (int tileY = qFloor(rect.top() / tileSize); tileY <= qFloor(rect.bottom() / tileSize); tileY++) {
         for (int tileX = qFloor(rect.left() / tileSize); tileX <= qFloor(rect.right() / tileSize); tileX++) {
             Tile* tile = getTileFromIndex({tileX, tileY});
-            const QRect area = rect & tile->bounds();
-            const QPoint tilePos = tile->pos();
-            if (mCoverageMode)
+            if (inlineDab)
             {
-                // Same alpha as the image path below: byteMul's alpha lane is mul255.
-                tile->coverageDirty = true;
-                for (int y = area.top(); y <= area.bottom(); ++y)
-                {
-                    quint8* d = tile->coverage().data() + (y - tilePos.y()) * UNIFORM_TILE_SIZE + (area.left() - tilePos.x());
-                    const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (area.left() - rect.left());
-                    for (int k = 0, w = area.width(); k < w; ++k)
-                    {
-                        const quint32 s = mul255(srcAlpha, m[k]);
-                        d[k] = static_cast<quint8>(s + mul255(d[k], 255 - s));
-                    }
-                }
+                blendDab(tile, dab);
             }
             else
             {
-                QImage& image = tile->image();
-                for (int y = area.top(); y <= area.bottom(); ++y)
-                {
-                    QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
-                    const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (area.left() - rect.left());
-                    // Branchless: a zero mask gives s = 0, and byteMul(d, 255) == d.
-                    for (int k = 0, w = area.width(); k < w; ++k)
-                    {
-                        const quint32 s = byteMul(src, m[k]);
-                        d[k] = s + byteMul(d[k], 255 - (s >> 24));
-                    }
-                }
+                if (tile->pendingDabs.empty()) mQueuedTiles.push_back(tile);
+                tile->pendingDabs.push_back(int(mQueuedDabs.size()));
             }
             mTileBounds.extend(tile->bounds());
         }
     }
+    if (timed) mDabNsPerPixel = 0.9 * mDabNsPerPixel + 0.1 * (timer.nsecsElapsed() / pixels);
+    if (!inlineDab) mQueuedDabs.push_back(dab);
 }
 
 void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPainter::CompositionMode cm, bool antialiasing) {
@@ -402,6 +469,11 @@ void TiledBuffer::drawPath(QPainterPath path, QPen pen, QBrush brush,
 
 void TiledBuffer::clear()
 {
+    for (Tile* tile : mQueuedTiles) tile->pendingDabs.clear();
+    mQueuedTiles.clear();
+    mQueuedDabs.clear();
+    mQueuedNs = 0;
+
     QHashIterator<TileIndex, Tile*> i(mTiles);
 
     while (i.hasNext()) {

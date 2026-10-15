@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <QObject>
 #include <QPainter>
 #include <QHash>
+#include <QSemaphore>
 #include <vector>
 
 #include "blitrect.h"
@@ -77,6 +78,9 @@ public:
     /** Sets the most bytes the pool keeps, and frees pooled tiles above it. */
     void setPoolCapBytes(qsizetype cap);
 
+    /** Threads that rendered the last batch of queued dabs; 0 if none was queued. */
+    int lastDabWorkers() const { return mLastDabWorkers; }
+
 signals:
     void tileUpdated(TiledBuffer* tiledBuffer, Tile* tile);
     void tileCreated(TiledBuffer* tiledBuffer, Tile* tile);
@@ -116,6 +120,24 @@ private:
     qsizetype mDabMaskBytes = 0;
     std::vector<float> mProfile; // alpha over r^2 / R^2 for mProfileFeather
     int mProfileFeather = -1;
+
+    struct QueuedDab
+    {
+        const DabMask* mask; // valid until the next cache insert, which flushes first
+        QRect rect;
+        quint32 src;
+        quint32 srcAlpha;
+    };
+    void blendDab(Tile* tile, const QueuedDab& dab) const;
+    /** Renders queued dabs on the thread pool, one tile per task, each tile in dab order. */
+    void flushDabs() const;
+    mutable std::vector<QueuedDab> mQueuedDabs;
+    mutable std::vector<Tile*> mQueuedTiles;
+    mutable double mQueuedNs = 0; // predicted inline time of the queued dabs
+    // A member, not a local: a helper may still be inside release() when acquire() returns.
+    mutable QSemaphore mDabsDone;
+    mutable int mLastDabWorkers = 0;
+    double mDabNsPerPixel = 1.0; // rolling mean of inline dab time
 };
 
 #endif // TILEDBUFFER_H

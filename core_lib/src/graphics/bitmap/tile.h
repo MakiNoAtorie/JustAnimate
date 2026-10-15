@@ -46,6 +46,8 @@ public:
     std::vector<quint8>& coverage() { return mCoverage; }
     /** True when coverage changed after the image was last colourized. */
     bool coverageDirty = false;
+    /** Queued TiledBuffer dabs that touch this tile, in draw order. */
+    std::vector<int> pendingDabs;
 
 private:
     std::vector<quint8> mCoverage;
