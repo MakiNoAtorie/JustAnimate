@@ -25,6 +25,8 @@ GNU General Public License for more details.
 // Qt headers
 #include <QActionGroup>
 #include <QDir>
+#include <QFileDialog>
+#include <QInputDialog>
 #include <QList>
 #include <QMenu>
 #include <QFile>
@@ -60,6 +62,7 @@ GNU General Public License for more details.
 #include "undoredomanager.h"
 
 #include "actioncommands.h"
+#include "brushpresets.h"
 #include "fileformat.h"     //contains constants used by Pencil File Format
 #include "util.h"
 #include "undoredocommand.h"
@@ -283,6 +286,25 @@ void MainWindow2::createMenus()
 
     connect(ui->actionImport_Append_Palette, &QAction::triggered, this, &MainWindow2::importPalette);
     connect(ui->actionImport_Replace_Palette, &QAction::triggered, this, &MainWindow2::openPalette);
+
+    // Brush preset files; the preset dock lists the result.
+    ui->menuImport->addAction(tr("Brush Preset..."), this, [this] {
+        const QString file = QFileDialog::getOpenFileName(this, tr("Import Brush Preset"), QString(), tr("Brush preset (*.jabrush)"));
+        const Status st = file.isEmpty() ? Status(Status::CANCELED) : BrushPresets().importPreset(file);
+        if (!st.ok() && st != Status::CANCELED)
+            QMessageBox::warning(this, tr("Import Brush Preset"), st.description());
+    });
+    ui->menuExport->addAction(tr("Brush Preset..."), this, [this] {
+        const QStringList names = BrushPresets().names();
+        bool ok = false;
+        const QString name = names.isEmpty() ? QString() : QInputDialog::getItem(this, tr("Export Brush Preset"), tr("Preset:"), names, 0, false, &ok);
+        if (!ok)
+            return;
+        const QString file = QFileDialog::getSaveFileName(this, tr("Export Brush Preset"), name + ".jabrush", tr("Brush preset (*.jabrush)"));
+        const Status st = file.isEmpty() ? Status(Status::CANCELED) : BrushPresets().exportPreset(name, file);
+        if (!st.ok() && st != Status::CANCELED)
+            QMessageBox::warning(this, tr("Export Brush Preset"), st.description());
+    });
 
     //--- Edit Menu ---
     replaceUndoRedoActions();

@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include <QString>
 #include <QStringList>
 
+#include "pencilerror.h"
+
 class StrokeTool;
 
 /// Brush presets: one JSON file per preset, `<folder>/<name>.json`, of the form
@@ -45,6 +47,15 @@ public:
     /// Fails if `to` already exists.
     bool rename(const QString& from, const QString& to) const;
     bool remove(const QString& name) const;
+
+    /// Writes the preset and its tip image file to a `.jabrush` zip:
+    /// `preset.json` (`name`, `settings`, `tipImage` = entry name or empty) and `tip.<suffix>`.
+    Status exportPreset(const QString& name, const QString& fileName) const;
+
+    /// Adds the preset in a `.jabrush` file; its tip goes to `<folder>/tips/`.
+    /// The file is untrusted: it is fully checked before anything is written, and
+    /// the import fails when a preset of that name exists.
+    Status importPreset(const QString& fileName) const;
 
     /// A name is valid when it is a plain file name: no path separators, no
     /// leading dot or space, no characters Windows forbids.

@@ -16,14 +16,17 @@ GNU General Public License for more details.
 
 #include <memory>
 
+#include <QDir>
 #include <QFile>
 #include <QImage>
 #include <QTemporaryDir>
 
 #include "brushpresets.h"
 #include "brushtool.h"
+#include "miniz.h"
 #include "editor.h"
 #include "testfixture.h"
+#include "tiledbuffer.h"
 #include "toolmanager.h"
 
 namespace
@@ -51,6 +54,18 @@ struct BrushSession
     }
     ~BrushSession() { brush->setTipImage(QString()); }
 };
+
+// Writes a zip with the given entry names and contents.
+void writeZip(const QString& path, const QList<QPair<QByteArray, QByteArray>>& entries)
+{
+    mz_zip_archive mz;
+    mz_zip_zero_struct(&mz);
+    REQUIRE(mz_zip_writer_init_file(&mz, path.toUtf8().constData(), 0));
+    for (const auto& e : entries)
+        REQUIRE(mz_zip_writer_add_mem(&mz, e.first.constData(), e.second.constData(), size_t(e.second.size()), MZ_BEST_SPEED));
+    REQUIRE(mz_zip_writer_finalize_archive(&mz));
+    REQUIRE(mz_zip_writer_end(&mz));
+}
 
 }
 
@@ -149,4 +164,61 @@ TEST_CASE("Bad brush preset values fall back to defaults", "[BrushPresets]")
     CHECK(p.smoothingMode() == SmoothingMode::Stabilizer); // clamped to the last mode
     CHECK_FALSE(p.washEnabled());
     CHECK(b.brush->tipImagePath().isEmpty());
+}
+
+TEST_CASE("Brush presets export and import as jabrush files", "[BrushPresets]")
+{
+    QTemporaryDir from, to, tips;
+    QImage tip(4, 4, QImage::Format_RGB32);
+    tip.fill(Qt::black);
+    REQUIRE(tip.save(tips.filePath("tip.png")));
+    BrushSession b;
+    b.brush->setWidth(50);
+    b.brush->setFlow(30);
+    REQUIRE(b.brush->setTipImage(tips.filePath("tip.png")).ok());
+    REQUIRE(BrushPresets(from.path()).save("Ink", *b.brush));
+    REQUIRE(BrushPresets(from.path()).exportPreset("Ink", to.filePath("Ink.jabrush")).ok());
+
+    // The archive carries the tip, so the original tip file is not needed on import.
+    REQUIRE(QFile::remove(tips.filePath("tip.png")));
+    BrushPresets other(to.filePath("presets"));
+    REQUIRE(other.importPreset(to.filePath("Ink.jabrush")).ok());
+    REQUIRE(other.names() == QStringList{ "Ink" });
+    REQUIRE_FALSE(other.importPreset(to.filePath("Ink.jabrush")).ok()); // never overwrites a preset
+
+    b.brush->resetSettings();
+    b.brush->setTipImage(QString());
+    REQUIRE(other.apply("Ink", *b.brush));
+    CHECK(b.brush->strokeToolProperties().width() == 50.0);
+    CHECK(b.brush->strokeToolProperties().flow() == 30.0);
+    CHECK(b.brush->tipImagePath().startsWith(other.folder()));
+    QImage mask;
+    REQUIRE(loadBrushTipImage(b.brush->tipImagePath(), mask).ok());
+    CHECK(mask.size() == QSize(4, 4));
+}
+
+TEST_CASE("Malformed jabrush files are rejected before writing", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    const QByteArray preset = R"({ "name": "Ink", "settings": {}, "tipImage": "" })";
+    const QString file = dir.filePath("bad.jabrush");
+    const QString folder = dir.filePath("presets");
+
+    SECTION("not a zip") { writeFile(file, "PK not really"); }
+    SECTION("path escape") { writeZip(file, { { "preset.json", preset }, { "../evil.png", "x" } }); }
+    SECTION("unknown entry") { writeZip(file, { { "preset.json", preset }, { "notes.txt", "x" } }); }    SECTION("no preset") { writeZip(file, { { "tip.png", "x" } }); }
+    SECTION("corrupt json") { writeZip(file, { { "preset.json", "{ nope" } }); }
+    SECTION("bad name") { writeZip(file, { { "preset.json", R"({ "name": "../Ink", "settings": {} })" } }); }
+    SECTION("bad tip")
+    {
+        writeZip(file, { { "preset.json", R"({ "name": "Ink", "settings": {}, "tipImage": "tip.png" })" },
+                         { "tip.png", "not an image" } });
+    }
+    SECTION("missing tip") { writeZip(file, { { "preset.json", R"({ "name": "Ink", "tipImage": "tip.png" })" } }); }
+    SECTION("oversized preset") { writeZip(file, { { "preset.json", QByteArray(2 << 20, ' ') } }); }
+
+    const Status st = BrushPresets(folder).importPreset(file);
+    CHECK_FALSE(st.ok());
+    CHECK_FALSE(QDir(folder).exists());
+    CHECK_FALSE(QFile::exists(dir.filePath("evil.png")));
 }
