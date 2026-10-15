@@ -787,6 +787,8 @@ Status BitmapImage::writeFile(const QString& filename)
     dd << "BitmapImage::writeFile";
     dd << QString("&nbsp;&nbsp;filename = ").append(filename);
 
+    // Write minimal bounds: else the crop on load marks the frame modified and it can never unload.
+    autoCrop();
     QImageWriter writer(filename);
     if (!mImage.isNull())
     {

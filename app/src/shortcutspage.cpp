@@ -395,6 +395,7 @@ static QString getHumanReadableShortcutName(const QString& cmdName)
         {CMD_TOOL_POLYLINE, ShortcutsPage::tr("Polyline Tool", "Shortcut")},
         {CMD_TOOL_SELECT, ShortcutsPage::tr("Select Tool", "Shortcut")},
         {CMD_TOOL_SHAPE, ShortcutsPage::tr("Shape Tool", "Shortcut")},
+        {CMD_TOOL_LASSOFILL, ShortcutsPage::tr("Lasso Fill Tool", "Shortcut")},
         {CMD_TOOL_SMUDGE, ShortcutsPage::tr("Smudge Tool", "Shortcut")},
         {CMD_RESET_ALL_TOOLS, ShortcutsPage::tr("Reset all tools to default", "Shortcut")},
         {CMD_CHANGE_LINE_COLOR_KEYFRAME, ShortcutsPage::tr("Change Line Color (Current keyframe)", "Shortcut")},

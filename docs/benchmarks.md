@@ -40,7 +40,8 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | scrub onion | the scrub again on the top layer, onion skin on with 5 tinted frames before and after |
 
 The table prints median, min and max over the 3 runs, and the median per
-frame or stroke.
+frame or stroke. A last line prints the peak RAM (working set, sampled after
+every scrub and play frame; Windows and Linux only).
 
 ## Baseline
 

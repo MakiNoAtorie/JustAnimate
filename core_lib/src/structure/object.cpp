@@ -972,6 +972,8 @@ void Object::updateActiveFrames(int frame) const
             }
         }
     }
+    // Frames this far away reload from disk on demand; the budget alone keeps whole projects in RAM.
+    mActiveFramePool->unloadFramesFarFrom(frame, 50);
 }
 
 void Object::setActiveFramePoolSize(int sizeInMB)
