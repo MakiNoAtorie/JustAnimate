@@ -10,7 +10,7 @@ the original Pencil2D history is kept below for reference.
 - One-colour Pencil, Brush and Eraser strokes build up a 1-byte alpha buffer and get their colour once, in reused tiles (pool capped at 128 MiB): about 1.4x faster dabs at large sizes; overlapping translucent dabs no longer drift in colour (B2).
 - Pencil, Brush and Eraser dabs are written from cached masks instead of a gradient painter per tile: up to 9x faster on small brushes; edges and feather differ slightly (B2).
 - Pencil, Brush and Eraser have a "Spacing %" setting for dab density; the default 12.5% keeps strokes unchanged (B1).
-- Weighted and Stabilizer smoothing modes: pick them in the stroke options with the strength slider; the stroke catches up to the pen when you lift it (B4).
+- Weighted and Stabilizer smoothing modes: pick them in the stroke options with the strength slider; in every smoothing mode the stroke ends at the pen when you lift it (B4).
 - Saved workspaces: Window, Workspace switches between Draw, Animate and Ink dock layouts, and each remembers your changes across restarts (4.2).
 - Stroke smoothing: None or 1-euro filter with a 0-100 strength slider, run on input timestamps instead of a 5 ms timer; old None/Simple/Strong stabilizer settings carry over (B4).
 - Pencil, Brush and Eraser space dabs evenly at any stroke speed and change pressure smoothly along each stroke (B1).
