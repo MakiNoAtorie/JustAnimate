@@ -58,7 +58,12 @@ void StrokeInterpolator::pointerReleaseEvent(PointerEvent* event)
     // flush out stroke
     if (mStrokeStarted)
     {
-        pointerMoveEvent(event);
+        mLastPixel = mCurrentPixel;
+        mCurrentPixel = mSmoother.release(event->viewportPos(), event->timestamp());
+        if (event->isTabletEvent())
+        {
+            setPressure(event->pressure());
+        }
     }
 
     mStrokeStarted = false;
