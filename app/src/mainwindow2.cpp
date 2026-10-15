@@ -18,6 +18,8 @@ GNU General Public License for more details.
 
 #include "mainwindow2.h"
 #include "appinfo.h"
+#include "defaultlayout.h"
+#include <QScreen>
 #include "ui_mainwindow2.h"
 
 // Qt headers
@@ -220,13 +222,7 @@ void MainWindow2::createDockWidgets()
         qDebug() << "Init Dock widget: " << pWidget->objectName();
     }
 
-    addDockWidget(Qt::RightDockWidgetArea, mColorBox);
-    addDockWidget(Qt::RightDockWidgetArea, mColorInspector);
-    addDockWidget(Qt::RightDockWidgetArea, mColorPalette);
-    addDockWidget(Qt::LeftDockWidgetArea, mToolBox);
-    addDockWidget(Qt::LeftDockWidgetArea, mToolOptions);
-    addDockWidget(Qt::LeftDockWidgetArea, mOnionSkinWidget);
-    addDockWidget(Qt::BottomDockWidgetArea, mTimeLine);
+    applyDefaultDockLayout();
     setDockNestingEnabled(true);
 
     /*
@@ -1085,20 +1081,13 @@ void MainWindow2::resetAndDockAllSubWidgets()
     settings.remove(SETTING_WINDOW_GEOMETRY);
     settings.remove(SETTING_WINDOW_STATE);
 
-    for (BaseDockWidget* dock : mDockWidgets)
-    {
-        dock->setFloating(false);
-        dock->raise();
-        dock->show();
-    }
+    applyDefaultDockLayout();
+}
 
-    addDockWidget(Qt::RightDockWidgetArea, mColorBox);
-    addDockWidget(Qt::RightDockWidgetArea, mColorInspector);
-    addDockWidget(Qt::RightDockWidgetArea, mColorPalette);
-    addDockWidget(Qt::LeftDockWidgetArea, mToolBox);
-    addDockWidget(Qt::LeftDockWidgetArea, mToolOptions);
-    addDockWidget(Qt::LeftDockWidgetArea, mOnionSkinWidget);
-    addDockWidget(Qt::BottomDockWidgetArea, mTimeLine);
+void MainWindow2::applyDefaultDockLayout()
+{
+    const QSize screenSize = screen() ? screen()->availableSize() : QSize(1366, 768);
+    ::applyDefaultDockLayout(this, {{mToolBox, mToolOptions, mOnionSkinWidget}, {mColorBox, mColorInspector, mColorPalette}, mTimeLine}, screenSize);
 }
 
 void MainWindow2::newObject()
