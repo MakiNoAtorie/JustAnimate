@@ -97,8 +97,9 @@ void StrokeOptionsWidget::updateUI()
         setAntiAliasingEnabled(p.AntiAliasingEnabled());
     }
 
-    if (strokeTool->isPropertyEnabled(StrokeToolProperties::STABILIZATION_VALUE)) {
-        setStabilizerLevel(p.stabilizerLevel());
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::SMOOTHING_MODE)) {
+        setSmoothingMode(static_cast<int>(p.smoothingMode()));
+        setSmoothingStrength(p.smoothingStrength());
     }
 
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::FILLCONTOUR_ENABLED)) {
@@ -130,7 +131,8 @@ void StrokeOptionsWidget::makeConnectionFromModelToUI(StrokeTool* strokeTool)
     connect(strokeTool, &StrokeTool::featherChanged, this, &StrokeOptionsWidget::setFeatherValue);
     connect(strokeTool, &StrokeTool::featherEnabledChanged, this, &StrokeOptionsWidget::setFeatherEnabled);
     connect(strokeTool, &StrokeTool::pressureEnabledChanged, this, &StrokeOptionsWidget::setPressureEnabled);
-    connect(strokeTool, &StrokeTool::stabilizationLevelChanged, this, &StrokeOptionsWidget::setStabilizerLevel);
+    connect(strokeTool, &StrokeTool::smoothingModeChanged, this, &StrokeOptionsWidget::setSmoothingMode);
+    connect(strokeTool, &StrokeTool::smoothingStrengthChanged, this, &StrokeOptionsWidget::setSmoothingStrength);
     connect(strokeTool, &StrokeTool::antiAliasingEnabledChanged, this, &StrokeOptionsWidget::setAntiAliasingEnabled);
     connect(strokeTool, &StrokeTool::fillContourEnabledChanged, this, &StrokeOptionsWidget::setFillContourEnabled);
     connect(strokeTool, &StrokeTool::invisibleStrokeEnabledChanged, this, &StrokeOptionsWidget::setPenInvisibilityEnabled);
@@ -194,8 +196,12 @@ void StrokeOptionsWidget::makeConnectionFromUIToModel()
     clearFocusOnFinished(ui->sizeSpinBox);
     clearFocusOnFinished(ui->featherSpinBox);
 
-    connect(ui->inpolLevelsCombo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [=](int value) {
-        mCurrentTool->setStablizationLevel(value);
+    connect(ui->smoothingModeCombo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [=](int value) {
+        mCurrentTool->setSmoothingMode(value);
+    });
+
+    connect(ui->smoothingStrengthSlider, &QSlider::valueChanged, [=](int value) {
+        mCurrentTool->setSmoothingStrength(value);
     });
 }
 
@@ -209,8 +215,9 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));
     ui->useAABox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::ANTI_ALIASING_ENABLED));
-    ui->stabilizerLabel->setVisible(tool->isPropertyEnabled(StrokeToolProperties::STABILIZATION_VALUE));
-    ui->inpolLevelsCombo->setVisible(tool->isPropertyEnabled(StrokeToolProperties::STABILIZATION_VALUE));
+    ui->smoothingLabel->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SMOOTHING_MODE));
+    ui->smoothingModeCombo->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SMOOTHING_MODE));
+    ui->smoothingStrengthSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SMOOTHING_MODE));
     ui->fillContourBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FILLCONTOUR_ENABLED));
     ui->useBezierBox->setVisible(tool->isPropertyEnabled(PolylineToolProperties::BEZIERPATH_ENABLED));
     ui->useClosedPathBox->setVisible(tool->isPropertyEnabled(PolylineToolProperties::CLOSEDPATH_ENABLED));
@@ -258,10 +265,17 @@ void StrokeOptionsWidget::setAntiAliasingEnabled(bool enabled)
     ui->useAABox->setChecked(enabled);
 }
 
-void StrokeOptionsWidget::setStabilizerLevel(int level)
+void StrokeOptionsWidget::setSmoothingMode(int mode)
 {
-    QSignalBlocker b(ui->inpolLevelsCombo);
-    ui->inpolLevelsCombo->setCurrentIndex(level);
+    QSignalBlocker b(ui->smoothingModeCombo);
+    ui->smoothingModeCombo->setCurrentIndex(mode);
+    ui->smoothingStrengthSlider->setEnabled(mode != static_cast<int>(SmoothingMode::None));
+}
+
+void StrokeOptionsWidget::setSmoothingStrength(int strength)
+{
+    QSignalBlocker b(ui->smoothingStrengthSlider);
+    ui->smoothingStrengthSlider->setValue(strength);
 }
 
 void StrokeOptionsWidget::setFillContourEnabled(bool enabled)

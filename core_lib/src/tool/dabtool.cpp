@@ -24,6 +24,7 @@ GNU General Public License for more details.
 
 void DabTool::pointerPressEvent(PointerEvent* event)
 {
+    applySmoothing();
     mInterpolator.pointerPressEvent(event);
     if (handleQuickSizing(event)) {
         return;
@@ -50,11 +51,6 @@ void DabTool::pointerMoveEvent(PointerEvent* event)
         mCurrentPressure = mInterpolator.getPressure();
         drawStroke();
         strokeMoved();
-        const int stabilizerLevel = strokeToolProperties().stabilizerLevel();
-        if (stabilizerLevel != mInterpolator.getStabilizerLevel())
-        {
-            mInterpolator.setStabilizerLevel(stabilizerLevel);
-        }
     }
 
     StrokeTool::pointerMoveEvent(event);

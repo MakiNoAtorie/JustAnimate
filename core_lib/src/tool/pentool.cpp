@@ -45,23 +45,24 @@ void PenTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::WIDTH_VALUE] = { Layer::BITMAP, Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::ANTI_ALIASING_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::STABILIZATION_VALUE] = { Layer::BITMAP, Layer::VECTOR };
+    mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
 
     QHash<int, PropertyInfo> info;
 
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 12.0 };
     info[StrokeToolProperties::PRESSURE_ENABLED] = true;
     info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = true;
-    info[StrokeToolProperties::STABILIZATION_VALUE] = { StabilizationLevel::NONE, StabilizationLevel::STRONG, StabilizationLevel::STRONG };
+    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
 
     toolProperties().insertProperties(info);
     toolProperties().loadFrom(typeName(), pencilSettings);
+    migrateLineStabilization(pencilSettings);
 
     if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
         toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("penWidth", 12.0).toReal());
         toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, pencilSettings.value("penPressure", true).toBool());
         toolProperties().setBaseValue(StrokeToolProperties::ANTI_ALIASING_ENABLED, pencilSettings.value("penAA", true).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::STABILIZATION_VALUE, pencilSettings.value("penLineStablization", StabilizationLevel::STRONG).toInt());
+        setLegacySmoothing(pencilSettings.value("penLineStablization", StabilizationLevel::STRONG).toInt());
 
         pencilSettings.remove("penWidth");
         pencilSettings.remove("penPressure");
@@ -83,6 +84,7 @@ QCursor PenTool::cursor()
 
 void PenTool::pointerPressEvent(PointerEvent *event)
 {
+    applySmoothing();
     mInterpolator.pointerPressEvent(event);
     if (handleQuickSizing(event)) {
         return;
@@ -107,10 +109,6 @@ void PenTool::pointerMoveEvent(PointerEvent* event)
     {
         mCurrentPressure = mInterpolator.getPressure();
         drawStroke();
-        if (mSettings.stabilizerLevel() != mInterpolator.getStabilizerLevel())
-        {
-            mInterpolator.setStabilizerLevel(mSettings.stabilizerLevel());
-        }
     }
 
     StrokeTool::pointerMoveEvent(event);

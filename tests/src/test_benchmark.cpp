@@ -343,8 +343,8 @@ void tablet(QWidget* w, const QPointingDevice* pen, QEvent::Type type, const Sam
 
 // Replays the strokes as tablet input with one tool at its default settings and the given size,
 // on a fresh canvas: a blue layer below and a half-transparent yellow block on the painted layer
-// (so the eraser has something to erase). Events are sent synchronously, no event loop runs, so
-// the stabilizer's poll timer never fires and the result only depends on the input.
+// (so the eraser has something to erase). Events carry no timestamp, so smoothing takes them as
+// 1 ms apart and the result only depends on the input.
 ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes)
 {
     Session s;
@@ -411,26 +411,26 @@ struct Golden
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
     // winnt: MSVC, Qt 6.8.3 and 6.5.3. linux and darwin: CI, Qt 6.5.3.
-    { "winnt x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
-    { "winnt x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
-    { "winnt x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
-    { "winnt x86_64", "pencil", 200, "b2621f11c3e6214dbd89014eafc12d22ac374589", "928eabfdfac9b0e3d9ce87e8e087350185e67b79" },
-    { "winnt x86_64", "brush", 4, "08ac3b83dbf641ffeb5b645d6b79fb4dc332f8e1", "646b6145475d7df921aa824535dbc5524350a989" },
-    { "winnt x86_64", "brush", 24, "ac77c286b9b6e9f907000f19a4327ec3ddbcc3e6", "93688a6d99a914987bf51ff7dcccdd8b27754938" },
-    { "winnt x86_64", "brush", 96, "875e33735b958bec8be54804e56cf8ae5220f03a", "fa9935dab752949aa2b61497f10381791b613ccc" },
-    { "winnt x86_64", "brush", 200, "0fa12608f628ee6bb7e05af77c82b9f2b3287ccb", "27cd857dc3e459c11ee8d134dd6ab88b20fac4cc" },
+    { "winnt x86_64", "pencil", 4, "06f9832eef5a9ec0d9d29d77e8af725884b67c8f", "4bdd67c991a8a7db040f83709a973290114414e0" },
+    { "winnt x86_64", "pencil", 24, "138bf98968b1ff177c779ff483ffd09a431b7469", "b6ce05f93f6efe74f237cdced2a92ee9a370805c" },
+    { "winnt x86_64", "pencil", 96, "88de9cd091eb17cae483785089d8b716aa6b0790", "ab8d24b8beffb651abdbbc17b388743452946270" },
+    { "winnt x86_64", "pencil", 200, "8160e4b8ee8219e254d9cd0ff48b5495ff864ee3", "df5f2971b3aa5e6a6bded20954e6645b924cbd9d" },
+    { "winnt x86_64", "brush", 4, "0cf22cfd84868039190f18f27867f3012e8c2232", "06e107d820ca76629aff5b80af1138d43ac4718c" },
+    { "winnt x86_64", "brush", 24, "2f71e479a7ed9908df93940f7062e4299fe644bb", "a6ec14fdb0e9b5c50803a9751c0af9b8d43dd31a" },
+    { "winnt x86_64", "brush", 96, "a7a099c99a99b434317db384a59b37f2410ae0ed", "894ed58378e7119a66ecb30e1be5e1a8c82685de" },
+    { "winnt x86_64", "brush", 200, "671d9091bd2ddd455c28af4602ad82f05abf1adc", "8f5279c3216d12ffdfcdb59627459f37f7ec6ef0" },
     { "winnt x86_64", "eraser", 4, "d7e2f2e5e32b6b22059c24951ac933943fd957b7", "88130c67007948c838b5a64bb13667fcb08a1f69" },
     { "winnt x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
     { "winnt x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
     { "winnt x86_64", "eraser", 200, "516a81d7c6b1d424b1a5e6f9beb9074cdd54dec2", "3aca31806a5bda175678e38b2d0043338db1c7ce" },
-    { "linux x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
-    { "linux x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
-    { "linux x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
-    { "linux x86_64", "pencil", 200, "b2621f11c3e6214dbd89014eafc12d22ac374589", "928eabfdfac9b0e3d9ce87e8e087350185e67b79" },
-    { "linux x86_64", "brush", 4, "08ac3b83dbf641ffeb5b645d6b79fb4dc332f8e1", "646b6145475d7df921aa824535dbc5524350a989" },
-    { "linux x86_64", "brush", 24, "ac77c286b9b6e9f907000f19a4327ec3ddbcc3e6", "93688a6d99a914987bf51ff7dcccdd8b27754938" },
-    { "linux x86_64", "brush", 96, "875e33735b958bec8be54804e56cf8ae5220f03a", "fa9935dab752949aa2b61497f10381791b613ccc" },
-    { "linux x86_64", "brush", 200, "0fa12608f628ee6bb7e05af77c82b9f2b3287ccb", "27cd857dc3e459c11ee8d134dd6ab88b20fac4cc" },
+    { "linux x86_64", "pencil", 4, "06f9832eef5a9ec0d9d29d77e8af725884b67c8f", "4bdd67c991a8a7db040f83709a973290114414e0" },
+    { "linux x86_64", "pencil", 24, "138bf98968b1ff177c779ff483ffd09a431b7469", "b6ce05f93f6efe74f237cdced2a92ee9a370805c" },
+    { "linux x86_64", "pencil", 96, "88de9cd091eb17cae483785089d8b716aa6b0790", "ab8d24b8beffb651abdbbc17b388743452946270" },
+    { "linux x86_64", "pencil", 200, "8160e4b8ee8219e254d9cd0ff48b5495ff864ee3", "df5f2971b3aa5e6a6bded20954e6645b924cbd9d" },
+    { "linux x86_64", "brush", 4, "0cf22cfd84868039190f18f27867f3012e8c2232", "06e107d820ca76629aff5b80af1138d43ac4718c" },
+    { "linux x86_64", "brush", 24, "2f71e479a7ed9908df93940f7062e4299fe644bb", "a6ec14fdb0e9b5c50803a9751c0af9b8d43dd31a" },
+    { "linux x86_64", "brush", 96, "a7a099c99a99b434317db384a59b37f2410ae0ed", "894ed58378e7119a66ecb30e1be5e1a8c82685de" },
+    { "linux x86_64", "brush", 200, "671d9091bd2ddd455c28af4602ad82f05abf1adc", "8f5279c3216d12ffdfcdb59627459f37f7ec6ef0" },
     { "linux x86_64", "eraser", 4, "d7e2f2e5e32b6b22059c24951ac933943fd957b7", "88130c67007948c838b5a64bb13667fcb08a1f69" },
     { "linux x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
     { "linux x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
