@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include <QPainter>
 #include <QPainterPath>
+#include <QtMath>
 
 #include "colormanager.h"
 #include "editor.h"
@@ -153,13 +154,26 @@ qreal DabTool::dabOpacity(qreal pressure) const
     return strokeToolProperties().pressureEnabled() ? mPressureCurve.value(pressure) * 0.5 : 1.0;
 }
 
+BrushTip DabTool::dabTip(QPointF direction) const
+{
+    const StrokeToolProperties& p = strokeToolProperties();
+    BrushTip tip;
+    tip.square = p.tipSquare();
+    tip.aspect = p.tipAspect() / 100.0;
+    tip.angle = p.tipAngle();
+    // Canvas y points down, so the angle counts counter-clockwise on screen.
+    if (p.tipFollowsDirection() && !direction.isNull())
+        tip.angle += qRadiansToDegrees(std::atan2(-direction.y(), direction.x()));
+    return tip;
+}
+
 void DabTool::paintAt(QPointF point)
 {
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer->type() == Layer::BITMAP)
     {
         mCurrentWidth = dabWidth(mCurrentPressure);
-        drawDab(point, mCurrentWidth, dabOpacity(mCurrentPressure));
+        drawDab(point, mCurrentWidth, dabOpacity(mCurrentPressure), dabTip(QPointF()));
     }
 }
 
@@ -180,13 +194,14 @@ void DabTool::drawStroke()
 
         // Carry the leftover distance to the next event, so spacing does not depend on the event rate.
         qreal t = mDistanceToNextDab;
+        const BrushTip tip = dabTip(b - a);
         while (t <= length)
         {
             const qreal f = (length > 0) ? t / length : 1.0;
             const qreal pressure = startPressure + (endPressure - startPressure) * f;
             const qreal brushWidth = dabWidth(pressure);
             mCurrentWidth = brushWidth;
-            drawDab(a + (b - a) * f, brushWidth, dabOpacity(pressure));
+            drawDab(a + (b - a) * f, brushWidth, dabOpacity(pressure), tip);
             t += dabSpacing(brushWidth);
         }
         mDistanceToNextDab = t - length;

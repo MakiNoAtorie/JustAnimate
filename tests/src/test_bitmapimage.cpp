@@ -511,6 +511,41 @@ TEST_CASE("TiledBuffer drawDab: a cached mask lands only in the tiles the dab co
     CHECK(feathered.constScanLine(40, 19) == 0);
 }
 
+TEST_CASE("TiledBuffer drawDab: a generated tip is round or square with an aspect ratio and an angle")
+{
+    const QColor red(255, 0, 0);
+    // A 40 px dab at (40, 40); the alpha at each test pixel.
+    auto alphaAt = [&](const BrushTip& tip, std::initializer_list<QPoint> points) {
+        TiledBuffer buffer;
+        buffer.drawDab(QPointF(40, 40), 40, 0, red, 1.0, false, tip);
+        BitmapImage image(QRect(0, 0, 64, 64), Qt::transparent);
+        image.paste(&buffer);
+        std::vector<int> alpha;
+        for (QPoint p : points) alpha.push_back(qAlpha(image.constScanLine(p.x(), p.y())));
+        return alpha;
+    };
+    const std::initializer_list<QPoint> probes = { {40, 40}, {23, 23}, {40, 25}, {25, 40}, {40, 22}, {22, 40}, {19, 40} };
+
+    BrushTip round;
+    CHECK(alphaAt(round, probes) == std::vector<int>{ 255, 0, 255, 255, 255, 255, 0 });
+
+    BrushTip turned; // a round tip looks the same at any angle
+    turned.angle = 37;
+    CHECK(alphaAt(turned, probes) == alphaAt(round, probes));
+
+    BrushTip square;
+    square.square = true; // the corner of the box is inside
+    CHECK(alphaAt(square, probes) == std::vector<int>{ 255, 255, 255, 255, 255, 255, 0 });
+
+    BrushTip flat;
+    flat.aspect = 0.5; // 40 px wide, 20 px tall
+    CHECK(alphaAt(flat, probes) == std::vector<int>{ 255, 0, 0, 255, 0, 255, 0 });
+
+    BrushTip upright = flat;
+    upright.angle = 90; // 20 px wide, 40 px tall
+    CHECK(alphaAt(upright, probes) == std::vector<int>{ 255, 0, 255, 0, 255, 0, 0 });
+}
+
 TEST_CASE("TiledBuffer drawDab: a constant-colour stroke keeps its colour where translucent dabs overlap")
 {
     TiledBuffer buffer;

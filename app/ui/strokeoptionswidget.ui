@@ -138,6 +138,20 @@
     </layout>
    </item>
    <item>
+    <widget class="SpinSlider" name="tipAspectSlider" native="true">
+     <property name="toolTip">
+      <string>Set the tip height as a percentage of its width</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="SpinSlider" name="tipAngleSlider" native="true">
+     <property name="toolTip">
+      <string>Turn the tip counter-clockwise, in degrees</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,0,1">
      <item>
       <widget class="QLabel" name="smoothingLabel">
@@ -206,6 +220,26 @@
        </property>
        <property name="text">
         <string>Use Feather</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="squareTipBox">
+       <property name="toolTip">
+        <string>Use a square tip instead of a round tip</string>
+       </property>
+       <property name="text">
+        <string comment="Tool options">Square Tip</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="followDirectionBox">
+       <property name="toolTip">
+        <string>Turn the tip with the stroke direction</string>
+       </property>
+       <property name="text">
+        <string comment="Tool options">Follow Direction</string>
        </property>
       </widget>
      </item>
