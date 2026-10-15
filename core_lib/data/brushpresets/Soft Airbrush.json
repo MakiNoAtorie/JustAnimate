@@ -1,0 +1,13 @@
+{
+  "description": "Soft spray that builds up gradually.",
+  "settings": {
+    "Width": 60,
+    "Feather": 60,
+    "Opacity": 60,
+    "Flow": 40,
+    "Spacing": 10,
+    "Scatter": 25,
+    "DabCount": 3
+  },
+  "tipImage": ""
+}

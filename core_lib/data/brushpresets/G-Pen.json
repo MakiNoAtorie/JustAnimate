@@ -1,0 +1,12 @@
+{
+  "description": "Crisp pressure-sensitive ink line.",
+  "settings": {
+    "Width": 6,
+    "FeatherEnabled": false,
+    "Spacing": 5,
+    "SmoothingMode": 3,
+    "SmoothingStrength": 40,
+    "SpeedToSize": -40
+  },
+  "tipImage": ""
+}

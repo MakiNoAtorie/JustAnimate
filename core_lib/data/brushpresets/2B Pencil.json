@@ -1,0 +1,13 @@
+{
+  "description": "Softer, darker graphite for shading.",
+  "settings": {
+    "Width": 5,
+    "Opacity": 95,
+    "Flow": 70,
+    "Spacing": 8,
+    "TiltToSize": 60,
+    "SizeJitter": 8,
+    "Scatter": 6
+  },
+  "tipImage": ""
+}

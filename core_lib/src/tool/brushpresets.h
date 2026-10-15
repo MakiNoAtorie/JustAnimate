@@ -45,6 +45,10 @@ public:
     /// nothing when the preset is missing or corrupt.
     bool apply(const QString& name, StrokeTool& tool) const;
 
+    /// Copies each default in the pack (resources under `:/brushpresets`) into the
+    /// folder unless a file of that name exists, so user edits stay.
+    void addDefaults() const;
+
     /// The optional "description" text of the preset; empty when absent or not a string.
     QString description(const QString& name) const;
 

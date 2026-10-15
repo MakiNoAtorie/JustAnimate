@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Brush preset editor (New, Edit, Duplicate in the preset dock) edits every engine setting, the tip image, a per-preset pressure curve and the description with a live preview stroke (B8).
+- Brush presets: a default pack (HB and 2B pencil, G-pen, marker, soft airbrush, chalk, watercolour, hard and soft eraser) installs into the preset folder on first launch and never overwrites your presets (B8).
 - Brush presets export to and import from .jabrush files that carry the tip image; malformed or path-escaping files are rejected (B8).
 - Brush Presets dock: each row shows a sample stroke painted by the brush engine and the preset description; select a row to use the preset (B8).
 - Classic brush preset: Pencil, Brush and Eraser draw exactly as before v0.3 (per-dab flow, half alpha with pressure) (B8).
