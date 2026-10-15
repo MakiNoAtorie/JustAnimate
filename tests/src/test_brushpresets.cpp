@@ -16,15 +16,22 @@ GNU General Public License for more details.
 
 #include <memory>
 
+#include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QPointingDevice>
+#include <QTabletEvent>
 #include <QTemporaryDir>
 
+#include "bitmapimage.h"
 #include "brushpresets.h"
 #include "brushtool.h"
 #include "miniz.h"
 #include "editor.h"
+#include "layerbitmap.h"
+#include "layermanager.h"
+#include "scribblearea.h"
 #include "testfixture.h"
 #include "tiledbuffer.h"
 #include "toolmanager.h"
@@ -179,6 +186,103 @@ TEST_CASE("Bad brush preset values fall back to defaults", "[BrushPresets]")
     CHECK(p.smoothingMode() == SmoothingMode::Stabilizer); // clamped to the last mode
     CHECK_FALSE(p.washEnabled());
     CHECK(b.brush->tipImagePath().isEmpty());
+}
+
+namespace
+{
+
+const QStringList DEFAULT_PRESETS{ "2B Pencil", "Chalk", "G-Pen", "HB Pencil", "Hard Eraser", "Marker", "Soft Airbrush", "Soft Eraser", "Watercolour" };
+
+void tabletStroke(ScribbleArea* area, qreal y)
+{
+    auto send = [&](QEvent::Type type, qreal x) {
+        const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
+        const QPointF pos(x, y);
+        QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                       0.8, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+        QApplication::sendEvent(area, &e);
+    };
+    send(QEvent::TabletPress, 100);
+    for (int i = 1; i <= 40; ++i)
+        send(QEvent::TabletMove, 100 + 10 * i);
+    send(QEvent::TabletRelease, 500);
+}
+
+long long inkedPixels(BitmapImage* bitmap)
+{
+    const QImage* img = bitmap->image();
+    long long n = 0;
+    for (int y = 0; y < img->height(); ++y)
+        for (int x = 0; x < img->width(); ++x)
+            n += qAlpha(img->pixel(x, y));
+    return n;
+}
+
+}
+
+TEST_CASE("Default brush pack is added and keeps user edits", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    BrushPresets presets(dir.path());
+    presets.addDefaults();
+    QStringList installed = presets.names();
+    installed.sort();
+    REQUIRE(installed == DEFAULT_PRESETS);
+
+    // An edited default stays as the user left it.
+    writeFile(dir.filePath("Marker.json"), R"({"settings":{"Width":77}})");
+    presets.addDefaults();
+    QFile marker(dir.filePath("Marker.json"));
+    REQUIRE(marker.open(QIODevice::ReadOnly));
+    CHECK(marker.readAll().contains("77"));
+}
+
+TEST_CASE("Every default brush preset paints a stroke", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    BrushPresets presets(dir.path());
+    presets.addDefaults();
+
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 2; f <= 20; ++f)
+        layer->addNewKeyFrameAt(f);
+    s.start();
+    s.area->init();
+    s.area->resize(800, 600);
+    s.editor->layers()->setCurrentLayer(layer);
+
+    std::vector<std::unique_ptr<ToolSettingsGuard>> guards;
+    for (ToolType t : { PENCIL, BRUSH, ERASER })
+        guards.push_back(std::make_unique<ToolSettingsGuard>(s.editor->tools()->getTool(t)));
+
+    int frame = 1;
+    for (const QString& name : DEFAULT_PRESETS)
+    {
+        INFO(name.toStdString());
+        const bool eraser = name.contains("Eraser");
+        const ToolType type = eraser ? ERASER : (name.contains("Pencil") ? PENCIL : BRUSH);
+        StrokeTool* tool = static_cast<StrokeTool*>(s.editor->tools()->getTool(type));
+
+        s.editor->scrubTo(frame);
+        if (eraser)
+        {
+            // Ink to erase.
+            s.editor->tools()->setCurrentTool(PENCIL);
+            static_cast<StrokeTool*>(s.editor->tools()->getTool(PENCIL))->setWidth(60);
+            tabletStroke(s.area.get(), 300);
+        }
+        const long long before = inkedPixels(layer->getBitmapImageAtFrame(frame));
+        REQUIRE(presets.apply(name, *tool));
+        s.editor->tools()->setCurrentTool(type);
+        tabletStroke(s.area.get(), 300);
+        const long long after = inkedPixels(layer->getBitmapImageAtFrame(frame));
+        if (eraser)
+            CHECK(after < before);
+        else
+            CHECK(after > 0);
+        ++frame;
+    }
 }
 
 TEST_CASE("Brush presets export and import as jabrush files", "[BrushPresets]")

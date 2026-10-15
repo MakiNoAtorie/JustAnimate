@@ -1,0 +1,15 @@
+{
+  "description": "Flat chisel tip that keeps overlaps even.",
+  "settings": {
+    "Width": 24,
+    "PressureEnabled": false,
+    "FeatherEnabled": false,
+    "TipSquare": true,
+    "TipAspect": 40,
+    "TipAngle": 45,
+    "Opacity": 80,
+    "WashEnabled": true,
+    "Spacing": 10
+  },
+  "tipImage": ""
+}

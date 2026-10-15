@@ -162,6 +162,19 @@ bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
     return true;
 }
 
+void BrushPresets::addDefaults() const
+{
+    if (!QDir().mkpath(mFolder))
+        return;
+    const QDir pack(":/brushpresets");
+    for (const QString& file : pack.entryList({ "*.json" }, QDir::Files))
+    {
+        const QString target = QDir(mFolder).filePath(file);
+        if (!QFile::exists(target) && QFile::copy(pack.filePath(file), target))
+            QFile::setPermissions(target, QFile::ReadOwner | QFile::WriteOwner);
+    }
+}
+
 QString BrushPresets::description(const QString& name) const
 {
     if (!isValidName(name))

@@ -1,0 +1,15 @@
+{
+  "description": "Soft translucent wash.",
+  "settings": {
+    "Width": 45,
+    "Feather": 70,
+    "Opacity": 45,
+    "Flow": 30,
+    "WashEnabled": true,
+    "Spacing": 12,
+    "SizeJitter": 10,
+    "SpeedToSize": -20,
+    "SmoothingMode": 1
+  },
+  "tipImage": ""
+}

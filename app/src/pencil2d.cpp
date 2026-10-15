@@ -158,6 +158,7 @@ void Pencil2D::prepareGuiStartup(const QString& inputPath)
 {
     PlatformHandler::configurePlatformSpecificSettings();
     BrushPresets().addClassic();
+    BrushPresets().addDefaults();
 
     mainWindow.reset(new MainWindow2);
     connect(this, &Pencil2D::openFileRequested, mainWindow.get(), &MainWindow2::openFile);
