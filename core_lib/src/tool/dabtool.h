@@ -70,7 +70,8 @@ protected:
     qreal taperAt(qreal distance) const;
     /// The tip settings; with follow direction on, the angle adds the direction of travel.
     BrushTip dabTip(QPointF direction) const;
-    /// Alpha of one dab in a spaced line, so the line reaches dabOpacity at any spacing.
+    /// Alpha of one dab in a spaced line, so the line reaches dabOpacity at any spacing;
+    /// with flow per dab (Classic) it is dabOpacity and closer spacing builds up darker.
     qreal spacedDabOpacity(qreal pressure, qreal brushWidth) const;
 
     QPointF mLastBrushPoint{ 0, 0 };

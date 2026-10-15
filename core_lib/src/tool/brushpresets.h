@@ -47,6 +47,10 @@ public:
     /// The optional "description" text of the preset; empty when absent or not a string.
     QString description(const QString& name) const;
 
+    /// Writes the "Classic" preset unless it exists: on any stroke tool it draws
+    /// like that tool's defaults before v0.3 (per-dab flow, pressure on).
+    bool addClassic() const;
+
     /// Fails if `to` already exists.
     bool rename(const QString& from, const QString& to) const;
     bool remove(const QString& name) const;

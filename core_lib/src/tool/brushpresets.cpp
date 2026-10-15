@@ -170,6 +170,21 @@ QString BrushPresets::description(const QString& name) const
     return preset ? preset->value("description").toString() : QString();
 }
 
+bool BrushPresets::addClassic() const
+{
+    if (QFile::exists(filePath("Classic")))
+        return true;
+    if (!QDir().mkpath(mFolder))
+        return false;
+    // Missing keys give each tool's default; only these differ from the defaults.
+    const QJsonObject settings{ { "Flow", 50 }, { "FlowPerDab", true }, { "PressureEnabled", true } };
+    QSaveFile file(filePath("Classic"));
+    if (!file.open(QIODevice::WriteOnly))
+        return false;
+    file.write(QJsonDocument(QJsonObject{ { "settings", settings }, { "tipImage", "" } }).toJson());
+    return file.commit();
+}
+
 bool BrushPresets::rename(const QString& from, const QString& to) const
 {
     if (!isValidName(from) || !isValidName(to) || QFile::exists(filePath(to)))

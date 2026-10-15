@@ -423,6 +423,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
         SCATTER_VALUE            = 121,
         ANGLE_JITTER_VALUE       = 122,
         DAB_COUNT_VALUE          = 123,
+        FLOW_PER_DAB_ENABLED     = 124,
 
         END                 = 199,
     };
@@ -454,7 +455,8 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { SIZE_JITTER_VALUE,     "SizeJitter" },
             { SCATTER_VALUE,         "Scatter" },
             { ANGLE_JITTER_VALUE,    "AngleJitter" },
-            { DAB_COUNT_VALUE,       "DabCount" }
+            { DAB_COUNT_VALUE,       "DabCount" },
+            { FLOW_PER_DAB_ENABLED,  "FlowPerDab" }
         });
     }
 
@@ -487,6 +489,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
     int scatter() const { return getInfo(SCATTER_VALUE).intValue(); } // percent of dab width
     int angleJitter() const { return getInfo(ANGLE_JITTER_VALUE).intValue(); } // degrees
     int dabCount() const { return getInfo(DAB_COUNT_VALUE).intValue(); }
+    bool flowPerDab() const { return getInfo(FLOW_PER_DAB_ENABLED).boolValue(); }
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }
