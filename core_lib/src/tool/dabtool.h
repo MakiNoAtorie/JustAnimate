@@ -54,7 +54,7 @@ protected:
     virtual void strokeMoved() {}
 
     /// Distance between dab centres for a dab of this width.
-    static qreal dabSpacing(qreal brushWidth);
+    qreal dabSpacing(qreal brushWidth) const;
 
     QPointF mLastBrushPoint{ 0, 0 };
     qreal mLastBrushPressure = 1.0;

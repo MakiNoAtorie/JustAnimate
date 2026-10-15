@@ -409,46 +409,35 @@ struct Golden
     const char* frameSha1;
 };
 
-// The look of Pencil, Brush and Eraser before the brush engine work (ROADMAP B0).
+// The look of Pencil, Brush and Eraser; B0 hashes are in git history.
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
-    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1) and 1-euro smoothing (B4). linux and darwin: CI, Qt 6.5.3.
-    { "winnt x86_64", "pencil", 4, "e9bf5bdc4d593ba38e584a8690a6dcc562d39604", "b41ef0d0efd86fd36d5d6fa4c3da3c63570de296" },
-    { "winnt x86_64", "pencil", 24, "c01d553b4345a17fc91673543f1e866b136734ec", "984450498dee90b677251851246e2a5335091f8f" },
-    { "winnt x86_64", "pencil", 96, "4efe533440d352fb8e1b4a680a4a52197840b590", "fbc38b93ab6520ec76a3912014326b6b1603369b" },
-    { "winnt x86_64", "pencil", 200, "3e6bd5d5aaa28d389bebdd5e5e4a5bab9ed2bce4", "c7907b1f7581fdc9de076ddbbb733a7896a017fd" },
-    { "winnt x86_64", "brush", 4, "740861c3525c041f4d568027c2836202efd6ac23", "a3cada8c305189799dee5f2262cdd46e4919b2f8" },
-    { "winnt x86_64", "brush", 24, "13c4a085b2a7e6bed32bc1a1ee6a87db1377e55e", "cb30f0f61862e6bade71f9ba33c117f1dfd47891" },
-    { "winnt x86_64", "brush", 96, "87e21e783d71ecfdf430f475b91d3ecca14b7463", "622d275dbaa4ebc0d8d72e6754c87251dfcbb342" },
-    { "winnt x86_64", "brush", 200, "aaeea21cac41b8c5cab6d309475380ab95e04e48", "0ab4ecd48a047df862acb5843b269fd9f32bf3d6" },
-    { "winnt x86_64", "eraser", 4, "e04b7a00643afc2e9b5b5460be88c093650149f5", "ae8fc055243ebb96d8f46be61d42b3e52c04b39e" },
-    { "winnt x86_64", "eraser", 24, "78398091e8bba82f80297e501977b317a8224522", "1f1582bc0384668f59cb2585fc1235c9e587abd1" },
-    { "winnt x86_64", "eraser", 96, "5ddc06506a386893e116fab79387328cb7cb8840", "cbf62d3050eebf269f6a04143c772adffc55b398" },
-    { "winnt x86_64", "eraser", 200, "eac77f788e077692c657bb6a193c6f666ef8d107", "42177c14c2cda4f41138a6c3242b8bbcb4d27ac2" },
-    { "linux x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
-    { "linux x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
-    { "linux x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
-    { "linux x86_64", "pencil", 200, "b2621f11c3e6214dbd89014eafc12d22ac374589", "928eabfdfac9b0e3d9ce87e8e087350185e67b79" },
-    { "linux x86_64", "brush", 4, "08ac3b83dbf641ffeb5b645d6b79fb4dc332f8e1", "646b6145475d7df921aa824535dbc5524350a989" },
-    { "linux x86_64", "brush", 24, "ac77c286b9b6e9f907000f19a4327ec3ddbcc3e6", "93688a6d99a914987bf51ff7dcccdd8b27754938" },
-    { "linux x86_64", "brush", 96, "875e33735b958bec8be54804e56cf8ae5220f03a", "fa9935dab752949aa2b61497f10381791b613ccc" },
-    { "linux x86_64", "brush", 200, "0fa12608f628ee6bb7e05af77c82b9f2b3287ccb", "27cd857dc3e459c11ee8d134dd6ab88b20fac4cc" },
-    { "linux x86_64", "eraser", 4, "d7e2f2e5e32b6b22059c24951ac933943fd957b7", "88130c67007948c838b5a64bb13667fcb08a1f69" },
-    { "linux x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
-    { "linux x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
-    { "linux x86_64", "eraser", 200, "516a81d7c6b1d424b1a5e6f9beb9074cdd54dec2", "3aca31806a5bda175678e38b2d0043338db1c7ce" },
-    { "darwin arm64", "pencil", 4, "5000a2e5b14e7dbc08aa011dc157de2bf7929cae", "ae3fa4fe54391a65474202d40c6179662044e735" },
-    { "darwin arm64", "pencil", 24, "3f9e24bb45c76fbe381aa547dc22553e4a016c12", "ee398f6ad88318aaf85b35b5bcc03883601e4564" },
-    { "darwin arm64", "pencil", 96, "133828f4ae764ccd6532d1a7dded26147d2c86f8", "48657693ffed51c954aed70ee84b8efef8e89bd6" },
-    { "darwin arm64", "pencil", 200, "763ca6ddca698fdfc128b5751f867e26310a0d3a", "fa59cd26a8df95b6d1d6100cd79c00439468c31e" },
-    { "darwin arm64", "brush", 4, "6ba6764ce248bdaffc996826ed38461ece651182", "81b1e88689e4fe30fd68c01919b95d732cb2421f" },
-    { "darwin arm64", "brush", 24, "745acceb3f282859c158f324584aa802aae3447c", "169bd9f89abad3f6313c8d30ca7fcd39ad4d85f0" },
-    { "darwin arm64", "brush", 96, "754cc8fc17664d12718051dc5bd44902f0ad05f5", "0d9ca4ac77b726634b33da2bc7bbb989787b9e37" },
-    { "darwin arm64", "brush", 200, "dfb745b451f8e9b93f47e96bb3b907e6cd0270e4", "c384456c5bb527b01888ef738f8fb3a9e8739a2d" },
-    { "darwin arm64", "eraser", 4, "c059930a509377a716ed948c0ca35523fd6ff8e2", "4d4f6a380cbd0335356e91de2071ef1de48d69c6" },
-    { "darwin arm64", "eraser", 24, "968522fda805d0c1805c5a7157914a6f2ae4fb2c", "6e09d76e867c69c92d60f6d72b2f38acdc2e1385" },
-    { "darwin arm64", "eraser", 96, "d4543c7fb4b70a8f91cef3ee0c7ed0f528e8752c", "333353a675795c9bc0ec968faa4fdf013561dc1e" },
-    { "darwin arm64", "eraser", 200, "f3512e3a650f8a8d4b3ea565731afa3a3e839b56", "1f52f221dffe72a5e0e5d65df20889433f3fe406" },
+    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1), 1-euro smoothing (B4) and cached dab masks (B2).
+    // linux: same as winnt, to confirm on CI. darwin: add from the CI warning.
+    { "winnt x86_64", "pencil", 4, "9bbf0e66e92a1fe450bc3328ede9539b667c0409", "d0973fc3c30b5898b68c89d9457a709f5f370327" },
+    { "winnt x86_64", "pencil", 24, "305b4c6f27f1915037a3f8edb78cbe7b0027d64a", "b39504133e5eedb7228b97ddd0f8234f138621f0" },
+    { "winnt x86_64", "pencil", 96, "4ade7f8b701e65927e803292b7419b5d9ce6b864", "c80c2260a431fa2249e7ea5139a4165eafef6816" },
+    { "winnt x86_64", "pencil", 200, "2732618de2288713101d7118ea08b0c3e9fcfb67", "3300fc77b301fb0761b360132dada163b54e3ee0" },
+    { "winnt x86_64", "brush", 4, "8488dd319ff5e89e64c9b89b4e2c07eef0220231", "b0a88897414377be9ef7509a9207afa8f3939021" },
+    { "winnt x86_64", "brush", 24, "1470a180b19f5fe04588539add213530ff6cc50e", "c92cad7c3bdc5cd0cb055666339f4d73fdec84e7" },
+    { "winnt x86_64", "brush", 96, "f991d2209549d88559dd7fab7fba165afd097ab6", "3e14b7f0236e20441333b0b213525d73cc1fd1a8" },
+    { "winnt x86_64", "brush", 200, "7e6f3f67a36654439be6bf02001009a5b5276091", "83abf66c59ed50bf8fd7d8f868b347f116944503" },
+    { "winnt x86_64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
+    { "winnt x86_64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
+    { "winnt x86_64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
+    { "winnt x86_64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
+    { "linux x86_64", "pencil", 4, "9bbf0e66e92a1fe450bc3328ede9539b667c0409", "d0973fc3c30b5898b68c89d9457a709f5f370327" },
+    { "linux x86_64", "pencil", 24, "305b4c6f27f1915037a3f8edb78cbe7b0027d64a", "b39504133e5eedb7228b97ddd0f8234f138621f0" },
+    { "linux x86_64", "pencil", 96, "4ade7f8b701e65927e803292b7419b5d9ce6b864", "c80c2260a431fa2249e7ea5139a4165eafef6816" },
+    { "linux x86_64", "pencil", 200, "2732618de2288713101d7118ea08b0c3e9fcfb67", "3300fc77b301fb0761b360132dada163b54e3ee0" },
+    { "linux x86_64", "brush", 4, "8488dd319ff5e89e64c9b89b4e2c07eef0220231", "b0a88897414377be9ef7509a9207afa8f3939021" },
+    { "linux x86_64", "brush", 24, "1470a180b19f5fe04588539add213530ff6cc50e", "c92cad7c3bdc5cd0cb055666339f4d73fdec84e7" },
+    { "linux x86_64", "brush", 96, "f991d2209549d88559dd7fab7fba165afd097ab6", "3e14b7f0236e20441333b0b213525d73cc1fd1a8" },
+    { "linux x86_64", "brush", 200, "7e6f3f67a36654439be6bf02001009a5b5276091", "83abf66c59ed50bf8fd7d8f868b347f116944503" },
+    { "linux x86_64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
+    { "linux x86_64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
+    { "linux x86_64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
+    { "linux x86_64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
 };
 
 } // namespace

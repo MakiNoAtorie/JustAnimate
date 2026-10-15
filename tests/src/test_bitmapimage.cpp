@@ -482,3 +482,30 @@ TEST_CASE("BitmapImage paste: brush tiles are premultiplied images")
     REQUIRE(image.constScanLine(70, 32) == qPremultiply(red.rgba()));
     REQUIRE(image.constScanLine(70, 60) == 0);
 }
+
+TEST_CASE("TiledBuffer drawDab: a cached mask lands only in the tiles the dab covers")
+{
+    TiledBuffer buffer;
+    const QColor red(255, 0, 0);
+    buffer.drawDab(QPointF(40, 40), 40, 0, red, 1.0, false); // covers x, y 20..60: tile (0, 0) only
+    REQUIRE(buffer.tiles().size() == 1);
+
+    BitmapImage solid(QRect(0, 0, 64, 64), Qt::transparent);
+    solid.paste(&buffer);
+    CHECK(solid.constScanLine(40, 40) == qRgba(255, 0, 0, 255));
+    CHECK(solid.constScanLine(40, 21) == qRgba(255, 0, 0, 255));
+    CHECK(solid.constScanLine(40, 19) == 0);
+    CHECK(solid.constScanLine(25, 25) == 0); // outside the circle, inside its box
+
+    // Feather 50: the centre keeps 255 - 128 alpha, the outer half fades to zero.
+    TiledBuffer soft;
+    soft.drawDab(QPointF(40, 40), 40, 50, red, 1.0, false);
+    BitmapImage feathered(QRect(0, 0, 64, 64), Qt::transparent);
+    feathered.paste(&soft);
+    CHECK(qAlpha(feathered.constScanLine(40, 40)) == 127);
+    CHECK(qAlpha(feathered.constScanLine(40, 33)) == 127);
+    CHECK(qAlpha(feathered.constScanLine(40, 25)) < 127);
+    CHECK(qAlpha(feathered.constScanLine(40, 25)) > qAlpha(feathered.constScanLine(40, 22)));
+    CHECK(qAlpha(feathered.constScanLine(40, 22)) > 0);
+    CHECK(feathered.constScanLine(40, 19) == 0);
+}

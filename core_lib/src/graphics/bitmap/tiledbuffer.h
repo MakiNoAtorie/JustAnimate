@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <QObject>
 #include <QPainter>
 #include <QHash>
+#include <vector>
 
 #include "blitrect.h"
 
@@ -57,6 +58,9 @@ public:
 
     /** Draws a brush with the specified parameters to the tiled buffer */
     void drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush brush, QPainter::CompositionMode cm, bool antialiasing);
+    /** Draws a round dab with SourceOver: full alpha inside 1 - feather/100 of the radius, then a linear fade.
+     *  feather is 0..100 and also lowers the centre alpha, like ScribbleArea::setGaussianGradient. */
+    void drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing);
     /** Draws a path with the specified parameters to the tiled buffer */
     void drawPath(QPainterPath path, QPen pen, QBrush brush,
                   QPainter::CompositionMode cm, bool antialiasing);
@@ -82,6 +86,19 @@ private:
     BlitRect mTileBounds;
 
     QHash<TileIndex, Tile*> mTiles;
+
+    /** Dab alpha (0..255) on the pixels in rect, relative to the dab's integer origin. */
+    struct DabMask
+    {
+        QRect rect;
+        std::vector<quint8> alpha;
+    };
+    const DabMask& dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing);
+
+    QHash<quint64, DabMask> mDabMasks;
+    qsizetype mDabMaskBytes = 0;
+    std::vector<float> mProfile; // alpha over r^2 / R^2 for mProfileFeather
+    int mProfileFeather = -1;
 };
 
 #endif // TILEDBUFFER_H

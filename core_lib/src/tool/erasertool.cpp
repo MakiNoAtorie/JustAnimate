@@ -53,6 +53,7 @@ void EraserTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::FEATHER_ENABLED] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
+    mPropertyUsed[StrokeToolProperties::SPACING_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::ANTI_ALIASING_ENABLED] = { Layer::BITMAP };
 
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
@@ -60,6 +61,7 @@ void EraserTool::loadSettings()
     info[StrokeToolProperties::FEATHER_ENABLED] = true;
     info[StrokeToolProperties::PRESSURE_ENABLED] = true;
     info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::None);
+    info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
     info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = true;
 
     toolProperties().insertProperties(info);
@@ -97,7 +99,6 @@ void EraserTool::drawDab(QPointF point, qreal width, qreal opacity)
                              width,
                              mSettings.feather(),
                              Qt::white,
-                             QPainter::CompositionMode_SourceOver,
                              opacity,
                              mSettings.featherEnabled(),
                              mSettings.AntiAliasingEnabled() == ON);
