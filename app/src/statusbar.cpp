@@ -136,6 +136,9 @@ void StatusBar::updateToolStatus(ToolType tool)
         case SHAPE:
             mToolLabel->setText(tr("Click and drag to draw a shape. Hold Shift to constrain it or Alt to draw from the center."));
             break;
+        case LASSOFILL:
+            mToolLabel->setText(tr("Click and drag around an area to fill it with the current color."));
+            break;
         default:
             Q_ASSERT(false);
     }
@@ -153,7 +156,8 @@ void StatusBar::updateToolStatus(ToolType tool)
         {":icons/themes/playful/tools/tool-bucket.svg"},
         {":icons/themes/playful/tools/tool-eyedropper.svg"},
         {":icons/themes/playful/tools/tool-brush.svg"},
-        {":icons/themes/playful/tools/tool-shape.svg"}
+        {":icons/themes/playful/tools/tool-shape.svg"},
+        {":icons/themes/playful/tools/tool-lassofill.svg"}
     };
     mToolIcon->setPixmap(toolIcons[tool]);
     mToolIcon->setToolTip(BaseTool::TypeName(tool));
