@@ -19,12 +19,13 @@ GNU General Public License for more details.
 #include <QObject>
 #include <QPainter>
 #include <QHash>
+#include <QImage>
 #include <QSemaphore>
 #include <vector>
 
 #include "blitrect.h"
+#include "pencilerror.h"
 
-class QImage;
 class QRect;
 class Tile;
 
@@ -44,13 +45,18 @@ inline bool operator==(const TileIndex &e1, const TileIndex &e2)
            && e1.y == e2.y;
 }
 
-/** The shape of a generated dab. The default is the round tip. */
+/** The shape of a dab. The default is the round tip. */
 struct BrushTip
 {
     bool square = false;
     qreal aspect = 1.0; // height / width, 0.01..1
     qreal angle = 0.0;  // degrees, counter-clockwise on screen
+    QImage image;       // Format_Alpha8 coverage; when set, it replaces the generated shape and square
 };
+
+/** Loads a brush tip mask from a GIMP .gbr file or an image file such as PNG.
+ *  An image with alpha paints its opaque dark parts; one without alpha paints its dark parts. */
+Status loadBrushTipImage(const QString& fileName, QImage& mask);
 
 class TiledBuffer: public QObject
 {
@@ -127,9 +133,11 @@ private:
         std::vector<quint8> alpha;
     };
     const DabMask& dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing, const BrushTip& tip);
+    static DabMask imageDabMask(const QImage& image, float width, float aspect, int angle, float cx, float cy);
 
     QHash<quint64, DabMask> mDabMasks;
     qsizetype mDabMaskBytes = 0;
+    qint64 mTipImageKey = 0; // QImage::cacheKey of the image tip the cached masks were made from
     std::vector<float> mProfile; // alpha over r^2 / R^2 for mProfileFeather
     int mProfileFeather = -1;
 

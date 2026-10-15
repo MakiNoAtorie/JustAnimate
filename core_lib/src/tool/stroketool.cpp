@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "toolmanager.h"
 #include "mathutils.h"
+#include "tiledbuffer.h"
 
 #include "canvascursorpainter.h"
 
@@ -484,6 +485,19 @@ void StrokeTool::setTipFollowsDirection(bool follow)
 {
     toolProperties().setBaseValue(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, follow);
     emit tipChanged();
+}
+
+Status StrokeTool::setTipImage(const QString& fileName)
+{
+    QImage mask;
+    if (!fileName.isEmpty())
+    {
+        const Status st = loadBrushTipImage(fileName, mask);
+        if (!st.ok()) return st;
+    }
+    mTipImage = mask;
+    emit tipChanged();
+    return Status::OK;
 }
 
 void StrokeTool::setFeather(qreal feather)

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Pencil, Brush and Eraser can paint with an image tip loaded from a PNG or GIMP .gbr file; a damaged .gbr shows an error (B5).
 - Flow and opacity: Pencil and Brush have Flow (per dab, builds up), Opacity (per stroke) and a Wash mode that keeps overlaps at the stroke opacity; spacing no longer changes how dark a stroke is (B3).
 - Stroke taper: Preferences, Tools sets start and end taper lengths for Pencil, Brush and Eraser, so mouse strokes also get thin ends (B3).
 - Pencil, Brush and Eraser tips can be square, flattened (aspect %), turned to an angle, or turned with the stroke direction; Feather sets the hardness (B5).
