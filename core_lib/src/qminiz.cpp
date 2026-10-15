@@ -66,7 +66,8 @@ size_t MiniZ::istreamReadCallback(void *pOpaque, mz_uint64 file_ofs, void * pBuf
 }
 
 // ReSharper disable once CppInconsistentNaming
-Status MiniZ::compressFolder(QString zipFilePath, QString srcFolderPath, const QStringList& fileList, QString mimetype)
+Status MiniZ::compressFolder(QString zipFilePath, QString srcFolderPath, const QStringList& fileList, QString mimetype,
+                             const Progress& progress)
 {
     DebugDetails dd;
     dd << "\n[Miniz COMPRESSION diagnostics]\n";
@@ -119,8 +120,10 @@ Status MiniZ::compressFolder(QString zipFilePath, QString srcFolderPath, const Q
         return Status(Status::FAIL, dd);
     }
     QDir baseDir(canonicalFolder);
+    int done = 0;
     for (const QString& filePath : fileList)
     {
+        if (progress) progress(done++, fileList.size());
         QString canonicalFilePath = QFileInfo(filePath).canonicalFilePath();
         if (canonicalFilePath.isEmpty())
         {
@@ -159,7 +162,7 @@ Status MiniZ::compressFolder(QString zipFilePath, QString srcFolderPath, const Q
     return Status::OK;
 }
 
-Status MiniZ::uncompressFolder(QString zipFilePath, QString destPath)
+Status MiniZ::uncompressFolder(QString zipFilePath, QString destPath, const Progress& progress)
 {
     DebugDetails dd;
     dd << "\n[Miniz EXTRACTION diagnostics]\n";
@@ -245,6 +248,7 @@ Status MiniZ::uncompressFolder(QString zipFilePath, QString destPath)
 
     for (int i = 0; i < num; ++i)
     {
+        if (progress) progress(i, num);
         if (!mz_zip_reader_file_stat(mz, i, stat)) { return Status(Status::FAIL, dd); }
 
         if (!stat->m_is_directory)
