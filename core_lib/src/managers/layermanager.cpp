@@ -114,10 +114,9 @@ void LayerManager::setCurrentLayer(int layerIndex)
     Q_ASSERT(layerIndex >= 0);
     Q_ASSERT(layerIndex < object()->getLayerCount());
 
-    // Deselect frames of previous layer.
-    Layer* previousLayer = currentLayer();
-    if (previousLayer != object()->getLayer(layerIndex)) {
-        previousLayer->deselectAll();
+    // A box selection can span layers: deselect them all.
+    if (currentLayer() != object()->getLayer(layerIndex)) {
+        deselectAllFrames();
     }
 
     emit currentLayerWillChange(layerIndex);
@@ -142,7 +141,7 @@ void LayerManager::gotoNextLayer()
 {
     if (editor()->currentLayerIndex() < object()->getLayerCount() - 1)
     {
-        currentLayer()->deselectAll();
+        deselectAllFrames();
         editor()->setCurrentLayerIndex(editor()->currentLayerIndex() + 1);
         emit currentLayerChanged(editor()->currentLayerIndex());
     }
@@ -152,7 +151,7 @@ void LayerManager::gotoPreviouslayer()
 {
     if (editor()->currentLayerIndex() > 0)
     {
-        currentLayer()->deselectAll();
+        deselectAllFrames();
         editor()->setCurrentLayerIndex(editor()->currentLayerIndex() - 1);
         emit currentLayerChanged(editor()->currentLayerIndex());
     }
@@ -434,6 +433,57 @@ int LayerManager::animationLength(bool includeSounds)
 void LayerManager::notifyAnimationLengthChanged()
 {
     emit animationLengthChanged(animationLength(true));
+}
+
+void LayerManager::deselectAllFrames()
+{
+    for (int i = 0; i < count(); ++i) { object()->getLayer(i)->deselectAll(); }
+}
+
+void LayerManager::selectFrames(int fromLayer, int toLayer, int fromFrame, int toFrame)
+{
+    deselectAllFrames();
+    const int lastLayer = qMin(qMax(fromLayer, toLayer), count() - 1);
+    const int lastFrame = qMax(fromFrame, toFrame);
+    for (int i = qMax(qMin(fromLayer, toLayer), 0); i <= lastLayer; ++i)
+    {
+        Layer* layer = object()->getLayer(i);
+        for (int pos = qMin(fromFrame, toFrame); pos <= lastFrame; ++pos) { layer->setFrameSelected(pos, true); }
+    }
+}
+
+bool LayerManager::moveSelectedFrames(int offset)
+{
+    QList<Layer*> selected;
+    int firstFrame = INT_MAX;
+    for (int i = 0; i < count(); ++i)
+    {
+        Layer* layer = object()->getLayer(i);
+        if (!layer->hasAnySelectedFrames()) { continue; }
+        selected.append(layer);
+        firstFrame = qMin(firstFrame, layer->selectedKeyFramesPositions().first());
+    }
+    if (selected.isEmpty()) { return false; }
+
+    offset = qMax(offset, 1 - firstFrame);
+    if (offset == 0) { return false; }
+    for (const Layer* layer : selected)
+    {
+        if (!layer->canMoveSelectedFramesToOffset(offset)) { return false; }
+    }
+
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const QString description = tr("Move Frames");
+    const UndoMacro macro(undoRedo, description);
+    for (Layer* layer : selected)
+    {
+        const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
+        layer->moveSelectedFrames(offset);
+        undoRedo->record(saveStateId, description);
+    }
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+    return true;
 }
 
 int LayerManager::getIndex(Layer* layer) const

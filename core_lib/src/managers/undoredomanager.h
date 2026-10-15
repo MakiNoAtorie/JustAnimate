@@ -148,8 +148,9 @@ public:
     void markSaved();
 
     /** Prepares and returns an save state with common data
+     * @param layer The layer to record; nullptr records the current layer
      * @return A UndoSaveState struct with common keyframe data */
-    SAVESTATE_ID createState(UndoRedoRecordType recordType);
+    SAVESTATE_ID createState(UndoRedoRecordType recordType, const Layer* layer = nullptr);
 
     /** Adds userState to the saveState found at SaveStateId
      *  If no record is found matching the id, nothing happens.
@@ -196,7 +197,7 @@ private:
     void removeKeyFrames(const UndoSaveState& undoState, const QString& description);
     void pasteKeyFrames(const UndoSaveState& undoState, const QString& description);
 
-    void initCommonKeyFrameState(UndoSaveState* undoSaveState) const;
+    void initCommonKeyFrameState(UndoSaveState* undoSaveState, const Layer* layer) const;
 
     void pushCommand(QUndoCommand* command);
 

@@ -34,7 +34,6 @@ GNU General Public License for more details.
 #include "object.h"
 #include "playbackmanager.h"
 #include "preferencemanager.h"
-#include "undoredomanager.h"
 #include "timeline.h"
 
 #include "cameracontextmenu.h"
@@ -893,17 +892,14 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             {
                 if ((layerNumber != -1) && layerNumber < mEditor->object()->getLayerCount())
                 {
-                    int previousLayerNumber = mEditor->layers()->currentLayerIndex();
-
-                    if (previousLayerNumber != layerNumber)
-                    {
-                        Layer *previousLayer = mEditor->object()->getLayer(previousLayerNumber);
-                        previousLayer->deselectAll();
-                        emit mEditor->selectedFramesChanged();
-                        mEditor->layers()->setCurrentLayer(layerNumber);
-                    }
-
                     Layer *currentLayer = mEditor->object()->getLayer(layerNumber);
+
+                    // Switching layers deselects all frames: keep a box selection to drag it.
+                    if (mEditor->layers()->currentLayerIndex() != layerNumber && !currentLayer->isFrameSelected(frameNumber))
+                    {
+                        mEditor->layers()->setCurrentLayer(layerNumber);
+                        emit mEditor->selectedFramesChanged();
+                    }
 
                     // Check if we are using the alt key
                     if (event->modifiers() == Qt::AltModifier)
@@ -939,7 +935,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                             else
                             {
                                 // Only select if left button clicked
-                                currentLayer->toggleFrameSelected(frameNumber, false);
+                                mEditor->layers()->selectFrames(layerNumber, layerNumber, frameNumber, frameNumber);
                                 emit mEditor->selectedFramesChanged();
                             }
                         }
@@ -1031,8 +1027,6 @@ void TimeLineCells::mouseMoveEvent(QMouseEvent* event)
                 if (event->buttons() & Qt::LeftButton) {
                     if (mStartLayerNumber != -1 && mStartLayerNumber < mEditor->object()->getLayerCount())
                     {
-                        Layer *currentLayer = mEditor->object()->getLayer(mStartLayerNumber);
-
                         // Check if the frame we clicked was selected
                         if (mCanMoveFrame) {
 
@@ -1044,9 +1038,9 @@ void TimeLineCells::mouseMoveEvent(QMouseEvent* event)
                             // Otherwise, we do a box select
                             mBoxSelecting = true;
 
-                            currentLayer->deselectAll();
-                            currentLayer->setFrameSelected(mStartFrameNumber, true);
-                            currentLayer->extendSelectionTo(mFramePosMoveX);
+                            // Above the tracks (-1) is the top layer.
+                            const int toLayer = mLayerPosMoveY == -1 ? mEditor->layers()->count() - 1 : mLayerPosMoveY;
+                            mEditor->layers()->selectFrames(mStartLayerNumber, toLayer, mStartFrameNumber, mFramePosMoveX);
                             emit mEditor->selectedFramesChanged();
                         }
                         mLastFrameNumber = mFramePosMoveX;
@@ -1076,15 +1070,7 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
         if (mMovingFrames)
         {
             int posUnderCursor = getFrameNumber(mMousePressX);
-            int offset = frameNumber - posUnderCursor;
-
-            if (currentLayer->canMoveSelectedFramesToOffset(offset)) {
-                SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
-                currentLayer->moveSelectedFrames(offset);
-                mEditor->undoRedo()->record(saveStateId, tr("Move Frames"));
-            }
-            mEditor->layers()->notifyAnimationLengthChanged();
-            emit mEditor->framesModified();
+            mEditor->layers()->moveSelectedFrames(frameNumber - posUnderCursor);
             updateContent();
         }
         else if (!mTimeLine->scrubbing && !mMovingFrames && !mClickSelecting && !mBoxSelecting)
@@ -1093,7 +1079,9 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
             bool multipleSelection = (event->modifiers() == Qt::ControlModifier);
 
             // Add/remove from already selected
-            currentLayer->toggleFrameSelected(frameNumber, multipleSelection);
+            const bool wasSelected = currentLayer->isFrameSelected(frameNumber);
+            if (!multipleSelection) { mEditor->layers()->deselectAllFrames(); }
+            currentLayer->setFrameSelected(frameNumber, !wasSelected);
             emit mEditor->selectedFramesChanged();
             updateContent();
         }

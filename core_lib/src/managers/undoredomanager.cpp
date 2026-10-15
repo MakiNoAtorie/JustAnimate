@@ -331,12 +331,12 @@ void UndoRedoManager::replaceVector(const UndoSaveState& undoState, const QStrin
     pushCommand(element);
 }
 
-SAVESTATE_ID UndoRedoManager::createState(UndoRedoRecordType recordType)
+SAVESTATE_ID UndoRedoManager::createState(UndoRedoRecordType recordType, const Layer* layer)
 {
     int saveStateId = mSaveStateId;
     UndoSaveState* state = new UndoSaveState();
     state->recordType = recordType;
-    initCommonKeyFrameState(state);
+    initCommonKeyFrameState(state, layer ? layer : editor()->layers()->currentLayer());
 
     mSaveStates[saveStateId] = state;
     mSaveStateId += 1;
@@ -360,9 +360,8 @@ void UndoRedoManager::recordLayerRemove(Layer* layer, int index, const QString& 
     pushCommand(new LayerAddRemoveCommand(layer->id(), layer, index, description, editor()));
 }
 
-void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState) const
+void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState, const Layer* layer) const
 {
-    const Layer* layer = editor()->layers()->currentLayer();
     undoSaveState->layerType = layer->type();
     undoSaveState->layerId = layer->id();
     undoSaveState->currentFrameIndex = editor()->currentFrame();
