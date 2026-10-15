@@ -34,6 +34,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "pencildef.h"
 #include "preferencemanager.h"
+#include "repositionframesdialog.h"
 #include "scribblearea.h"
 #include "selectionmanager.h"
 #include "testfixture.h"
@@ -530,6 +531,22 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
     SECTION("Reposition Frames")
     {
         checkUndoRedo([&] { editor->repositionImage(QPoint(0, 20), 3); }, "6=6 5=5 3=0 1=1");
+    }
+
+    SECTION("Reposition Frames on several frames is one step")
+    {
+        select({ 3, 5 });
+        editor->scrubTo(3);
+        checkUndoRedo([&]
+        {
+            RepositionFramesDialog dialog(nullptr);
+            dialog.setCore(editor);
+            dialog.initUI();
+            editor->select()->translate(QPointF(0, 20));
+            editor->select()->calculateSelectionTransformation();
+            dialog.updateDialogText();
+            dialog.repositionFrames();
+        }, "6=6 5=0 3=0 1=1");
     }
 }
 

@@ -48,6 +48,8 @@ set(TEST_SOURCES
 # App sources under test (the dialog and what it links against)
 set(TEST_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/importlayersdialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/importlayersdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/errordialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/errordialog.cpp
