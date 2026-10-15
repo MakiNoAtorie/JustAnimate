@@ -27,6 +27,7 @@ class QLineF;
 class QRect;
 class QImage;
 class QString;
+class QThreadPool;
 
 /**
  * Clips a given line to a clipping window using the Liang-Barsky algorithm.
@@ -83,6 +84,8 @@ int parallelWorkerCount();
 // fn must be safe to run on any thread at the same time as other indices.
 // Do not call parallelFor from inside an fn: the shared pool can run out of threads and deadlock.
 void parallelFor(int count, const std::function<void(int)>& fn);
+// The pool behind parallelFor (parallelWorkerCount() threads), for background tasks. Never waitForDone on it.
+QThreadPool* workerPool();
 QString uniqueString(int len);
 
 /**

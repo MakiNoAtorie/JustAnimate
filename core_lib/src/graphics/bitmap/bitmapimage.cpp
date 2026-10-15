@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QFileInfo>
 #include <QImageWriter>
 #include <QPainterPath>
+#include <QThreadPool>
 #include "util.h"
 
 #include "blitrect.h"
@@ -128,14 +129,28 @@ BitmapImage* BitmapImage::clone() const
     return b;
 }
 
+static QImage readImageFile(const QString& path)
+{
+    return QImage(path).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+}
+
 void BitmapImage::loadFile()
 {
     if (!fileName().isEmpty() && !isLoaded())
     {
-        mImage = QImage(fileName()).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+        mImage = mPendingLoad.valid() ? mPendingLoad.get() : readImageFile(fileName());
         mBounds.setSize(mImage.size());
         mMinBound = false;
     }
+    mPendingLoad = {};
+}
+
+void BitmapImage::loadFileAsync()
+{
+    if (fileName().isEmpty() || isLoaded() || mPendingLoad.valid()) { return; }
+    auto promise = std::make_shared<std::promise<QImage>>();
+    mPendingLoad = promise->get_future().share();
+    workerPool()->start([promise, path = fileName()] { promise->set_value(readImageFile(path)); });
 }
 
 void BitmapImage::unloadFile()
@@ -143,6 +158,7 @@ void BitmapImage::unloadFile()
     if (isModified() == false && !fileName().isEmpty())
     {
         mImage = QImage();
+        mPendingLoad = {};
     }
 }
 
@@ -785,6 +801,7 @@ Status BitmapImage::writeFile(const QString& filename)
 {
     DebugDetails dd;
     dd << "BitmapImage::writeFile";
+    mPendingLoad = {}; // the file changes
     dd << QString("&nbsp;&nbsp;filename = ").append(filename);
 
     QImageWriter writer(filename);
