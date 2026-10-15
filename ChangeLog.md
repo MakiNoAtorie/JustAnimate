@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Keyframes more than 50 frames from the playhead are unloaded and reload from disk on demand, so large projects use much less RAM; frames with unsaved changes stay in memory (1.5).
 - Saving and opening zip and unzip the project on a worker thread, so the progress bar keeps moving and the window keeps repainting; an autosave that fires during a save is skipped (1.6).
 - Canvas: the layers below the one you paint are cached in 64 px cells and redrawn only when they change, so repaints with many layers are faster (1.3).
 - Fill behind lines is the bucket's existing Behind blend mode; a test now checks it keeps antialiased line edges over the fill (2.6).

@@ -621,6 +621,7 @@ TEST_CASE("FileManager saves bitmap frames byte-identical to serial PNG encoding
         image->drawEllipse(QRectF(f * 3, f * 2, 20 + f, 30), QPen(Qt::black, 2), QBrush(QColor::fromHsv(f * 9, 200, 200)),
                            QPainter::CompositionMode_SourceOver, true);
         // Reference: the frame encoded alone, the same way BitmapImage::writeFile does.
+        image->autoCrop();
         REQUIRE(QImageWriter(testDir.filePath(QString("serial%1.png").arg(f))).write(*image->image()));
     }
 
@@ -917,4 +918,69 @@ TEST_CASE("Empty Sound Frames")
             delete newObj;
         }
     }
+}
+
+TEST_CASE("Frame pool unloads far-away keyframes and keeps their pixels", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString path1 = testDir.path() + "/a.pclx";
+    const QString path2 = testDir.path() + "/b.pclx";
+    const int frames = 200;
+    const QRgb red = qRgb(255, 0, 0);
+    const QRgb blue = qRgb(0, 0, 255);
+    FileManager fm;
+
+    {
+        std::unique_ptr<Object> o(new Object);
+        o->init();
+        o->addNewCameraLayer();
+        LayerBitmap* layer = o->addNewBitmapLayer();
+        for (int f = 1; f <= frames; ++f)
+        {
+            layer->addNewKeyFrameAt(f);
+            // Antialiased ellipse: its bounds keep a transparent margin, like a drawn stroke.
+            layer->getBitmapImageAtFrame(f)->drawEllipse(QRectF(0, 0, 20, 20), QPen(Qt::red, 4), QBrush(Qt::red),
+                                                         QPainter::CompositionMode_SourceOver, true);
+        }
+        REQUIRE(fm.save(o.get(), path1).ok());
+    }
+
+    // The default pool budget (1 GB) holds the whole project: only distance unloads frame 1.
+    std::unique_ptr<Object> o(fm.load(path1));
+    REQUIRE(o);
+    auto layer = static_cast<LayerBitmap*>(o->getLayer(1));
+    BitmapImage* first = layer->getBitmapImageAtFrame(1);
+    o->updateActiveFrames(1);
+    first->bounds(); // the canvas reads the bounds when it paints the frame
+    REQUIRE(first->isLoaded());
+    REQUIRE_FALSE(first->isModified()); // viewing a frame is no edit
+    o->updateActiveFrames(frames);
+    REQUIRE_FALSE(first->isLoaded());
+
+    // Edit after unload: the frame reloads, takes the edit and keeps it while far away.
+    first->drawRect(QRectF(8, 4, 4, 4), QPen(Qt::blue), QBrush(Qt::blue), QPainter::CompositionMode_SourceOver, false);
+    o->updateActiveFrames(1);
+    o->updateActiveFrames(frames);
+    REQUIRE(first->isLoaded());
+    REQUIRE(first->pixel(10, 6) == blue);
+
+    // Save after unload, to a new file: unloaded frames and the edit are all written.
+    REQUIRE_FALSE(layer->getBitmapImageAtFrame(2)->isLoaded());
+    REQUIRE(fm.save(o.get(), path2).ok());
+    o->updateActiveFrames(1);
+    o->updateActiveFrames(frames);
+    REQUIRE_FALSE(first->isLoaded()); // saved, so it can unload now
+    REQUIRE(first->pixel(10, 6) == blue);
+    o.reset();
+
+    std::unique_ptr<Object> o2(fm.load(path2));
+    REQUIRE(o2);
+    auto layer2 = static_cast<LayerBitmap*>(o2->getLayer(1));
+    // A frame's bounds are known only once loaded, so load before reading pixels.
+    auto pixelAt = [layer2](int f, int x, int y) { BitmapImage* b = layer2->getBitmapImageAtFrame(f); b->image(); return b->pixel(x, y); };
+    REQUIRE(pixelAt(1, 10, 6) == blue);
+    REQUIRE(pixelAt(1, 10, 16) == red);
+    for (int f = 2; f <= frames; ++f)
+        REQUIRE(pixelAt(f, 10, 16) == red);
 }
