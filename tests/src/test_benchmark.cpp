@@ -343,8 +343,8 @@ void tablet(QWidget* w, const QPointingDevice* pen, QEvent::Type type, const Sam
 
 // Replays the strokes as tablet input with one tool at its default settings and the given size,
 // on a fresh canvas: a blue layer below and a half-transparent yellow block on the painted layer
-// (so the eraser has something to erase). Events are sent synchronously, no event loop runs, so
-// the stabilizer's poll timer never fires and the result only depends on the input.
+// (so the eraser has something to erase). Events carry no timestamp, so smoothing takes them as
+// 1 ms apart and the result only depends on the input.
 ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes)
 {
     Session s;
@@ -410,15 +410,15 @@ struct Golden
 // The look of Pencil, Brush and Eraser before the brush engine work (ROADMAP B0).
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
-    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1). linux and darwin: CI, Qt 6.5.3.
-    { "winnt x86_64", "pencil", 4, "9eae127eae8d7bb42d8f23f83ff3717af212831b", "28b259f4a75fa5a8b0eb9f7888cfa1ad7f702769" },
-    { "winnt x86_64", "pencil", 24, "50ea844df6420ef4c6727d017d8c9adebaa64d5f", "61464aeece271c2fa11accfb6d884db06e22ec1b" },
-    { "winnt x86_64", "pencil", 96, "5ace17c756683c1c15ee45fe4de84fe74759c100", "14e1248ce9ca05cd84455c4fe3d8a366f0aef7ef" },
-    { "winnt x86_64", "pencil", 200, "3d7b1056b282ea720b2d6f025e3ab1f8bb251e08", "9bffaaa199d91066055745061d8dd8d9483dab7d" },
-    { "winnt x86_64", "brush", 4, "b41f93a235f7c2bbb035a7375ed49a9366335f8b", "89b970520ad5430003c0de34bd00d8f2967003d5" },
-    { "winnt x86_64", "brush", 24, "25b3df621f94d6105a98712b3011b6ee9d28b6a8", "ffec486e8339c26f8d5c7c6539d3ad606d1bc98c" },
-    { "winnt x86_64", "brush", 96, "da6f3cbce0e8f6fdaf54f14b517f1ffd02c667ae", "bbf87f449b6a73bcdf0f290d05f1efd57a01d423" },
-    { "winnt x86_64", "brush", 200, "99d83ff4e63e6a82227739b63f88883053c7c277", "fd9ee796618a34facf534f11e880382c4f622084" },
+    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1) and 1-euro smoothing (B4). linux and darwin: CI, Qt 6.5.3.
+    { "winnt x86_64", "pencil", 4, "e9bf5bdc4d593ba38e584a8690a6dcc562d39604", "b41ef0d0efd86fd36d5d6fa4c3da3c63570de296" },
+    { "winnt x86_64", "pencil", 24, "c01d553b4345a17fc91673543f1e866b136734ec", "984450498dee90b677251851246e2a5335091f8f" },
+    { "winnt x86_64", "pencil", 96, "4efe533440d352fb8e1b4a680a4a52197840b590", "fbc38b93ab6520ec76a3912014326b6b1603369b" },
+    { "winnt x86_64", "pencil", 200, "3e6bd5d5aaa28d389bebdd5e5e4a5bab9ed2bce4", "c7907b1f7581fdc9de076ddbbb733a7896a017fd" },
+    { "winnt x86_64", "brush", 4, "740861c3525c041f4d568027c2836202efd6ac23", "a3cada8c305189799dee5f2262cdd46e4919b2f8" },
+    { "winnt x86_64", "brush", 24, "13c4a085b2a7e6bed32bc1a1ee6a87db1377e55e", "cb30f0f61862e6bade71f9ba33c117f1dfd47891" },
+    { "winnt x86_64", "brush", 96, "87e21e783d71ecfdf430f475b91d3ecca14b7463", "622d275dbaa4ebc0d8d72e6754c87251dfcbb342" },
+    { "winnt x86_64", "brush", 200, "aaeea21cac41b8c5cab6d309475380ab95e04e48", "0ab4ecd48a047df862acb5843b269fd9f32bf3d6" },
     { "winnt x86_64", "eraser", 4, "e04b7a00643afc2e9b5b5460be88c093650149f5", "ae8fc055243ebb96d8f46be61d42b3e52c04b39e" },
     { "winnt x86_64", "eraser", 24, "78398091e8bba82f80297e501977b317a8224522", "1f1582bc0384668f59cb2585fc1235c9e587abd1" },
     { "winnt x86_64", "eraser", 96, "5ddc06506a386893e116fab79387328cb7cb8840", "cbf62d3050eebf269f6a04143c772adffc55b398" },

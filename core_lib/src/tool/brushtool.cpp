@@ -52,7 +52,7 @@ void BrushTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::FEATHER_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::INVISIBILITY_ENABLED] = { Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::STABILIZATION_VALUE] = { Layer::BITMAP, Layer::VECTOR };
+    mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
 
     QSettings pencilSettings(PENCIL2D, PENCIL2D);
 
@@ -62,17 +62,18 @@ void BrushTool::loadSettings()
     info[StrokeToolProperties::FEATHER_ENABLED] = true;
     info[StrokeToolProperties::PRESSURE_ENABLED] = true;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;
-    info[StrokeToolProperties::STABILIZATION_VALUE] = { StabilizationLevel::NONE, StabilizationLevel::STRONG, StabilizationLevel::STRONG } ;
+    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
 
     toolProperties().insertProperties(info);
     toolProperties().loadFrom(typeName(), pencilSettings);
+    migrateLineStabilization(pencilSettings);
 
     if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
         toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("brushWidth", 24.0).toReal());
         toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, pencilSettings.value("brushFeather", 48.0).toReal());
         toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, pencilSettings.value("brushPressure", true).toBool());
         toolProperties().setBaseValue(StrokeToolProperties::INVISIBILITY_ENABLED, pencilSettings.value("brushInvisibility", false).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::STABILIZATION_VALUE, pencilSettings.value("brushLineStabilization", StabilizationLevel::STRONG).toInt());
+        setLegacySmoothing(pencilSettings.value("brushLineStabilization", StabilizationLevel::STRONG).toInt());
 
         pencilSettings.remove("brushWidth");
         pencilSettings.remove("brushFeather");

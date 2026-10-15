@@ -64,7 +64,8 @@ public:
 
     void paint(QPainter& painter, const QRect& blitRect) override;
 
-    virtual void setStablizationLevel(int level);
+    virtual void setSmoothingMode(int mode);
+    virtual void setSmoothingStrength(int strength);
     virtual void setWidth(qreal width);
     virtual void setFeather(qreal feather);
     virtual void setPressureEnabled(bool enabled);
@@ -81,7 +82,8 @@ signals:
     void antiAliasingEnabledChanged(bool enabled);
     void fillContourEnabledChanged(bool enabled);
     void invisibleStrokeEnabledChanged(bool enabled);
-    void stabilizationLevelChanged(int level);
+    void smoothingModeChanged(int mode);
+    void smoothingStrengthChanged(int strength);
 
 public slots:
     void onPreferenceChanged(SETTING setting);
@@ -96,6 +98,14 @@ protected:
     QPointF getLastPoint() const;
 
     QRectF cursorRect(StrokeToolProperties::Type settingType, const QPointF& point);
+
+    static PropertyInfo smoothingModeInfo(SmoothingMode defaultMode);
+    /// Sets smoothing from an old None/Simple/Strong stabilizer level.
+    void setLegacySmoothing(int level);
+    /// Maps the old LineStabilization setting once, while the tool has no SmoothingMode yet.
+    void migrateLineStabilization(const QSettings& settings);
+    /// Gives the interpolator this tool's smoothing; call before its press event.
+    void applySmoothing();
 
     static bool mQuickSizingEnabled;
 
