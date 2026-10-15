@@ -67,9 +67,15 @@ public:
     /** Draws a image with the specified parameters to the tiled buffer */
     void drawImage(const QImage& image, const QRect& imageBounds, QPainter::CompositionMode cm, bool antialiasing);
 
-    QHash<TileIndex, Tile*> tiles() const { return mTiles; }
+    /** The tiles, colourized from the stroke coverage first. */
+    QHash<TileIndex, Tile*> tiles() const;
 
     const QRect& bounds() const { return mTileBounds; }
+
+    /** Bytes held by cleared tiles that wait for reuse. */
+    qsizetype poolBytes() const { return mPoolBytes; }
+    /** Sets the most bytes the pool keeps, and frees pooled tiles above it. */
+    void setPoolCapBytes(qsizetype cap);
 
 signals:
     void tileUpdated(TiledBuffer* tiledBuffer, Tile* tile);
@@ -86,6 +92,17 @@ private:
     BlitRect mTileBounds;
 
     QHash<TileIndex, Tile*> mTiles;
+
+    // Dabs of one colour on an empty buffer add to Tile::coverage(); tiles() colourizes it once.
+    bool mCoverageMode = false;
+    QRgb mCoverageColor = 0;
+    void endCoverage();
+
+    // Tiles are one size, so the pool is a plain free list.
+    std::vector<Tile*> mPool;
+    qsizetype mPoolBytes = 0;
+    qsizetype mPoolCap = 128 * 1024 * 1024;
+    static qsizetype tileBytes(Tile* tile);
 
     /** Dab alpha (0..255) on the pixels in rect, relative to the dab's integer origin. */
     struct DabMask

@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include <QPoint>
 #include <QImage>
+#include <vector>
 
 class Tile
 {
@@ -38,8 +39,16 @@ public:
     /** Loads the input image into the tile */
     void load(const QImage& image, const QPoint& topLeft);
     void clear();
+    /** Moves the tile to pos; keeps the pixels. */
+    void moveTo(const QPoint& pos);
+
+    /** Stroke alpha (0..255), one byte per pixel, when TiledBuffer accumulates coverage. */
+    std::vector<quint8>& coverage() { return mCoverage; }
+    /** True when coverage changed after the image was last colourized. */
+    bool coverageDirty = false;
 
 private:
+    std::vector<quint8> mCoverage;
     QImage mTileImage;
     QPointF mPosF;
     QPoint mPos;

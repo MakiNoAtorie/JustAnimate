@@ -31,6 +31,23 @@ TiledBuffer::TiledBuffer(QObject* parent) : QObject(parent)
 TiledBuffer::~TiledBuffer()
 {
     clear();
+    setPoolCapBytes(0);
+}
+
+qsizetype TiledBuffer::tileBytes(Tile* tile)
+{
+    return tile->image().sizeInBytes() + qsizetype(tile->coverage().capacity());
+}
+
+void TiledBuffer::setPoolCapBytes(qsizetype cap)
+{
+    mPoolCap = cap;
+    while (mPoolBytes > mPoolCap)
+    {
+        mPoolBytes -= tileBytes(mPool.back());
+        delete mPool.back();
+        mPool.pop_back();
+    }
 }
 
 Tile* TiledBuffer::getTileFromIndex(const TileIndex& tileIndex)
@@ -40,7 +57,24 @@ Tile* TiledBuffer::getTileFromIndex(const TileIndex& tileIndex)
     if (!selectedTile) {
         // Time to allocate it, update table:
         const QPoint& tilePos (getTilePos(tileIndex));
-        selectedTile = new Tile(tilePos, QSize(UNIFORM_TILE_SIZE, UNIFORM_TILE_SIZE));
+        if (mPool.empty())
+        {
+            selectedTile = new Tile(tilePos, QSize(UNIFORM_TILE_SIZE, UNIFORM_TILE_SIZE));
+        }
+        else
+        {
+            selectedTile = mPool.back();
+            mPool.pop_back();
+            mPoolBytes -= tileBytes(selectedTile);
+            selectedTile->moveTo(tilePos);
+            // Coverage mode colourizes the whole image later, so only the image path clears it.
+            if (!mCoverageMode) selectedTile->clear();
+        }
+        if (mCoverageMode)
+        {
+            selectedTile->coverage().assign(UNIFORM_TILE_SIZE * UNIFORM_TILE_SIZE, 0);
+            selectedTile->coverageDirty = true;
+        }
         mTiles.insert(tileIndex, selectedTile);
 
         emit this->tileCreated(this, selectedTile);
@@ -53,6 +87,7 @@ Tile* TiledBuffer::getTileFromIndex(const TileIndex& tileIndex)
 
 void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush brush, QPainter::CompositionMode cm, bool antialiasing) {
     StageScope stage(StageProfiler::DabMask);
+    endCoverage();
     const float tileSize = UNIFORM_TILE_SIZE;
 
     // Gather the tiles the dab touches; one extra pixel covers antialiasing and the single-pixel fallback.
@@ -115,6 +150,40 @@ inline quint32 byteMul(quint32 x, quint32 a)
     x = (x + ((x >> 8) & 0xff00ff) + 0x800080) & 0xff00ff00;
     return x | t;
 }
+
+// x * a / 255 on one channel, rounded like byteMul.
+inline quint32 mul255(quint32 x, quint32 a)
+{
+    const quint32 t = x * a;
+    return (t + (t >> 8) + 0x80) >> 8;
+}
+}
+
+QHash<TileIndex, Tile*> TiledBuffer::tiles() const
+{
+    if (!mCoverageMode) return mTiles;
+    const quint32 color = mCoverageColor | 0xff000000;
+    for (Tile* tile : mTiles)
+    {
+        if (!tile->coverageDirty) continue;
+        tile->coverageDirty = false;
+        QImage& image = tile->image();
+        const quint8* c = tile->coverage().data();
+        for (int y = 0; y < UNIFORM_TILE_SIZE; ++y)
+        {
+            QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y));
+            for (int x = 0; x < UNIFORM_TILE_SIZE; ++x)
+                d[x] = byteMul(color, *c++);
+        }
+    }
+    return mTiles;
+}
+
+void TiledBuffer::endCoverage()
+{
+    if (!mCoverageMode) return;
+    tiles();
+    mCoverageMode = false;
 }
 
 const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing)
@@ -207,7 +276,15 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
     const int mainAlpha = qRound(color.alphaF() * 255 * opacity);
     const int alpha = mainAlpha - qRound(mainAlpha * feather / 100);
     if (alpha <= 0) return;
-    const quint32 src = qPremultiply(qRgba(color.red(), color.green(), color.blue(), qMin(alpha, 255)));
+    const quint32 srcAlpha = qMin(alpha, 255);
+    const quint32 src = qPremultiply(qRgba(color.red(), color.green(), color.blue(), srcAlpha));
+    const QRgb rgb = qRgb(color.red(), color.green(), color.blue()) & 0xffffff;
+    if (mCoverageMode && rgb != mCoverageColor) endCoverage();
+    if (!mCoverageMode && mTiles.isEmpty())
+    {
+        mCoverageMode = true;
+        mCoverageColor = rgb;
+    }
 
     const int qx = qRound(center.x() * 4);
     const int qy = qRound(center.y() * 4);
@@ -222,16 +299,34 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
             Tile* tile = getTileFromIndex({tileX, tileY});
             const QRect area = rect & tile->bounds();
             const QPoint tilePos = tile->pos();
-            QImage& image = tile->image();
-            for (int y = area.top(); y <= area.bottom(); ++y)
+            if (mCoverageMode)
             {
-                QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
-                const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (area.left() - rect.left());
-                // Branchless: a zero mask gives s = 0, and byteMul(d, 255) == d.
-                for (int k = 0, w = area.width(); k < w; ++k)
+                // Same alpha as the image path below: byteMul's alpha lane is mul255.
+                tile->coverageDirty = true;
+                for (int y = area.top(); y <= area.bottom(); ++y)
                 {
-                    const quint32 s = byteMul(src, m[k]);
-                    d[k] = s + byteMul(d[k], 255 - (s >> 24));
+                    quint8* d = tile->coverage().data() + (y - tilePos.y()) * UNIFORM_TILE_SIZE + (area.left() - tilePos.x());
+                    const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+                    for (int k = 0, w = area.width(); k < w; ++k)
+                    {
+                        const quint32 s = mul255(srcAlpha, m[k]);
+                        d[k] = static_cast<quint8>(s + mul255(d[k], 255 - s));
+                    }
+                }
+            }
+            else
+            {
+                QImage& image = tile->image();
+                for (int y = area.top(); y <= area.bottom(); ++y)
+                {
+                    QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
+                    const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+                    // Branchless: a zero mask gives s = 0, and byteMul(d, 255) == d.
+                    for (int k = 0, w = area.width(); k < w; ++k)
+                    {
+                        const quint32 s = byteMul(src, m[k]);
+                        d[k] = s + byteMul(d[k], 255 - (s >> 24));
+                    }
                 }
             }
             mTileBounds.extend(tile->bounds());
@@ -241,6 +336,7 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
 
 void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPainter::CompositionMode cm, bool antialiasing) {
     StageScope stage(StageProfiler::DabMask);
+    endCoverage();
     const float tileSize = UNIFORM_TILE_SIZE;
     const float imageXRad = image.width();
     const float imageYRad = image.height();
@@ -273,6 +369,7 @@ void TiledBuffer::drawPath(QPainterPath path, QPen pen, QBrush brush,
                            QPainter::CompositionMode cm, bool antialiasing)
 {
     StageScope stage(StageProfiler::DabMask);
+    endCoverage();
     const qreal width = pen.widthF();
     const float tileSize = UNIFORM_TILE_SIZE;
     const QRectF pathRect = path.boundingRect();
@@ -313,11 +410,21 @@ void TiledBuffer::clear()
         if (tile)
         {
             mTiles.remove(i.key());
-            delete tile;
+            const qsizetype bytes = tileBytes(tile);
+            if (mPoolBytes + bytes <= mPoolCap)
+            {
+                mPool.push_back(tile);
+                mPoolBytes += bytes;
+            }
+            else
+            {
+                delete tile;
+            }
         }
     }
 
     mTileBounds = BlitRect();
+    mCoverageMode = false;
 }
 
 QPoint TiledBuffer::getTilePos(const TileIndex& index) const

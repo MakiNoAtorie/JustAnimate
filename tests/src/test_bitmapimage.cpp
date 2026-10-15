@@ -509,3 +509,69 @@ TEST_CASE("TiledBuffer drawDab: a cached mask lands only in the tiles the dab co
     CHECK(qAlpha(feathered.constScanLine(40, 22)) > 0);
     CHECK(feathered.constScanLine(40, 19) == 0);
 }
+
+TEST_CASE("TiledBuffer drawDab: a constant-colour stroke keeps its colour where translucent dabs overlap")
+{
+    TiledBuffer buffer;
+    const QColor color(200, 30, 90);
+    for (int i = 0; i < 10; ++i)
+        buffer.drawDab(QPointF(30 + i, 30), 30, 20, color, 0.3, true);
+
+    BitmapImage image(QRect(0, 0, 64, 64), Qt::transparent);
+    image.paste(&buffer);
+    int painted = 0;
+    for (int y = 0; y < 64; ++y)
+        for (int x = 0; x < 64; ++x)
+        {
+            const QRgb p = image.constScanLine(x, y);
+            if (qAlpha(p) == 0) continue;
+            ++painted;
+            CAPTURE(x, y, qAlpha(p));
+            REQUIRE(p == qPremultiply(qRgba(200, 30, 90, qAlpha(p))));
+        }
+    REQUIRE(painted > 500);
+    REQUIRE(qAlpha(image.constScanLine(34, 30)) > 230); // the overlap builds up alpha
+}
+
+TEST_CASE("TiledBuffer: a stroke that changes colour keeps the first colour's pixels")
+{
+    TiledBuffer buffer;
+    buffer.drawDab(QPointF(20, 20), 10, 0, QColor(255, 0, 0), 1.0, false);
+    buffer.drawDab(QPointF(40, 20), 10, 0, QColor(0, 0, 255), 1.0, false);
+
+    BitmapImage image(QRect(0, 0, 64, 64), Qt::transparent);
+    image.paste(&buffer);
+    CHECK(image.constScanLine(20, 20) == qRgba(255, 0, 0, 255));
+    CHECK(image.constScanLine(40, 20) == qRgba(0, 0, 255, 255));
+    CHECK(image.constScanLine(30, 20) == 0);
+}
+
+TEST_CASE("TiledBuffer: cleared tiles go to a pool that stays under its cap and comes back clean")
+{
+    TiledBuffer buffer;
+    const qsizetype tileBytes = 64 * 64 * 4 + 64 * 64; // image and coverage
+    buffer.setPoolCapBytes(5 * tileBytes);
+
+    // A 300 px dab covers 5 x 5 tiles, more than the pool keeps.
+    buffer.drawDab(QPointF(160, 160), 300, 0, QColor(255, 0, 0), 1.0, false);
+    REQUIRE(buffer.tiles().size() == 25);
+    REQUIRE(buffer.poolBytes() == 0);
+    buffer.clear();
+    CHECK(buffer.poolBytes() > 0);
+    CHECK(buffer.poolBytes() <= 5 * tileBytes);
+
+    // Reused tiles start transparent, with both the coverage and the plain image paths.
+    const qsizetype pooled = buffer.poolBytes();
+    buffer.drawDab(QPointF(32, 32), 4, 0, QColor(0, 255, 0), 1.0, false);
+    CHECK(buffer.poolBytes() < pooled);
+    buffer.drawBrush(QPointF(96, 32), 4, QPen(Qt::NoPen), QBrush(Qt::blue), QPainter::CompositionMode_SourceOver, false);
+    BitmapImage image(QRect(0, 0, 128, 64), Qt::transparent);
+    image.paste(&buffer);
+    CHECK(image.constScanLine(32, 32) == qRgba(0, 255, 0, 255));
+    CHECK(image.constScanLine(96, 32) == qRgba(0, 0, 255, 255));
+    CHECK(image.constScanLine(10, 10) == 0);
+    CHECK(image.constScanLine(70, 10) == 0);
+
+    buffer.setPoolCapBytes(0);
+    CHECK(buffer.poolBytes() == 0);
+}
