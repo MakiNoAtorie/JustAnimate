@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include <memory>
 #include <QDomDocument>
+#include <QDir>
 #include <QDomElement>
 #include <QFile>
 #include <QFileInfo>
@@ -105,6 +106,20 @@ TEST_CASE("Object::addXXXLayer()")
 }
 
 
+
+TEST_CASE("Object: a working folder that cannot be removed does not abort")
+{
+    auto obj = std::make_unique<Object>();
+    obj->createWorkingDir();
+    const QString dir = obj->workingDir();
+    {
+        // An open file blocks removal on Windows, as a virus scanner or second test process does.
+        QFile held(obj->dataDir() + "/held.txt");
+        REQUIRE(held.open(QIODevice::WriteOnly));
+        obj->deleteWorkingDir();
+    }
+    QDir(dir).removeRecursively();
+}
 
 TEST_CASE("Object::getUniqueLayerID()")
 {

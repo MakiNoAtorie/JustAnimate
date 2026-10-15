@@ -199,8 +199,9 @@ void Object::deleteWorkingDir() const
     if (!mWorkingDirPath.isEmpty())
     {
         QDir dir(mWorkingDirPath);
-        bool ok = dir.removeRecursively();
-        Q_ASSERT(ok);
+        // Another process can hold a file open here; a temp folder left behind is harmless.
+        if (!dir.removeRecursively())
+            qWarning() << "Could not remove working folder" << mWorkingDirPath;
     }
 }
 
