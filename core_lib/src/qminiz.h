@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define QMINIZ_H
 
 #include <QString>
+#include <functional>
 #include "miniz.h"
 #include "pencilerror.h"
 
@@ -24,7 +25,10 @@ namespace MiniZ
 {
     Status sanityCheck(const QString& sZipFilePath);
     size_t istreamReadCallback(void *pOpaque, mz_uint64 file_ofs, void * pBuf, size_t n);
-    Status compressFolder(QString zipFilePath, QString srcFolderPath, const QStringList& fileList, QString mimetype);
-    Status uncompressFolder(QString zipFilePath, QString destPath);
+    // progress(done, total) runs on the thread that calls these, before each entry.
+    using Progress = std::function<void(int done, int total)>;
+    Status compressFolder(QString zipFilePath, QString srcFolderPath, const QStringList& fileList, QString mimetype,
+                          const Progress& progress = {});
+    Status uncompressFolder(QString zipFilePath, QString destPath, const Progress& progress = {});
 }
 #endif

@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define OBJECTSAVELOADER_H
 
 
+#include <functional>
 #include <QObject>
 #include <QString>
 #include <QDomElement>
@@ -73,6 +74,8 @@ private:
     void handleOpenProjectError(Status::ErrorCode, const DebugDetails&);
 
     void progressForward();
+    // Runs job(progress) on a worker thread and emits progress here until it is done.
+    Status runArchiveJob(const std::function<Status(const std::function<void(int, int)>&)>& job);
 
 private: // Project recovery
     bool isProjectRecoverable(const QString& projectFolder);

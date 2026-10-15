@@ -662,4 +662,14 @@ private:
     ToolProperties mProperties;
 };
 
+// The shape tool keeps these in its StrokeToolProperties, next to the brush settings.
+struct ShapeToolProperties
+{
+    enum Type {
+        START               = 600,
+        SHAPEMODE_VALUE     = START, // 0 line, 1 rectangle, 2 ellipse, 3 polygon
+        END                 = 699,
+    };
+};
+
 #endif // TOOLPROPERTIES_H
