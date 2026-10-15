@@ -83,6 +83,8 @@ public:
     /// Loads an image tip from a PNG or .gbr file; an empty name restores the generated tip.
     /// On failure the tip does not change.
     Status setTipImage(const QString& fileName);
+    /// The file of the current image tip; empty for the generated tip.
+    QString tipImagePath() const { return mTipImagePath; }
     virtual void setPressureEnabled(bool enabled);
     virtual void setFeatherEnabled(bool enabled);
     virtual void setAntiAliasingEnabled(bool enabled);
@@ -152,6 +154,7 @@ protected:
 
     StrokeInterpolator mInterpolator;
     QImage mTipImage; // null for the generated tip
+    QString mTipImagePath;
 
     static const qreal FEATHER_MIN;
     static const qreal FEATHER_MAX;
