@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Saving and opening zip and unzip the project on a worker thread, so the progress bar keeps moving and the window keeps repainting; an autosave that fires during a save is skipped (1.6).
 - Fill behind lines is the bucket's existing Behind blend mode; a test now checks it keeps antialiased line edges over the fill (2.6).
 - Saving encodes bitmap frames to PNG on up to 8 cores at once; files are byte-identical to before (1.6).
 - Bucket "close gaps" option: line gaps up to N px count as closed when filling (0 = off, default) (2.4).

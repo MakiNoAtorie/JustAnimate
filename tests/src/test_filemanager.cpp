@@ -544,6 +544,67 @@ TEST_CASE("FileManager atomic save", "[FileManager]")
     }
 }
 
+TEST_CASE("FileManager reports progress while it zips and unzips", "[FileManager][ZipThread]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString projectPath = testDir.filePath("busy.pclx");
+
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    for (int f = 1; f <= 20; ++f)
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f)); // a new layer starts with frame 1
+        layer->getBitmapImageAtFrame(f)->drawEllipse(QRectF(f, f, 20, 20), QPen(Qt::black, 2), QBrush(Qt::red),
+                                                     QPainter::CompositionMode_SourceOver, true);
+    }
+
+    FileManager fm;
+    int max = 0;
+    int last = 0;
+    bool reportedWhileZipping = false;
+    QObject::connect(&fm, &FileManager::progressRangeChanged, [&](int m) { max = m; });
+    QObject::connect(&fm, &FileManager::progressChanged, [&](int p) {
+        last = p;
+        // The UI repaints only from these signals, so they must keep coming while the archive is written.
+        if (QFile::exists(projectPath + ".tmp")) reportedWhileZipping = true;
+    });
+
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+    REQUIRE(reportedWhileZipping);
+    REQUIRE(last <= max);
+
+    SECTION("A save started from a progress signal fails and leaves the running save intact")
+    {
+        // The UI processes events on progress, so an autosave timer can fire mid-save.
+        FileManager nested;
+        bool nestedFailed = false;
+        QObject::connect(&fm, &FileManager::progressChanged, [&] {
+            if (QFile::exists(projectPath + ".tmp") && !nestedFailed)
+                nestedFailed = !nested.save(obj.get(), testDir.filePath("autosave.pclx")).ok();
+        });
+        REQUIRE(fm.save(obj.get(), projectPath).ok());
+        REQUIRE(nestedFailed);
+        REQUIRE_FALSE(QFile::exists(testDir.filePath("autosave.pclx")));
+    }
+
+    FileManager loader;
+    int loadMax = 0;
+    int loadLast = 0;
+    QObject::connect(&loader, &FileManager::progressRangeChanged, [&](int m) { loadMax = m; });
+    QObject::connect(&loader, &FileManager::progressChanged, [&](int p) { loadLast = p; });
+    std::unique_ptr<Object> loaded(loader.load(projectPath));
+    REQUIRE(loaded != nullptr);
+    int keys = 0;
+    for (int i = 0; i < loaded->getLayerCount(); ++i)
+        keys = std::max(keys, loaded->getLayer(i)->keyFrameCount());
+    REQUIRE(keys == 20);
+    // One step per archive entry while unzipping, then one per frame loaded; the range covers both.
+    REQUIRE(loadLast >= 2 * 20);
+    REQUIRE(loadLast <= loadMax);
+}
+
 TEST_CASE("FileManager saves bitmap frames byte-identical to serial PNG encoding", "[FileManager][ParallelSave]")
 {
     QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
