@@ -59,17 +59,21 @@ ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
     mTaperStart = taperBox(tr("Stroke start taper (Pencil, Brush, Eraser):"), SETTING::TAPER_START);
     mTaperEnd = taperBox(tr("Stroke end taper (Pencil, Brush, Eraser):"), SETTING::TAPER_END);
     auto* dynamics = new QFormLayout;
-    const std::pair<SETTING, QString> rows[] = {
-        { SETTING::SPEED_TO_SIZE, tr("Speed to size:") },
-        { SETTING::TILT_TO_SIZE, tr("Tilt to size:") },
-        { SETTING::TILT_TO_ANGLE, tr("Tilt to tip angle:") },
-        { SETTING::SIZE_JITTER, tr("Size jitter:") },
+    struct Row { SETTING setting; QString label; int min; int max; QString suffix; };
+    const Row rows[] = {
+        { SETTING::SPEED_TO_SIZE, tr("Speed to size:"), -100, 100, "%" },
+        { SETTING::TILT_TO_SIZE, tr("Tilt to size:"), -100, 100, "%" },
+        { SETTING::TILT_TO_ANGLE, tr("Tilt to tip angle:"), -100, 100, "%" },
+        { SETTING::SIZE_JITTER, tr("Size jitter:"), 0, 100, "%" },
+        { SETTING::SCATTER, tr("Scatter:"), 0, 500, "%" },
+        { SETTING::ANGLE_JITTER, tr("Angle jitter:"), 0, 180, QString(QChar(0x00B0)) },
+        { SETTING::DAB_COUNT, tr("Dabs per step:"), 1, 16, "" },
     };
-    for (const auto& [setting, label] : rows)
+    for (const auto& [setting, label, min, max, suffix] : rows)
     {
         auto* box = new QSpinBox(this);
-        box->setRange(setting == SETTING::SIZE_JITTER ? 0 : -100, 100);
-        box->setSuffix("%");
+        box->setRange(min, max);
+        box->setSuffix(suffix);
         dynamics->addRow(label, box);
         mDynamicsBoxes.append({ setting, box });
         connect(box, &QSpinBox::valueChanged, this, [this, setting = setting](int value) { mManager->set(setting, value); });
