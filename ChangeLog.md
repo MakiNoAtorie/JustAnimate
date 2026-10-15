@@ -6,6 +6,8 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Stroke smoothing: None or 1-euro filter with a 0-100 strength slider, run on input timestamps instead of a 5 ms timer; old None/Simple/Strong stabilizer settings carry over (B4).
+- Pencil, Brush and Eraser space dabs evenly at any stroke speed and change pressure smoothly along each stroke (B1).
+- Brush stroke tiles are premultiplied images instead of pixmaps, so later dab work can write pixels directly; strokes look the same (B2).
 - Light, Dark or System theme in Preferences, General; applies at once, persists, and icons follow it (4.1).
 - Onion skin: choose the opacity falloff (linear, gentle, steep) and the previous/next tint colours, and turn onion skin off per layer from the layer's right-click menu (3.1).
 - Pencil, Brush and Eraser share one press, release and dab-placement path; strokes look the same (B1 prefactor).

@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include "bitmapimage.h"
+#include "tile.h"
+#include "tiledbuffer.h"
 #include <QElapsedTimer>
 #include <QDebug>
 
@@ -462,4 +464,21 @@ TEST_CASE("BitmapImage floodFill")
     REQUIRE(result->constScanLine(1, 1) == 0);
     REQUIRE(result->constScanLine(9, 5) == 0);
     delete result;
+}
+
+TEST_CASE("BitmapImage paste: brush tiles are premultiplied images")
+{
+    TiledBuffer buffer;
+    const QColor red(255, 0, 0, 128);
+    buffer.drawBrush(QPointF(70, 32), 20, QPen(Qt::NoPen), QBrush(red), QPainter::CompositionMode_SourceOver, false);
+    REQUIRE(buffer.tiles().size() == 2); // the dab crosses the tile edge at x = 64
+
+    for (const Tile* tile : buffer.tiles())
+        REQUIRE(tile->image().format() == QImage::Format_ARGB32_Premultiplied);
+
+    BitmapImage image(QRect(0, 0, 128, 64), Qt::transparent);
+    image.paste(&buffer);
+    REQUIRE(image.constScanLine(62, 32) == qPremultiply(red.rgba()));
+    REQUIRE(image.constScanLine(70, 32) == qPremultiply(red.rgba()));
+    REQUIRE(image.constScanLine(70, 60) == 0);
 }

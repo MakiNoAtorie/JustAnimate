@@ -34,6 +34,9 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     mLastBrushPoint = getCurrentPoint();
 
     startStroke(event->inputType());
+    mLastBrushPressure = mCurrentPressure;
+    const qreal pressure = strokeToolProperties().pressureEnabled() ? mCurrentPressure : 1.0;
+    mDistanceToNextDab = dabSpacing(strokeToolProperties().width() * pressure);
     strokeStarted();
 
     StrokeTool::pointerPressEvent(event);
@@ -84,6 +87,11 @@ void DabTool::pointerReleaseEvent(PointerEvent* event)
     StrokeTool::pointerReleaseEvent(event);
 }
 
+qreal DabTool::dabSpacing(qreal brushWidth)
+{
+    return qMax(0.25, brushWidth / 8);
+}
+
 void DabTool::paintAt(QPointF point)
 {
     Layer* layer = mEditor->layers()->currentLayer();
@@ -108,29 +116,27 @@ void DabTool::drawStroke()
     if (layer->type() == Layer::BITMAP)
     {
         const StrokeToolProperties& settings = strokeToolProperties();
-        qreal pressure = (settings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal opacity = (settings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;
-        qreal brushWidth = settings.width() * pressure;
-        mCurrentWidth = brushWidth;
+        const bool pressureOn = settings.pressureEnabled();
+        const qreal startPressure = pressureOn ? mLastBrushPressure : 1.0;
+        const qreal endPressure = pressureOn ? mCurrentPressure : 1.0;
+        const QPointF a = mLastBrushPoint;
+        const QPointF b = getCurrentPoint();
+        const qreal length = QLineF(a, b).length();
 
-        qreal brushStep = qMax(1.0, (0.5 * brushWidth));
-
-        QPointF a = mLastBrushPoint;
-        QPointF b = getCurrentPoint();
-
-        qreal distance = 4 * QLineF(b, a).length();
-        int steps = qRound(distance / brushStep);
-
-        for (int i = 0; i < steps; i++)
+        // Carry the leftover distance to the next event, so spacing does not depend on the event rate.
+        qreal t = mDistanceToNextDab;
+        while (t <= length)
         {
-            QPointF point = mLastBrushPoint + (i + 1) * brushStep * (getCurrentPoint() - mLastBrushPoint) / distance;
-            drawDab(point, brushWidth, opacity);
-
-            if (i == (steps - 1))
-            {
-                mLastBrushPoint = getCurrentPoint();
-            }
+            const qreal f = (length > 0) ? t / length : 1.0;
+            const qreal pressure = startPressure + (endPressure - startPressure) * f;
+            const qreal brushWidth = settings.width() * pressure;
+            mCurrentWidth = brushWidth;
+            drawDab(a + (b - a) * f, brushWidth, pressureOn ? pressure * 0.5 : 1.0);
+            t += dabSpacing(brushWidth);
         }
+        mDistanceToNextDab = t - length;
+        mLastBrushPoint = b;
+        mLastBrushPressure = mCurrentPressure;
     }
     else if (layer->type() == Layer::VECTOR)
     {
