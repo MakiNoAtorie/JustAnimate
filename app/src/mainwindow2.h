@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define MAINWINDOW2_H
 
 #include <QMainWindow>
+#include "defaultlayout.h"
 
 template<typename T> class QList;
 class QActionGroup;
@@ -141,6 +142,9 @@ private:
     void writeSettings();
     void resetAndDockAllSubWidgets();
     void applyDefaultDockLayout();
+    void switchToWorkspace(const QString& name);
+    DefaultDockLayout dockLayout() const;
+    QSize availableScreenSize() const;
 
     void changePlayState(bool isPlaying);
 

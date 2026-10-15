@@ -102,9 +102,9 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,1">
+    <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,0,1">
      <item>
-      <widget class="QLabel" name="stabilizerLabel">
+      <widget class="QLabel" name="smoothingLabel">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
          <horstretch>0</horstretch>
@@ -112,33 +112,38 @@
         </sizepolicy>
        </property>
        <property name="text">
-        <string>Stabilizer</string>
+        <string>Smoothing</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="inpolLevelsCombo">
+      <widget class="QComboBox" name="smoothingModeCombo">
        <property name="toolTip">
-        <string>Use stabilizer to interpolate strokes</string>
-       </property>
-       <property name="currentText">
-        <string comment="Stablizer level">None</string>
+        <string>Smooth the stroke while you draw</string>
        </property>
        <item>
         <property name="text">
-         <string comment="Stabilizer option">None</string>
+         <string comment="Smoothing mode">None</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string comment="Stabilizer option">Simple</string>
+         <string comment="Smoothing mode">1-euro filter</string>
         </property>
        </item>
-       <item>
-        <property name="text">
-         <string comment="Stabilizer option">Strong</string>
-        </property>
-       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSlider" name="smoothingStrengthSlider">
+       <property name="toolTip">
+        <string>Smoothing strength</string>
+       </property>
+       <property name="maximum">
+        <number>100</number>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
       </widget>
      </item>
     </layout>
