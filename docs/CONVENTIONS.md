@@ -75,6 +75,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   a failed `Status`, never `Q_ASSERT` on it.
 - A tool property a test may leave unregistered gets a getter that returns
   the default when it is missing.
+- CPU-parallel loops use `parallelFor` (`util.h`, at most 8 threads). Tasks
+  touch only their own item; signals and progress stay on the calling thread.
 - Code that runs in a crash handler uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
