@@ -75,6 +75,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   a failed `Status`, never `Q_ASSERT` on it.
 - A tool property a test may leave unregistered gets a getter that returns
   the default when it is missing.
+- CPU-parallel loops use `parallelFor` (`util.h`, at most 8 threads). Tasks
+  touch only their own item; signals and progress stay on the calling thread.
 - Code that runs in a crash handler uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
@@ -101,8 +103,10 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Speed-ups: Release `benchmark` target, before/after back to back on the
   same machine, numbers in the commit message; a kept attempt that is not
   outside noise goes to `docs/rejected-optimizations.md` instead. Caches
-  are checked pixel-identical against an uncached render and are cleared
-  only from the existing modification signals.
+  are checked pixel-identical against a fresh `CanvasPainter::paint` (with
+  `LayerVisibility::ALL`). Clear them from the modification signals; what
+  those can't scope to one layer is keyed by content (keyframe pointer,
+  visibility, opacity, `QImage::cacheKey`).
 - Opt-in fast mode: `SETTING::FAST_RENDER_LAYERS_ABOVE`, key
   `"FastRenderLayersAbove"`, default off.
 - Project thumbnails (welcome screen): app side, written after a successful

@@ -6,7 +6,9 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Shape tool (U): line, rectangle and ellipse on bitmap and vector layers; Shift constrains, Alt draws from the center; bitmap shapes use the tool's brush settings (2.3).
+- Canvas: the layers below the one you paint are cached in 64 px cells and redrawn only when they change, so repaints with many layers are faster (1.3).
 - Fill behind lines is the bucket's existing Behind blend mode; a test now checks it keeps antialiased line edges over the fill (2.6).
+- Saving encodes bitmap frames to PNG on up to 8 cores at once; files are byte-identical to before (1.6).
 - Bucket "close gaps" option: line gaps up to N px count as closed when filling (0 = off, default) (2.4).
 - Brush preset editor (New, Edit, Duplicate in the preset dock) edits every engine setting, the tip image, a per-preset pressure curve and the description with a live preview stroke (B8).
 - Brush presets: a default pack (HB and 2B pencil, G-pen, marker, soft airbrush, chalk, watercolour, hard and soft eraser) installs into the preset folder on first launch and never overwrites your presets (B8).

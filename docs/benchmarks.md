@@ -23,17 +23,20 @@ normal test suite, so the benchmark can't silently break.
 
 ## What it measures
 
-A project is generated first (not timed): 500 frames × 10 bitmap layers
-(plus the camera layer), one 100 px ellipse per keyframe, saved as `.pclx`.
-Then, 3 times over, each in a fresh editor and 1280×720 canvas:
+A project is generated first: 500 frames × 10 bitmap layers (plus the
+camera layer), one 100 px ellipse per keyframe, saved as `.pclx`; only the
+save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
+1280×720 canvas:
 
 | Scenario | What is timed |
 |---|---|
+| save | `FileManager::save` of the generated project: every frame encoded to PNG, then zipped |
 | open | `Editor::openObject` on the `.pclx` |
 | scrub | `scrubTo(f)` + canvas repaint for frames 1–500, caches cleared first (frames load from disk on first use) |
 | play | playback on, `scrubForward()` + repaint for 500 frames back to back (no frame-rate timer) |
 | draw pencil | 20 strokes of 100 mouse moves on frame 1, repaint after every move |
 | draw brush | the same with the brush tool |
+| draw top | the pencil strokes on the top layer, so all other layers are below the painted one |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke.
