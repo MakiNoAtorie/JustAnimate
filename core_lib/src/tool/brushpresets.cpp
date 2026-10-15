@@ -21,17 +21,40 @@ GNU General Public License for more details.
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 
+#include "miniz.h"
 #include "stroketool.h"
+#include "tiledbuffer.h"
 #include "toolproperties.h"
+#include "util.h"
 
 namespace
 {
 
 // Preset files are small; a larger file is not a preset.
 constexpr qint64 MAX_PRESET_BYTES = 1 << 20;
+// Bounds a tip file in a .jabrush before it is unpacked to memory.
+constexpr qint64 MAX_TIP_BYTES = 64 << 20;
+
+// A .jabrush holds preset.json and at most one tip entry of this form.
+const QRegularExpression& tipEntryPattern()
+{
+    static const QRegularExpression re(QStringLiteral(R"(^tip\.[A-Za-z0-9]{1,5}$)"));
+    return re;
+}
+
+bool writeFile(const QString& path, const QByteArray& bytes)
+{
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly))
+        return false;
+    file.write(bytes);
+    return file.commit();
+}
 
 std::optional<QJsonObject> readPreset(const QString& path)
 {
@@ -87,12 +110,8 @@ bool BrushPresets::save(const QString& name, StrokeTool& tool) const
         }
     }
 
-    QSaveFile file(filePath(name));
-    if (!file.open(QIODevice::WriteOnly))
-        return false;
     const QJsonObject preset{ { "settings", settings }, { "tipImage", tool.tipImagePath() } };
-    file.write(QJsonDocument(preset).toJson());
-    return file.commit();
+    return writeFile(filePath(name), QJsonDocument(preset).toJson());
 }
 
 bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
@@ -153,6 +172,115 @@ bool BrushPresets::rename(const QString& from, const QString& to) const
 bool BrushPresets::remove(const QString& name) const
 {
     return isValidName(name) && QFile::remove(filePath(name));
+}
+
+Status BrushPresets::exportPreset(const QString& name, const QString& fileName) const
+{
+    const Status failed(Status::FAIL, QObject::tr("Cannot export the brush preset %1 to %2.").arg(name, fileName));
+    const std::optional<QJsonObject> preset = isValidName(name) ? readPreset(filePath(name)) : std::nullopt;
+    if (!preset)
+        return failed;
+
+    QJsonObject out{ { "name", name }, { "settings", preset->value("settings") }, { "tipImage", QString() } };
+    QByteArray tipEntry, tipData;
+    const QString tipPath = preset->value("tipImage").toString();
+    if (!tipPath.isEmpty())
+    {
+        tipEntry = "tip." + QFileInfo(tipPath).suffix().toLower().toUtf8();
+        QFile tip(tipPath);
+        if (!tipEntryPattern().match(QString::fromUtf8(tipEntry)).hasMatch() || !tip.open(QIODevice::ReadOnly) || tip.size() > MAX_TIP_BYTES)
+            return failed;
+        tipData = tip.readAll();
+        out["tipImage"] = QString::fromUtf8(tipEntry);
+    }
+    const QByteArray json = QJsonDocument(out).toJson();
+
+    mz_zip_archive mz;
+    mz_zip_zero_struct(&mz);
+    if (!mz_zip_writer_init_heap(&mz, 0, 0))
+        return failed;
+    void* buffer = nullptr;
+    size_t size = 0;
+    bool ok = mz_zip_writer_add_mem(&mz, "preset.json", json.constData(), size_t(json.size()), MZ_BEST_SPEED);
+    if (ok && !tipEntry.isEmpty())
+        ok = mz_zip_writer_add_mem(&mz, tipEntry.constData(), tipData.constData(), size_t(tipData.size()), MZ_BEST_SPEED);
+    ok = ok && mz_zip_writer_finalize_heap_archive(&mz, &buffer, &size);
+    mz_zip_writer_end(&mz);
+    const QByteArray zip = ok ? QByteArray(static_cast<const char*>(buffer), qsizetype(size)) : QByteArray();
+    mz_free(buffer);
+    if (!ok || !writeFile(fileName, zip))
+        return failed;
+    return Status::OK;
+}
+
+Status BrushPresets::importPreset(const QString& fileName) const
+{
+    const Status bad(Status::FAIL, QObject::tr("This file is not a valid brush preset: %1").arg(fileName));
+
+    // Read and check every entry in memory; nothing is written until the whole file passes.
+    mz_zip_archive mz;
+    mz_zip_zero_struct(&mz);
+    if (!mz_zip_reader_init_file(&mz, fileName.toUtf8().constData(), 0))
+        return bad;
+    OnScopeExit(mz_zip_reader_end(&mz));
+
+    bool hasPreset = false;
+    QByteArray json, tipData;
+    QString tipEntry;
+    const mz_uint count = mz_zip_reader_get_num_files(&mz);
+    for (mz_uint i = 0; i < count; ++i)
+    {
+        mz_zip_archive_file_stat stat;
+        if (!mz_zip_reader_file_stat(&mz, i, &stat) || stat.m_is_directory)
+            return bad;
+        const QString entry = QString::fromUtf8(stat.m_filename);
+        const bool isPreset = entry == QLatin1String("preset.json");
+        if (isPreset ? hasPreset : (!tipEntry.isEmpty() || !tipEntryPattern().match(entry).hasMatch()))
+            return bad; // unknown, duplicate or path-escaping entry
+        if (stat.m_uncomp_size > mz_uint64(isPreset ? MAX_PRESET_BYTES : MAX_TIP_BYTES))
+            return bad;
+        QByteArray data(qsizetype(stat.m_uncomp_size), Qt::Uninitialized);
+        if (!mz_zip_reader_extract_to_mem(&mz, i, data.data(), size_t(data.size()), 0))
+            return bad;
+        if (isPreset)
+        {
+            hasPreset = true;
+            json = data;
+        }
+        else
+        {
+            tipEntry = entry;
+            tipData = data;
+        }
+    }
+
+    QJsonParseError error{};
+    const QJsonDocument doc = QJsonDocument::fromJson(json, &error);
+    const QJsonObject preset = doc.object();
+    const QString name = preset.value("name").toString();
+    if (!hasPreset || error.error != QJsonParseError::NoError || !doc.isObject() || !isValidName(name) ||
+        preset.value("tipImage").toString() != tipEntry)
+        return bad;
+    if (QFile::exists(filePath(name)))
+        return Status(Status::FAIL, QObject::tr("A brush preset named %1 exists.").arg(name));
+
+    // The tip loader reads files, so the tip is checked from a temporary copy.
+    QString tipPath;
+    if (!tipEntry.isEmpty())
+    {
+        QTemporaryDir temp;
+        QImage mask;
+        if (!temp.isValid() || !writeFile(temp.filePath(tipEntry), tipData) || !loadBrushTipImage(temp.filePath(tipEntry), mask).ok())
+            return bad;
+        tipPath = QDir(mFolder).filePath("tips/" + name + "." + QFileInfo(tipEntry).suffix());
+    }
+
+    const QJsonObject stored{ { "settings", preset.value("settings").toObject() }, { "tipImage", tipPath } };
+    if (!QDir().mkpath(QDir(mFolder).filePath("tips")) ||
+        (!tipPath.isEmpty() && !writeFile(tipPath, tipData)) ||
+        !writeFile(filePath(name), QJsonDocument(stored).toJson()))
+        return Status(Status::FAIL, QObject::tr("Cannot write the brush preset %1.").arg(name));
+    return Status::OK;
 }
 
 bool BrushPresets::isValidName(const QString& name)
