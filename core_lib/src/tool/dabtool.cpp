@@ -87,9 +87,9 @@ void DabTool::pointerReleaseEvent(PointerEvent* event)
     StrokeTool::pointerReleaseEvent(event);
 }
 
-qreal DabTool::dabSpacing(qreal brushWidth)
+qreal DabTool::dabSpacing(qreal brushWidth) const
 {
-    return qMax(0.25, brushWidth / 8);
+    return qMax(0.25, brushWidth * (strokeToolProperties().spacing() / 100.0));
 }
 
 void DabTool::paintAt(QPointF point)

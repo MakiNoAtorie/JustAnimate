@@ -42,6 +42,9 @@ void StrokeOptionsWidget::initUI()
     auto featherInfo = p.getInfo(StrokeToolProperties::FEATHER_VALUE);
     ui->featherSlider->init(tr("Feather"), SpinSlider::LOG, featherInfo.minReal(), featherInfo.maxReal());
 
+    auto spacingInfo = p.getInfo(StrokeToolProperties::SPACING_VALUE);
+    ui->spacingSlider->init(tr("Spacing %"), SpinSlider::LOG, spacingInfo.minReal(), spacingInfo.maxReal());
+
     mCurrentTool = strokeTool;
 
     makeConnectionFromUIToModel();
@@ -79,6 +82,17 @@ void StrokeOptionsWidget::updateUI()
         ui->featherSpinBox->setRange(info.minReal(), info.maxReal());
 
         setFeatherValue(info.realValue());
+    }
+
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE))
+    {
+        auto info = p.getInfo(StrokeToolProperties::SPACING_VALUE);
+        QSignalBlocker b5(ui->spacingSlider);
+        ui->spacingSlider->setRange(info.minReal(), info.maxReal());
+        QSignalBlocker b6(ui->spacingSpinBox);
+        ui->spacingSpinBox->setRange(info.minReal(), info.maxReal());
+
+        setSpacingValue(info.realValue());
     }
 
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED)) {
@@ -129,6 +143,7 @@ void StrokeOptionsWidget::makeConnectionFromModelToUI(StrokeTool* strokeTool)
 {
     connect(strokeTool, &StrokeTool::widthChanged, this, &StrokeOptionsWidget::setWidthValue);
     connect(strokeTool, &StrokeTool::featherChanged, this, &StrokeOptionsWidget::setFeatherValue);
+    connect(strokeTool, &StrokeTool::spacingChanged, this, &StrokeOptionsWidget::setSpacingValue);
     connect(strokeTool, &StrokeTool::featherEnabledChanged, this, &StrokeOptionsWidget::setFeatherEnabled);
     connect(strokeTool, &StrokeTool::pressureEnabledChanged, this, &StrokeOptionsWidget::setPressureEnabled);
     connect(strokeTool, &StrokeTool::smoothingModeChanged, this, &StrokeOptionsWidget::setSmoothingMode);
@@ -193,6 +208,15 @@ void StrokeOptionsWidget::makeConnectionFromUIToModel()
         mCurrentTool->setFeather(value);
     });
 
+    connect(ui->spacingSlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setSpacing(value);
+    });
+
+    connect(ui->spacingSpinBox, spinboxValueChanged, [=](qreal value) {
+        mCurrentTool->setSpacing(value);
+    });
+
+    clearFocusOnFinished(ui->spacingSpinBox);
     clearFocusOnFinished(ui->sizeSpinBox);
     clearFocusOnFinished(ui->featherSpinBox);
 
@@ -211,6 +235,8 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->sizeSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::WIDTH_VALUE));
     ui->featherSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_VALUE));
     ui->featherSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_VALUE));
+    ui->spacingSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
+    ui->spacingSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));
@@ -239,6 +265,15 @@ void StrokeOptionsWidget::setFeatherValue(qreal featherValue)
 
     QSignalBlocker b2(ui->featherSpinBox);
     ui->featherSpinBox->setValue(featherValue);
+}
+
+void StrokeOptionsWidget::setSpacingValue(qreal spacing)
+{
+    QSignalBlocker b(ui->spacingSlider);
+    ui->spacingSlider->setValue(spacing);
+
+    QSignalBlocker b2(ui->spacingSpinBox);
+    ui->spacingSpinBox->setValue(spacing);
 }
 
 void StrokeOptionsWidget::setFeatherEnabled(bool enabled)
