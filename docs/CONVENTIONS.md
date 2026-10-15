@@ -117,6 +117,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   visibility, opacity, `QImage::cacheKey`). Layer-range caches reuse
   `LayerCellCache`/`layersKey` in `CanvasPainter`; a setting that changes
   cached output joins the `invalidateAllCache` list in `ScribbleArea`.
+- Frame pool: frames more than 50 frames from the playhead unload; frames
+  with unsaved changes stay in RAM. Viewing a frame never marks it
+  modified. Memory claims use the benchmark's peak RAM line.
 - Opt-in fast mode: `SETTING::FAST_RENDER_LAYERS_ABOVE`, key
   `"FastRenderLayersAbove"`, default off.
 - Project thumbnails (welcome screen): app side, written after a successful
