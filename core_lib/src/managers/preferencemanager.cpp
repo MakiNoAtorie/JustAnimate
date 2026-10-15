@@ -108,6 +108,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::AUTO_SAVE_BY_TIME_TIMER,  settings.value(SETTING_AUTO_SAVE_BY_TIME_TIMER,15).toInt());
     set(SETTING::ASK_FOR_PRESET,           settings.value(SETTING_ASK_FOR_PRESET,         false).toBool());
     set(SETTING::LOAD_MOST_RECENT,         settings.value(SETTING_LOAD_MOST_RECENT,       false).toBool());
+    set(SETTING::SHOW_WELCOME_SCREEN,      settings.value(SETTING_SHOW_WELCOME_SCREEN,    true).toBool());
     set(SETTING::LOAD_DEFAULT_PRESET,      settings.value(SETTING_LOAD_DEFAULT_PRESET,    true).toBool());
     set(SETTING::DEFAULT_PRESET,           settings.value(SETTING_DEFAULT_PRESET,         0).toInt());
 
@@ -495,6 +496,9 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::LOAD_MOST_RECENT:
         settings.setValue(SETTING_LOAD_MOST_RECENT, value);
+        break;
+    case SETTING::SHOW_WELCOME_SCREEN:
+        settings.setValue(SETTING_SHOW_WELCOME_SCREEN, value);
         break;
     case SETTING::LOAD_DEFAULT_PRESET:
         settings.setValue(SETTING_LOAD_DEFAULT_PRESET, value);

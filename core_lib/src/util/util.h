@@ -81,6 +81,7 @@ quint64 imageSize(const QImage&);
 int parallelWorkerCount();
 // Calls fn(i) for i in [0, count) on up to parallelWorkerCount() threads and returns when all are done.
 // fn must be safe to run on any thread at the same time as other indices.
+// Do not call parallelFor from inside an fn: the shared pool can run out of threads and deadlock.
 void parallelFor(int count, const std::function<void(int)>& fn);
 QString uniqueString(int len);
 

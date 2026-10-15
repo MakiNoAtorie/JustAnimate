@@ -93,9 +93,9 @@ public:
     /** Adds a blank keyframe after the current frame of the current layer and moves every later keyframe one frame right.
      *  One undo step. Returns false on a hidden layer. */
     bool rippleInsertFrame();
-    /** Removes the keyframe shown at the current frame of the current layer and moves every later keyframe left
-     *  by its length, hold included. One undo step. Returns false on a hidden layer, before the first keyframe
-     *  or on the only keyframe. */
+    /** Deletes the current frame of the current layer: removes the keyframe there, if any, and moves every later
+     *  keyframe one frame left, so a hold gets one frame shorter. One undo step. Returns false on a hidden layer,
+     *  on the only keyframe or after the last keyframe. */
     bool rippleRemoveFrame();
 
     /** This should be emitted whenever the animation length frames, eg. adding, removing, duplicating */

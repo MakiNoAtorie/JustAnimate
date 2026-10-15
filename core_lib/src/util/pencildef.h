@@ -266,6 +266,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_ROTATION_INCREMENT  "RotationIncrement"
 #define SETTING_SHOW_SELECTION_INFO "ShowSelectionInfo"
 #define SETTING_ASK_FOR_PRESET      "AskForPreset"
+#define SETTING_SHOW_WELCOME_SCREEN "ShowWelcomeScreen"
 #define SETTING_LOAD_MOST_RECENT    "LoadMostRecent"
 #define SETTING_LOAD_DEFAULT_PRESET "LoadDefaultPreset"
 #define SETTING_DEFAULT_PRESET      "DefaultPreset"

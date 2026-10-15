@@ -240,36 +240,8 @@ void CanvasPainter::setPaintSettings(const Object* object, int currentLayer, int
 
 void CanvasPainter::paint(const QRect& blitRect)
 {
-    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, mCurrentLayerIndex - 1), blitRect, &CanvasPainter::renderPreLayers);
-
-    QPainter mainPainter;
-    QPainter postLayerPainter;
-
-    initializePainter(mainPainter, mCanvas, blitRect);
-
-    mainPainter.setWorldMatrixEnabled(false);
-    mainPainter.drawPixmap(mPointZero, mPreLayersPixmap);
-    mainPainter.setWorldMatrixEnabled(true);
-
-    paintCurrentFrame(mainPainter, blitRect, mCurrentLayerIndex, mCurrentLayerIndex);
-
-    if (mOptions.bFastLayersAbove)
-    {
-        updateCells(mPostLayersCache, mPostLayersPixmap, layersKey(mCurrentLayerIndex + 1, mObject->getLayerCount() - 1),
-                    blitRect, &CanvasPainter::renderPostLayers);
-    }
-    else
-    {
-        initializePainter(postLayerPainter, mPostLayersPixmap, blitRect);
-        renderPostLayers(postLayerPainter, blitRect);
-        postLayerPainter.end();
-    }
-
-    mainPainter.setWorldMatrixEnabled(false);
-    mainPainter.drawPixmap(mPointZero, mPostLayersPixmap);
-    mainPainter.setWorldMatrixEnabled(true);
-
-    mPostLayersPixmapCacheValid = true;
+    mPostLayersPixmapCacheValid = false;
+    paintCached(blitRect);
 }
 
 void CanvasPainter::paintOnionSkinOnLayer(QPainter& painter, const QRect& blitRect, Layer* layer)

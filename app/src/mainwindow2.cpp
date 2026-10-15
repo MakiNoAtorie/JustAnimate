@@ -778,7 +778,13 @@ void MainWindow2::openStartupFile(const QString& filename)
         return;
     }
 
-    loadMostRecent() || tryLoadPreset();
+    PreferenceManager* prefs = mEditor->preference();
+    if (Welcome::showAtStartup(prefs->isOn(SETTING::SHOW_WELCOME_SCREEN), prefs->isOn(SETTING::ASK_FOR_PRESET), filename))
+    {
+        showWelcomeDialog();
+        return;
+    }
+    loadMostRecent() || newObjectFromPresets(prefs->getInt(SETTING::DEFAULT_PRESET));
 }
 
 void MainWindow2::openFile(const QString& filename)
@@ -1229,10 +1235,14 @@ bool MainWindow2::tryLoadPreset()
 {
     if (!mEditor->preference()->isOn(SETTING::ASK_FOR_PRESET))
     {
-        int defaultPreset = mEditor->preference()->getInt(SETTING::DEFAULT_PRESET);
-        return newObjectFromPresets(defaultPreset);
+        return newObjectFromPresets(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET));
     }
+    showWelcomeDialog();
+    return true;
+}
 
+void MainWindow2::showWelcomeDialog()
+{
     auto* presetDialog = new WelcomeDialog(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET),
                                            mRecentFileMenu->getRecentFiles(), this);
     presetDialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -1270,6 +1280,7 @@ bool MainWindow2::tryLoadPreset()
         if (presetDialog->shouldAlwaysUse())
         {
             mEditor->preference()->set(SETTING::ASK_FOR_PRESET, false);
+            mEditor->preference()->set(SETTING::SHOW_WELCOME_SCREEN, false);
             mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetIndex);
         }
         if (!newObjectFromPresets(presetIndex))
@@ -1278,7 +1289,6 @@ bool MainWindow2::tryLoadPreset()
         }
     });
     presetDialog->open();
-    return true;
 }
 
 void MainWindow2::closeDialogs()

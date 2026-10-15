@@ -49,6 +49,8 @@ QString presetPath(int index);
 QString thumbnailPath(const QString& projectPath);
 QList<RecentEntry> recentEntries(const QStringList& recentFiles);
 bool saveThumbnail(const Object* object, const QString& projectPath, int frame);
+// True when the GUI starts with no file to open and the user has not turned the welcome screen off.
+bool showAtStartup(bool showWelcomeScreen, bool askForPreset, const QString& startupFile);
 }
 
 #endif // WELCOMEHELPER_H

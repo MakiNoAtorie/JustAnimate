@@ -31,25 +31,29 @@ public:
     void loadSettings() override;
     QCursor cursor() override;
 
-    int shapeMode() const;
-    void setShapeMode(int mode);
+    Mode shapeMode() const;
+    void setShapeMode(Mode mode);
 
     /// The shape dragged from `from` to `to`, in canvas points; closed shapes end on their first point.
     /// Shift gives 45 degree lines, squares and circles; Alt makes `from` the centre.
-    static QPolygonF outline(int mode, QPointF from, QPointF to, Qt::KeyboardModifiers modifiers);
+    static QPolygonF outline(Mode mode, QPointF from, QPointF to, Qt::KeyboardModifiers modifiers);
 
     void pointerPressEvent(PointerEvent*) override;
     void pointerMoveEvent(PointerEvent*) override;
     void pointerReleaseEvent(PointerEvent*) override;
     void pointerDoubleClickEvent(PointerEvent*) override;
     bool keyPressEvent(QKeyEvent* event) override;
+    bool enteringThisTool() override;
+    bool leavingThisTool() override;
+    /// Drops a polygon that is not closed yet.
+    void clearToolData() override;
     void paint(QPainter& painter, const QRect& blitRect) override;
 
 signals:
     void shapeModeChanged(int mode);
 
 private:
-    void finishShape(const QPolygonF& shape);
+    void finishShape(const QPolygonF& shape, PointerEvent* event);
     void setOutline(const QPolygonF& outline);
     QRect outlineScreenRect() const;
 

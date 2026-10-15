@@ -134,6 +134,7 @@ private:
     void clearKeyboardShortcuts();
     bool loadMostRecent();
     bool tryLoadPreset();
+    void showWelcomeDialog();
 
     void openPalette();
     void importPalette();

@@ -42,6 +42,7 @@ FilesPage::FilesPage()
     connect(ui->askPresetRbtn, &QRadioButton::toggled, this, &FilesPage::askForPresetChange);
     connect(ui->loadLastActiveRbtn, &QRadioButton::toggled, this, &FilesPage::loadMostRecentChange);
     connect(ui->loadDefaultPresetRbtn, &QRadioButton::toggled, this, &FilesPage::loadDefaultPreset);
+    connect(ui->showWelcomeCheckBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::SHOW_WELCOME_SCREEN, on); });
     connect(ui->presetListWidget, &QListWidget::itemChanged, this, &FilesPage::presetNameChanged);
 
     auto spinBoxValueChange = static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged);
@@ -218,6 +219,7 @@ void FilesPage::updateValues()
     ui->askPresetRbtn->setChecked(mManager->isOn(SETTING::ASK_FOR_PRESET));
     ui->loadDefaultPresetRbtn->setChecked(mManager->isOn(SETTING::LOAD_DEFAULT_PRESET));
     ui->loadLastActiveRbtn->setChecked(mManager->isOn(SETTING::LOAD_MOST_RECENT));
+    ui->showWelcomeCheckBox->setChecked(mManager->isOn(SETTING::SHOW_WELCOME_SCREEN));
 }
 
 void FilesPage::askForPresetChange(int b)

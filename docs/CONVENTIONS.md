@@ -1,8 +1,7 @@
 # Conventions
 
-Build, test and code rules every change follows. Keep this file under 8 KB:
-add a line only when a rule binds future work, delete lines that stop being
-true. Agents propose new lines in their report; the orchestrator folds them in.
+Rules every change follows. Keep under 8 KB: add a line only when it binds
+future work; delete lines that stop being true.
 
 ## Build and test
 
@@ -16,24 +15,20 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 ./build/pencil2d_tests "[ToolSettings]"           # one tag or test name
 ```
 
-- Keep output quiet: filter builds to errors/warnings and tests to the
-  summary or failures. Read a full log only to diagnose a specific failure.
-- Build with `-j2` when several agents share a machine; run one build at a
-  time per worktree. Stop only processes you started (by PID).
-- Re-run `cmake -S . -B build` after a change to `tests/tests.cmake` or any
-  `*.cmake` file.
-- Compiler warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON`.
-- CMake is the only build system. CI builds with Qt 6.4 (Linux) and 6.5.3 on GCC, Clang and
-  MSVC: use no Qt 6.5+ API and no `QT_VERSION < 6` branches.
-- `pencil2d_tests` does not compile all of `app/src`: build target `pencil2d`
-  too after an edit there.
-- Sanitizers: `-DJUSTANIMATE_SANITIZE=ON` (GCC/Clang, off by default); CI
-  runs the suite with ASan, UBSan and LeakSanitizer.
-- Windows (MSVC): `toolsuild-test.cmd [filter]` builds both targets and
-  runs the suite (set `VCVARS`/`QTDIR` for another install). It runs Qt
-  offscreen when the plugin is installed. For the `benchmark` target set
-  `QT_QPA_PLATFORM=offscreen` and `QT_QPA_PLATFORM_PLUGIN_PATH` to
-  `%QTDIR%\plugins\platforms` so no window opens on the user's desktop.
+- Keep output quiet: builds filtered to errors/warnings, tests to the
+  summary or failures.
+- Build with `-j2`, one build at a time per worktree. Stop only processes
+  you started (by PID).
+- Re-run `cmake -S . -B build` after a change to any `*.cmake` file.
+- Warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON`, Qt 6.4
+  (Linux) and 6.5.3 on GCC, Clang and MSVC: no Qt 6.5+ API, no
+  `QT_VERSION < 6` branches. CMake is the only build system.
+- `pencil2d_tests` does not compile all of `app/src`: build `pencil2d` too
+  after an edit there.
+- CI runs the suite with ASan, UBSan and LSan (`-DJUSTANIMATE_SANITIZE=ON`).
+- Windows: `tools\build-test.cmd [filter]` builds both targets and runs the
+  suite offscreen. For `benchmark` set `QT_QPA_PLATFORM=offscreen` and
+  `QT_QPA_PLATFORM_PLUGIN_PATH=%QTDIR%\plugins\platforms`.
 - Edit files with the Edit tool or a byte-level script: keep each file's
   line endings (`git ls-files --eol`). Git Bash `sed -i` drops CRLF.
 
@@ -43,20 +38,17 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `tests/tests.cmake`.
 - Every fix ships with a test that fails without it.
 - Test at a public interface (`Editor`, `FileManager`, a tool, a manager).
-  App-side classes (`app/src/...`) can be compiled into `pencil2d_tests` by
-  listing them in `tests/tests.cmake`.
 - Tests that touch `QSettings` restore the value they change.
 - Tests write files only under their own `QTemporaryDir`: several agents run
   suites at once on one machine.
 - Fixtures are stack objects or `unique_ptr`; a raw `new` fails the leak job.
-- No modal dialog in a test path: put confirm and cleanup logic in helpers
-  or callbacks the test can call. Command-line paths never prompt.
+- No modal dialog in a test path: put the logic in helpers the test can
+  call. Command-line paths never prompt.
 - A test that crashes a child process on purpose faults for real (null
   write in a function marked `no_sanitize`), sets `SEM_NOGPFAULTERRORBOX` on
   Windows and forwards the child's stderr.
 - Golden values change only in a commit that means to change output.
-- Catch2 test names contain no commas (the CLI filter splits on them).
-  Filter by name (`"UndoRedoManager:*"`) unless the test has a `[Tag]`.
+- Catch2 test names have no commas (the CLI filter splits on them).
 
 ## Code
 
@@ -66,8 +58,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `handleDrawingOnEmptyFrame()`, then `record` on every path; layer
   add/remove through `recordLayerAdd/Remove`). Commands address frames by
   stored position and keep removed layers alive, never recreate them.
-- Undo tests assert image or structure content after undo and after redo,
-  never selection state.
+- Undo tests assert content after undo and redo, never selection state.
 - An edit that is not recorded for undo still emits `frameModified`,
   `framesModified` or `layerCountChanged`, or calls `object()->modification()`.
 - Do not tell the user an action cannot be undone unless no record exists.
@@ -82,9 +73,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Code that runs in a crash handler uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
-- Long file I/O (zip, unzip) runs on a worker thread through
-  `FileManager::runArchiveJob`; the calling thread emits progress. Only one
-  `FileManager::save` runs at a time.
+- Zip and unzip run through `FileManager::runArchiveJob` (worker thread;
+  the caller emits progress). One `FileManager::save` at a time.
 - `.gitignore` ignores `*.rc`; add a `!` exception for a resource file you
   mean to commit.
 - New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
@@ -100,11 +90,10 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   its vertices, not `VectorImage::fillContour`.
 - Dark/light decisions use `Theme::isDark()`, never
   `PlatformHandler::isDarkMode()`.
-- Dock layouts and workspaces: free functions in `app/src/defaultlayout.*`
-  taking widget pointers and `QSettings&`. Dock `objectName`s are stable keys.
+- Dock layouts: free functions in `app/src/defaultlayout.*`; dock
+  `objectName`s are stable keys.
 - App files compiled into a test are listed in both `app/app.cmake` and
   `tests/tests.cmake`.
-
 - Tool property ids: bucket `FILLCLOSEGAPS_VALUE = 307` ("FillCloseGaps",
   px, 0 = off). Fill behind lines is the existing Behind blend mode.
   New tools append to `ToolType` before `TOOL_TYPE_COUNT`: `SHAPE`, then
@@ -126,11 +115,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   below the 50-frame unload distance.
 - Opt-in fast mode: `SETTING::FAST_RENDER_LAYERS_ABOVE`, key
   `"FastRenderLayersAbove"`, default off.
-- Project thumbnails (welcome screen): app side, written after a successful
-  save to `QStandardPaths::CacheLocation/thumbnails/<sha1 of canonical
-  path>.png`. No file-format change. Recent projects reuse the existing
-  recent-files settings; templates are a fixed list in app code. Logic
-  lives in `Welcome::` free functions (`app/src/welcomehelper.*`).
+- Welcome screen logic lives in `Welcome::` free functions
+  (`app/src/welcomehelper.*`). Thumbnails go to `QStandardPaths::CacheLocation/
+  thumbnails/<sha1 of canonical path>.png` after a successful save.
 - A timeline frame selection can span layers: clear it with
   `LayerManager::deselectAllFrames`. Multi-layer frame edits go through
   `LayerManager`, one `createState(type, layer)` per layer in one `UndoMacro`.
