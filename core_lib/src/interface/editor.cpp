@@ -121,11 +121,14 @@ void Editor::setFps(int fps)
 void Editor::makeConnections()
 {
     connect(mPreferenceManager, &PreferenceManager::optionChanged, this, &Editor::settingUpdated);
-    connect(mUndoRedoManager, &UndoRedoManager::didUpdateUndoStack, this, &Editor::updateAutoSaveCounter);
+    connect(mUndoRedoManager, &UndoRedoManager::didRecordEdit, this, &Editor::updateAutoSaveCounter);
     connect(mPreferenceManager, &PreferenceManager::optionChanged, mUndoRedoManager, &UndoRedoManager::onSettingChanged);
 
-    // XXX: This is a hack to prevent crashes until #864 is done (see #1412)
-    connect(mLayerManager, &LayerManager::layerDeleted, mUndoRedoManager, &UndoRedoManager::sanitizeLegacyBackupElementsAfterLayerDeletion);
+    // Not every edit is an undo step; the object's modified flag covers the rest.
+    connect(this, &Editor::frameModified, this, [this] { mObject->modification(); });
+    connect(this, &Editor::framesModified, this, [this] { mObject->modification(); });
+    connect(mLayerManager, &LayerManager::layerCountChanged, this, [this] { mObject->modification(); });
+
     connect(mLayerManager, &LayerManager::currentLayerWillChange, this, &Editor::onCurrentLayerWillChange);
 }
 
@@ -190,7 +193,6 @@ void Editor::copy()
 
     if (!canCopy()) { return; }
 
-    backup(tr("Copy"));
 
     if (currentLayer->hasAnySelectedFrames() && !select()->somethingSelected()) {
         clipboards()->copySelectedFrames(currentLayer);
@@ -210,10 +212,7 @@ void Editor::copyAndCut()
     Layer* currentLayer = layers()->currentLayer();
 
     if (currentLayer->hasAnySelectedFrames() && !select()->somethingSelected()) {
-        for (int pos : currentLayer->selectedKeyFramesPositions()) {
-            currentLayer->removeKeyFrame(pos);
-        }
-        emit layers()->currentLayerChanged(currentLayerIndex());
+        removeSelectedKeyFrames(tr("Cut"));
         emit updateTimeLine();
         return;
     }
@@ -222,6 +221,17 @@ void Editor::copyAndCut()
         mScribbleArea->deleteSelection();
         deselectAll();
     }
+}
+
+void Editor::removeSelectedKeyFrames(const QString& undoText)
+{
+    Layer* currentLayer = layers()->currentLayer();
+    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_REMOVE);
+    for (int pos : currentLayer->selectedKeyFramesPositions()) {
+        currentLayer->removeKeyFrame(pos);
+    }
+    undoRedo()->record(saveStateId, undoText);
+    layers()->notifyLayerChanged(currentLayer); // timeline repaint
 }
 
 void Editor::pasteFromPreviousFrame()
@@ -233,9 +243,9 @@ void Editor::pasteFromPreviousFrame()
         return;
     }
 
+    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     if (currentLayer->type() == Layer::BITMAP)
     {
-        backup(tr("Paste from Previous Keyframe"));
         BitmapImage* bitmapImage = static_cast<BitmapImage*>(currentLayer->getKeyFrameAt(prevFrame));
         if (select()->somethingSelected())
         {
@@ -249,10 +259,10 @@ void Editor::pasteFromPreviousFrame()
     }
     else if (currentLayer->type() == Layer::VECTOR)
     {
-        backup(tr("Paste from Previous Keyframe"));
         VectorImage* vectorImage = static_cast<VectorImage*>(currentLayer->getKeyFrameAt(prevFrame));
         pasteToCanvas(vectorImage, mFrame);
     }
+    undoRedo()->record(saveStateId, tr("Paste from Previous Keyframe"));
 }
 
 void Editor::pasteToCanvas(BitmapImage* bitmapImage, int frameNumber)
@@ -325,7 +335,6 @@ void Editor::pasteToFrames()
         // It's a bug if the keyframe is nullptr at this point...
         Q_ASSERT(key != nullptr);
 
-        // TODO: undo/redo implementation
         currentLayer->addKeyFrame(newPosition, key);
         if (currentLayer->type() == Layer::SOUND)
         {
@@ -349,7 +358,11 @@ void Editor::paste()
 
     if (clipboards()->framesIsEmpty()) {
 
-        backup(tr("Paste"));
+
+        // Create the key first: the undo state must hold the frame that the paste changes.
+        const UndoMacro macro(undoRedo(), tr("Paste"));
+        mScribbleArea->handleDrawingOnEmptyFrame();
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
         clipboards()->setFromSystemClipboard(mScribbleArea->getCentralPoint(), currentLayer);
 
@@ -360,9 +373,11 @@ void Editor::paste()
         } else if (currentLayer->type() == Layer::VECTOR && !clipboardVectorImage.isEmpty()) {
             pasteToCanvas(&clipboardVectorImage, mFrame);
         }
+        undoRedo()->record(saveStateId, tr("Paste"));
     } else {
-        // TODO: implement undo/redo
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_PASTE);
         pasteToFrames();
+        undoRedo()->record(saveStateId, tr("Paste frames"));
     }
 
     emit frameModified(mFrame);
@@ -370,12 +385,12 @@ void Editor::paste()
 
 void Editor::flipSelection(bool flipVertical)
 {
-    if (flipVertical) {
-        backup(tr("Flip selection vertically"));
-    } else {
-        backup(tr("Flip selection horizontally"));
-    }
+    if (!select()->somethingSelected()) { return; }
+
+    const QString undoText = flipVertical ? tr("Flip selection vertically") : tr("Flip selection horizontally");
+    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     mScribbleArea->flipSelection(flipVertical);
+    undoRedo()->record(saveStateId, undoText);
 }
 
 void Editor::repositionImage(QPoint transform, int frame)
@@ -383,13 +398,14 @@ void Editor::repositionImage(QPoint transform, int frame)
     if (layers()->currentLayer()->type() == Layer::BITMAP)
     {
         scrubTo(frame);
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         LayerBitmap* layer = static_cast<LayerBitmap*>(layers()->currentLayer());
         QRect reposRect = layer->getFrameBounds(frame);
         select()->setSelection(reposRect);
         QPoint point = reposRect.topLeft();
         point += transform;
         layer->repositionFrame(point, frame);
-        backup(layer->id(), frame, tr("Reposition frame")); // TOOD: backup multiple reposition operations.
+        undoRedo()->record(saveStateId, tr("Reposition frame"));
     }
 }
 
@@ -399,7 +415,6 @@ void Editor::setModified(int layerNumber, int frameNumber)
     if (layer == nullptr) { return; }
 
     layer->setModified(frameNumber, true);
-    undoRedo()->rememberLastModifiedFrame(layerNumber, frameNumber);
 
     emit frameModified(frameNumber);
 }
@@ -620,19 +635,24 @@ Status Editor::importBitmapImage(const QString& filePath, const QTransform& impo
     const QPoint pos = importTransform.map(QPoint(-img.width() / 2,
                                         -img.height() / 2));
 
-    if (!layer->keyExists(mFrame))
     {
-        const bool ok = addNewKey();
-        Q_ASSERT(ok);
+        const UndoMacro macro(undoRedo(), tr("Import Image"));
+        if (!layer->keyExists(mFrame))
+        {
+            const bool ok = addNewKey();
+            Q_ASSERT(ok);
+        }
+        BitmapImage* bitmapImage = layer->getBitmapImageAtFrame(mFrame);
+        BitmapImage importedBitmapImage(pos, img);
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        bitmapImage->paste(&importedBitmapImage);
+        emit frameModified(bitmapImage->pos());
+        // Record before the scrub: the record reads the image at the current frame.
+        undoRedo()->record(saveStateId, tr("Import Image"));
     }
-    BitmapImage* bitmapImage = layer->getBitmapImageAtFrame(mFrame);
-    BitmapImage importedBitmapImage(pos, img);
-    bitmapImage->paste(&importedBitmapImage);
-    emit frameModified(bitmapImage->pos());
 
     scrubTo(mFrame+1);
 
-    backup(tr("Import Image"));
 
     return status;
 }
@@ -643,10 +663,17 @@ Status Editor::importVectorImage(const QString& filePath)
 
     auto layer = static_cast<LayerVector*>(layers()->currentLayer());
 
+    if (!layer->visible())
+    {
+        mScribbleArea->showLayerNotVisibleWarning();
+        return Status::SAFE;
+    }
+
     Status status = Status::OK;
     DebugDetails dd;
     dd << QString("Raw file path: %1").arg(filePath);
 
+    const UndoMacro macro(undoRedo(), tr("Import Image"));
     VectorImage* vectorImage = layer->getVectorImageAtFrame(currentFrame());
     if (vectorImage == nullptr)
     {
@@ -658,11 +685,12 @@ Status Editor::importVectorImage(const QString& filePath)
     bool ok = importedVectorImage.read(filePath);
     if (ok)
     {
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         importedVectorImage.selectAll();
         vectorImage->paste(importedVectorImage);
         emit frameModified(importedVectorImage.pos());
+        undoRedo()->record(saveStateId, tr("Import Image"));
 
-        backup(tr("Import Image"));
     }
     else {
         status = Status(Status::FAIL, dd, tr("Import failed"), tr("You cannot import images into a vector layer."));
@@ -734,6 +762,12 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
     }
     LayerBitmap* bitmapLayer = static_cast<LayerBitmap*>(layers()->currentLayer());
 
+    if (!bitmapLayer->visible())
+    {
+        mScribbleArea->showLayerNotVisibleWarning();
+        return Status::SAFE;
+    }
+
     QImageReader reader(filePath);
     dd << QString("QImageReader format: %1").arg(QString(reader.format()));
     if (!reader.supportsAnimation()) {
@@ -767,14 +801,20 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
             return Status(Status::FAIL, dd, tr("Import failed"), errorDesc);
         }
 
-        if (!bitmapLayer->keyExists(mFrame))
         {
-            addNewKey();
+            const UndoMacro macro(undoRedo(), tr("Import Image"));
+            if (!bitmapLayer->keyExists(mFrame))
+            {
+                addNewKey();
+            }
+            BitmapImage* bitmapImage = bitmapLayer->getBitmapImageAtFrame(mFrame);
+            BitmapImage importedBitmapImage(pos, img);
+            const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+            bitmapImage->paste(&importedBitmapImage);
+            emit frameModified(bitmapImage->pos());
+            // Record before the cancel check and the scrub: the record reads the image at the current frame.
+            undoRedo()->record(saveStateId, tr("Import Image"));
         }
-        BitmapImage* bitmapImage = bitmapLayer->getBitmapImageAtFrame(mFrame);
-        BitmapImage importedBitmapImage(pos, img);
-        bitmapImage->paste(&importedBitmapImage);
-        emit frameModified(bitmapImage->pos());
 
         if (wasCanceled())
         {
@@ -783,7 +823,6 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
 
         scrubTo(mFrame + frameSpacing);
 
-        backup(tr("Import Image"));
 
         progressChanged(qFloor(qMin(static_cast<double>(reader.currentImageNumber()) / totalFrames, 1.0) * 100));
     }
@@ -959,7 +998,6 @@ void Editor::removeKey()
     }
 
     SAVESTATE_ID saveStateId =  undoRedo()->createState(UndoRedoRecordType::KEYFRAME_REMOVE);
-    backup(tr("Remove frame"));
 
     deselectAll();
     layer->removeKeyFrame(currentFrame());
@@ -1078,16 +1116,3 @@ bool Editor::canCopyVectorImage(const VectorImage* vectorImage) const
     return vectorImage != nullptr && !vectorImage->isEmpty();
 }
 
-void Editor::backup(const QString &undoText)
-{
-    undoRedo()->legacyBackup(undoText);
-    updateAutoSaveCounter();
-}
-
-bool Editor::backup(int layerNumber, int frameNumber, const QString &undoText)
-{
-    bool didBackup = undoRedo()->legacyBackup(layerNumber, frameNumber, undoText);
-
-    updateAutoSaveCounter();
-    return didBackup;
-}

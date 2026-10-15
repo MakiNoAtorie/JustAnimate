@@ -59,7 +59,6 @@ public:
     quint64 memoryUsage() override;
 
     void paintImage(QPainter& painter);
-    void paintImage(QPainter &painter, QImage &image, QRect sourceRect, QRect destRect);
 
     QImage* image();
     void    setImage(QImage* pImg);

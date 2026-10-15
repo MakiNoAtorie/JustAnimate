@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define COMMANDLINEEXPORTER_H
 
 #include <QTextStream>
+#include "pencilerror.h"
 
 class Editor;
 class LayerCamera;
@@ -50,34 +51,35 @@ public:
      * @param endFrame Last frame to include in the export(s) or -1 to use the last keyframe or -2 to use the last
      *                 keyframe including sound clips
      * @param transparency Whether to export with transparency
-     * @return `true` if the export was successful
+     * @return Status::OK if every export succeeded, otherwise the first error
      */
-    bool process(const QString &inputPath,
-                 const QStringList &outputPaths,
-                 const QString &camera,
-                 int width,
-                 int height,
-                 int startFrame,
-                 int endFrame,
-                 bool transparency);
+    Status process(const QString &inputPath,
+                   const QStringList &outputPaths,
+                   const QString &camera,
+                   int width,
+                   int height,
+                   int startFrame,
+                   int endFrame,
+                   bool transparency);
 
 private:
     Editor *mEditor;
     QTextStream mOut;
     QTextStream mErr;
-    void exportMovie(const QString &outputPath,
-                     const LayerCamera *cameraLayer,
-                     const QSize &exportSize,
-                     int startFrame,
-                     int endFrame,
-                     bool transparency);
-    void exportImageSequence(const QString &outputPath,
-                             const QString &format,
-                             const LayerCamera *cameraLayer,
-                             const QSize &exportSize,
-                             int startFrame,
-                             int endFrame,
-                             bool transparency);
+    Status exportMovie(const QString &outputPath,
+                       const LayerCamera *cameraLayer,
+                       const QSize &exportSize,
+                       int startFrame,
+                       int endFrame,
+                       bool transparency);
+    Status exportImageSequence(const QString &outputPath,
+                               const QString &format,
+                               const LayerCamera *cameraLayer,
+                               const QSize &exportSize,
+                               int startFrame,
+                               int endFrame,
+                               bool transparency);
+    void printError(const Status &st);
 };
 
 #endif // COMMANDLINEEXPORTER_H

@@ -1,0 +1,181 @@
+/*
+
+Pencil2D - Traditional Animation Software
+Copyright (C) 2012-2020 Matthew Chiawen Chang
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; version 2 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+*/
+#include "catch.hpp"
+
+#include <QAction>
+#include <QApplication>
+#include <QIcon>
+#include <QPointingDevice>
+#include <QTabletEvent>
+
+#include "beziercurve.h"
+#include "bitmapimage.h"
+#include "brushtool.h"
+#include "colormanager.h"
+#include "editor.h"
+#include "layerbitmap.h"
+#include "layermanager.h"
+#include "layervector.h"
+#include "object.h"
+#include "scribblearea.h"
+#include "testfixture.h"
+#include "toolmanager.h"
+#include "undoredomanager.h"
+#include "vectorimage.h"
+#include "viewmanager.h"
+
+namespace
+{
+
+void tablet(ScribbleArea* area, QEvent::Type type, QPointF pos, qreal pressure)
+{
+    const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
+    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                   pressure, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+    QApplication::sendEvent(area, &e);
+}
+
+// A stroke from `from` to `to` whose pressure ends at `endPressure`.
+void stroke(ScribbleArea* area, QPointF from, QPointF to, qreal endPressure)
+{
+    tablet(area, QEvent::TabletPress, from, 0.5);
+    for (int i = 1; i <= 10; ++i)
+        tablet(area, QEvent::TabletMove, from + (to - from) * i / 10.0, endPressure);
+    tablet(area, QEvent::TabletRelease, to, endPressure);
+}
+
+void tap(ScribbleArea* area, QPointF pos, qreal pressure)
+{
+    tablet(area, QEvent::TabletPress, pos, pressure);
+    tablet(area, QEvent::TabletRelease, pos, pressure);
+}
+
+// Width in pixels of the painted (non-transparent) part of the image.
+int inkWidth(BitmapImage* image)
+{
+    const QImage* img = image->image();
+    int left = img->width(), right = -1;
+    for (int y = 0; y < img->height(); ++y)
+        for (int x = 0; x < img->width(); ++x)
+            if (qAlpha(img->pixel(x, y)) != 0)
+            {
+                left = std::min(left, x);
+                right = std::max(right, x);
+            }
+    return right - left + 1;
+}
+
+} // namespace
+
+TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous stroke's")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 2; f <= 4; ++f)
+        layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setPressureEnabled(true);
+    brush->setFeatherEnabled(false);
+
+    // A light stroke, then a hard tap.
+    editor->scrubTo(1);
+    stroke(area, QPointF(100, 100), QPointF(300, 100), 0.1);
+    editor->scrubTo(2);
+    tap(area, QPointF(400, 300), 1.0);
+
+    // A hard stroke, then a light tap.
+    editor->scrubTo(3);
+    stroke(area, QPointF(100, 200), QPointF(300, 200), 1.0);
+    editor->scrubTo(4);
+    tap(area, QPointF(400, 400), 0.2);
+
+    const int hardDot = inkWidth(layer->getBitmapImageAtFrame(2));
+    const int lightDot = inkWidth(layer->getBitmapImageAtFrame(4));
+    INFO("hard " << hardDot << " light " << lightDot);
+    CHECK(hardDot >= 30);
+    CHECK(lightDot > 0);
+    CHECK(lightDot <= 15);
+}
+
+TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
+{
+    TestSession session;
+    Object* obj = session.object;
+    LayerVector* layer = obj->addNewVectorLayer();
+
+    session.start();
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+
+    BezierCurve curve({ QPointF(50, 50), QPointF(100, 100) });
+    curve.setColorNumber(1);
+    layer->getVectorImageAtFrame(1)->addCurve(curve, 1.0);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    // Undo and redo replace the keyframe: get the image again each time.
+    auto image = [&] { return layer->getVectorImageAtFrame(1); };
+    const QPointF curveStart = editor->view()->mapCanvasToScreen(QPointF(50, 50));
+
+    SECTION("Smudge tool moves a vertex")
+    {
+        editor->tools()->setCurrentTool(SMUDGE);
+        auto moved = [&] { return image()->getVertex(0, -1).x() > 70; };
+
+        stroke(area, curveStart, curveStart + QPointF(40, 0), 0.5);
+        REQUIRE(moved());
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE_FALSE(moved());
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(moved());
+    }
+
+    SECTION("Bucket tool colors the selected curve")
+    {
+        editor->tools()->setCurrentTool(BUCKET);
+        editor->color()->setColorNumber(2);
+        image()->setSelected(0, true);
+        auto colorNumber = [&] { return image()->curve(0).getColorNumber(); };
+
+        tap(area, curveStart, 0.5);
+        REQUIRE(colorNumber() == 2);
+        REQUIRE(undoAction->isEnabled());
+        undoAction->trigger();
+        REQUIRE(colorNumber() == 1);
+        REQUIRE(redoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(colorNumber() == 2);
+    }
+}

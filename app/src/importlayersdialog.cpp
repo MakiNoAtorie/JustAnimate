@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "app_util.h"
 #include "filemanager.h"
 #include "filedialog.h"
+#include "errordialog.h"
 #include "fileformat.h"
 #include "layermanager.h"
 #include "soundmanager.h"
@@ -56,13 +57,25 @@ void ImportLayersDialog::setCore(Editor *editor)
     mEditor = editor;
 }
 
+Status ImportLayersDialog::loadFile(const QString& fileName)
+{
+    mFileName = fileName;
+    return getLayers();
+}
+
 void ImportLayersDialog::getFileName()
 {
     mFileName.clear();
     ui->lwLayers->clear();
-    mFileName = FileDialog::getOpenFileName(this, FileType::ANIMATION, tr("Choose file"));
-    if (mFileName.isEmpty()) { return; }
-    getLayers();
+    const QString fileName = FileDialog::getOpenFileName(this, FileType::ANIMATION, tr("Choose file"));
+    if (fileName.isEmpty()) { return; }
+
+    Status st = loadFile(fileName);
+    if (!st.ok())
+    {
+        ErrorDialog errorDialog(st.title(), st.description(), st.details().str(), this);
+        errorDialog.exec();
+    }
 }
 
 void ImportLayersDialog::listWidgetChanged()
@@ -135,7 +148,7 @@ void ImportLayersDialog::cancel()
     close();
 }
 
-void ImportLayersDialog::getLayers()
+Status ImportLayersDialog::getLayers()
 {
     QProgressDialog progress(tr("Opening document..."), tr("Abort"), 0, 100, this);
 
@@ -160,6 +173,12 @@ void ImportLayersDialog::getLayers()
     mImportObject.reset(fm.load(mFileName));
 
     ui->lwLayers->clear();
+    if (mImportObject == nullptr)
+    {
+        mFileName.clear();
+        return fm.error();
+    }
+
     for (int i = 0; i < mImportObject->getLayerCount(); i++)
     {
         const QString layerName = mImportObject->getLayer(i)->name();
@@ -170,6 +189,7 @@ void ImportLayersDialog::getLayers()
         item->setData(Qt::UserRole, layerId);
         ui->lwLayers->addItem(item);
     }
+    return Status::OK;
 }
 
 void ImportLayersDialog::loadKeyFrames(Layer* importedLayer)

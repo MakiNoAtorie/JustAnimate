@@ -40,7 +40,6 @@ public:
     QString soundClipName() const { return mOriginalSoundClipName; }
 
     void attachPlayer(SoundPlayer* player);
-    void detachPlayer();
     SoundPlayer* player() const { return mPlayer.get(); }
 
     void play();

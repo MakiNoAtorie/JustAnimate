@@ -3,182 +3,207 @@ permissions:
   contents: read
 on:
   push:
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '**.ps1'
   pull_request:
-    # Need to repeat these paths - YAML anchors aren’t supported on GHA atm
-    # (or any other CI service that I know of, for that matter)
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '**.ps1'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Qt 5 / Linux x86_64
-            os: ubuntu-latest
-            container: "rockylinux/rockylinux:8"
-            qt: 5
-            bundler: linuxdeployqt
-          - name: Qt 5 / macOS x86_64
-            os: macos-15-intel
-            arch: x86_64
-            container:
-            qt: 5
-          - name: Qt 5 / Windows x86
-            os: windows-2022
-            arch: win32_msvc2019
-            vcvars: x86
-            container:
-            qt: 5
-          - name: Qt 5 / Windows x86_64
-            os: windows-2022
-            arch: win64_msvc2019_64
-            vcvars: x64
-            container:
-            qt: 5
-          - name: Qt 6 / Linux x86_64
-            os: ubuntu-latest
-            container: "rockylinux/rockylinux:9"
-            qt: 6
-            bundler: linuxdeploy
-          - name: Qt 6 / macOS Universal
+          - name: Linux
+            os: ubuntu-24.04
+          - name: macOS
             os: macos-14
-            arch: universal
-            container:
-            qt: 6
-          - name: Qt 6 / Windows x86_64
+            qt-arch: clang_64
+          - name: Windows
             os: windows-2022
-            arch: win64_msvc2019_64
-            vcvars: x64
-            container:
-            qt: 6
+            qt-arch: win64_msvc2019_64
 
-    name: ${{matrix.name}}
-    runs-on: ${{matrix.os}}
-    timeout-minutes: 20
-    env: { CONTAINER: "${{matrix.container}}", BUILD_CMD: "" }
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      QT_QPA_PLATFORM: offscreen
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Set up container (Linux)
+      - name: Install Qt (Linux)
         if: runner.os == 'Linux'
-        # XXX: --privileged is sort of a brute-force solution to get FUSE
-        #      working inside Docker, however so far I haven’t been able to
-        #      figure out precisely *which* privileges are needed.
         run: |
-          touch "${{github.workspace}}/env"
-          docker run --detach --privileged --workdir /workspace --volume "${{github.workspace}}:/workspace" --name "ci_${{github.sha}}" --entrypoint "tail" "${{matrix.container}}" -f /dev/null
-          echo '#!/usr/bin/env bash' > "${{github.workspace}}/build-cmd"
-          echo 'exec docker exec --env-file <(cat "${{github.workspace}}/env") "ci_${{github.sha}}" "$@"' >> "${{github.workspace}}/build-cmd"
-          chmod +x "${{github.workspace}}/build-cmd"
-          echo 'BUILD_CMD=${{github.workspace}}/build-cmd' >> "${GITHUB_ENV}"
-      - name: Install dependencies
-        uses: ./.github/actions/install-dependencies
-        with:
-          arch: ${{matrix.arch}}
-          qt: ${{matrix.qt}}
-      - name: Set up environment
-        uses: ./.github/actions/setup-environment
-        with:
-          arch: ${{matrix.arch}}
-          vcvars: ${{matrix.vcvars}}
-      - name: Configure build
-        run: >
-          mkdir build; ${{runner.os == 'Linux' && '${BUILD_CMD}' || ''}}
-          ${{runner.os == 'Linux' && matrix.qt == 5 && 'qmake-qt5' || 'qmake'}}
-          -o build PREFIX=/usr CONFIG-=debug_and_release CONFIG+=GIT
-          VERSION=${{ env.VERSION_NUMBER }}
-          ${{runner.os == 'macOS' && matrix.qt == 6 && 'QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64"' || ''}}
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends \
+            qt6-base-dev qt6-multimedia-dev qt6-svg-dev qt6-tools-dev \
+            qt6-tools-dev-tools qt6-l10n-tools libgl-dev ninja-build
 
-      - name: Build Pencil2D
-        run: ${{runner.os != 'Windows' && '${BUILD_CMD} make -C build' || 'cd build; nmake'}}
+      - name: Install Qt (macOS, Windows)
+        if: runner.os != 'Linux'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.5.3'
+          arch: ${{ matrix.qt-arch }}
+          modules: qtmultimedia
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON
+
+      - name: Build
+        run: cmake --build build
 
       - name: Run tests
-        run: ${{runner.os == 'Linux' && '${BUILD_CMD}' || ''}} env QT_QPA_PLATFORM=minimal build/tests/tests
+        run: ./build/pencil2d_tests
 
-      - name: Create package
-        id: package
-        uses: ./.github/actions/create-package
-        with:
-          arch: ${{matrix.arch}}
-          qt: ${{matrix.qt}}
-          bundler: ${{matrix.bundler}}
-
-      - name: Code Sign and Notarize App
-        if: runner.os == 'macOS'
-        uses: ./.github/actions/notarize-macos-app
-        with:
-          app_path: "build/${{steps.package.outputs.output-basename}}.zip"
-          p12_base64: ${{ secrets.P12_BASE64 }}
-          p12_password: ${{ secrets.P12_PASSWORD }}
-          apple_id: ${{ secrets.APPLE_ID }}
-          apple_id_password: ${{ secrets.APPLE_ID_PASSWORD }}
-          team_id: ${{ secrets.APPLE_TEAM_ID }}
-          certificate_identity: ${{ secrets.CODESIGN_CERT_IDENTITY }}
-
-      - name: Resolve path
-        id: resolve
-        shell: bash
-        env:
-          BASENAME: ${{ steps.package.outputs.output-basename }}
+      # Packages: a Release build with Qt and ffmpeg bundled, uploaded as a workflow artifact
+      - name: Download ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            for ext in dmg zip; do
-              if [ -f "build/${BASENAME}.${ext}" ]; then
-                echo "package1=build/${BASENAME}.${ext}" >> $GITHUB_OUTPUT
-                exit 0
-              fi
-            done
+          Invoke-WebRequest https://github.com/pencil2d/pencil2d-deps/releases/download/ffmpge-v4.1.1/ffmpeg-win64.zip -OutFile ffmpeg-win64.zip
+          Expand-Archive ffmpeg-win64.zip -DestinationPath ffmpeg
+          "FFMPEG=$("$PWD\ffmpeg\ffmpeg.exe".Replace('\', '/'))" >> $env:GITHUB_ENV
 
-            echo "ERROR: No macOS package found"
-            exit 1
-          else
-            files=(build/${BASENAME}*)
-            if [ ! -e "${files[0]}" ]; then
-              echo "ERROR: No package found"
-              exit 1
-            fi
-            if [ "${#files[@]}" -gt 3 ]; then
-              echo "ERROR: More than three packages found"
-              exit 1
-            fi
-            echo "package1=${files[0]}" >> $GITHUB_OUTPUT
-            echo "package2=${files[1]}" >> $GITHUB_OUTPUT
-            echo "package3=${files[2]}" >> $GITHUB_OUTPUT
-          fi
+      - name: Download ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          curl --retry 5 --retry-delay 15 -fsSLo ffmpeg.7z https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z
+          curl --retry 5 --retry-delay 15 -fsSLo ffmpeg.7z.sig https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z.sig
+          curl --retry 5 --retry-delay 15 -fsSL https://evermeet.cx/ffmpeg/0x1A660874.asc | gpg --import
+          gpg --verify ffmpeg.7z.sig ffmpeg.7z
+          mkdir ffmpeg && bsdtar -xf ffmpeg.7z -C ffmpeg
+          echo "FFMPEG=$PWD/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
 
-      - name: Upload package one
-        uses: actions/upload-artifact@v7
-        with:
-          path: ${{steps.resolve.outputs.package1}}
-          archive: false
-      - name: Upload package two
-        if: steps.resolve.outputs.package2
-        uses: actions/upload-artifact@v7
-        with:
-          path: ${{steps.resolve.outputs.package2}}
-          archive: false
-      - name: Upload package three
-        if: steps.resolve.outputs.package3
-        uses: actions/upload-artifact@v7
-        with:
-          path: ${{steps.resolve.outputs.package3}}
-          archive: false
-      - name: Generate summary
-        shell: bash
-        run: >
-          echo "Build will be available for download
-          [here](https://get.pencil2d.org/@${{github.repository_owner}}/${{github.run_id}}/${{steps.package.outputs.output-basename}})
-          once the run is finished." > "${GITHUB_STEP_SUMMARY}"
+      - name: Configure release
+        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_FFMPEG="${{ env.FFMPEG }}"
 
-      - name: Stop container (Linux)
+      - name: Build release
+        run: cmake --build build-release --target pencil2d
+
+      - name: Package (Linux AppImage)
         if: runner.os == 'Linux'
-        run: docker stop "ci_${{github.sha}}"
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          QMAKE: /usr/lib/qt6/bin/qmake
+          LDAI_OUTPUT: JustAnimate-x86_64.AppImage
+          EXTRA_PLATFORM_PLUGINS: libqoffscreen.so  # headless use (CLI export, the smoke test below)
+        run: |
+          mkdir -p packages tools
+          for t in linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+                   linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage; do
+            curl --retry 5 --retry-delay 15 -fsSL "https://github.com/$t" -o "tools/$(basename "$t")"
+          done
+          chmod +x tools/*.AppImage
+          DESTDIR="$PWD/AppDir" cmake --install build-release --prefix /usr
+          PATH="$PWD/tools:$PATH" linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
+          mv "$LDAI_OUTPUT" packages/
+
+      - name: Package (macOS DMG, Windows installer)
+        if: runner.os != 'Linux'
+        working-directory: build-release
+        shell: bash
+        # Call CMake's cpack by path: on Windows runners "cpack" can be Chocolatey's
+        run: '"$(dirname "$(command -v cmake)")/cpack" -B ../packages'
+
+      - name: Smoke test the package (Linux)
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          ./packages/JustAnimate-x86_64.AppImage --version
+          ./packages/JustAnimate-x86_64.AppImage tests/data/camera-path-test.pclx -o smoke.png
+          test -s smoke0001.png  # one PNG per frame
+
+      - name: Smoke test the package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir smoke-win && unzip -q packages/*.zip -d smoke-win
+          ./smoke-win/*/justanimate.exe --version
+          ./smoke-win/*/justanimate.exe tests/data/camera-path-test.pclx -o smoke.png
+          test -s smoke0001.png
+
+      - name: Smoke test the installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Start-Process -Wait: the installer and the app are GUI programs, a plain call does not wait for them
+          function Run($exe, $argList) {
+            $p = Start-Process -FilePath $exe -ArgumentList $argList -Wait -PassThru -NoNewWindow
+            if ($p.ExitCode -ne 0) { throw "$exe $argList exited with code $($p.ExitCode)" }
+          }
+          $installer = (Get-ChildItem packages\*.exe | Select-Object -First 1).FullName
+          $dir = Join-Path $env:RUNNER_TEMP 'JustAnimate-installed'
+          Run $installer @('/S', "/D=$dir")  # /D must be last and unquoted
+          Run "$dir\justanimate.exe" @('--version')
+          Run "$dir\justanimate.exe" @('tests/data/camera-path-test.pclx', '-o', 'smoke-installed.png')
+          if (-not (Test-Path smoke-installed0001.png) -or (Get-Item smoke-installed0001.png).Length -eq 0) { throw 'the installed app exported nothing' }
+
+      - name: Smoke test the package (macOS)
+        if: runner.os == 'macOS'
+        env:
+          QT_QPA_PLATFORM: ''  # the bundle ships the cocoa platform plugin only
+        run: |
+          mkdir smoke-mac
+          hdiutil attach packages/*.dmg -nobrowse -readonly -mountpoint "$PWD/smoke-mac"
+          app="$PWD/smoke-mac/JustAnimate.app/Contents/MacOS/JustAnimate"
+          # Diagnostics for a bundle that does not start; they never fail the step
+          otool -L "$app" || true
+          otool -l "$app" | grep -A2 LC_RPATH || true
+          ls "$PWD/smoke-mac/JustAnimate.app/Contents/Frameworks" || true
+          codesign --verify --deep --verbose=2 "$PWD/smoke-mac/JustAnimate.app" || true
+          "$app" --version
+          "$app" tests/data/camera-path-test.pclx -o smoke-dmg.png
+          test -s smoke-dmg0001.png
+          # The exited app can still hold the volume for a moment; cleanup never fails the step
+          hdiutil detach "$PWD/smoke-mac" || hdiutil detach -force "$PWD/smoke-mac" || true
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: JustAnimate-${{ matrix.name }}
+          path: |
+            packages/*.AppImage
+            packages/*.exe
+            packages/*.zip
+            packages/*.dmg
+          retention-days: 14
+          if-no-files-found: error
+
+  sanitizers:
+    name: Linux ASan + UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      QT_QPA_PLATFORM: offscreen
+      # The emergency-save crash test (child process) installs its own SIGSEGV
+      # handler; ASan must let it run, not replace it.
+      ASAN_OPTIONS: allow_user_segv_handler=1:detect_leaks=1
+      UBSAN_OPTIONS: print_stacktrace=1
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install Qt
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends             qt6-base-dev qt6-multimedia-dev qt6-svg-dev qt6-tools-dev             qt6-tools-dev-tools qt6-l10n-tools libgl-dev ninja-build
+
+      - name: Configure
+        run: cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_SANITIZE=ON
+
+      - name: Build
+        run: cmake --build build-san --target pencil2d_tests
+
+      - name: Run tests
+        run: ./build-san/pencil2d_tests

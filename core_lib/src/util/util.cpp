@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QStandardPaths>
 
 static inline bool clipLineToEdge(qreal& t0, qreal& t1, qreal p, qreal q)
@@ -107,11 +108,7 @@ QString ffmpegLocation()
 
 quint64 imageSize(const QImage& img)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
     return img.sizeInBytes();
-#else
-    return img.byteCount();
-#endif
 }
 
 QString uniqueString(int len)
@@ -159,12 +156,33 @@ QString closestCanonicalPath(const QString& path)
 
 QString validateDataPath(const QString& filePath, const QString& dataDirPath)
 {
+    return DataPathValidator(dataDirPath).validate(filePath);
+}
+
+DataPathValidator::DataPathValidator(const QString& dataDirPath)
+    : mDataDirPath(dataDirPath), mCanonicalDataDirPath(closestCanonicalPath(dataDirPath))
+{
+}
+
+QString DataPathValidator::validate(const QString& filePath) const
+{
     // Make sure src path is relative
     if (!QFileInfo(filePath).isRelative()) return QString();
 
+    // A plain file name can leave the data dir only if it is a link itself.
+    // This skips the canonical lookup, which costs about 0.2 ms per file on Windows.
+    static const QRegularExpression notPlainName(QStringLiteral("[/\\\\:]"));
+    if (!mCanonicalDataDirPath.isEmpty() && !filePath.isEmpty() &&
+        filePath != QLatin1String(".") && filePath != QLatin1String("..") &&
+        !filePath.contains(notPlainName))
+    {
+        const QString plainPath = QDir(mCanonicalDataDirPath).filePath(filePath);
+        if (!QFileInfo(plainPath).isSymLink()) return plainPath;
+    }
+
     // Get canonical path of data dir and file for comparison
-    QString canonicalDataDirPath = closestCanonicalPath(dataDirPath);
-    QString canonicalFilePath = closestCanonicalPath(QDir(dataDirPath).filePath(filePath));
+    QString canonicalDataDirPath = mCanonicalDataDirPath;
+    QString canonicalFilePath = closestCanonicalPath(QDir(mDataDirPath).filePath(filePath));
 
     // Bail out if either canonical path could not be resolved (e.g. dangling symlinks)
     if (canonicalDataDirPath.isEmpty() || canonicalFilePath.isEmpty())

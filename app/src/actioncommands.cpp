@@ -36,6 +36,7 @@ GNU General Public License for more details.
 #include "playbackmanager.h"
 #include "colormanager.h"
 #include "selectionmanager.h"
+#include "undoredomanager.h"
 #include "util.h"
 #include "app_util.h"
 
@@ -329,6 +330,13 @@ Status ActionCommands::exportMovie(bool isGif)
         return Status::SAFE;
     }
     QString strMoviePath = dialog->getFilePath();
+    if (!MovieExporter::mayOverwrite(strMoviePath, [this, &strMoviePath] {
+            return QMessageBox::question(mParent, APP_NAME,
+                       tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(strMoviePath))) == QMessageBox::Yes;
+        }))
+    {
+        return Status::SAFE;
+    }
 
     ExportMovieDesc desc;
     desc.strFileName = strMoviePath;
@@ -710,7 +718,9 @@ void ActionCommands::exposeSelectedFrames(int offset)
         currentLayer->setFrameSelected(key->pos(), true);
     }
 
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
     currentLayer->setExposureForSelectedFrames(offset);
+    mEditor->undoRedo()->record(saveStateId, offset > 0 ? tr("Add exposure") : tr("Subtract exposure"));
     emit mEditor->updateTimeLine();
     emit mEditor->framesModified();
 
@@ -736,7 +746,10 @@ Status ActionCommands::insertKeyFrameAtCurrentPosition()
     Layer* currentLayer = mEditor->layers()->currentLayer();
     int currentPosition = mEditor->currentFrame();
 
+    const UndoMacro macro(mEditor->undoRedo(), tr("Add frame"));
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
     currentLayer->insertExposureAt(currentPosition);
+    mEditor->undoRedo()->record(saveStateId, tr("Add exposure"));
     return addNewKey();
 }
 
@@ -746,28 +759,17 @@ void ActionCommands::removeSelectedFrames()
 
     if (!currentLayer->hasAnySelectedFrames()) { return; }
 
-    int ret = QMessageBox::warning(mParent,
-                                   tr("Remove selected frames", "Windows title of remove selected frames pop-up."),
-                                   tr("Are you sure you want to remove the selected frames? This action is irreversible currently!"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
-
-    if (ret != QMessageBox::Ok)
-    {
-        return;
-    }
-
-    for (int pos : currentLayer->selectedKeyFramesPositions()) {
-        currentLayer->removeKeyFrame(pos);
-    }
-    mEditor->layers()->notifyLayerChanged(currentLayer);
+    mEditor->removeSelectedKeyFrames(tr("Remove frames"));
 }
 
 void ActionCommands::reverseSelectedFrames()
 {
     Layer* currentLayer = mEditor->layers()->currentLayer();
 
-    if (!currentLayer->reverseOrderOfSelection()) {
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
+    const bool reversed = currentLayer->reverseOrderOfSelection();
+    mEditor->undoRedo()->record(saveStateId, tr("Reverse frames"));
+    if (!reversed) {
         return;
     }
 
@@ -933,7 +935,7 @@ Status ActionCommands::deleteCurrentLayer()
 
     int ret = QMessageBox::warning(mParent,
                                    tr("Delete Layer", "Windows title of Delete current layer pop-up."),
-                                   tr("Are you sure you want to delete layer: %1? This cannot be undone.").arg(strLayerName),
+                                   tr("Are you sure you want to delete layer: %1?").arg(strLayerName),
                                    QMessageBox::Ok | QMessageBox::Cancel,
                                    QMessageBox::Ok);
     if (ret == QMessageBox::Ok)

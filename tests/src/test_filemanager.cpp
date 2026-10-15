@@ -15,6 +15,8 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <cstring>
+#include <memory>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QImage>
@@ -25,6 +27,12 @@ GNU General Public License for more details.
 #include "object.h"
 #include "bitmapimage.h"
 #include "layerbitmap.h"
+#include "layervector.h"
+#include "vectorimage.h"
+#include "layersound.h"
+#include "soundclip.h"
+
+#include <memory>
 
 
 TEST_CASE("FileManager Initial Test")
@@ -213,6 +221,89 @@ TEST_CASE("FileManager Loading XML Tests")
     }
 }
 
+static Object* loadXmlString(FileManager& fm, const QString& xml)
+{
+    QTemporaryFile tmpFile;
+    REQUIRE(tmpFile.open());
+    QTextStream fout(&tmpFile);
+    fout << xml;
+    fout.flush();
+    tmpFile.close();
+    return fm.load(tmpFile.fileName());
+}
+
+TEST_CASE("FileManager loads malformed project XML")
+{
+    SECTION("XML comment inside projectdata")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document>"
+            "  <projectdata>"
+            "    <!-- a comment -->"
+            "    <currentFrame value='3'/>"
+            "  </projectdata>"
+            "  <object></object>"
+            "</document>"));
+
+        REQUIRE(obj != nullptr);
+        REQUIRE(obj->data()->getCurrentFrame() == 3);
+    }
+
+    SECTION("Unknown layer type is skipped")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document><object>"
+            "  <layer name='Weird' id='7' visibility='1' type='99'></layer>"
+            "  <layer name='Movie' id='8' visibility='1' type='3'></layer>"
+            "  <layer name='Good' id='5' visibility='1' type='1'></layer>"
+            "</object></document>"));
+
+        REQUIRE(obj != nullptr);
+        REQUIRE(obj->findLayerByName("Weird") == nullptr);
+        REQUIRE(obj->findLayerByName("Movie") == nullptr);
+        REQUIRE(obj->findLayerByName("Good") != nullptr);
+    }
+
+    SECTION("Frames numbered zero or below are skipped")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document><object>"
+            "  <layer name='Vec' id='2' visibility='1' type='2'>"
+            "    <image frame='0'/>"
+            "    <image frame='-1'/>"
+            "    <image frame='2'/>"
+            "  </layer>"
+            "  <layer name='Bmp' id='3' visibility='1' type='1'>"
+            "    <image frame='0' topLeftX='0' topLeftY='0' src='003.001.png'/>"
+            "    <image frame='1' topLeftX='0' topLeftY='0' src='003.001.png'/>"
+            "  </layer>"
+            "  <layer name='Cam' id='4' visibility='1' type='5' width='800' height='600'>"
+            "    <camera frame='0'/>"
+            "    <camera frame='1'/>"
+            "  </layer>"
+            "</object></document>"));
+
+        REQUIRE(obj != nullptr);
+        Layer* vec = obj->findLayerByName("Vec");
+        REQUIRE(vec != nullptr);
+        REQUIRE(vec->keyFrameCount() == 1);
+        REQUIRE(vec->keyExists(2));
+
+        Layer* bmp = obj->findLayerByName("Bmp");
+        REQUIRE(bmp != nullptr);
+        REQUIRE(bmp->keyFrameCount() == 1);
+        REQUIRE(!bmp->keyExists(0));
+
+        Layer* cam = obj->findLayerByName("Cam");
+        REQUIRE(cam != nullptr);
+        REQUIRE(cam->keyFrameCount() == 1);
+        REQUIRE(!cam->keyExists(0));
+    }
+}
+
 // Turn a Qt resource file into an actual file on disk
 QString QtResourceToFile(QString rscPath, QString filename, QTemporaryDir& tempDir)
 {
@@ -398,6 +489,297 @@ TEST_CASE("FileManager File-saving")
             }
         }
         delete o3;
+    }
+}
+
+TEST_CASE("FileManager atomic save", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString projectPath = testDir.filePath("shot.v2.pclx");
+
+    auto readAll = [](const QString& path) {
+        QFile f(path);
+        REQUIRE(f.open(QFile::ReadOnly));
+        return f.readAll();
+    };
+    auto dirEntries = [&] {
+        return QDir(testDir.path()).entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
+    };
+
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    obj->addNewBitmapLayer();
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+
+    SECTION("A successful save leaves only the project file, no .tmp or backup")
+    {
+        REQUIRE(fm.save(obj.get(), projectPath).ok());
+        REQUIRE(dirEntries() == QStringList{ "shot.v2.pclx" });
+
+        std::unique_ptr<Object> loaded(fm.load(projectPath));
+        REQUIRE(loaded != nullptr);
+        REQUIRE(loaded->getLayerCount() == obj->getLayerCount());
+    }
+
+    SECTION("A save that fails part-way leaves the original byte-identical")
+    {
+        const QByteArray original = readAll(projectPath);
+
+        // A sound clip pointing at a missing file in the data folder makes
+        // the zip writer fail after it has started writing the archive.
+        LayerSound* sound = obj->addNewSoundLayer();
+        SoundClip* clip = new SoundClip;
+        clip->setFileName(QDir(obj->dataDir()).filePath("missing.wav"));
+        REQUIRE(sound->addKeyFrame(1, clip));
+
+        REQUIRE_FALSE(fm.save(obj.get(), projectPath).ok());
+        const bool unchanged = (readAll(projectPath) == original);
+        REQUIRE(unchanged);
+        REQUIRE(dirEntries() == QStringList{ "shot.v2.pclx" });
+    }
+}
+
+TEST_CASE("FileManager autosave and crash recovery", "[FileManager]")
+{
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    layer->setName("Ink");
+    REQUIRE(layer->getBitmapImageAtFrame(1) != nullptr);
+    BitmapImage red(QRect(0, 0, 8, 8), Qt::red);
+    layer->getBitmapImageAtFrame(1)->paste(&red);
+
+    // The time-based autosave runs once to completion.
+    REQUIRE(fm.writeToWorkingFolder(obj.get()).ok());
+
+    // Then the app is killed in the middle of the next autosave: main.xml is
+    // half written, a frame file is cut short and the archive .tmp is partial.
+    const QDir workingDir(obj->workingDir());
+    auto truncateFile = [](const QString& path) {
+        QFile f(path);
+        REQUIRE(f.open(QFile::ReadWrite));
+        REQUIRE(f.resize(f.size() / 2));
+    };
+    truncateFile(workingDir.filePath(PFF_XML_FILE_NAME));
+    const QStringList frames = QDir(obj->dataDir()).entryList({ "*.png" }, QDir::Files);
+    REQUIRE(frames.size() == 1);
+    truncateFile(QDir(obj->dataDir()).filePath(frames.first()));
+    {
+        QFile partial(workingDir.filePath(QString(PFF_AUTOSAVE_FILE_NAME) + ".tmp"));
+        REQUIRE(partial.open(QFile::WriteOnly));
+        partial.write("PK\x03\x04 cut short");
+    }
+
+    // The next start offers the project, and recovering it gives back the
+    // last completed autosave rather than the half-written files.
+    QStringList recoverables;
+    for (const QString& path : fm.searchForUnsavedProjects())
+        recoverables << QDir(path).canonicalPath();
+    REQUIRE(recoverables.contains(workingDir.canonicalPath()));
+
+    std::unique_ptr<Object> recovered(fm.recoverUnsavedProject(workingDir.path()));
+    REQUIRE(fm.error().ok());
+    REQUIRE(recovered != nullptr);
+
+    LayerBitmap* recoveredLayer = nullptr;
+    for (int i = 0; i < recovered->getLayerCount(); ++i)
+        if (recovered->getLayer(i)->type() == Layer::BITMAP)
+            recoveredLayer = static_cast<LayerBitmap*>(recovered->getLayer(i));
+    REQUIRE(recoveredLayer != nullptr);
+    REQUIRE(recoveredLayer->name() == "Ink");
+
+    BitmapImage* recoveredFrame = recoveredLayer->getBitmapImageAtFrame(1);
+    REQUIRE(recoveredFrame != nullptr);
+    REQUIRE(recoveredFrame->image()->pixel(4, 4) == qRgba(255, 0, 0, 255));
+}
+
+TEST_CASE("FileManager recovery never goes back behind a save or loses files", "[FileManager]")
+{
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    BitmapImage red(QRect(0, 0, 8, 8), Qt::red);
+    layer->getBitmapImageAtFrame(1)->paste(&red);
+    REQUIRE(fm.writeToWorkingFolder(obj.get()).ok());
+    const QDir workingDir(obj->workingDir());
+
+    auto recoveredPixel = [&] {
+        std::unique_ptr<Object> recovered(fm.recoverUnsavedProject(workingDir.path()));
+        REQUIRE(fm.error().ok());
+        REQUIRE(recovered != nullptr);
+        // Quitting a recovered project must prompt: it exists only in the temp folder.
+        REQUIRE(recovered->isModified());
+        for (int i = 0; i < recovered->getLayerCount(); ++i)
+            if (recovered->getLayer(i)->type() == Layer::BITMAP)
+                return static_cast<LayerBitmap*>(recovered->getLayer(i))->getBitmapImageAtFrame(1)->image()->pixel(4, 4);
+        return QRgb(0);
+    };
+
+    SECTION("A manual save after the autosave is what recovery gives back")
+    {
+        BitmapImage blue(QRect(0, 0, 8, 8), Qt::blue);
+        layer->getBitmapImageAtFrame(1)->paste(&blue);
+        QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+        REQUIRE(fm.save(obj.get(), testDir.filePath("shot.pclx")).ok());
+
+        REQUIRE(recoveredPixel() == qRgba(0, 0, 255, 255));
+    }
+
+    SECTION("An autosave archive that fails to extract keeps the working files")
+    {
+        // The central directory is whole, so the archive opens; the content
+        // no longer matches its checksum, so extracting it fails.
+        const QString archive = workingDir.filePath(PFF_AUTOSAVE_FILE_NAME);
+        mz_zip_archive zip;
+        memset(&zip, 0, sizeof(zip));
+        REQUIRE(mz_zip_writer_init_file(&zip, archive.toUtf8().data(), 0));
+        REQUIRE(mz_zip_writer_add_mem(&zip, PFF_XML_FILE_NAME, "AAAAAAAA", 8, MZ_NO_COMPRESSION));
+        REQUIRE(mz_zip_writer_finalize_archive(&zip));
+        mz_zip_writer_end(&zip);
+        QFile zf(archive);
+        REQUIRE(zf.open(QIODevice::ReadWrite));
+        QByteArray bytes = zf.readAll();
+        bytes.replace("AAAAAAAA", "BBBBBBBB");
+        zf.seek(0);
+        zf.write(bytes);
+        zf.close();
+        REQUIRE(MiniZ::sanityCheck(archive).ok());
+
+        REQUIRE(recoveredPixel() == qRgba(255, 0, 0, 255));
+        REQUIRE_FALSE(workingDir.exists("autosave.tmp"));
+    }
+
+    SECTION("A swap that fails part-way gives back the working files")
+    {
+        // The archive holds red; the working files hold blue.
+        const QString archive = workingDir.filePath(PFF_AUTOSAVE_FILE_NAME);
+        REQUIRE(QFile::copy(archive, archive + ".red"));
+        BitmapImage blue(QRect(0, 0, 8, 8), Qt::blue);
+        layer->getBitmapImageAtFrame(1)->paste(&blue);
+        REQUIRE(fm.writeToWorkingFolder(obj.get()).ok());
+        REQUIRE(QFile::remove(archive));
+        REQUIRE(QFile::rename(archive + ".red", archive));
+
+        // A file where the data folder is kept aside makes the swap fail after main.xml moved.
+        {
+            QFile blocker(workingDir.filePath(QString(PFF_DATA_DIR) + ".old"));
+            REQUIRE(blocker.open(QFile::WriteOnly));
+        }
+
+        REQUIRE(recoveredPixel() == qRgba(0, 0, 255, 255));
+        REQUIRE_FALSE(workingDir.exists(QString(PFF_XML_FILE_NAME) + ".old"));
+        REQUIRE_FALSE(workingDir.exists("autosave.tmp"));
+    }
+}
+
+TEST_CASE("FileManager write errors fail the save", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString projectPath = testDir.filePath("shot.pclx");
+
+    auto readAll = [](const QString& path) {
+        QFile f(path);
+        REQUIRE(f.open(QFile::ReadOnly));
+        return f.readAll();
+    };
+    auto findBitmapLayer = [](Object* o) -> LayerBitmap* {
+        for (int i = 0; i < o->getLayerCount(); ++i)
+            if (o->getLayer(i)->type() == Layer::BITMAP)
+                return static_cast<LayerBitmap*>(o->getLayer(i));
+        return nullptr;
+    };
+
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    LayerVector* vectorLayer = obj->addNewVectorLayer();
+    LayerBitmap* bitmapLayer = obj->addNewBitmapLayer();
+    BitmapImage red(QRect(0, 0, 8, 8), Qt::red);
+    bitmapLayer->getBitmapImageAtFrame(1)->paste(&red);
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+    const QByteArray original = readAll(projectPath);
+
+    // Writing to /dev/full fails with "no space left on device", like a full
+    // disk. The error has to be caught where the file is written; a failed
+    // save then never replaces the archive (A4).
+    const bool haveFullDevice = QFile::exists("/dev/full");
+    auto replaceWithFullDevice = [](const QString& path) {
+        REQUIRE(QFile::remove(path));
+        REQUIRE(QFile::link("/dev/full", path));
+    };
+
+    SECTION("A write error in the project XML fails the save")
+    {
+        if (!haveFullDevice) { WARN("No /dev/full on this platform"); return; }
+
+        // The XML is written to <name>.tmp first.
+        REQUIRE(QFile::link("/dev/full", QDir(obj->workingDir()).filePath(QString(PFF_XML_FILE_NAME) + ".tmp")));
+
+        REQUIRE_FALSE(fm.save(obj.get(), projectPath).ok());
+        const bool unchanged = (readAll(projectPath) == original);
+        REQUIRE(unchanged);
+    }
+
+    SECTION("Saving to legacy .pcl is refused and writes nothing")
+    {
+        const QString folderProjectPath = testDir.filePath("shot.pcl");
+        REQUIRE_FALSE(fm.save(obj.get(), folderProjectPath).ok());
+        REQUIRE_FALSE(QFile::exists(folderProjectPath));
+        REQUIRE_FALSE(QFile::exists(folderProjectPath + "." + PFF_OLD_DATA_DIR));
+    }
+
+    SECTION("A write error in a vector frame fails the save")
+    {
+        if (!haveFullDevice) { WARN("No /dev/full on this platform"); return; }
+
+        VectorImage* vec = vectorLayer->getVectorImageAtFrame(1);
+        REQUIRE(vec != nullptr);
+        vec->setModified(true);
+        replaceWithFullDevice(QDir(obj->dataDir()).filePath(QString::asprintf("%03d.%03d.vec", vectorLayer->id(), 1)));
+
+        REQUIRE_FALSE(fm.save(obj.get(), projectPath).ok());
+        const bool unchanged = (readAll(projectPath) == original);
+        REQUIRE(unchanged);
+    }
+
+    SECTION("A failed frame rename during Save As fails the save and keeps the frame")
+    {
+        // Reopen so the frame is on disk and not loaded, then move it without drawing.
+        obj.reset(fm.load(projectPath));
+        REQUIRE(obj != nullptr);
+        bitmapLayer = findBitmapLayer(obj.get());
+        REQUIRE(bitmapLayer != nullptr);
+        REQUIRE(bitmapLayer->moveKeyFrame(1, 1));
+
+        // Something in the way of the frame's temporary name makes the rename fail.
+        const QString blocker = QDir(obj->dataDir()).filePath(QString::asprintf("t_%03d.%03d.png", bitmapLayer->id(), 2));
+        REQUIRE(QDir().mkpath(blocker));
+
+        const QString saveAsPath = testDir.filePath("shot-v2.pclx");
+        REQUIRE_FALSE(fm.save(obj.get(), saveAsPath).ok());
+        REQUIRE_FALSE(QFile::exists(saveAsPath));
+        const bool unchanged = (readAll(projectPath) == original);
+        REQUIRE(unchanged);
+
+        // Once the obstacle is gone the same project saves with the frame intact.
+        REQUIRE(QDir(blocker).removeRecursively());
+        REQUIRE(fm.save(obj.get(), saveAsPath).ok());
+        std::unique_ptr<Object> reloaded(fm.load(saveAsPath));
+        REQUIRE(reloaded != nullptr);
+        LayerBitmap* reloadedLayer = findBitmapLayer(reloaded.get());
+        REQUIRE(reloadedLayer != nullptr);
+        BitmapImage* frame = reloadedLayer->getBitmapImageAtFrame(2);
+        REQUIRE(frame != nullptr);
+        REQUIRE(frame->image()->pixel(4, 4) == qRgba(255, 0, 0, 255));
     }
 }
 

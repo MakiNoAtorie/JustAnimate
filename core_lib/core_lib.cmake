@@ -23,7 +23,6 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/backgroundwidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/editor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/flowlayout.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/legacybackupelement.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/recentfilemenu.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/scribblearea.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/toolboxlayout.h
@@ -80,9 +79,11 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blitrect.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/stageprofiler.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/cameraeasingtype.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/camerafieldoption.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/colordictionary.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/emergencysave.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/fileformat.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/filetype.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/importimageconfig.h
@@ -120,7 +121,6 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/backgroundwidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/editor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/flowlayout.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/legacybackupelement.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/recentfilemenu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/scribblearea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/toolboxlayout.cpp
@@ -177,6 +177,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blitrect.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/cameraeasingtype.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/emergencysave.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/fileformat.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/log.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pencilerror.cpp

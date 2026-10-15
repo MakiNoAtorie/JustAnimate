@@ -53,6 +53,10 @@ public:
 
     bool canDeleteLayer(int index) const;
     Status deleteLayer(int index);
+    /** Removes the layer at index from the object without deleting it. The caller owns the layer. */
+    Layer* takeLayer(int index);
+    /** Puts a layer from takeLayer() back at index and makes it the current layer. */
+    void insertLayer(int index, Layer* layer);
     Status renameLayer(Layer*, const QString& newName);
     void notifyLayerChanged(Layer*);
 
@@ -88,6 +92,7 @@ signals:
 
 private:
     int getIndex(Layer*) const;
+    void recordLayerAdd(const Layer* layer);
 
     int mLastCameraLayerIdx = 0;
 };

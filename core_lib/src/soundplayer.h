@@ -47,7 +47,6 @@ public:
     void setMediaPlayerPosition(qint64 pos);
 
 signals:
-    void corruptedSoundFile(SoundClip*);
     void durationChanged(SoundPlayer*, int64_t duration);
 
 private:

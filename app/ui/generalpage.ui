@@ -218,6 +218,27 @@
             </property>
            </widget>
           </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="tabletApiLabel">
+            <property name="text">
+             <string>Tablet input API</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QComboBox" name="tabletApiBox">
+            <item>
+             <property name="text">
+              <string notr="true">WinTab</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string notr="true">Windows Ink</string>
+             </property>
+            </item>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -502,13 +523,6 @@
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
-           <widget class="QCheckBox" name="newUndoRedoCheckBox">
-            <property name="text">
-             <string>Enable New System (Experimental)</string>
-            </property>
-           </widget>
-          </item>
-          <item>
            <layout class="QHBoxLayout" name="horizontalLayout_2">
             <property name="topMargin">
              <number>0</number>
@@ -589,6 +603,7 @@
   <tabstop>antialiasingBox</tabstop>
   <tabstop>curveSmoothingLevel</tabstop>
   <tabstop>highResBox</tabstop>
+  <tabstop>tabletApiBox</tabstop>
   <tabstop>gridCheckBox</tabstop>
   <tabstop>gridSizeInputW</tabstop>
   <tabstop>gridSizeInputH</tabstop>

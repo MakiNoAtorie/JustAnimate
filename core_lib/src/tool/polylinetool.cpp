@@ -178,7 +178,6 @@ void PolylineTool::pointerDoubleClickEvent(PointerEvent* event)
             mPoints << getCurrentPoint();
         }
         SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
-        mEditor->backup(typeName());
         endPolyline(mPoints);
         mEditor->undoRedo()->record(saveStateId, typeName());
     }

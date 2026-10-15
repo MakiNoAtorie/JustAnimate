@@ -127,13 +127,14 @@ protected:
     static const qreal WIDTH_MIN;
     static const qreal WIDTH_MAX;
 
+    SAVESTATE_ID mUndoSaveStateId = 0;
+
 private:
     CanvasCursorPainter mWidthCursorPainter;
     CanvasCursorPainter mFeatherCursorPainter;
 
     RadialOffsetTool mWidthSizingTool;
     RadialOffsetTool mFeatherSizingTool;
-    SAVESTATE_ID mUndoSaveStateId = 0;
 };
 
 #endif // STROKETOOL_H

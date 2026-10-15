@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QtMath>
 
 #include "tile.h"
+#include "stageprofiler.h"
 
 TiledBuffer::TiledBuffer(QObject* parent) : QObject(parent)
 {
@@ -49,6 +50,7 @@ Tile* TiledBuffer::getTileFromIndex(const TileIndex& tileIndex)
 }
 
 void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush brush, QPainter::CompositionMode cm, bool antialiasing) {
+    StageScope stage(StageProfiler::DabMask);
     const float tileSize = UNIFORM_TILE_SIZE;
 
     // Gather the number of tiles that fits the size of the brush width
@@ -97,6 +99,7 @@ void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush br
 }
 
 void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPainter::CompositionMode cm, bool antialiasing) {
+    StageScope stage(StageProfiler::DabMask);
     const float tileSize = UNIFORM_TILE_SIZE;
     const float imageXRad = image.width();
     const float imageYRad = image.height();
@@ -128,6 +131,7 @@ void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPain
 void TiledBuffer::drawPath(QPainterPath path, QPen pen, QBrush brush,
                            QPainter::CompositionMode cm, bool antialiasing)
 {
+    StageScope stage(StageProfiler::DabMask);
     const qreal width = pen.widthF();
     const float tileSize = UNIFORM_TILE_SIZE;
     const QRectF pathRect = path.boundingRect();

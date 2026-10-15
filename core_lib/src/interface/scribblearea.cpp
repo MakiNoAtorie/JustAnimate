@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "basetool.h"
 #include "transformtool.h"
 #include "pointerevent.h"
+#include "stageprofiler.h"
 #include "beziercurve.h"
 #include "object.h"
 #include "editor.h"
@@ -46,6 +47,7 @@ GNU General Public License for more details.
 #include "viewmanager.h"
 #include "selectionmanager.h"
 #include "overlaymanager.h"
+#include "undoredomanager.h"
 
 ScribbleArea::ScribbleArea(QWidget* parent) : QWidget(parent),
     mCanvasPainter(mCanvas),
@@ -93,9 +95,7 @@ bool ScribbleArea::init()
     mDeltaFactor = mEditor->preference()->isOn(SETTING::INVERT_SCROLL_ZOOM_DIRECTION) ? -1 : 1;
 
     setMouseTracking(true); // reacts to mouse move events, even if the button is not pressed
-#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
     setTabletTracking(true); // tablet tracking first added in 5.9
-#endif
 
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
 
@@ -535,11 +535,7 @@ void ScribbleArea::wheelEvent(QWheelEvent* event)
     static const bool isX11 = QGuiApplication::platformName() == "xcb";
     const QPoint pixels = event->pixelDelta();
     const QPoint angle = event->angleDelta();
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     const QPointF offset = mEditor->view()->mapScreenToCanvas(event->position());
-#else
-    const QPointF offset = mEditor->view()->mapScreenToCanvas(event->posF());
-#endif
 
     const qreal currentScale = mEditor->view()->scaling();
 
@@ -563,13 +559,9 @@ void ScribbleArea::wheelEvent(QWheelEvent* event)
 
 void ScribbleArea::tabletEvent(QTabletEvent *e)
 {
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->posF()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     if (event.pointerType() == QPointingDevice::PointerType::Eraser)
-#else
-    if (event.pointerType() == QTabletEvent::Eraser)
-#endif
     {
         editor()->tools()->tabletSwitchToEraser();
     }
@@ -594,8 +586,8 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
         }
         else
         {
-            qreal distance = QLineF(e->posF(), mTabletPressPos).length();
-            mTabletPressPos = e->posF();
+            qreal distance = QLineF(e->position(), mTabletPressPos).length();
+            mTabletPressPos = e->position();
 
             if (mDoubleClickMillis <= DOUBLE_CLICK_THRESHOLD && distance < 5.0) {
                 currentTool()->pointerDoubleClickEvent(&event);
@@ -649,6 +641,7 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
 
 void ScribbleArea::pointerPressEvent(PointerEvent* event)
 {
+    StageScope stage(StageProfiler::InputEvent);
     bool isCameraLayer = mEditor->layers()->currentLayer()->type() == Layer::CAMERA;
     if ((currentTool()->type() != HAND || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
     {
@@ -675,11 +668,13 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
 
 void ScribbleArea::pointerMoveEvent(PointerEvent* event)
 {
+    StageScope stage(StageProfiler::InputEvent);
     currentTool()->pointerMoveEvent(event);
 }
 
 void ScribbleArea::pointerReleaseEvent(PointerEvent* event)
 {
+    StageScope stage(StageProfiler::InputEvent);
     currentTool()->pointerReleaseEvent(event);
 
     editor()->tools()->tryClearTemporaryTool(event->button());
@@ -721,7 +716,7 @@ void ScribbleArea::mousePressEvent(QMouseEvent* e)
         return;
     }
 
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->localPos()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerPressEvent(&event);
     mMouseInUse = event.isAccepted();
 }
@@ -730,7 +725,7 @@ void ScribbleArea::mouseMoveEvent(QMouseEvent* e)
 {
     if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
 
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->localPos()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerMoveEvent(&event);
 }
 
@@ -738,7 +733,7 @@ void ScribbleArea::mouseReleaseEvent(QMouseEvent* e)
 {
     if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
 
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->localPos()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerReleaseEvent(&event);
     mMouseInUse = (e->buttons() & Qt::RightButton) || (e->buttons() & Qt::LeftButton);
 }
@@ -747,7 +742,7 @@ void ScribbleArea::mouseDoubleClickEvent(QMouseEvent* e)
 {
     if (mTabletInUse) { e->ignore(); return; }
 
-    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->localPos()));
+    PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     currentTool()->pointerDoubleClickEvent(&event);
 }
 
@@ -767,6 +762,7 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
 
 void ScribbleArea::showLayerNotVisibleWarning()
 {
+    if (mLayerNotVisibleWarning) { mLayerNotVisibleWarning(); return; }
     QMessageBox::warning(this, tr("Warning"),
                          tr("You are trying to modify a hidden layer! Please select another layer (or make the current layer visible)."),
                          QMessageBox::Ok,
@@ -877,6 +873,7 @@ void ScribbleArea::handleDrawingOnEmptyFrame()
 
 void ScribbleArea::paintEvent(QPaintEvent* event)
 {
+    StageScope stage(StageProfiler::PaintEvent);
     int currentFrame = mEditor->currentFrame();
     if (!currentTool()->isActive())
     {
@@ -1139,6 +1136,7 @@ void ScribbleArea::drawCanvas(int frame, QRect rect)
     prepCanvas(frame);
     prepCameraPainter(frame);
     prepOverlays(frame);
+    StageScope stage(StageProfiler::Composite);
     mCanvasPainter.paint(rect);
     mCameraPainter.paint(rect);
 }
@@ -1376,7 +1374,8 @@ void ScribbleArea::applyTransformedSelection()
             VectorImage* vectorImage = currentVectorImage(layer);
             if (vectorImage == nullptr) { return; }
 
-            vectorImage->applySelectionTransformation();
+            // The image's own transform is only set on paint; an undo or redo step applies before that.
+            vectorImage->applySelectionTransformation(selectMan->selectionTransform());
         }
 
         mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
@@ -1462,7 +1461,7 @@ void ScribbleArea::deleteSelection()
 
         handleDrawingOnEmptyFrame();
 
-        mEditor->backup(tr("Delete Selection", "Undo Step: clear the selection area."));
+        const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
         selectMan->clearCurves();
         if (layer->type() == Layer::VECTOR)
@@ -1477,6 +1476,7 @@ void ScribbleArea::deleteSelection()
             Q_CHECK_PTR(bitmapImage);
             bitmapImage->clear(selectMan->mySelectionRect());
         }
+        mEditor->undoRedo()->record(saveStateId, tr("Delete Selection", "Undo Step: clear the selection area."));
         mEditor->setModified(mEditor->currentLayerIndex(), mEditor->currentFrame());
     }
 }
@@ -1488,7 +1488,7 @@ void ScribbleArea::clearImage()
 
     if (layer->type() == Layer::VECTOR)
     {
-        mEditor->backup(tr("Clear Image", "Undo step text"));
+        const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
         VectorImage* vectorImage = currentVectorImage(layer);
         if (vectorImage != nullptr)
@@ -1497,14 +1497,16 @@ void ScribbleArea::clearImage()
         }
         mEditor->select()->clearCurves();
         mEditor->select()->clearVertices();
+        mEditor->undoRedo()->record(saveStateId, tr("Clear Image", "Undo step text"));
     }
     else if (layer->type() == Layer::BITMAP)
     {
-        mEditor->backup(tr("Clear Image", "Undo step text"));
 
         BitmapImage* bitmapImage = currentBitmapImage(layer);
         if (bitmapImage == nullptr) return;
+        const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         bitmapImage->clear();
+        mEditor->undoRedo()->record(saveStateId, tr("Clear Image", "Undo step text"));
     }
     else
     {

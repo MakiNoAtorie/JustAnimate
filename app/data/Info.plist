@@ -46,7 +46,7 @@
 		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
-	<string>justanimate</string>
+	<string>JustAnimate</string>
 	<key>CFBundleIconFile</key>
 	<string>pencil2d.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -58,11 +58,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>${QMAKE_FULL_VERSION}</string>
+	<string>${APP_VERSION}</string>
 	<key>CFBundleSignature</key>
 	<string>PC2D</string>
 	<key>CFBundleVersion</key>
-	<string>${QMAKE_FULL_VERSION}</string>
+	<string>${APP_VERSION}</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.graphics-design</string>
 	<key>LSMinimumSystemVersion</key>

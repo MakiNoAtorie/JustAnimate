@@ -440,6 +440,29 @@ TEST_CASE("Layer::moveKeyFrame(int position, int offset)")
         REQUIRE_FALSE(layer->isFrameSelected(8));
     }
 
+    SECTION("move selected frame forward, then drag the selection")
+    {
+        Layer* layer = obj->addNewBitmapLayer();
+        layer->addNewKeyFrameAt(1);
+        layer->addNewKeyFrameAt(2);
+        layer->addNewKeyFrameAt(3);
+
+        layer->setFrameSelected(2, true);
+        layer->setFrameSelected(3, true);
+
+        KeyFrame* frameAt2 = layer->getKeyFrameAt(2);
+        KeyFrame* frameAt3 = layer->getKeyFrameAt(3);
+
+        layer->moveKeyFrame(2, 1);
+        REQUIRE(layer->moveSelectedFrames(1));
+
+        // Every keyframe is still present, shifted one frame right
+        REQUIRE(layer->keyFrameCount() == 3);
+        REQUIRE(layer->keyExists(1));
+        REQUIRE(frameAt3 == layer->getKeyFrameAt(3));
+        REQUIRE(frameAt2 == layer->getKeyFrameAt(4));
+    }
+
     delete obj;
 }
 

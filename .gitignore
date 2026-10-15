@@ -14,10 +14,6 @@
 
 # Qt-es
 
-.qmake.cache
-.qmake.stash
-*.pro.user
-*.pro.user.*
 *.moc
 moc_*.cpp
 qrc_*.cpp
@@ -70,6 +66,7 @@ ipch
 *.opendb
 .vs
 *.rc
+!/app/data/version.rc
 *.tlog
 
 /tests/tests
@@ -83,7 +80,6 @@ ipch
 build/
 build-*/
 .qtc_clangd
-app/resources.pri
 
 # CMake
 CMakeCache.txt

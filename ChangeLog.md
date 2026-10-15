@@ -5,6 +5,62 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- CI: the macOS package smoke test no longer fails when the DMG is slow to unmount (0.1).
+- Legacy .pcl projects open but no longer save: Save on a .pcl project asks for a .pclx name, so a failed save can never damage the .pcl original (A12).
+- Opening a .pclx whose entry cannot be checked or whose folder cannot be made fails with an error instead of extracting part of it (A3).
+- Reposition Frames is one undo step for all the frames and layers it moves, and undo no longer moves the first frame again (0.5).
+- No keyboard shortcut acts while the pen or mouse is down on the canvas: clear frame, exposure, reverse, remove frames and the rest are now blocked like frame navigation (A7).
+- Pasting frames can be undone and redone in one step, including the frames it pushed back (0.5).
+- Crash recovery keeps the working files when moving the extracted autosave into place fails part-way (1.7).
+- Windows: pen pressure works with "Use Windows Ink" off in the tablet driver. The app uses WinTab when a WinTab driver is present; Preferences > General > "Tablet input API" selects WinTab or Windows Ink.
+- Opening a project checks data file paths without a disk lookup per file: a 5000-frame project opens about 40 % faster on Windows.
+- The macOS package starts: the app in the DMG finds its bundled Qt frameworks (0.1).
+- The brush golden test has Linux and macOS hashes, and CI retries its tool downloads (0.1).
+- The test suite runs unattended on Windows debug builds: a failed assert prints to stderr and opens no dialog (0.1).
+- The Windows executable has its icon and version details again: the resource file `app/data/version.rc` was missing from the repository (0.1).
+- One undo step per action: importing or pasting an image onto an empty frame, and Add Frame on a frame that exists, no longer need two undos (0.5).
+- Shortcuts that add, duplicate, remove or move a frame, and the flip playback shortcuts, no longer fire while the pen is down (0.1).
+- A movie export that fails or is cancelled before it writes anything no longer deletes an existing file at the output path (0.1).
+- A failed save of a legacy .pcl project no longer damages the project file: it is written to a temporary file and renamed when complete (0.1).
+- Crash recovery: a project saved after its last autosave is no longer restored from the older autosave, an autosave that cannot be extracted no longer deletes the working files, and a recovered project asks to be saved before it closes (0.1).
+- The new undo system is the only one: the legacy undo path and its "Enable New System" preference are gone (an old settings value is ignored). Cutting selected frames, a vector fill and a vector vertex move with the smudge tool can be undone and redone; removing selected frames no longer asks for confirmation (0.5).
+- Fixed memory leaks on each bucket fill and each copy of a vector frame (0.1).
+- Compiler warnings are fixed (deprecated Qt 6 mouse and tablet calls, a missing return) and CI now fails on any warning (0.1).
+- With the new undo system on, adding and deleting a layer can be undone and redone; an undone delete restores the layer at its place with its frames. Deleting a layer below the current one no longer changes which layer is current (0.5).
+- Removed the qmake build (`*.pro`, `*.pri`); CMake is the only build system and it now sets the revision shown in About (0.1).
+- Removed dead code: commented-out vector fill code, unused bitmap paint overload, palette-file loader stub, unused sound and export helpers, three unused setting keys and a duplicate event-filter install (0.1).
+- Removed the Qt 5 compatibility branches; Qt 6 is the only supported major version (0.1).
+- With the new undo system on, remove selected frames, reverse frames, exposure changes and Reposition Frames can be undone and redone; undo of a frame move restores exactly the moved frames; legacy Reposition Frames undo restores the right layer (0.5).
+- CI runs the test suite under AddressSanitizer and UndefinedBehaviorSanitizer on Linux; locally: `cmake -DJUSTANIMATE_SANITIZE=ON` (0.1).
+- With the new undo system on, importing an image (bitmap, vector or animated) can be undone and redone (0.5).
+- Add tests for bitmap flood fill, vector fill of a selected path and command-line parser bad arguments.
+- Eyedropper picks the true colour on soft (antialiased) bitmap edges instead of a darker one (A19).
+- Copy/paste on a vector layer pastes only the selected curves; with no selection it still pastes the whole frame (A18).
+- Stage profiler: set JUSTANIMATE_STAGE_PROFILE=1 to print per-stage time and call counts (input, dab mask, composite, buffer paste, canvas update); off costs one branch per stage.
+- With the new undo system on, paste, paste from previous keyframe, flip selection, clear frame and delete selection can be undone and redone on bitmap and vector layers (0.5).
+- Opening a .pclx with `..`, absolute or drive-letter entries (also with backslashes) is rejected instead of writing outside the temp folder (A3).
+- Frame drag, paste, reverse, exposure and layer add/delete/rename now make quit ask "save changes?" (A2).
+- Movie export asks before replacing an existing file and deletes the partial file on cancel or failure.
+- CI packages JustAnimate from the CMake build: Linux AppImage, Windows installer + ZIP, macOS DMG (JustAnimate.app); old Pencil2D WiX installer and packaging scripts removed.
+- Brush stroke replay test hashes seeded Pencil, Brush and Eraser strokes against golden values, with a `replay` timing target and `util/compare_replay.py` to compare two runs (B0).
+- On a crash, the last completed autosave is copied to a durable recovery folder, so startup recovery still finds it after the temp folder is cleaned (1.7).
+- Deleting a layer while moving a selection no longer applies the move to the neighbouring layer (A15).
+- Importing a vector image or animated GIF into a hidden layer shows the hidden-layer warning instead of crashing (A16).
+- A tap (dot) with pressure on is sized by its own pressure, not by how the previous stroke ended (A17).
+- A write error in the project XML or a vector frame, or a failed frame copy/rename when saving a moved frame, now fails the save instead of reporting it saved or saving the frame blank (A12, A13).
+- Timed autosave writes a complete `autosave.pclx` archive via the save's .tmp-and-rename, startup recovery restores the last completed autosave, and each edit counts once toward the autosave threshold (was up to 3x) (1.7).
+- Import Layers shows the load error for a corrupt or unreadable project instead of crashing (A11).
+- Command-line export prints the error and exits non-zero when an export fails (missing ffmpeg, odd size, empty frame range, unwritable path) and no longer shows the "already open" dialog (A9).
+- A failed save no longer marks the project as saved, so quitting still asks to save and the work is kept (A1).
+- Peg-bar align works from a held frame (uses the governing keyframe) and is one undo step in the new undo system (A10).
+- Add a benchmark target (`cmake --build <dir> --target benchmark`): open, scrub, play and draw on a 500-frame, 10-layer project; baseline in docs/benchmarks.md.
+- Keyboard shortcuts pressed while the pen is down no longer switch tool, frame or layer mid-stroke.
+- "Move frame forward" followed by a drag no longer drops a keyframe: the selection list stays sorted after the swap.
+- Fix crash when using the bitmap bucket, or the eraser on a vector layer, on a frame before the layer's first keyframe.
+- CI builds with CMake and runs pencil2d_tests on Linux, Windows and macOS; drop Pencil2D notarization/upload and the AppVeyor, docs and Transifex jobs.
+- Fix crash when undoing "Remove frame" on a vector layer (legacy undo looked the layer up by index instead of id).
+- Save writes the project to `<name>.tmp` and renames it over the original only on success, so a failed save no longer corrupts the file; old backup-copy helpers removed (A4).
+- Loader survives XML comments in project data, unknown layer types and frame numbers <= 0 instead of hanging or crashing.
 - Add retro for the v0.1 /implement-spec run (docs/retros/).
 - Add docs/CONVENTIONS.md (build, test, code and commit rules) and token-saving agent workflow rules in CLAUDE.md.
 - Set up /implement-spec: one spec issue and integration branch per milestone, Qt 6 SessionStart hook for cloud sessions, REST notes for the issue tracker.

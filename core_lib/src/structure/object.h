@@ -109,6 +109,7 @@ public:
     Layer* findLayerByName(const QString& strName, Layer::LAYER_TYPE type = Layer::UNDEFINED) const;
     Layer* findLayerById(int layerId) const;
     Layer* takeLayer(int layerId); // Note: transfer ownership of the layer
+    void insertLayer(int index, Layer* layer); // Note: takes ownership; the layer keeps its id
 
     bool swapLayers(int i, int j);
 

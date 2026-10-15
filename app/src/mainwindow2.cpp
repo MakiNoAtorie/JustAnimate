@@ -41,6 +41,7 @@ GNU General Public License for more details.
 
 // core_lib headers
 #include "pencildef.h"
+#include "platformhandler.h"
 #include "pencilsettings.h"
 #include "object.h"
 #include "editor.h"
@@ -120,6 +121,7 @@ MainWindow2::MainWindow2(QWidget* parent) :
     mEditor = new Editor(this);
     mEditor->setScribbleArea(ui->scribbleArea);
     mEditor->init();
+    PlatformHandler::applyTabletApi(mEditor->preference());
 
     newObject();
 
@@ -137,6 +139,8 @@ MainWindow2::MainWindow2(QWidget* parent) :
     createMenus();
     createToolbars();
     setupKeyboardShortcuts();
+    // A shortcut mid-stroke can land the stroke on another frame, layer or tool.
+    (new ShortcutFilter(ui->scribbleArea, this))->installOnActions(this);
 
     readSettings();
 
@@ -526,12 +530,6 @@ void MainWindow2::updateSaveState()
     ui->statusBar->updateModifiedStatus(hasUnsavedChanges);
 }
 
-void MainWindow2::updateBackupActionState()
-{
-    mEditor->undoRedo()->updateUndoAction(ui->actionUndo);
-    mEditor->undoRedo()->updateRedoAction(ui->actionRedo);
-}
-
 void MainWindow2::openPegAlignDialog()
 {
     if (mPegAlign != nullptr)
@@ -780,7 +778,6 @@ bool MainWindow2::openObject(const QString& strFilePath)
     progress.setValue(progress.maximum());
 
     updateSaveState();
-    updateBackupActionState();
 
     if (!QFileInfo(strFilePath).isWritable())
     {
@@ -820,11 +817,7 @@ bool MainWindow2::saveObject(QString strSavedFileName)
 
     if (!st.ok())
     {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
         QDir errorLogFolder(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
-#else
-        QDir errorLogFolder(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
-#endif
         errorLogFolder.mkpath("./logs");
         errorLogFolder.cd("logs");
 
@@ -847,6 +840,7 @@ bool MainWindow2::saveObject(QString strSavedFileName)
         return false;
     }
 
+    mEditor->undoRedo()->markSaved();
     mEditor->object()->setFilePath(strSavedFileName);
     mEditor->object()->setModified(false);
 
@@ -872,8 +866,10 @@ bool MainWindow2::saveObject(QString strSavedFileName)
 
 bool MainWindow2::saveDocument()
 {
-    if (!mEditor->object()->filePath().isEmpty())
-        return saveObject(mEditor->object()->filePath());
+    // Legacy .pcl is open-only: its project goes to Save As .pclx.
+    const QString filePath = mEditor->object()->filePath();
+    if (QFileInfo(filePath).suffix().compare(PFF_BIG_LETTER_EXTENSION, Qt::CaseInsensitive) == 0)
+        return saveObject(filePath);
     else
         return saveAsNewDocument();
 }
@@ -1123,7 +1119,6 @@ void MainWindow2::newObject()
     closeDialogs();
 
     setWindowTitle(getWindowTitle());
-    updateBackupActionState();
 }
 
 bool MainWindow2::newObjectFromPresets(int presetIndex)
@@ -1148,7 +1143,6 @@ bool MainWindow2::newObjectFromPresets(int presetIndex)
 
     setWindowTitle(getWindowTitle());
     updateSaveState();
-    updateBackupActionState();
 
     return true;
 }
@@ -1333,7 +1327,6 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionFlip_rolling->setShortcut(cmdKeySeq(CMD_FLIP_ROLLING));
     ui->actionReposition_Selected_Frames->setShortcut(cmdKeySeq(CMD_SELECTION_REPOSITION_FRAMES));
 
-    ShortcutFilter* shortcutFilter = new ShortcutFilter(ui->scribbleArea, this);
     ui->actionMove->setShortcut(cmdKeySeq(CMD_TOOL_MOVE));
     ui->actionSelect->setShortcut(cmdKeySeq(CMD_TOOL_SELECT));
     ui->actionBrush->setShortcut(cmdKeySeq(CMD_TOOL_BRUSH));
@@ -1347,18 +1340,6 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionEraser->setShortcut(cmdKeySeq(CMD_TOOL_ERASER));
     ui->actionResetToolsDefault->setShortcut(cmdKeySeq(CMD_RESET_ALL_TOOLS));
 
-    ui->actionMove->installEventFilter(shortcutFilter);
-    ui->actionMove->installEventFilter(shortcutFilter);
-    ui->actionSelect->installEventFilter(shortcutFilter);
-    ui->actionBrush->installEventFilter(shortcutFilter);
-    ui->actionPolyline->installEventFilter(shortcutFilter);
-    ui->actionSmudge->installEventFilter(shortcutFilter);
-    ui->actionPen->installEventFilter(shortcutFilter);
-    ui->actionHand->installEventFilter(shortcutFilter);
-    ui->actionPencil->installEventFilter(shortcutFilter);
-    ui->actionBucket->installEventFilter(shortcutFilter);
-    ui->actionEyedropper->installEventFilter(shortcutFilter);
-    ui->actionEraser->installEventFilter(shortcutFilter);
 
     // Layer menu
     ui->actionNew_Bitmap_Layer->setShortcut(cmdKeySeq(CMD_NEW_BITMAP_LAYER));
@@ -1451,7 +1432,6 @@ void MainWindow2::openPalette()
 void MainWindow2::makeConnections(Editor* editor)
 {
     connect(editor->undoRedo(), &UndoRedoManager::didUpdateUndoStack, this, &MainWindow2::updateSaveState);
-    connect(editor->undoRedo(), &UndoRedoManager::didUpdateUndoStack, this, &MainWindow2::updateBackupActionState);
     connect(editor, &Editor::needDisplayInfo, this, &MainWindow2::displayMessageBox);
     connect(editor, &Editor::needDisplayInfoNoTitle, this, &MainWindow2::displayMessageBoxNoTitle);
     connect(editor->layers(), &LayerManager::currentLayerChanged, this, &MainWindow2::currentLayerChanged);
@@ -1702,7 +1682,6 @@ bool MainWindow2::startProjectRecovery(const QString recoverPath)
     Q_ASSERT(o);
     mEditor->setObject(o);
     updateSaveState();
-    updateBackupActionState();
 
     const QString title = tr("Recovery Succeeded!");
     const QString text = tr("Please save your work immediately to prevent loss of data");

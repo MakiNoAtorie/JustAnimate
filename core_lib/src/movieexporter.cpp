@@ -35,11 +35,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "util.h"
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
 using Qt::SplitBehaviorFlags;
-#else
-using SplitBehaviorFlags = QString::SplitBehavior;
-#endif
 
 MovieExporter::MovieExporter()
 {
@@ -119,24 +115,37 @@ Status MovieExporter::run(const Object* obj,
 
     mTempWorkDir = mTempDir.path();
 
+    const QFileInfo outputBefore(desc.strFileName);
+    const QDateTime modifiedBefore = outputBefore.lastModified();
+    const qint64 sizeBefore = outputBefore.size();
+
+    Status st = Status::OK;
     minorProgress(0.f);
     if (desc.strFileName.endsWith("gif", Qt::CaseInsensitive))
     {
         majorProgress(0.03f, 1.f);
         progressMessage(tr("Generating GIF..."));
         minorProgress(0.f);
-        STATUS_CHECK(generateGif(obj, ffmpegPath, desc.strFileName, minorProgress))
+        st = (generateGif(obj, ffmpegPath, desc.strFileName, minorProgress));
     }
     else
     {
         majorProgress(0.03f, 0.25f);
         progressMessage(tr("Assembling audio..."));
         minorProgress(0.f);
-        STATUS_CHECK(assembleAudio(obj, ffmpegPath, minorProgress))
-        minorProgress(1.f);
-        majorProgress(0.25f, 1.f);
-        progressMessage(tr("Generating movie..."));
-        STATUS_CHECK(generateMovie(obj, ffmpegPath, desc.strFileName, minorProgress))
+        st = (assembleAudio(obj, ffmpegPath, minorProgress));
+        if (st.ok())
+        {
+            minorProgress(1.f);
+            majorProgress(0.25f, 1.f);
+            progressMessage(tr("Generating movie..."));
+            st = (generateMovie(obj, ffmpegPath, desc.strFileName, minorProgress));
+        }
+    }
+    if (!st.ok())
+    {
+        discardPartialOutput(desc.strFileName, modifiedBefore, sizeBefore);
+        return st;
     }
     minorProgress(1.f);
     majorProgress(1.f, 1.f);
@@ -146,6 +155,18 @@ Status MovieExporter::run(const Object* obj,
     qDebug("MOVIE = %.1f sec", static_cast<double>(t2 / CLOCKS_PER_SEC));
 
     return Status::OK;
+}
+
+void MovieExporter::discardPartialOutput(const QString& path, const QDateTime& modifiedBefore, qint64 sizeBefore)
+{
+    const QFileInfo now(path);
+    const bool untouched = modifiedBefore.isValid() && now.lastModified() == modifiedBefore && now.size() == sizeBefore;
+    if (!untouched) { QFile::remove(path); }
+}
+
+bool MovieExporter::mayOverwrite(const QString& path, const std::function<bool()>& confirm)
+{
+    return !QFile::exists(path) || confirm();
 }
 
 QString MovieExporter::error()
@@ -390,13 +411,8 @@ Status MovieExporter::generateMovie(
             obj->paintImage(painter, currentFrame, false, true);
             painter.end();
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
             int bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.sizeInBytes());
             Q_ASSERT(bytesWritten == imageToExport.sizeInBytes());
-#else
-            int bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.byteCount());
-            Q_ASSERT(bytesWritten == imageToExport.byteCount());
-#endif
 
             currentFrame++;
             failCounter = 0;
@@ -511,13 +527,8 @@ Status MovieExporter::generateGif(
 
         obj->paintImage(painter, currentFrame, false, true);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
         bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.sizeInBytes());
         Q_ASSERT(bytesWritten == imageToExport.sizeInBytes());
-#else
-        bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.byteCount());
-        Q_ASSERT(bytesWritten == imageToExport.byteCount());
-#endif
 
         currentFrame++;
 

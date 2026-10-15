@@ -86,11 +86,6 @@ void SoundClip::attachPlayer(SoundPlayer* player)
     mPlayer.reset(player);
 }
 
-void SoundClip::detachPlayer()
-{
-    mPlayer.reset();
-}
-
 void SoundClip::play()
 {
     if (mPlayer)

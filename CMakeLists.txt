@@ -46,12 +46,49 @@ add_compile_definitions(
     QT_DISABLE_DEPRECATED_UP_TO=0x050F00
 )
 
+# Git revision for the About dialog and error reports (set at configure time)
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE GIT_SHA1 OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    execute_process(COMMAND ${GIT_EXECUTABLE} log -n 1 --pretty=format:%cd --date=format:%Y-%m-%d_%H:%M:%S
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_VARIABLE GIT_STAMP OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if(GIT_SHA1 AND GIT_STAMP)
+        add_compile_definitions(GIT_EXISTS GIT_CURRENT_SHA1=${GIT_SHA1} GIT_TIMESTAMP=${GIT_STAMP})
+    endif()
+endif()
+
 # MSVC specific flags
 if(MSVC)
     add_compile_options(/MP)  # Multi-processor compilation
+endif()
+
+# Warnings are errors in CI only: a new compiler must not break a user's build
+option(JUSTANIMATE_WERROR "Treat compiler warnings as errors" OFF)
+if(JUSTANIMATE_WERROR)
+    if(MSVC)
+        add_compile_options(/WX)
+    else()
+        add_compile_options(-Werror)
+    endif()
 endif()
 
 # Include subdirectories to build as single executable
 include(core_lib/core_lib.cmake)
 include(app/app.cmake)
 include(tests/tests.cmake)
+
+# Packages (cpack): NSIS installer + ZIP on Windows, DMG on macOS; Linux uses an AppImage built in CI
+set(CPACK_PACKAGE_VENDOR "JustAnimate")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "JustAnimate")
+set(CPACK_PACKAGE_EXECUTABLES justanimate JustAnimate)
+set(CPACK_NSIS_EXECUTABLES_DIRECTORY .)
+set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+set(CPACK_DMG_VOLUME_NAME "JustAnimate")
+if(WIN32)
+    set(CPACK_GENERATOR NSIS ZIP)
+elseif(APPLE)
+    set(CPACK_GENERATOR DragNDrop)
+endif()
+include(CPack)

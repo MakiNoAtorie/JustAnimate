@@ -17,15 +17,25 @@ GNU General Public License for more details.
 
 #include "shortcutfilter.h"
 
+#include <QAction>
+
 ShortcutFilter::ShortcutFilter(ScribbleArea* scribbleArea , QObject* parent) :
     QObject(parent)
 {
     mScribbleArea = scribbleArea;
 }
 
+void ShortcutFilter::installOnActions(QObject* root)
+{
+    for (QAction* action : root->findChildren<QAction*>())
+    {
+        action->installEventFilter(this);
+    }
+}
+
 bool ShortcutFilter::eventFilter(QObject* obj, QEvent* event)
 {
-    if (mScribbleArea->isMouseInUse())
+    if (event->type() == QEvent::Shortcut && mScribbleArea->isPointerInUse())
     {
         return true;
     }

@@ -14,7 +14,7 @@ There are 4 steps in total:
 
 ## TL;DR
 
-If you are an *experienced %Qt developer*, compiling Pencil2D would be extremely easy for you. Just open up `pencil2d.pro` in %Qt Creator and compile, that's it.
+If you are an *experienced %Qt developer*, compiling Pencil2D would be extremely easy for you. Just open up `CMakeLists.txt` in %Qt Creator and compile, that's it.
 
 ## 1. Install Xcode
 
@@ -74,26 +74,23 @@ Now it's time to build the application.
 ### With Qt Creator (recommended)
 
 - Open up the %Qt Creator application.
-- From the menu bar select **File** and then **Open File or Project**. Navigate to Pencil2D's root source folder and open the `pencil2d.pro` file. 
+- From the menu bar select **File** and then **Open File or Project**. Navigate to Pencil2D's root source folder and open the `CMakeLists.txt` file. 
 - Next, you'll be asked to configure your **kits** for the project. Kits determine compilers, target environment, and various build settings among other things. The Desktop option should be the only one checked. Click Configure Project to complete the kit selection.
 - Now all you have to do to build is click the plain **green arrow** in the bottom left corner of the window or press `Command+r`. A small progress bar will show up on the bottom right and console output will appear in the bottom section.
 - If everything goes well then the version of Pencil2D that you build will open up automatically and you're done!
 
 If there is an error, the issues tab will open up at the bottom and display error messages. Please search the [Pencil2D Issue tracker](https://github.com/pencil2d/pencil/issues) or create an issue If you can't find anything. Be sure to include as much detail as you can in your report!
 
-### With QMake/GNU Make
+### With CMake
 
-If you do not have or do not want to use %Qt Creator for some reason then you can follow this two-step process. First you have to use QMake to let %Qt do its preprocessing and generate the Makefiles. Make sure that the qmake executable that came with %Qt is in your PATH. Then cd to the root git directory for Pencil2d and run:
+From the root git directory, configure and build:
 
-    qmake pencil2d.pro -spec macx-clang CONFIG+=debug CONFIG+=x86_64 CONFIG+=qml_debug && /usr/bin/make qmake_all
+```
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --target pencil2d
+```
 
-Next you have to use GNU Make to actually compile the source code (this tool comes with XCode Developer Tools so you should already have it). Run the command:
-
-    make
-
-You can then open Pencil2D by opening Pencil2D.app in app or by running:
-
-    ./app/Pencil2D.app/Contents/MacOS/Pencil2D
+Then run `./build/JustAnimate.app/Contents/MacOS/JustAnimate`. To build and run the unit tests, build the `pencil2d_tests` target and run `./build/pencil2d_tests`.
 
 ## Next steps
 

@@ -65,7 +65,6 @@ public:
     Editor* mEditor = nullptr;
 
 public slots:
-    void updateBackupActionState();
     void updateSaveState();
     void openPegAlignDialog();
     void openRepositionDialog();

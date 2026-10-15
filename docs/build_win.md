@@ -13,7 +13,7 @@ There are 3 steps in total:
 
 ## TL;DR
 
-If you are an *experienced Qt developer*, compiling Pencil2D will be extremely easy for you. Just open up `pencil2d.pro` in Qt Creator and compile, that's it.
+If you are an *experienced Qt developer*, compiling Pencil2D will be extremely easy for you. Just open up `CMakeLists.txt` in Qt Creator and compile, that's it.
 
 ## Install Dependencies
 
@@ -56,7 +56,7 @@ Now it's time to build the application.
 ### With Qt Creator (recommended)
 
 1. Open Qt Creator.
-2. From the menu bar, select **File** and then **Open File or Project**. Navigate to Pencil2D's root source folder and open `pencil2d.pro`.
+2. From the menu bar, select **File** and then **Open File or Project**. Navigate to Pencil2D's root source folder and open `CMakeLists.txt`.
 3. Next, you'll be asked to configure your `kits` for the project. Kits determine compilers, target environment, and various build settings, among other things. The Desktop option should be the only one selected. Click Configure Project to complete the kit selection.
 4. Now all you have to do is clicking the **green arrow** in the bottom left corner (or pressing the `Ctrl+R` keyboard shortcut). A small progress bar will show up on the bottom right and you will see some console output.
 5. If everything goes well, Qt Creator will launch the Pencil2D application automatically and you're done!
@@ -69,7 +69,7 @@ Follow these steps if you prefer Visual Studio:
 
 1. Have Visual Studio with a C++ compiler installed, as well as a version of Qt that is compatible with it (see above).
 2. Download and install the [Qt Visual Studio Tools Add-in](https://doc.qt.io/qtvstools/) from the menu bar → **Extensions** → **Manage Extensions** → **Online**.
-3. Open Visual Studio, from the menu bar → **Extensions** → **Qt VS Tools** -> **Open Qt Project File (.pro)**, navigate to the Pencil2D source folder and select `pencil2d.pro`.
+3. Open Visual Studio, from the menu bar → **Extensions** → **File** -> **Open** -> **Folder**, and select the Pencil2D source folder (Visual Studio configures the CMake project).
 4. Build & run the project.
 
 ## Next steps

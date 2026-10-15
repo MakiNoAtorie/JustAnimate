@@ -17,12 +17,25 @@ GNU General Public License for more details.
 #ifndef PLATFORMHANDLER_H
 #define PLATFORMHANDLER_H
 
+#include <functional>
+
+#include "preferencemanager.h"
+
 namespace PlatformHandler
 {
 
 void configurePlatformSpecificSettings();
 bool isDarkMode();
 void initialise();
+
+/// Turns the WinTab tablet API on or off (Windows only). Returns true if WinTab is in use afterwards.
+bool setWinTabEnabled(bool enabled);
+
+/// Applies the stored tablet API setting. Returns true if WinTab is in use, false if Windows Ink is.
+inline bool applyTabletApi(PreferenceManager* prefs, const std::function<bool(bool)>& switchWinTab = setWinTabEnabled)
+{
+    return switchWinTab(prefs->isOn(SETTING::TABLET_WINTAB));
+}
 
 }
 

@@ -81,13 +81,8 @@ public:
     Type eventType() const;
     InputType inputType() const;
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     QInputDevice::DeviceType device() const;
     QPointingDevice::PointerType pointerType() const;
-#else
-    QTabletEvent::TabletDevice device() const;
-    QTabletEvent::PointerType pointerType() const;
-#endif
 
 private:
     QTabletEvent* mTabletEvent = nullptr;

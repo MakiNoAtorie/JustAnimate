@@ -242,7 +242,6 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
 
     if (event->button() == Qt::LeftButton)
     {
-        mEditor->backup(typeName());
 
         if (layer->type() == Layer::BITMAP)
         {
@@ -265,6 +264,7 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
                 vectorImage->curve(curveNumber).smoothCurve();
             }
             mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
+            mEditor->undoRedo()->record(mUndoSaveStateId, typeName());
         }
     }
 

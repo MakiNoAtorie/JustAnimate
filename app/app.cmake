@@ -265,6 +265,14 @@ set_target_properties(pencil2d PROPERTIES
     AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/app/ui
     OUTPUT_NAME justanimate
 )
+if(APPLE)
+    # The bundle is named after the executable: JustAnimate.app
+    # INSTALL_RPATH: macdeployqt adds no rpath to a binary that has none after install
+    set_target_properties(pencil2d PROPERTIES
+        OUTPUT_NAME JustAnimate
+        INSTALL_RPATH "@executable_path/../Frameworks"
+    )
+endif()
 
 # Link libraries
 target_link_libraries(pencil2d PRIVATE
@@ -281,6 +289,10 @@ target_link_libraries(pencil2d PRIVATE
 if(APPLE)
     target_link_libraries(pencil2d PRIVATE ${APPKIT_FRAMEWORK})
 endif()
+if(WIN32)
+    # QWindowsApplication::setWinTabEnabled is private Qt API
+    target_link_libraries(pencil2d PRIVATE Qt6::GuiPrivate)
+endif()
 
 # Set precompiled header
 
@@ -290,6 +302,9 @@ target_precompile_headers(pencil2d PRIVATE
 )
 
 # Installation
+# ffmpeg is only needed for movie import/export; packages bundle it where util.cpp looks for it.
+set(JUSTANIMATE_FFMPEG "" CACHE FILEPATH "ffmpeg executable to bundle into the install (optional)")
+
 if(UNIX AND NOT APPLE)
     # Linux installation
     install(TARGETS pencil2d DESTINATION bin)
@@ -311,10 +326,32 @@ if(UNIX AND NOT APPLE)
     
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/io.github.makinoatorie.JustAnimate.png
             DESTINATION share/icons/hicolor/256x256/apps)
-elseif(APPLE)
-    # macOS installation
-    install(TARGETS pencil2d BUNDLE DESTINATION .)
-elseif(WIN32)
-    # Windows installation
-    install(TARGETS pencil2d DESTINATION .)
+
+    if(JUSTANIMATE_FFMPEG)
+        install(PROGRAMS ${JUSTANIMATE_FFMPEG} DESTINATION bin/plugins RENAME ffmpeg)
+    endif()
+else()
+    # macOS and Windows: a self-contained folder with Qt (macdeployqt/windeployqt) next to the app
+    if(APPLE)
+        install(TARGETS pencil2d BUNDLE DESTINATION .)
+        set(FFMPEG_DESTINATION JustAnimate.app/Contents/MacOS/plugins)
+    else()
+        set(CMAKE_INSTALL_BINDIR .)  # read by the Qt deploy script below
+        install(TARGETS pencil2d RUNTIME DESTINATION .)
+        set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
+        include(InstallRequiredSystemLibraries)  # app-local MSVC runtime DLLs
+        set(FFMPEG_DESTINATION plugins)
+    endif()
+
+    if(JUSTANIMATE_FFMPEG)
+        install(PROGRAMS ${JUSTANIMATE_FFMPEG} DESTINATION ${FFMPEG_DESTINATION})
+    endif()
+
+    qt_generate_deploy_app_script(TARGET pencil2d OUTPUT_SCRIPT DEPLOY_SCRIPT)
+    install(SCRIPT ${DEPLOY_SCRIPT})
+
+    if(APPLE)
+        # macdeployqt rewrites the binaries; re-sign ad hoc so the app still starts on Apple silicon
+        install(CODE "execute_process(COMMAND codesign --force --deep --sign - \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/JustAnimate.app\" COMMAND_ERROR_IS_FATAL ANY)")
+    endif()
 endif()

@@ -129,6 +129,15 @@ Status LayerBitmap::presave(const QString& sDataFolder)
         }
     });
 
+    // On failure a frame keeps pointing at the file it is still in, and the
+    // save stops: writing it now would save the frame blank.
+    auto fail = [](const QString& action, const QString& from, const QString& to) {
+        DebugDetails dd;
+        dd << "LayerBitmap::presave";
+        dd << QString("Error: Failed to %1 %2 to %3").arg(action, from, to);
+        return Status(Status::FAIL, dd);
+    };
+
     for (BitmapImage* b : movedOnlyBitmaps)
     {
         // Move to temporary locations first to avoid overwritting anything we shouldn't be
@@ -136,10 +145,12 @@ Status LayerBitmap::presave(const QString& sDataFolder)
         QString tmpPath = dataFolder.filePath(QString::asprintf("t_%03d.%03d.png", id(), b->pos()));
         if (QFileInfo(b->fileName()).dir() != dataFolder) {
             // Copy instead of move if the data folder itself has changed
-            QFile::copy(b->fileName(), tmpPath);
+            if (!QFile::copy(b->fileName(), tmpPath))
+                return fail("copy", b->fileName(), tmpPath);
         }
         else {
-            QFile::rename(b->fileName(), tmpPath);
+            if (!QFile::rename(b->fileName(), tmpPath))
+                return fail("rename", b->fileName(), tmpPath);
         }
         b->setFileName(tmpPath);
     }
@@ -147,9 +158,11 @@ Status LayerBitmap::presave(const QString& sDataFolder)
     for (BitmapImage* b : movedOnlyBitmaps)
     {
         QString dest = filePath(b, dataFolder);
-        QFile::remove(dest);
+        if (QFile::exists(dest) && !QFile::remove(dest))
+            return fail("replace", b->fileName(), dest);
 
-        QFile::rename(b->fileName(), dest);
+        if (!QFile::rename(b->fileName(), dest))
+            return fail("rename", b->fileName(), dest);
         b->setFileName(dest);
     }
 
@@ -205,16 +218,17 @@ void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath
 {
     this->loadBaseDomElement(element);
 
+    const DataPathValidator dataPaths(dataDirPath);
     QDomNode imageTag = element.firstChild();
     while (!imageTag.isNull())
     {
         QDomElement imageElement = imageTag.toElement();
         if (!imageElement.isNull() && imageElement.tagName() == "image")
         {
-            QString path = validateDataPath(imageElement.attribute("src"), dataDirPath);
-            if (!path.isEmpty())
+            const int position = imageElement.attribute("frame").toInt();
+            QString path = dataPaths.validate(imageElement.attribute("src"));
+            if (!path.isEmpty() && position > 0)
             {
-                int position = imageElement.attribute("frame").toInt();
                 int x = imageElement.attribute("topLeftX").toInt();
                 int y = imageElement.attribute("topLeftY").toInt();
                 qreal opacity = imageElement.attribute("opacity", "1.0").toDouble();

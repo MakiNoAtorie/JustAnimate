@@ -26,13 +26,12 @@ GNU General Public License for more details.
 #define PFF_OLD_BIG_LETTER_EXTENSION	"PCL"
 #define PFF_EXTENSION				    ".pclx"
 #define PFF_BIG_LETTER_EXTENSION	    "PCLX"
-#define PFF_BACKUP_IDENTIFIER           "backup"
 
 #define PFF_OPEN_PROJECT_EXT_FILTER \
     QCoreApplication::translate("FileFormat", "Project formats") + " (*.pclx *.pcl);;" + QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Project") + " (*.pcl)"
 
 #define PFF_SAVE_PROJECT_EXT_FILTER \
-    QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Project") + " (*.pcl)"
+    QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx)"
 
 #define PFF_MOVIE_EXT \
     QCoreApplication::translate("FileFormat", "Movie formats") + "(*.avi *.mpg *.mpeg *.mov *.mp4 *.mkv *.ogv *.swf *.flv *.webm *.wmv);;" \
@@ -82,6 +81,7 @@ GNU General Public License for more details.
 #define PFF_OLD_DATA_DIR 		"data"
 #define PFF_DATA_DIR            "data"
 #define PFF_XML_FILE_NAME 		"main.xml"
+#define PFF_AUTOSAVE_FILE_NAME  "autosave.pclx"
 #define PFF_TMP_DECOMPRESS_EXT 	"Y2xD"
 #define PFF_PALETTE_FILE        "palette.xml"
 

@@ -53,12 +53,12 @@ private slots:
     void toolCursorsCheckboxStateChanged(int b);
     void canvasCursorCheckboxStateChanged(int b);
     void highResCheckboxStateChanged(int b);
+    void tabletApiChanged(int index);
     void gridCheckBoxStateChanged(int b);
     void curveSmoothingChanged(int value);
     void backgroundChanged(QAbstractButton* button);
     void frameCacheNumberChanged(int value);
     void invertScrollDirectionBoxStateChanged(int b);
-    void newUndoRedoCheckBoxStateChanged();
     void undoRedoMaxStepsChanged();
 
     void undoRedoApplyButtonPressed();

@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #include <map>
 #include <functional>
 #include <QObject>
+#include <QList>
+#include <QPair>
 #include <QString>
 #include <QDomElement>
 #include "pencilerror.h"
@@ -148,6 +150,11 @@ public:
     void deselectAll();
 
     bool moveSelectedFrames(int offset);
+
+    /** Moves the keyframe at the first position of each pair to the second position, then deselects all frames.
+     *  @return false, with no frame moved, if a keyframe is missing or a target position is occupied
+     */
+    bool moveKeyFrames(const QList<QPair<int, int>>& fromTo);
     QList<int> getSelectedFramesByPos() const { return mSelectedFrames_byPosition; }
 
     /** Predetermines whether the frames can be moved to a new position depending on the offset

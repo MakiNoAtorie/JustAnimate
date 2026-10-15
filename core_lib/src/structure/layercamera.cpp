@@ -311,11 +311,7 @@ void LayerCamera::mergeControlPointIfNeeded(int frame) const
             const QLineF& interpolatedLinePC = QLineF(-camPrev->translation(), camPrev->getPathControlPoint());
 
             QPointF mergedCPoint;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
             auto intersection = interpolatedLinePC.intersects(interpolatedLineCN, &mergedCPoint);
-#else
-            auto intersection = interpolatedLinePC.intersect(interpolatedLineCN, &mergedCPoint);
-#endif
             // Try to recover the control point if the distance is within the threshold, otherwise do nothing
             if (intersection == QLineF::UnboundedIntersection &&
                 QLineF(camFrame->getPathControlPoint(), mergedCPoint).length() < mControlPointMergeThreshold)
@@ -611,9 +607,9 @@ void LayerCamera::loadDomElement(const QDomElement& element, QString dataDirPath
         QDomElement imageElement = imageTag.toElement();
         if (!imageElement.isNull())
         {
-            if (imageElement.tagName() == "camera")
+            const int frame = imageElement.attribute("frame").toInt();
+            if (imageElement.tagName() == "camera" && frame > 0)
             {
-                int frame = imageElement.attribute("frame").toInt();
 
                 qreal rotate = imageElement.attribute("r", "0").toDouble();
                 qreal scale = imageElement.attribute("s", "1").toDouble();

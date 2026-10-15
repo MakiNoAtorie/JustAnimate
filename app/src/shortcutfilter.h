@@ -26,6 +26,8 @@ class ShortcutFilter : public QObject
 
 public:
     ShortcutFilter(ScribbleArea* scribbleArea, QObject* parent);
+    /// Blocks the shortcuts of every action under `root` while a pointer is drawing.
+    void installOnActions(QObject* root);
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
     ScribbleArea* mScribbleArea = nullptr;

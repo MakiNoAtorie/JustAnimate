@@ -60,3 +60,102 @@ TEST_CASE("QMiniZ::CompressFolder")
         mz_zip_reader_end(&zip);
     }
 }
+
+TEST_CASE("QMiniZ::uncompressFolder rejects zip-slip entries")
+{
+    const QStringList evil = { "../evil.txt", "a/../../evil.txt", "/abs/evil.txt",
+                               "C:/evil.txt", "C:evil.txt", "..\\evil.txt", "a\\..\\..\\evil.txt" };
+    for (const QString& name : evil)
+    {
+        DYNAMIC_SECTION(name.toStdString())
+        {
+            QTemporaryDir tempDir;
+            REQUIRE(tempDir.isValid());
+            QString zipPath = tempDir.path() + "/evil.pclx";
+            QDir().mkpath(tempDir.path() + "/out");
+
+            mz_zip_archive zip;
+            memset(&zip, 0, sizeof(zip));
+            REQUIRE(mz_zip_writer_init_file(&zip, zipPath.toUtf8().data(), 0));
+            REQUIRE(mz_zip_writer_add_mem(&zip, "ok.txt", "x", 1, MZ_NO_COMPRESSION));
+            // The writer refuses hostile names, so patch a same-length placeholder.
+            const QByteArray hostile = name.toUtf8();
+            const QByteArray placeholder(hostile.size(), 'Z');
+            REQUIRE(mz_zip_writer_add_mem(&zip, placeholder.constData(), "x", 1, MZ_NO_COMPRESSION));
+            REQUIRE(mz_zip_writer_finalize_archive(&zip));
+            mz_zip_writer_end(&zip);
+            QFile zf(zipPath);
+            REQUIRE(zf.open(QIODevice::ReadWrite));
+            QByteArray bytes = zf.readAll();
+            bytes.replace(placeholder, hostile);
+            zf.seek(0);
+            zf.write(bytes);
+            zf.close();
+
+            Status st = MiniZ::uncompressFolder(zipPath, tempDir.path() + "/out/");
+            REQUIRE_FALSE(st.ok());
+            REQUIRE_FALSE(QFileInfo::exists(tempDir.path() + "/evil.txt"));
+            REQUIRE_FALSE(QFileInfo::exists(tempDir.path() + "/out/ok.txt"));
+        }
+    }
+
+    SECTION("backslash entry inside the folder is accepted")
+    {
+        QTemporaryDir tempDir;
+        REQUIRE(tempDir.isValid());
+        QString zipPath = tempDir.path() + "/bs.pclx";
+        mz_zip_archive zip;
+        memset(&zip, 0, sizeof(zip));
+        REQUIRE(mz_zip_writer_init_file(&zip, zipPath.toUtf8().data(), 0));
+        REQUIRE(mz_zip_writer_add_mem(&zip, "dataZ001.png", "x", 1, MZ_NO_COMPRESSION));
+        REQUIRE(mz_zip_writer_finalize_archive(&zip));
+        mz_zip_writer_end(&zip);
+        QFile zf(zipPath);
+        REQUIRE(zf.open(QIODevice::ReadWrite));
+        QByteArray bytes = zf.readAll();
+        bytes.replace("dataZ001.png", "data\\001.png");
+        zf.seek(0);
+        zf.write(bytes);
+        zf.close();
+
+        REQUIRE(MiniZ::uncompressFolder(zipPath, tempDir.path() + "/out/").ok());
+        REQUIRE_FALSE(QFileInfo::exists(tempDir.path() + "/001.png"));
+    }
+
+    SECTION("a folder that cannot be made fails the extract")
+    {
+        QTemporaryDir tempDir;
+        REQUIRE(tempDir.isValid());
+        QString zipPath = tempDir.path() + "/blocked.pclx";
+        mz_zip_archive zip;
+        memset(&zip, 0, sizeof(zip));
+        REQUIRE(mz_zip_writer_init_file(&zip, zipPath.toUtf8().data(), 0));
+        REQUIRE(mz_zip_writer_add_mem(&zip, "data/a.txt", "x", 1, MZ_NO_COMPRESSION));
+        REQUIRE(mz_zip_writer_finalize_archive(&zip));
+        mz_zip_writer_end(&zip);
+
+        // A file where the archive wants a folder.
+        QDir().mkpath(tempDir.path() + "/out");
+        QFile blocker(tempDir.path() + "/out/data");
+        REQUIRE(blocker.open(QIODevice::WriteOnly));
+        blocker.close();
+
+        REQUIRE_FALSE(MiniZ::uncompressFolder(zipPath, tempDir.path() + "/out/").ok());
+    }
+
+    SECTION("normal nested entries still extract")
+    {
+        QTemporaryDir tempDir;
+        REQUIRE(tempDir.isValid());
+        QString zipPath = tempDir.path() + "/good.pclx";
+        mz_zip_archive zip;
+        memset(&zip, 0, sizeof(zip));
+        REQUIRE(mz_zip_writer_init_file(&zip, zipPath.toUtf8().data(), 0));
+        REQUIRE(mz_zip_writer_add_mem(&zip, "data/a.txt", "x", 1, MZ_NO_COMPRESSION));
+        REQUIRE(mz_zip_writer_finalize_archive(&zip));
+        mz_zip_writer_end(&zip);
+
+        REQUIRE(MiniZ::uncompressFolder(zipPath, tempDir.path() + "/out/").ok());
+        REQUIRE(QFileInfo::exists(tempDir.path() + "/out/data/a.txt"));
+    }
+}

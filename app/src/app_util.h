@@ -17,6 +17,8 @@ GNU General Public License for more details.
 #ifndef APP_UTIL_H
 #define APP_UTIL_H
 
+class QAction;
+class QDialog;
 class PreferenceManager;
 enum class SETTING;
 

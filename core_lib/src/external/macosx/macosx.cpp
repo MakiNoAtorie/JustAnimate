@@ -17,9 +17,7 @@ GNU General Public License for more details.
 
 #include <QApplication>
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
   #include <QOperatingSystemVersion>
-#endif
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -37,11 +35,10 @@ namespace PlatformHandler
         return MacOSXNative::isDarkMode();
     }
 
+    bool setWinTabEnabled(bool) { return false; }
+
     void initialise()
     {
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-        QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#endif
     }
 }
 
@@ -51,12 +48,8 @@ bool gIsMouseCoalescing = false;
 
 void detectWhichOSX()
 {
- #if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
     QOperatingSystemVersion current = QOperatingSystemVersion::current();
     gIsMouseCoalescing = ( current >= QOperatingSystemVersion::OSXElCapitan );
-#else
-    gIsMouseCoalescing = false;
-#endif
 }
 
 void disableCoalescing()

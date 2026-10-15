@@ -133,7 +133,6 @@ void EraserTool::pointerReleaseEvent(PointerEvent *event)
 
     if (event->inputType() != mCurrentInputType) return;
 
-    mEditor->backup(typeName());
 
     qreal distance = QLineF(getCurrentPoint(), mMouseDownPoint).length();
     if (distance < 1)
@@ -268,6 +267,7 @@ void EraserTool::updateStrokes()
         qreal radius = mSettings.width() / 2;
 
         VectorImage* currKey = static_cast<VectorImage*>(layer->getLastKeyFrameAtPosition(mEditor->currentFrame()));
+        if (currKey == nullptr) { return; } // Before the layer's first keyframe: nothing to erase
         QList<VertexRef> nearbyVertices = currKey->getVerticesCloseTo(getCurrentPoint(), radius);
         for (auto nearbyVertice : nearbyVertices)
         {

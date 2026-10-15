@@ -27,6 +27,10 @@ GNU General Public License for more details.
 #include <QUndoStack>
 #include <QRectF>
 #include <QMap>
+#include <QHash>
+
+#include <memory>
+#include <vector>
 
 class QAction;
 class QUndoCommand;
@@ -36,7 +40,6 @@ class VectorImage;
 class Camera;
 class SoundClip;
 class KeyFrame;
-class LegacyBackupElement;
 class UndoRedoCommand;
 
 using SAVESTATE_ID = int;
@@ -46,7 +49,10 @@ enum class UndoRedoRecordType {
     KEYFRAME_MODIFY, // Any modification that involve a keyframe
     KEYFRAME_REMOVE, // Removing a keyframe
     KEYFRAME_ADD, // Adding a keyframe
-    KEYFRAME_MOVE,
+    KEYFRAME_MOVE, // Any change of keyframe positions on the current layer: move, reverse, exposure
+    BITMAPS_MOVE, // Moving bitmap keyframes on the canvas, e.g. peg bar alignment
+    KEYFRAMES_REMOVE, // Removing the selected keyframes
+    KEYFRAMES_PASTE, // Pasting keyframes, which can push later keyframes back
     // SCRUB_LAYER, // Scrubbing layer
     // SCRUB_KEYFRAME, // Scrubbing keyframe
     INVALID
@@ -78,18 +84,11 @@ struct SelectionSaveState {
     QPointF anchor;
 };
 
-struct MoveFramesSaveState {
-
-    MoveFramesSaveState() = default;
-    MoveFramesSaveState(int offset,
-                        const QList<int>& positions)
-    {
-        this->offset = offset;
-        this->positions = positions;
-    }
-
-    int offset = 0;
-    QList<int> positions;
+/// Moves the bitmap keyframe at `frame` on layer `layerId` by `offset` canvas pixels
+struct BitmapOffset {
+    int layerId = 0;
+    int frame = 0;
+    QPoint offset;
 };
 
 /// Use this struct to store user related data that will later be added to the backup
@@ -98,7 +97,7 @@ struct MoveFramesSaveState {
 /// All data stored in here should be based on ZII (zero is initialization) principle
 /// Only store what you need.
 struct UserSaveState {
-    MoveFramesSaveState moveFramesState = {};
+    QList<BitmapOffset> bitmapOffsets;
 };
 
 /// This is the main undo/redo state structure which is meant to populate
@@ -111,6 +110,12 @@ struct UndoSaveState {
     Layer::LAYER_TYPE layerType = Layer::UNDEFINED;
     std::unique_ptr<KeyFrame> keyframe;
     SelectionSaveState selectionState = {};
+
+    // KEYFRAME_MOVE: the position of each keyframe of the layer before the change.
+    // The keys can dangle: compare them, do not dereference them.
+    QHash<const KeyFrame*, int> keyframePositions;
+    // KEYFRAMES_REMOVE: copies of the selected keyframes
+    std::vector<std::unique_ptr<KeyFrame>> selectedKeyframes;
 
     UserSaveState userState = {};
 };
@@ -139,6 +144,9 @@ public:
      *  @return true if there are unsaved changes, otherwise false */
     bool hasUnsavedChanges() const;
 
+    /** Marks the current state as saved. Call only after the file was written successfully. */
+    void markSaved();
+
     /** Prepares and returns an save state with common data
      * @return A UndoSaveState struct with common keyframe data */
     SAVESTATE_ID createState(UndoRedoRecordType recordType);
@@ -150,40 +158,30 @@ public:
      */
     void addUserState(SAVESTATE_ID SaveStateId, const UserSaveState& userState);
 
+    /** Records that the layer with the given id was added to the object. */
+    void recordLayerAdd(int layerId, const QString& description);
+
+    /** Records that a layer was taken out of the object at index.
+     *  Takes ownership of the layer, so that undo can put the same layer back. */
+    void recordLayerRemove(Layer* layer, int index, const QString& description);
+
+    /** Makes the records between beginMacro and endMacro one undo step.
+     *  Use UndoMacro. No step is made when nothing is recorded. */
+    void beginMacro(const QString& description);
+    void endMacro();
+
     QAction* createUndoAction(QObject* parent, const QIcon& icon);
     QAction* createRedoAction(QObject* parent, const QIcon& icon);
 
-    void updateUndoAction(QAction* undoAction);
-    void updateRedoAction(QAction* redoAction);
-
     /** Clears the undo stack */
     void clearStack();
-
-    // Developer note:
-    // Our legacy undo/redo system is not meant to be build upon anymore.
-    // The implementation should however be kept until the new undo/redo system takes over.
-
-    void legacyBackup(const QString& undoText);
-    bool legacyBackup(int backupLayer, int backupFrame, const QString& undoText);
-    /**
-     * Restores integrity of the backup elements after a layer has been deleted.
-     * Removes backup elements affecting the deleted layer and adjusts the layer
-     * index on other backup elements as necessary.
-     *
-     * @param layerIndex The index of the layer that was deleted
-     *
-     * @warning This serves as a temporary hack to prevent crashes until #864 is
-     *          done (see #1412).
-     */
-    void sanitizeLegacyBackupElementsAfterLayerDeletion(int layerIndex);
-    void restoreLegacyKey();
-
-    void rememberLastModifiedFrame(int layerNumber, int frameNumber);
 
     void onSettingChanged(SETTING setting);
 
 signals:
     void didUpdateUndoStack();
+    /** An undo step was recorded: one per user edit, unlike didUpdateUndoStack. */
+    void didRecordEdit();
 
 private:
 
@@ -194,6 +192,9 @@ private:
     void addKeyFrame(const UndoSaveState& undoState, const QString& description);
     void removeKeyFrame(const UndoSaveState& undoState, const QString& description);
     void moveKeyFrames(const UndoSaveState& undoState, const QString& description);
+    void moveBitmaps(const UndoSaveState& undoState, const QString& description);
+    void removeKeyFrames(const UndoSaveState& undoState, const QString& description);
+    void pasteKeyFrames(const UndoSaveState& undoState, const QString& description);
 
     void initCommonKeyFrameState(UndoSaveState* undoSaveState) const;
 
@@ -202,24 +203,26 @@ private:
     void clearState(UndoSaveState*& state);
     void clearSaveStates();
 
-    void legacyUndo();
-    void legacyRedo();
-
     QUndoStack mUndoStack;
+    int mMacroDepth = 0;
+    bool mMacroOpen = false; // the stack macro starts at the first record
+    QString mMacroDescription;
 
     QMap<SAVESTATE_ID, UndoSaveState*> mSaveStates;
 
-    // Legacy system
-    int mLegacyBackupIndex = -1;
-    LegacyBackupElement* mLegacyBackupAtSave = nullptr;
-    QList<LegacyBackupElement*> mLegacyBackupList;
-
-    int mLegacyLastModifiedLayer = -1;
-    int mLegacyLastModifiedFrame = -1;
-
     SAVESTATE_ID mSaveStateId = 1;
+};
 
-    bool mNewBackupSystemEnabled = false;
+/// One user action = one undo step: groups the records made during its life.
+class UndoMacro
+{
+public:
+    UndoMacro(UndoRedoManager* manager, const QString& description) : mManager(manager) { mManager->beginMacro(description); }
+    ~UndoMacro() { mManager->endMacro(); }
+    Q_DISABLE_COPY(UndoMacro)
+
+private:
+    UndoRedoManager* mManager;
 };
 
 #endif // UNDOREDOMANAGER_H

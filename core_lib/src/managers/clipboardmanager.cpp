@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 #include "clipboardmanager.h"
 
+#include <memory>
 #include <QClipboard>
 #include <QGuiApplication>
 
@@ -76,7 +77,7 @@ void ClipboardManager::copyVectorImage(const VectorImage* vectorImage)
     if (vectorImage == nullptr || vectorImage->isEmpty()) { return; }
 
     // FIXME: handle vector selections, ie. independent strokes...
-    mVectorImage = *vectorImage->clone();
+    mVectorImage = *std::unique_ptr<VectorImage>(vectorImage->clone());
 }
 
 void ClipboardManager::copySelectedFrames(const Layer* currentLayer)

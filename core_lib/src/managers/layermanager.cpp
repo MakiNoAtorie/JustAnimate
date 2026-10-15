@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layervector.h"
 #include "layercamera.h"
+#include "undoredomanager.h"
 
 LayerManager::LayerManager(Editor* editor) : BaseManager(editor, __FUNCTION__)
 {
@@ -60,7 +61,7 @@ LayerCamera* LayerManager::getCameraLayerBelow(int layerIndex) const
 Layer* LayerManager::getLastCameraLayer()
 {
     Layer* layer = object()->getLayer(mLastCameraLayerIdx);
-    if (layer->type() == Layer::CAMERA)
+    if (layer && layer->type() == Layer::CAMERA)
     {
         return layer;
     }
@@ -208,52 +209,29 @@ Layer* LayerManager::createLayer(Layer::LAYER_TYPE type, const QString& strLayer
     layer->setName(strLayerName);
     emit layerCountChanged(count());
     setCurrentLayer(getLastLayerIndex());
+    recordLayerAdd(layer);
 
     return layer;
 }
 
 LayerBitmap* LayerManager::createBitmapLayer(const QString& strLayerName)
 {
-    LayerBitmap* layer = object()->addNewBitmapLayer();
-    layer->setName(strLayerName);
-
-    emit layerCountChanged(count());
-    setCurrentLayer(getLastLayerIndex());
-
-    return layer;
+    return static_cast<LayerBitmap*>(createLayer(Layer::BITMAP, strLayerName));
 }
 
 LayerVector* LayerManager::createVectorLayer(const QString& strLayerName)
 {
-    LayerVector* layer = object()->addNewVectorLayer();
-    layer->setName(strLayerName);
-
-    emit layerCountChanged(count());
-    setCurrentLayer(getLastLayerIndex());
-
-    return layer;
+    return static_cast<LayerVector*>(createLayer(Layer::VECTOR, strLayerName));
 }
 
 LayerCamera* LayerManager::createCameraLayer(const QString& strLayerName)
 {
-    LayerCamera* layer = object()->addNewCameraLayer();
-    layer->setName(strLayerName);
-
-    emit layerCountChanged(count());
-    setCurrentLayer(getLastLayerIndex());
-
-    return layer;
+    return static_cast<LayerCamera*>(createLayer(Layer::CAMERA, strLayerName));
 }
 
 LayerSound* LayerManager::createSoundLayer(const QString& strLayerName)
 {
-    LayerSound* layer = object()->addNewSoundLayer();
-    layer->setName(strLayerName);
-
-    emit layerCountChanged(count());
-    setCurrentLayer(getLastLayerIndex());
-
-    return layer;
+    return static_cast<LayerSound*>(createLayer(Layer::SOUND, strLayerName));
 }
 
 int LayerManager::lastFrameAtFrame(int frameIndex)
@@ -329,14 +307,53 @@ Status LayerManager::deleteLayer(int index)
     }
     Q_ASSERT(object()->getLayerCount() >= 2);
 
+    layer = takeLayer(index);
+    // An editor that is not initialised has no undo manager
+    if (editor()->undoRedo())
+    {
+        editor()->undoRedo()->recordLayerRemove(layer, index, tr("Delete Layer"));
+    }
+    else
+    {
+        delete layer;
+    }
+
+    return Status::OK;
+}
+
+void LayerManager::recordLayerAdd(const Layer* layer)
+{
+    if (editor()->undoRedo())
+    {
+        editor()->undoRedo()->recordLayerAdd(layer->id(), tr("Add Layer"));
+    }
+}
+
+Layer* LayerManager::takeLayer(int index)
+{
+    Layer* layer = object()->getLayer(index);
+    const int current = currentLayerIndex();
+
+    // Resolve a pending selection move while the layer it belongs to is still current
+    if (index == current)
+    {
+        emit currentLayerWillChange(index);
+    }
+
     // current layer is the last layer && we are deleting it
     if (index == object()->getLayerCount() - 1 &&
-        index == currentLayerIndex())
+        index == current)
     {
-        setCurrentLayer(currentLayerIndex() - 1);
+        setCurrentLayer(current - 1);
     }
-    object()->deleteLayer(layer);
-    if (index >= currentLayerIndex())
+    object()->takeLayer(layer->id());
+    if (index < current)
+    {
+        // The current layer moved down one index. It is still the same layer.
+        editor()->setCurrentLayerIndex(current - 1);
+        emit currentLayerChanged(current - 1);
+    }
+    else
     {
         // current layer has changed, so trigger updates
         setCurrentLayer(currentLayerIndex());
@@ -345,7 +362,20 @@ Status LayerManager::deleteLayer(int index)
     emit layerDeleted(index);
     emit layerCountChanged(count());
 
-    return Status::OK;
+    return layer;
+}
+
+void LayerManager::insertLayer(int index, Layer* layer)
+{
+    object()->insertLayer(index, layer);
+    if (index <= currentLayerIndex())
+    {
+        // The current layer moved up one index.
+        editor()->setCurrentLayerIndex(currentLayerIndex() + 1);
+    }
+
+    emit layerCountChanged(count());
+    setCurrentLayer(layer);
 }
 
 Status LayerManager::renameLayer(Layer* layer, const QString& newName)
@@ -353,6 +383,7 @@ Status LayerManager::renameLayer(Layer* layer, const QString& newName)
     if (newName.isEmpty()) return Status::FAIL;
 
     layer->setName(newName);
+    editor()->object()->modification();
     emit currentLayerChanged(getIndex(layer));
     return Status::OK;
 }

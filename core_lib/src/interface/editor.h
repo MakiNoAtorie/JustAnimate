@@ -25,7 +25,6 @@ GNU General Public License for more details.
 #include "pencildef.h"
 #include "importimageconfig.h"
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 Q_MOC_INCLUDE("colormanager.h")
 Q_MOC_INCLUDE("toolmanager.h")
 Q_MOC_INCLUDE("layermanager.h")
@@ -37,7 +36,6 @@ Q_MOC_INCLUDE("soundmanager.h")
 Q_MOC_INCLUDE("overlaymanager.h")
 Q_MOC_INCLUDE("clipboardmanager.h")
 Q_MOC_INCLUDE("undoredomanager.h")
-#endif
 
 class QClipboard;
 class QTemporaryDir;
@@ -204,13 +202,13 @@ public: //slots
     void swapLayers(int i, int j);
     bool canSwapLayers(int layerIndexLeft, int layerIndexRight) const;
 
-    void backup(const QString& undoText);
-    bool backup(int layerNumber, int frameNumber, const QString& undoText);
 
     void onCurrentLayerWillChange(int index);
 
     void copy();
     void copyAndCut();
+    /// Removes the selected keyframes of the current layer as one undo step.
+    void removeSelectedKeyFrames(const QString& undoText);
     void pasteFromPreviousFrame();
     void paste();
 

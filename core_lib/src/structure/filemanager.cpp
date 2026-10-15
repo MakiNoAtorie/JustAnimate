@@ -19,10 +19,12 @@ GNU General Public License for more details.
 #include "appinfo.h"
 
 #include <ctime>
+#include <filesystem>
 #include <QDebug>
 #include <QDir>
 #include <QVersionNumber>
 #include "qminiz.h"
+#include "emergencysave.h"
 #include "fileformat.h"
 #include "object.h"
 #include "layercamera.h"
@@ -251,6 +253,14 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("Invalid Save Path"),
                       tr("The path is empty."));
     }
+    if (!isArchiveFormat(sFileName))
+    {
+        // Legacy .pcl writes frames in place, so a failed save would damage the original.
+        dd << "Error: Legacy .pcl projects are open-only";
+        return Status(Status::INVALID_ARGUMENT, dd,
+                      tr("Invalid Save Path"),
+                      tr("Legacy .pcl projects can be opened but not saved. Save the project as .pclx."));
+    }
 
     const int totalCount = object->totalKeyFrameCount();
     mMaxProgressValue = totalCount + 5;
@@ -282,31 +292,12 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("The path (\"%1\") is not writable.").arg(fileInfo.absoluteFilePath()));
     }
 
-    QString sTempWorkingFolder;
-    QString sMainXMLFile;
-    QString sDataFolder;
+    const QString sTempWorkingFolder = object->workingDir();
+    dd << QString("Working dir: %1").arg(sTempWorkingFolder);
+    Q_ASSERT(QDir(sTempWorkingFolder).exists());
 
-    QString fileFormat = QString("Project format: %1");
-    bool isArchive = isArchiveFormat(sFileName);
-    if (!isArchive)
-    {
-        dd << fileFormat.arg(".pcl");
-
-        sMainXMLFile = sFileName;
-        sDataFolder = sMainXMLFile + "." + PFF_OLD_DATA_DIR;
-    }
-    else
-    {
-        sTempWorkingFolder = object->workingDir();
-
-        dd << QString("Working dir: %1").arg(sTempWorkingFolder);
-        dd << fileFormat.arg(".pclx");
-
-        Q_ASSERT(QDir(sTempWorkingFolder).exists());
-
-        sMainXMLFile = QDir(sTempWorkingFolder).filePath(PFF_XML_FILE_NAME);
-        sDataFolder = QDir(sTempWorkingFolder).filePath(PFF_OLD_DATA_DIR);
-    }
+    const QString sMainXMLFile = QDir(sTempWorkingFolder).filePath(PFF_XML_FILE_NAME);
+    const QString sDataFolder = QDir(sTempWorkingFolder).filePath(PFF_OLD_DATA_DIR);
 
     QFileInfo dataInfo(sDataFolder);
     if (!dataInfo.exists())
@@ -334,8 +325,13 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     Status stKeyFrames = writeKeyFrameFiles(object, sDataFolder, filesToZip);
     dd.collect(stKeyFrames.details());
 
-    Status stMainXml = writeMainXml(object, sMainXMLFile, filesToZip);
-    dd.collect(stMainXml.details());
+    // Don't write a main.xml that points at frame files which weren't written.
+    Status stMainXml = Status::FAIL;
+    if (stKeyFrames.ok())
+    {
+        stMainXml = writeMainXml(object, sMainXMLFile, filesToZip);
+        dd.collect(stMainXml.details());
+    }
 
     Status stPalette = writePalette(object, sDataFolder, filesToZip);
     dd.collect(stPalette.details());
@@ -344,38 +340,43 @@ Status FileManager::save(const Object* object, const QString& sFileName)
 
     progressForward();
 
-    if (isArchive)
+    dd << "\n[Archiving diagnostics]\n";
+
+    if (!saveOk) {
+        return Status(Status::FAIL, dd,
+                      tr("Internal Error"),
+                      tr("An internal error occurred. The project could not be saved."));
+    }
+
+    // Write the archive next to the target and only replace the original
+    // once the new file is complete, so a failed save never corrupts it.
+    const QString sTmpFile = sFileName + ".tmp";
+    QFile::remove(sTmpFile);
+
+    dd << "Miniz: Zipping...";
+    Status stMiniz = MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx");
+    if (!stMiniz.ok())
     {
-        dd << "\n[Archiving diagnostics]\n";
-        QString sBackupFile = backupPreviousFile(sFileName);
+        QFile::remove(sTmpFile);
+        dd.collect(stMiniz.details());
+        dd << "\nError: Miniz failed to zip project";
+        return Status(Status::ERROR_MINIZ_FAIL, dd,
+                      tr("Miniz Error"),
+                      tr("An internal error occurred. The project could not be saved."));
+    }
+    dd << "Miniz: Zip file saved successfully";
 
-        if (!sBackupFile.isEmpty()) {
-            dd << QString("\nNote: A backup has been made here: %1").arg(sBackupFile);
-        }
-
-        if (!saveOk) {
-            return Status(Status::FAIL, dd,
-                          tr("Internal Error"),
-                          tr("An internal error occurred. The project could not be saved."));
-        }
-
-        dd << "Miniz: Zipping...";
-        Status stMiniz = MiniZ::compressFolder(sFileName, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx");
-        if (!stMiniz.ok())
-        {
-            dd.collect(stMiniz.details());
-            dd << "\nError: Miniz failed to zip project";
-            return Status(Status::ERROR_MINIZ_FAIL, dd,
-                          tr("Miniz Error"),
-                          tr("An internal error occurred. The project may not have been saved successfully."));
-        }
-        dd << "Miniz: Zip file saved successfully";
-        Q_ASSERT(stMiniz.ok());
-
-        if (saveOk) {
-            dd << "Project saved successfully, deleting backup";
-            deleteBackupFile(sBackupFile);
-        }
+    // Replaces the original in one step (atomic on POSIX, MoveFileEx on Windows).
+    std::error_code renameError;
+    std::filesystem::rename(QFileInfo(sTmpFile).filesystemFilePath(),
+                            QFileInfo(sFileName).filesystemFilePath(), renameError);
+    if (renameError)
+    {
+        QFile::remove(sTmpFile);
+        dd << QString("Error: Unable to rename %1 to %2: %3").arg(sTmpFile, sFileName, QString::fromStdString(renameError.message()));
+        return Status(Status::FAIL, dd,
+                      tr("Internal Error"),
+                      tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(sFileName));
     }
 
     progressForward();
@@ -387,30 +388,31 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("An internal error occurred. The project may not have been saved successfully."));
     }
 
+    // A manual save is newer than any autosave: recovery must not go back to one.
+    const QString autosave = QDir(object->workingDir()).filePath(PFF_AUTOSAVE_FILE_NAME);
+    if (!object->workingDir().isEmpty() && QFileInfo(sFileName) != QFileInfo(autosave))
+    {
+        EmergencySave::clearCompletedAutosave();
+        QFile::remove(autosave);
+    }
+
     return Status::OK;
 }
 
+/** Autosave: write the project into its working folder and archive it to
+ *  PFF_AUTOSAVE_FILE_NAME there. The archive goes through save(), so it is
+ *  replaced only once complete and recovery always finds a whole one. A
+ *  completed archive is what EmergencySave publishes on a crash. */
 Status FileManager::writeToWorkingFolder(const Object* object)
 {
-    DebugDetails dd;
-
-    QStringList filesWritten;
-
-    const QString dataFolder = object->dataDir();
-    const QString mainXml = object->mainXMLFile();
-
-    Status stKeyFrames = writeKeyFrameFiles(object, dataFolder, filesWritten);
-    dd.collect(stKeyFrames.details());
-
-    Status stMainXml = writeMainXml(object, mainXml, filesWritten);
-    dd.collect(stMainXml.details());
-
-    Status stPalette = writePalette(object, dataFolder, filesWritten);
-    dd.collect(stPalette.details());
-
-    const bool saveOk = stKeyFrames.ok() && stMainXml.ok() && stPalette.ok();
-    const auto errorCode = (saveOk) ? Status::OK : Status::FAIL;
-    return Status(errorCode, dd);
+    const QDir workingDir(object->workingDir());
+    const QString archive = workingDir.filePath(PFF_AUTOSAVE_FILE_NAME);
+    Status st = save(object, archive);
+    if (st.ok())
+    {
+        EmergencySave::setCompletedAutosave(archive, workingDir.dirName());
+    }
+    return st;
 }
 
 ObjectData FileManager::loadProjectData(const QDomElement& docElem)
@@ -421,19 +423,9 @@ ObjectData FileManager::loadProjectData(const QDomElement& docElem)
         return data;
     }
 
-    QDomNode tag = docElem.firstChild();
-
-    while (!tag.isNull())
+    for (QDomElement element = docElem.firstChildElement(); !element.isNull(); element = element.nextSiblingElement())
     {
-        QDomElement element = tag.toElement(); // try to convert the node to an element.
-        if (element.isNull())
-        {
-            continue;
-        }
-
         extractProjectData(element, data);
-
-        tag = tag.nextSibling();
     }
     return data;
 }
@@ -584,57 +576,6 @@ void FileManager::handleOpenProjectError(Status::ErrorCode error, const DebugDet
     removePFFTmpDirectory(mstrLastTempFolder);
 }
 
-int FileManager::countExistingBackups(const QString& fileName) const
-{
-    QFileInfo fileInfo(fileName);
-    QDir directory(fileInfo.absoluteDir());
-    const QString& baseFileName = fileInfo.completeBaseName();
-
-    int backupCount = 0;
-    for (const QFileInfo &dirFileInfo : directory.entryInfoList(QDir::Filter::Files)) {
-        QString searchFileAbsPath = dirFileInfo.absoluteFilePath();
-        QString searchFileName = dirFileInfo.baseName();
-
-        bool sameBaseName = baseFileName.compare(searchFileName) == 0;
-        if (sameBaseName && searchFileAbsPath.contains(PFF_BACKUP_IDENTIFIER)) {
-            backupCount++;
-        }
-    }
-
-    return backupCount;
-}
-
-QString FileManager::backupPreviousFile(const QString& fileName)
-{
-    if (!QFile::exists(fileName))
-        return "";
-
-    QFileInfo fileInfo(fileName);
-    QString baseName = fileInfo.completeBaseName();
-
-    int backupCount = countExistingBackups(fileName) + 1; // start index 1
-    QString countStr = QString::number(backupCount);
-
-    QString sBackupFile = baseName + "." + PFF_BACKUP_IDENTIFIER + countStr + "." + fileInfo.suffix();
-    QString sBackupFileFullPath = QDir(fileInfo.absolutePath()).filePath(sBackupFile);
-
-    bool ok = QFile::copy(fileInfo.absoluteFilePath(), sBackupFileFullPath);
-    if (!ok)
-    {
-        FILEMANAGER_LOG("Cannot backup the previous file");
-        return "";
-    }
-    return sBackupFileFullPath;
-}
-
-void FileManager::deleteBackupFile(const QString& fileName)
-{
-    if (QFile::exists(fileName))
-    {
-        QFile::remove(fileName);
-    }
-}
-
 void FileManager::progressForward()
 {
     mCurrentProgress++;
@@ -664,7 +605,13 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
     for (int i = 0; i < numLayers; ++i)
     {
         Layer* layer = object->getLayer(i);
-        layer->presave(dataFolder);
+        Status st = layer->presave(dataFolder);
+        if (!st.ok())
+        {
+            dd.collect(st.details());
+            dd << QString("\nError: Failed to move frames of Layer[%1] %2").arg(i).arg(layer->name());
+            return Status(Status::FAIL, dd);
+        }
     }
 
     bool saveLayersOK = true;
@@ -701,15 +648,15 @@ Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPat
     DebugDetails dd;
     dd << "\n[XML WRITE diagnostics]\n";
 
-    QFile file(mainXmlPath);
+    // Written beside the target and renamed over it when complete: for a
+    // .pcl project this file is the project, and a failed save must keep it.
+    const QString tmpPath = mainXmlPath + ".tmp";
+    QFile file(tmpPath);
     if (!file.open(QFile::WriteOnly | QFile::Text))
     {
-        dd << QString("Error: Failed to open Main XML at: %1, \nReason: %2").arg(mainXmlPath).arg(file.errorString());
+        dd << QString("Error: Failed to open Main XML at: %1, \nReason: %2").arg(tmpPath).arg(file.errorString());
         return Status(Status::ERROR_FILE_CANNOT_OPEN, dd);
     }
-    ScopeGuard fileScopeGuard([&] {
-        file.close();
-    });
 
     QDomDocument xmlDoc("PencilDocument");
     QDomElement root = xmlDoc.createElement("document");
@@ -739,6 +686,21 @@ Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPat
     QTextStream out(&file);
     xmlDoc.save(out, indentSize);
     out.flush();
+    const bool written = out.status() == QTextStream::Ok && file.flush();
+    file.close();
+    std::error_code renameError;
+    if (written)
+    {
+        std::filesystem::rename(QFileInfo(tmpPath).filesystemFilePath(),
+                                QFileInfo(mainXmlPath).filesystemFilePath(), renameError);
+    }
+    if (!written || renameError)
+    {
+        QFile::remove(tmpPath);
+        dd << QString("Error: Failed to write Main XML at: %1, \nReason: %2").arg(mainXmlPath,
+                  renameError ? QString::fromStdString(renameError.message()) : file.errorString());
+        return Status(Status::FAIL, dd);
+    }
 
     dd << "Done writing main xml file: " << mainXmlPath;
 
@@ -822,22 +784,9 @@ Status FileManager::unzip(const QString& strZipFile, const QString& strUnzipTarg
     removePFFTmpDirectory(strUnzipTarget);
 
     Status s = MiniZ::uncompressFolder(strZipFile, strUnzipTarget);
-    Q_ASSERT(s.ok());
 
     mstrLastTempFolder = strUnzipTarget;
     return s;
-}
-
-QList<ColorRef> FileManager::loadPaletteFile(QString strFilename)
-{
-    QFileInfo fileInfo(strFilename);
-    if (!fileInfo.exists())
-    {
-        return QList<ColorRef>();
-    }
-
-    // TODO: Load Palette.
-    return QList<ColorRef>();
 }
 
 Status FileManager::verifyObject(Object* obj)
@@ -862,6 +811,25 @@ Status FileManager::verifyObject(Object* obj)
 
 QStringList FileManager::searchForUnsavedProjects()
 {
+    // Take in autosaves the crash handler published, in case the temp
+    // folder they came from was cleaned up since.
+    const QDir published(EmergencySave::publishDir());
+    const QStringList publishedFilter("*_" PFF_TMP_DECOMPRESS_EXT "_*" PFF_EXTENSION);
+    for (const QString& file : published.entryList(publishedFilter, QDir::Files))
+    {
+        const QString from = published.filePath(file);
+        const QString folder = QDir::temp().filePath(QString(APP_TEMP_DIR_NAME "/") + QFileInfo(file).completeBaseName());
+        const QString to = QDir(folder).filePath(PFF_AUTOSAVE_FILE_NAME);
+        if (QFile::exists(to))
+        {
+            QFile::remove(from); // the working folder survived, with this same archive
+        }
+        else if (QDir().mkpath(folder) && QFile::rename(from, to))
+        {
+            qDebug() << "Took in emergency save" << from;
+        }
+    }
+
     QDir pencil2DTempDir = QDir::temp();
     bool folderExists = pencil2DTempDir.cd(APP_TEMP_DIR_NAME);
     if (!folderExists)
@@ -890,6 +858,8 @@ bool FileManager::isProjectRecoverable(const QString& projectFolder)
     QDir dir(projectFolder);
     if (!dir.exists()) { return false; }
 
+    if (dir.exists(PFF_AUTOSAVE_FILE_NAME)) { return true; }
+
     // There must be a subfolder called "data"
     if (!dir.exists("data")) { return false; }
 
@@ -911,6 +881,48 @@ Object* FileManager::recoverUnsavedProject(QString intermeidatePath)
     const QString mainXMLPath = projectDir.filePath(PFF_XML_FILE_NAME);
     const QString dataFolder = projectDir.filePath(PFF_DATA_DIR);
 
+    // Prefer the last completed autosave over files a crash may have cut short.
+    const QString autosave = projectDir.filePath(PFF_AUTOSAVE_FILE_NAME);
+    if (QFile::exists(autosave) && MiniZ::sanityCheck(autosave).ok())
+    {
+        // Extract beside the working files and swap in only a whole extract:
+        // a bad archive must not cost the files that are there.
+        QDir staging(projectDir.filePath("autosave.tmp"));
+        staging.removeRecursively();
+        if (MiniZ::uncompressFolder(autosave, staging.absolutePath() + "/").ok() &&
+            staging.exists(PFF_XML_FILE_NAME) && staging.exists(PFF_DATA_DIR))
+        {
+            // Keep the working files aside until the extract is in place, and put them back if a rename fails.
+            const QString oldXML = mainXMLPath + ".old";
+            const QString oldData = dataFolder + ".old";
+            QFile::remove(oldXML);
+            QDir(oldData).removeRecursively();
+            const bool swapped = (!QFile::exists(mainXMLPath) || QFile::rename(mainXMLPath, oldXML)) &&
+                                 (!QDir(dataFolder).exists() || QDir().rename(dataFolder, oldData)) &&
+                                 QFile::rename(staging.filePath(PFF_XML_FILE_NAME), mainXMLPath) &&
+                                 QDir().rename(staging.filePath(PFF_DATA_DIR), dataFolder);
+            if (swapped)
+            {
+                QFile::remove(oldXML);
+                QDir(oldData).removeRecursively();
+            }
+            else
+            {
+                if (QFile::exists(oldXML))
+                {
+                    QFile::remove(mainXMLPath);
+                    QFile::rename(oldXML, mainXMLPath);
+                }
+                if (QDir(oldData).exists())
+                {
+                    QDir(dataFolder).removeRecursively();
+                    QDir().rename(oldData, dataFolder);
+                }
+            }
+        }
+        staging.removeRecursively();
+    }
+
     std::unique_ptr<Object> object(new Object);
     object->setWorkingDir(intermeidatePath);
     object->setMainXMLFile(mainXMLPath);
@@ -922,6 +934,8 @@ Object* FileManager::recoverUnsavedProject(QString intermeidatePath)
         mError = st;
         return nullptr;
     }
+    // Not saved by the user yet: closing must prompt, not delete the working folder.
+    object->modification();
     // Transfer ownership to the caller
     return object.release();
 }

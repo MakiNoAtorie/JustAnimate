@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "blitrect.h"
 #include "tile.h"
 #include "tiledbuffer.h"
+#include "stageprofiler.h"
 
 BitmapImage::BitmapImage()
 {
@@ -166,13 +167,6 @@ void BitmapImage::paintImage(QPainter& painter)
     painter.drawImage(mBounds.topLeft(), *image());
 }
 
-void BitmapImage::paintImage(QPainter& painter, QImage& image, QRect sourceRect, QRect destRect)
-{
-    painter.drawImage(QRect(mBounds.topLeft(), destRect.size()),
-                      image,
-                      sourceRect);
-}
-
 QImage* BitmapImage::image()
 {
     loadFile();
@@ -215,6 +209,7 @@ void BitmapImage::paste(BitmapImage* bitmapImage, QPainter::CompositionMode cm)
 
 void BitmapImage::paste(const TiledBuffer* tiledBuffer, QPainter::CompositionMode cm)
 {
+    StageScope stage(StageProfiler::BufferPaste);
     if(tiledBuffer->bounds().width() <= 0 || tiledBuffer->bounds().height() <= 0)
     {
         return;

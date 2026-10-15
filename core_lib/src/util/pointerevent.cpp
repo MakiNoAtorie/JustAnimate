@@ -25,11 +25,11 @@ QPointF PointerEvent::viewportPos() const
 {
     if (mMouseEvent)
     {
-        return mMouseEvent->localPos();
+        return mMouseEvent->position();
     }
     else if (mTabletEvent)
     {
-        return mTabletEvent->posF();
+        return mTabletEvent->position();
     }
     Q_ASSERT(false);
     return QPointF();
@@ -98,11 +98,11 @@ int PointerEvent::x() const
 {
     if (mMouseEvent)
     {
-        return mMouseEvent->x();
+        return qRound(mMouseEvent->position().x());
     }
     else if (mTabletEvent)
     {
-        return mTabletEvent->x();
+        return qRound(mTabletEvent->position().x());
     }
     else
     {
@@ -116,11 +116,11 @@ int PointerEvent::y() const
 {
     if (mMouseEvent)
     {
-        return mMouseEvent->y();
+        return qRound(mMouseEvent->position().y());
     }
     else if (mTabletEvent)
     {
-        return mTabletEvent->y();
+        return qRound(mTabletEvent->position().y());
     }
     else
     {
@@ -247,7 +247,6 @@ PointerEvent::InputType PointerEvent::inputType() const
     return InputType::Unknown;
 }
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 
 QInputDevice::DeviceType PointerEvent::device() const
 {
@@ -267,24 +266,3 @@ QPointingDevice::PointerType PointerEvent::pointerType() const
     return QPointingDevice::PointerType::Unknown;
 }
 
-#else // QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-
-QTabletEvent::TabletDevice PointerEvent::device() const
-{
-    if (mTabletEvent)
-    {
-        return mTabletEvent->device();
-    }
-    return QTabletEvent::TabletDevice::NoDevice;
-}
-
-QTabletEvent::PointerType PointerEvent::pointerType() const
-{
-    if (mTabletEvent)
-    {
-        return mTabletEvent->pointerType();
-    }
-    return QTabletEvent::PointerType::UnknownPointer;
-}
-
-#endif // QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)

@@ -93,35 +93,23 @@ Now it's time to build the application.
 
 ### With Qt Creator (recommended)
 
-- Launch %Qt Creator, and from the menu bar select **File** and then **Open File or Project**. Navigate to Pencil2D's root folder and open the *pencil2d.pro* file.
+- Launch %Qt Creator, and from the menu bar select **File** and then **Open File or Project**. Navigate to Pencil2D's root folder and open the *CMakeLists.txt* file.
 - Next, you'll be asked to configure your kits for the project. Kits determine compilers, target environment, and various build settings among other things. The Desktop option should be the only one checked. Click Configure Project to complete the kit selection.
 - Now all you have to do is clicking the **green arrow** in the bottom left corner to build the application (pressing `Ctrl+R` works, too). A small progress bar will show up on the bottom right and console output will appear in the bottom section.
 - If everything goes well then the version of Pencil2D that you build will open up automatically and you're done!
 
 If there is an error, the issues tab will open up at the bottom and display the error messages. Try searching it on the [Pencil2D Issue tracker](https://github.com/pencil2d/pencil/issues) or create an issue If you can't find anything. Be sure to include as much detail as you can in your report!
 
-### With QMake/GNU Make
+### With CMake
 
-If you do not have or do not want to use %Qt Creator for some reason then you can follow this two-step process. First you have to use QMake to let %Qt do its preprocessing and generate the Makefiles. Cd to the root git directory for Pencil2D. To avoid cluttering the source directories with generated files, we’ll create a subdirectory named build for those. For the next step you will need to know the correct mkspec for your computer. Use the table below to find it.
+From the root git directory, configure and build:
 
-| Compiler | 32-bit       | 64-bit       |
-| -------- | ------------ | ------------ |
-| GCC      | linux-g++-32 | linux-g++-64 |
-| Clang    | linux-clang  | linux-clang  |
+```
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --target pencil2d
+```
 
-Substitute \<mkspec\> for the mkspec of your desired configuration and run the command below:
-
-    mkdir build; pushd build; qmake -r -spec <mkspec> CONFIG+=debug ..; popd
-
-@note In order to use %Qt 6, you might need to replace `qmake` with `qmake6`.
-
-Next you have to use GNU Make to actually compile the source code. Run the command:
-
-    make -C build
-
-You can then open Pencil2D by running this from the source directory:
-
-    ./build/bin/pencil2d
+Then run `./build/justanimate`. To build and run the unit tests, build the `pencil2d_tests` target and run `./build/pencil2d_tests`.
 
 ## Next steps
 

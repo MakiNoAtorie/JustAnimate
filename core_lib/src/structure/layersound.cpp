@@ -90,6 +90,7 @@ void LayerSound::loadDomElement(const QDomElement& element, QString dataDirPath,
 {
     this->loadBaseDomElement(element);
 
+    const DataPathValidator dataPaths(dataDirPath);
     QDomNode soundTag = element.firstChild();
     while (!soundTag.isNull())
     {
@@ -102,10 +103,10 @@ void LayerSound::loadDomElement(const QDomElement& element, QString dataDirPath,
 
             if (!soundFile.isEmpty())
             {
-                QString path = validateDataPath(soundFile, dataDirPath);
-                if (!path.isEmpty())
+                QString path = dataPaths.validate(soundFile);
+                const int position = soundElement.attribute("frame").toInt();
+                if (!path.isEmpty() && position > 0)
                 {
-                    int position = soundElement.attribute("frame").toInt();
                     Status st = loadSoundClipAtFrame(sSoundClipName, path, position);
                     Q_ASSERT(st.ok());
                 }

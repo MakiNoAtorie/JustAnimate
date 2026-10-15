@@ -44,7 +44,6 @@ public:
     Status  save(const Object*, const QString& sFileName);
     Status  writeToWorkingFolder(const Object*);
 
-    QList<ColorRef> loadPaletteFile(QString strFilename);
     Status error() const { return mError; }
     Status verifyObject(Object* obj);
 
@@ -72,10 +71,6 @@ private:
 
     void extractProjectData(const QDomElement& element, ObjectData& data);
     void handleOpenProjectError(Status::ErrorCode, const DebugDetails&);
-
-    QString backupPreviousFile(const QString& fileName);
-    void deleteBackupFile(const QString& fileName);
-    int countExistingBackups(const QString& fileName) const;
 
     void progressForward();
 

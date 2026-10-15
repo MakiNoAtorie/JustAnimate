@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "camera.h"
 #include "layer.h"
+#include "undoredomanager.h"
 
 class Editor;
 class UndoRedoManager;
@@ -98,12 +99,30 @@ private:
     int redoPosition = 0;
 };
 
+class KeyFramePasteCommand : public UndoRedoCommand
+{
+public:
+    KeyFramePasteCommand(const KeyFrame* pastedKeyFrame,
+                         int layerId,
+                         const QString& description,
+                         Editor* editor,
+                         QUndoCommand* parent = nullptr);
+    ~KeyFramePasteCommand() override;
+
+    void undo() override;
+    void redo() override;
+
+private:
+    KeyFrame* pastedKeyFrame = nullptr;
+    int layerId = 0;
+};
+
 class MoveKeyFramesCommand : public UndoRedoCommand
 {
 public:
-    MoveKeyFramesCommand(int offset,
-                         QList<int> listOfPositions,
-                         int undoLayerId,
+    /// `moves` holds one (position before, position after) pair for each keyframe that changed position
+    MoveKeyFramesCommand(const QList<QPair<int, int>>& moves,
+                         int layerId,
                          const QString& description,
                          Editor* editor,
                          QUndoCommand* parent = nullptr);
@@ -112,11 +131,27 @@ public:
     void redo() override;
 
 private:
-    int undoLayerId = 0;
-    int redoLayerId = 0;
+    void apply(const QList<QPair<int, int>>& fromTo);
 
-    int frameOffset = 0;
-    QList<int> positions;
+    QList<QPair<int, int>> moves;
+    int layerId = 0;
+};
+
+class MoveBitmapsCommand : public UndoRedoCommand
+{
+public:
+    MoveBitmapsCommand(const QList<BitmapOffset>& offsets,
+                       const QString& description,
+                       Editor* editor,
+                       QUndoCommand* parent = nullptr);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(int direction);
+
+    QList<BitmapOffset> offsets;
 };
 
 class BitmapReplaceCommand : public UndoRedoCommand
@@ -206,6 +241,32 @@ private:
     qreal redoRotationAngle;
 
     bool roundPixels;
+};
+
+/// Undo and redo of a layer add or a layer delete. The command owns the layer while it is out of the object.
+class LayerAddRemoveCommand : public UndoRedoCommand
+{
+public:
+    /// @param removedLayer The layer that was taken out of the object at removedIndex, or nullptr if the layer was added
+    LayerAddRemoveCommand(int layerId,
+                          Layer* removedLayer,
+                          int removedIndex,
+                          const QString& description,
+                          Editor* editor,
+                          QUndoCommand* parent = nullptr);
+    ~LayerAddRemoveCommand() override;
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void attach();
+    void detach();
+
+    const bool isAdd;
+    int layerId = 0;
+    int layerIndex = 0;
+    Layer* detachedLayer = nullptr;
 };
 
 #endif // UNDOREDOCOMMAND_H
