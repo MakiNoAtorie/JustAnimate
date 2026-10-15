@@ -182,3 +182,39 @@ TEST_CASE("BitmapBucket - Fill before the layer's first keyframe does nothing")
     REQUIRE(layer->keyFrameCount() == 1);
     REQUIRE_FALSE(layer->keyExists(1));
 }
+
+TEST_CASE("BitmapBucket - Behind mode fills under antialiased line art")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+
+    // Antialiased vertical line at x = 5
+    const QRgb edge = qPremultiply(qRgba(0, 0, 0, 128));
+    BitmapImage* image = layer->getLastBitmapImageAtFrame(1);
+    BitmapImage canvas(QRect(0, 0, 10, 10), Qt::transparent);
+    image->paste(&canvas);
+    for (int y = 0; y < 10; y++) image->setPixel(5, y, edge);
+
+    const bool behind = GENERATE(false, true);
+    BucketToolProperties properties;
+    QHash<int, PropertyInfo> info;
+    info[BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE] = 0;
+    info[BucketToolProperties::FILLEXPAND_ENABLED] = true;
+    info[BucketToolProperties::FILLEXPAND_VALUE] = { 1, 25, 1 };
+    info[BucketToolProperties::FILLMODE_VALUE] = behind ? 2 : 0;
+    info[BucketToolProperties::COLORTOLERANCE_VALUE] = 25;
+    info[BucketToolProperties::COLORTOLERANCE_ENABLED] = true;
+    properties.toolProperties().insertProperties(info);
+
+    BitmapBucket bucket(editor, Qt::red, QRect(0, 0, 10, 10), QPointF(2, 2), properties);
+    bucket.paint(QPointF(2, 2), [](BucketState, int, int) {});
+
+    image = layer->getLastBitmapImageAtFrame(1);
+    REQUIRE(image->constScanLine(2, 2) != 0);
+    // Overlay eats the edge; Behind keeps the line over the fill
+    REQUIRE((image->constScanLine(5, 5) == qRgba(255, 0, 0, 255)) != behind);
+}
