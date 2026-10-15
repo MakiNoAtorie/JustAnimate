@@ -11,6 +11,7 @@ set(TEST_HEADERS
 set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_benchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_canvaspainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colormanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_defaultlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineexporter.cpp

@@ -188,6 +188,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "play",         "frame",  cfg.frames },
         { "draw pencil",  "stroke", cfg.strokes },
         { "draw brush",   "stroke", cfg.strokes },
+        { "draw top",     "stroke", cfg.strokes },
     };
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
@@ -245,6 +246,12 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         t.start();
         drawStrokes(s, BRUSH, cfg.strokes);
         sc[5].ms.push_back(t.nsecsElapsed() / 1e6);
+
+        // Pencil on the top layer: every other bitmap layer is below it.
+        s.editor->layers()->setCurrentLayer(cfg.layers);
+        t.start();
+        drawStrokes(s, PENCIL, cfg.strokes);
+        sc[6].ms.push_back(t.nsecsElapsed() / 1e6);
     }
     return sc;
 }
@@ -504,7 +511,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 6);
+    REQUIRE(sc.size() == 7);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);
