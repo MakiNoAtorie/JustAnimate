@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Brush Presets dock: each row shows a sample stroke painted by the brush engine and the preset description; select a row to use the preset (B8).
+- Scatter: Preferences, Tools sets seeded random position scatter, angle jitter and dabs per step for Pencil, Brush and Eraser (B5).
 - Brush presets: Pencil, Brush and Eraser settings and the tip image save as one JSON file per preset in the app data folder; corrupt files are skipped (B8).
 - Pencil, Brush and Eraser can paint with an image tip loaded from a PNG or GIMP .gbr file; a damaged .gbr shows an error (B5).
 - Brush dynamics: Preferences, Tools sets how pen speed and tilt change Pencil, Brush and Eraser dab size, how tilt turns the tip, and a seeded random size jitter (B3).
