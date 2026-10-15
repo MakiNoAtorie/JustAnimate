@@ -215,8 +215,8 @@ void TiledBuffer::flushDabs() const
             tile->pendingDabs.clear();
         }
     };
-    // ponytail: pool threads expire after 30 s idle, so the first big flush after a pause pays ~3 ms
-    // to start them; keep them alive if that hitch shows.
+    // shortcut: pool threads expire after 30 s idle, so the first big flush after a pause pays ~3 ms
+    // to start them, keep them alive if that hitch shows.
     QThreadPool* pool = QThreadPool::globalInstance();
     int helpers = 0;
     // A batch under ~50 us runs here: waking threads costs more. tryStart: a busy pool leaves
@@ -271,7 +271,7 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
     if (it != mDabMasks.constEnd()) return *it;
     flushDabs(); // queued dabs point into the cache
 
-    // ponytail: drops the whole cache past 16 MB; use LRU if pressure strokes thrash it.
+    // shortcut: drops the whole cache past 16 MB, use LRU if pressure strokes thrash it.
     if (mDabMaskBytes > 16 * 1024 * 1024)
     {
         mDabMasks.clear();

@@ -82,7 +82,7 @@ void StrokeInterpolator::pointerReleaseEvent(PointerEvent* event)
 
 QPointF StrokeInterpolator::predictedPixel(qreal horizonMs, qreal maxDistance) const
 {
-    // ponytail: constant-velocity extrapolation; fit acceleration over more samples if it overshoots on curves.
+    // shortcut: constant-velocity extrapolation, fit acceleration over more samples if it overshoots on curves.
     QPointF ahead = mVelocity * horizonMs;
     const qreal length = std::hypot(ahead.x(), ahead.y());
     if (length > maxDistance)
