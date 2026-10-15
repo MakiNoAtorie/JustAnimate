@@ -45,7 +45,7 @@ public:
     void reset(QPointF pos, quint64 timestampMs);
     /// Returns the smoothed position for a new input sample.
     QPointF filter(QPointF pos, quint64 timestampMs);
-    /// Returns the last position of the stroke when the pen lifts at pos.
+    /// Ends the stroke when the pen lifts at pos. Every mode catches up: returns pos.
     QPointF release(QPointF pos, quint64 timestampMs);
 
     /// The preset for an old StabilizationLevel (NONE, SIMPLE, STRONG).

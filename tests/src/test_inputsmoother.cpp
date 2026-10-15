@@ -111,9 +111,9 @@ TEST_CASE("InputSmoother - Stabilizer holds still inside its dead zone and trail
     CHECK(weak.filter(QPointF(400, 0), 1005).x() > b.x());
 }
 
-TEST_CASE("InputSmoother - Weighted and Stabilizer catch up to the pen on release; 1-euro does not", "[InputSmoother]")
+TEST_CASE("InputSmoother - every smoothing mode catches up to the pen on release", "[InputSmoother]")
 {
-    for (SmoothingMode mode : { SmoothingMode::Weighted, SmoothingMode::Stabilizer })
+    for (SmoothingMode mode : { SmoothingMode::OneEuro, SmoothingMode::Weighted, SmoothingMode::Stabilizer })
     {
         CAPTURE(static_cast<int>(mode));
         InputSmoother s;
@@ -123,11 +123,6 @@ TEST_CASE("InputSmoother - Weighted and Stabilizer catch up to the pen on releas
             CHECK(s.filter(QPointF(i * 20.0, 0), 1000 + i * 5).x() < i * 20.0);
         CHECK(s.release(QPointF(200, 0), 1055) == QPointF(200, 0));
     }
-
-    InputSmoother e;
-    e.setMode(SmoothingMode::OneEuro, 100);
-    e.reset(QPointF(0, 0), 1000);
-    CHECK(e.release(QPointF(200, 0), 1005).x() < 200);
 }
 
 TEST_CASE("InputSmoother - runs on input timestamps: a longer gap lets the output follow further", "[InputSmoother]")

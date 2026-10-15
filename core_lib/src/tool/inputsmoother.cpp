@@ -115,13 +115,8 @@ QPointF InputSmoother::stabilized(QPointF pos)
 
 QPointF InputSmoother::release(QPointF pos, quint64 timestampMs)
 {
-    const QPointF out = filter(pos, timestampMs);
-    if (mMode == SmoothingMode::Weighted || mMode == SmoothingMode::Stabilizer)
-    {
-        reset(pos, mTime); // catch up: the stroke ends at the pen
-        return pos;
-    }
-    return out;
+    reset(pos, qMax(mTime, timestampMs)); // catch up: the stroke ends at the pen
+    return pos;
 }
 
 SmoothingPreset InputSmoother::presetForLegacyLevel(int level)
