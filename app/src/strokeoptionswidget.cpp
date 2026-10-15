@@ -45,6 +45,11 @@ void StrokeOptionsWidget::initUI()
     auto spacingInfo = p.getInfo(StrokeToolProperties::SPACING_VALUE);
     ui->spacingSlider->init(tr("Spacing %"), SpinSlider::LOG, spacingInfo.minReal(), spacingInfo.maxReal());
 
+    auto aspectInfo = p.getInfo(StrokeToolProperties::TIP_ASPECT_VALUE);
+    ui->tipAspectSlider->init(tr("Tip Aspect %"), SpinSlider::LINEAR, aspectInfo.minReal(), aspectInfo.maxReal());
+    auto angleInfo = p.getInfo(StrokeToolProperties::TIP_ANGLE_VALUE);
+    ui->tipAngleSlider->init(tr("Tip Angle"), SpinSlider::LINEAR, angleInfo.minReal(), angleInfo.maxReal());
+
     mCurrentTool = strokeTool;
 
     makeConnectionFromUIToModel();
@@ -93,6 +98,10 @@ void StrokeOptionsWidget::updateUI()
         ui->spacingSpinBox->setRange(info.minReal(), info.maxReal());
 
         setSpacingValue(info.realValue());
+    }
+
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::TIP_ASPECT_VALUE)) {
+        updateTip();
     }
 
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED)) {
@@ -144,6 +153,7 @@ void StrokeOptionsWidget::makeConnectionFromModelToUI(StrokeTool* strokeTool)
     connect(strokeTool, &StrokeTool::widthChanged, this, &StrokeOptionsWidget::setWidthValue);
     connect(strokeTool, &StrokeTool::featherChanged, this, &StrokeOptionsWidget::setFeatherValue);
     connect(strokeTool, &StrokeTool::spacingChanged, this, &StrokeOptionsWidget::setSpacingValue);
+    connect(strokeTool, &StrokeTool::tipChanged, this, &StrokeOptionsWidget::updateTip);
     connect(strokeTool, &StrokeTool::featherEnabledChanged, this, &StrokeOptionsWidget::setFeatherEnabled);
     connect(strokeTool, &StrokeTool::pressureEnabledChanged, this, &StrokeOptionsWidget::setPressureEnabled);
     connect(strokeTool, &StrokeTool::smoothingModeChanged, this, &StrokeOptionsWidget::setSmoothingMode);
@@ -216,6 +226,19 @@ void StrokeOptionsWidget::makeConnectionFromUIToModel()
         mCurrentTool->setSpacing(value);
     });
 
+    connect(ui->tipAspectSlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setTipAspect(value);
+    });
+    connect(ui->tipAngleSlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setTipAngle(value);
+    });
+    connect(ui->squareTipBox, &QCheckBox::clicked, [=](bool enabled) {
+        mCurrentTool->setTipSquare(enabled);
+    });
+    connect(ui->followDirectionBox, &QCheckBox::clicked, [=](bool enabled) {
+        mCurrentTool->setTipFollowsDirection(enabled);
+    });
+
     clearFocusOnFinished(ui->spacingSpinBox);
     clearFocusOnFinished(ui->sizeSpinBox);
     clearFocusOnFinished(ui->featherSpinBox);
@@ -237,6 +260,11 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->featherSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_VALUE));
     ui->spacingSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
     ui->spacingSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
+    const bool tip = tool->isPropertyEnabled(StrokeToolProperties::TIP_ASPECT_VALUE);
+    ui->tipAspectSlider->setVisible(tip);
+    ui->tipAngleSlider->setVisible(tip);
+    ui->squareTipBox->setVisible(tip);
+    ui->followDirectionBox->setVisible(tip);
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));
@@ -274,6 +302,19 @@ void StrokeOptionsWidget::setSpacingValue(qreal spacing)
 
     QSignalBlocker b2(ui->spacingSpinBox);
     ui->spacingSpinBox->setValue(spacing);
+}
+
+void StrokeOptionsWidget::updateTip()
+{
+    const StrokeToolProperties& p = mCurrentTool->strokeToolProperties();
+    QSignalBlocker b(ui->tipAspectSlider);
+    ui->tipAspectSlider->setValue(p.tipAspect());
+    QSignalBlocker b2(ui->tipAngleSlider);
+    ui->tipAngleSlider->setValue(p.tipAngle());
+    QSignalBlocker b3(ui->squareTipBox);
+    ui->squareTipBox->setChecked(p.tipSquare());
+    QSignalBlocker b4(ui->followDirectionBox);
+    ui->followDirectionBox->setChecked(p.tipFollowsDirection());
 }
 
 void StrokeOptionsWidget::setFeatherEnabled(bool enabled)

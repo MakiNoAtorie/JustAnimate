@@ -1169,15 +1169,15 @@ void ScribbleArea::drawPen(QPointF thePoint, qreal brushWidth, QColor fillColor,
     mTiledBuffer.drawBrush(thePoint, brushWidth, Qt::NoPen, QBrush(fillColor, Qt::SolidPattern), QPainter::CompositionMode_Source, useAA);
 }
 
-void ScribbleArea::drawPencil(QPointF thePoint, qreal brushWidth, qreal fixedBrushFeather, QColor fillColor, qreal opacity)
+void ScribbleArea::drawPencil(QPointF thePoint, qreal brushWidth, qreal fixedBrushFeather, QColor fillColor, qreal opacity, const BrushTip& tip)
 {
-    drawBrush(thePoint, brushWidth, fixedBrushFeather, fillColor, opacity, true);
+    drawBrush(thePoint, brushWidth, fixedBrushFeather, fillColor, opacity, true, false, tip);
 }
 
-void ScribbleArea::drawBrush(QPointF thePoint, qreal brushWidth, qreal mOffset, QColor fillColor, qreal opacity, bool usingFeather, bool useAA)
+void ScribbleArea::drawBrush(QPointF thePoint, qreal brushWidth, qreal mOffset, QColor fillColor, qreal opacity, bool usingFeather, bool useAA, const BrushTip& tip)
 {
     // Without feather the dab is solid fillColor and ignores opacity.
-    mTiledBuffer.drawDab(thePoint, brushWidth, usingFeather ? mOffset : 0, fillColor, usingFeather ? opacity : 1.0, useAA);
+    mTiledBuffer.drawDab(thePoint, brushWidth, usingFeather ? mOffset : 0, fillColor, usingFeather ? opacity : 1.0, useAA, tip);
 }
 
 void ScribbleArea::drawPolyline(QPainterPath path, QPen pen, bool useAA)

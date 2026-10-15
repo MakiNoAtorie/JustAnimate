@@ -54,6 +54,10 @@ void BrushTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::INVISIBILITY_ENABLED] = { Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::SPACING_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::TIP_SQUARE_ENABLED] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::TIP_ASPECT_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::TIP_ANGLE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED] = { Layer::BITMAP };
 
     QSettings pencilSettings(PENCIL2D, PENCIL2D);
 
@@ -97,14 +101,16 @@ QCursor BrushTool::cursor()
     return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
 }
 
-void BrushTool::drawDab(QPointF point, qreal width, qreal opacity)
+void BrushTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
     mScribbleArea->drawBrush(point,
                              width,
                              mSettings.feather(),
                              mEditor->color()->frontColor(),
                              opacity,
-                             true);
+                             true,
+                             false,
+                             tip);
 }
 
 QPen BrushTool::vectorPreviewPen()

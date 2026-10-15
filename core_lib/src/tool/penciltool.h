@@ -41,7 +41,7 @@ public:
 
 protected:
     void strokeStarted() override;
-    void drawDab(QPointF point, qreal width, qreal opacity) override;
+    void drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip) override;
     QPen vectorPreviewPen() override;
     void finishVectorStroke(Layer* layer) override;
 

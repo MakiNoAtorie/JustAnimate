@@ -261,12 +261,18 @@ void TiledBuffer::endCoverage()
     mCoverageMode = false;
 }
 
-const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing)
+const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing, const BrushTip& tip)
 {
-    // Key: diameter in 1/4 px, feather in 1/16 %, sub-pixel phase in 1/4 px.
+    // Key: diameter in 1/4 px, tip angle in degrees, aspect in %, feather in 1/16 %, sub-pixel phase in 1/4 px.
     const int dq = qMax(0, qRound(diameter * 4));
     const int fq = qBound(0, qRound(feather * 16), 1600);
-    const quint64 key = (quint64(dq) << 32) | (quint64(fq) << 8) | (phaseX << 4) | (phaseY << 1) | (antialiasing ? 1 : 0);
+    const int aq = qBound(1, qRound(tip.aspect * 100), 100);
+    const bool circle = !tip.square && aq == 100;
+    // The shape repeats every 90 degrees for a square and every 180 degrees otherwise.
+    const int period = (tip.square && aq == 100) ? 90 : 180;
+    const int angleQ = circle ? 0 : ((qRound(tip.angle) % period) + period) % period;
+    const quint64 key = (quint64(dq) << 40) | (quint64(angleQ) << 27) | (quint64(aq) << 20) | (quint64(tip.square) << 19)
+                        | (quint64(fq) << 8) | (phaseX << 4) | (phaseY << 1) | (antialiasing ? 1 : 0);
     auto it = mDabMasks.constFind(key);
     if (it != mDabMasks.constEnd()) return *it;
     flushDabs(); // queued dabs point into the cache
@@ -302,11 +308,31 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
     const float inner2 = inner * inner;
     const float solid2 = (1 - f) * (1 - f) * r2;
 
-    // Pixel x is inside when |x + 0.5 - cx| < reach.
-    const int x0 = qFloor(cx - reach - 0.5f) + 1;
-    const int x1 = qCeil(cx + reach - 0.5f) - 1;
-    const int y0 = qFloor(cy - reach - 0.5f) + 1;
-    const int y1 = qCeil(cy + reach - 0.5f) - 1;
+    // Tip frame: u along the tip width, v across it, scaled by 1 / aspect so the shape has radius r.
+    // shortcut: anti-aliasing runs in the scaled frame, so the edge across a thin tip is sharper.
+    const float rad = qDegreesToRadians(float(angleQ));
+    const float cosA = std::cos(rad);
+    const float sinA = std::sin(rad);
+    const float aspect = aq / 100.0f;
+    const float invAspect = 1.0f / aspect;
+    float halfW = reach;
+    float halfH = reach;
+    if (tip.square)
+    {
+        halfW = reach * (std::abs(cosA) + aspect * std::abs(sinA));
+        halfH = reach * (std::abs(sinA) + aspect * std::abs(cosA));
+    }
+    else if (!circle)
+    {
+        halfW = reach * std::sqrt(cosA * cosA + aspect * aspect * sinA * sinA);
+        halfH = reach * std::sqrt(sinA * sinA + aspect * aspect * cosA * cosA);
+    }
+
+    // Pixel x is inside the box when |x + 0.5 - cx| < halfW.
+    const int x0 = qFloor(cx - halfW - 0.5f) + 1;
+    const int x1 = qCeil(cx + halfW - 0.5f) - 1;
+    const int y0 = qFloor(cy - halfH - 0.5f) + 1;
+    const int y1 = qCeil(cy + halfH - 0.5f) - 1;
     DabMask mask;
     if (x1 >= x0 && y1 >= y0)
     {
@@ -320,12 +346,19 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
             const float dy2 = dy * dy;
             const float half = std::sqrt(qMax(0.0f, reach2 - dy2));
             quint8* row = mask.alpha.data() + (y - y0) * w - x0;
-            const int rowLo = qMax(x0, qFloor(cx - half - 0.5f));
-            const int rowHi = qMin(x1, qCeil(cx + half - 0.5f));
+            const int rowLo = circle ? qMax(x0, qFloor(cx - half - 0.5f)) : x0;
+            const int rowHi = circle ? qMin(x1, qCeil(cx + half - 0.5f)) : x1;
             for (int x = rowLo; x <= rowHi; ++x)
             {
                 const float dx = x + 0.5f - cx;
-                const float d2 = dx * dx + dy2;
+                float d2 = dx * dx + dy2;
+                if (!circle)
+                {
+                    // Screen y points down, so a positive angle turns the tip counter-clockwise on screen.
+                    const float u = dx * cosA - dy * sinA;
+                    const float v = (dx * sinA + dy * cosA) * invAspect;
+                    d2 = tip.square ? qMax(u * u, v * v) : u * u + v * v;
+                }
                 if (d2 >= reach2) continue;
                 float a = 255.0f;
                 if (d2 > solid2) a *= mProfile[qMin(int(d2 * toIndex + 0.5f), kProfileSize)];
@@ -344,7 +377,8 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
     return *mDabMasks.insert(key, std::move(mask));
 }
 
-void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing)
+void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing,
+                          const BrushTip& tip)
 {
     StageScope stage(StageProfiler::DabMask);
     feather = qBound(0.0, feather, 100.0);
@@ -365,7 +399,7 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
     const int qx = qRound(center.x() * 4);
     const int qy = qRound(center.y() * 4);
     const QPoint origin(qFloor(qx / 4.0), qFloor(qy / 4.0));
-    const DabMask& mask = dabMask(diameter, feather, qx - origin.x() * 4, qy - origin.y() * 4, antialiasing);
+    const DabMask& mask = dabMask(diameter, feather, qx - origin.x() * 4, qy - origin.y() * 4, antialiasing, tip);
     const QRect rect = mask.rect.translated(origin);
     if (rect.isEmpty()) return;
 

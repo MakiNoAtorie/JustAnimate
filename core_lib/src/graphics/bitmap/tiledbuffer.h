@@ -44,6 +44,14 @@ inline bool operator==(const TileIndex &e1, const TileIndex &e2)
            && e1.y == e2.y;
 }
 
+/** The shape of a generated dab. The default is the round tip. */
+struct BrushTip
+{
+    bool square = false;
+    qreal aspect = 1.0; // height / width, 0.01..1
+    qreal angle = 0.0;  // degrees, counter-clockwise on screen
+};
+
 class TiledBuffer: public QObject
 {
     Q_OBJECT
@@ -59,9 +67,11 @@ public:
 
     /** Draws a brush with the specified parameters to the tiled buffer */
     void drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush brush, QPainter::CompositionMode cm, bool antialiasing);
-    /** Draws a round dab with SourceOver: full alpha inside 1 - feather/100 of the radius, then a linear fade.
-     *  feather is 0..100 and also lowers the centre alpha, like ScribbleArea::setGaussianGradient. */
-    void drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing);
+    /** Draws a dab with SourceOver: full alpha inside 1 - feather/100 of the radius, then a linear fade.
+     *  feather is 0..100 and also lowers the centre alpha, like ScribbleArea::setGaussianGradient.
+     *  diameter is the tip width; tip sets the shape. */
+    void drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing,
+                 const BrushTip& tip = {});
     /** Draws a path with the specified parameters to the tiled buffer */
     void drawPath(QPainterPath path, QPen pen, QBrush brush,
                   QPainter::CompositionMode cm, bool antialiasing);
@@ -114,7 +124,7 @@ private:
         QRect rect;
         std::vector<quint8> alpha;
     };
-    const DabMask& dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing);
+    const DabMask& dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing, const BrushTip& tip);
 
     QHash<quint64, DabMask> mDabMasks;
     qsizetype mDabMaskBytes = 0;
