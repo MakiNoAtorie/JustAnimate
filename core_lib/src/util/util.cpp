@@ -22,6 +22,8 @@ GNU General Public License for more details.
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QThread>
+#include <QThreadPool>
 
 static inline bool clipLineToEdge(qreal& t0, qreal& t1, qreal p, qreal q)
 {
@@ -104,6 +106,26 @@ QString ffmpegLocation()
     }
     return QStandardPaths::findExecutable("ffmpeg"); // ffmpeg is a standalone project.
 #endif
+}
+
+int parallelWorkerCount()
+{
+    return qBound(1, QThread::idealThreadCount(), 8);
+}
+
+void parallelFor(int count, const std::function<void(int)>& fn)
+{
+    if (count == 1)
+    {
+        fn(0); // no thread hop for serial callers
+        return;
+    }
+    // Shared so threads are reused between calls; concurrent callers also wait for each other's tasks.
+    static QThreadPool pool;
+    pool.setMaxThreadCount(parallelWorkerCount());
+    for (int i = 0; i < count; ++i)
+        pool.start([&fn, i] { fn(i); });
+    pool.waitForDone();
 }
 
 quint64 imageSize(const QImage& img)
