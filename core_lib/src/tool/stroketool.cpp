@@ -68,6 +68,10 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
     info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
     info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
+    info[StrokeToolProperties::TIP_SQUARE_ENABLED] = false;
+    info[StrokeToolProperties::TIP_ASPECT_VALUE] = { TIP_ASPECT_MIN, 100.0, 100.0 };
+    info[StrokeToolProperties::TIP_ANGLE_VALUE] = { -180.0, 180.0, 0.0 };
+    info[StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED] = false;
     info[StrokeToolProperties::FLOW_VALUE] = { 1.0, 100.0, 100.0 };
     info[StrokeToolProperties::OPACITY_VALUE] = { 1.0, 100.0, 100.0 };
     info[StrokeToolProperties::WASH_ENABLED] = false;
@@ -456,6 +460,30 @@ void StrokeTool::setWashEnabled(bool enabled)
 {
     toolProperties().setBaseValue(StrokeToolProperties::WASH_ENABLED, enabled);
     emit washEnabledChanged(enabled);
+}
+
+void StrokeTool::setTipSquare(bool square)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::TIP_SQUARE_ENABLED, square);
+    emit tipChanged();
+}
+
+void StrokeTool::setTipAspect(qreal percent)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::TIP_ASPECT_VALUE, percent);
+    emit tipChanged();
+}
+
+void StrokeTool::setTipAngle(qreal degrees)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::TIP_ANGLE_VALUE, degrees);
+    emit tipChanged();
+}
+
+void StrokeTool::setTipFollowsDirection(bool follow)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, follow);
+    emit tipChanged();
 }
 
 void StrokeTool::setFeather(qreal feather)

@@ -84,6 +84,8 @@ void PreferenceManager::loadPrefs()
     set(SETTING::INVERT_SCROLL_ZOOM_DIRECTION, settings.value(SETTING_INVERT_SCROLL_ZOOM_DIRECTION,  false).toBool());
 
     set(SETTING::ROTATION_INCREMENT,       settings.value(SETTING_ROTATION_INCREMENT,     15).toInt());
+    set(SETTING::TAPER_START,              settings.value(SETTING_TAPER_START,            0).toInt());
+    set(SETTING::TAPER_END,                settings.value(SETTING_TAPER_END,              0).toInt());
 
     set(SETTING::WINDOW_OPACITY,           settings.value(SETTING_WINDOW_OPACITY,         0).toInt());
     set(SETTING::SHOW_STATUS_BAR,          settings.value(SETTING_SHOW_STATUS_BAR,        true).toBool());
@@ -345,6 +347,12 @@ void PreferenceManager::set(SETTING option, int value)
         break;
     case SETTING::ROTATION_INCREMENT:
         settings.setValue(SETTING_ROTATION_INCREMENT, value);
+        break;
+    case SETTING::TAPER_START:
+        settings.setValue(SETTING_TAPER_START, value);
+        break;
+    case SETTING::TAPER_END:
+        settings.setValue(SETTING_TAPER_END, value);
         break;
     case SETTING::FPS:
         settings.setValue(SETTING_FPS, value);

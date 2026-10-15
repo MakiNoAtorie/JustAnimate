@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QApplication>
 #include <QIcon>
+#include <QMouseEvent>
 #include <QPointingDevice>
 #include <QTabletEvent>
 
@@ -273,6 +274,65 @@ TEST_CASE("DabTool - Spacing percent sets the dab density and defaults to 12.5")
     CHECK(sparse == Approx(normal / 2).epsilon(0.05));
 }
 
+TEST_CASE("DabTool - a flat tip keeps its angle or follows the stroke direction")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 2; f <= 4; ++f)
+        layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    CHECK(brush->strokeToolProperties().tipAspect() == 100); // the round tip
+    brush->setTipAspect(20); // 40 px wide, 8 px tall
+
+    // A vertical stroke with the tip at 0 degrees: the ink is as wide as the tip.
+    editor->scrubTo(1);
+    stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
+    const int fixedWidth = inkWidth(layer->getBitmapImageAtFrame(1));
+
+    brush->setTipAngle(90);
+    editor->scrubTo(2);
+    stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
+    const int turnedWidth = inkWidth(layer->getBitmapImageAtFrame(2));
+
+    // Follow direction: the tip width lies along the stroke, so the ink is as wide as the tip is tall.
+    brush->setTipAngle(0);
+    brush->setTipFollowsDirection(true);
+    editor->scrubTo(3);
+    stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
+    const int followWidth = inkWidth(layer->getBitmapImageAtFrame(3));
+
+    brush->setTipSquare(true);
+    brush->setTipFollowsDirection(false);
+    brush->setTipAspect(100);
+    editor->scrubTo(4);
+    tap(area, QPointF(300, 300), 1.0);
+    const QImage* img = layer->getBitmapImageAtFrame(4)->image();
+    int painted = 0;
+    for (int y = 0; y < img->height(); ++y)
+        for (int x = 0; x < img->width(); ++x)
+            painted += qAlpha(img->pixel(x, y)) != 0;
+
+    INFO("fixed " << fixedWidth << " turned " << turnedWidth << " follow " << followWidth << " square " << painted);
+    CHECK(fixedWidth >= 39);
+    CHECK(turnedWidth <= 10);
+    CHECK(followWidth <= 10);
+    CHECK(painted >= 39 * 39); // a 40 px circle covers about 1257 pixels
+}
+
 TEST_CASE("Pencil, Brush and Eraser - a tap paints a dab and a vector stroke edits curves")
 {
     TestSession s;
@@ -450,6 +510,68 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
     CHECK(linear.first < 8);
     CHECK(firm.first > 15);
     CHECK(firm.second > linear.second);
+}
+
+TEST_CASE("DabTool - a mouse stroke tapers at both ends")
+{
+    const SettingsGuard settingsGuard({ SETTING_TAPER_START, SETTING_TAPER_END });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(2);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    auto mouse = [&](QEvent::Type type, QPointF pos, Qt::MouseButtons buttons) {
+        QMouseEvent e(type, pos, area->mapToGlobal(pos), Qt::LeftButton, buttons, Qt::NoModifier);
+        QApplication::sendEvent(area, &e);
+    };
+    // Ink height at screen x of a mouse stroke from x = 100 to 500.
+    auto strokeHeights = [&](int frame) {
+        editor->scrubTo(frame);
+        mouse(QEvent::MouseButtonPress, QPointF(100, 300), Qt::LeftButton);
+        for (int i = 1; i <= 40; ++i)
+            mouse(QEvent::MouseMove, QPointF(100 + i * 10, 300), Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPointF(500, 300), Qt::NoButton);
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(frame);
+        const QImage* img = bitmap->image();
+        std::vector<int> heights;
+        for (qreal sx : { 110.0, 300.0, 490.0 })
+        {
+            const int x = editor->view()->mapScreenToCanvas(QPointF(sx, 300)).toPoint().x() - bitmap->left();
+            int height = 0;
+            for (int y = 0; y < img->height(); ++y)
+                height += x >= 0 && x < img->width() && qAlpha(img->pixel(x, y)) != 0;
+            heights.push_back(height);
+        }
+        return heights;
+    };
+
+    editor->preference()->set(SETTING::TAPER_START, 100);
+    editor->preference()->set(SETTING::TAPER_END, 100);
+    const auto tapered = strokeHeights(1);
+    editor->preference()->set(SETTING::TAPER_START, 0);
+    editor->preference()->set(SETTING::TAPER_END, 0);
+    const auto plain = strokeHeights(2);
+    INFO("tapered " << tapered[0] << "/" << tapered[1] << "/" << tapered[2]
+         << " plain " << plain[0] << "/" << plain[1] << "/" << plain[2]);
+    CHECK(tapered[1] >= 18);
+    CHECK(tapered[0] <= 6);
+    CHECK(tapered[2] <= 6);
+    CHECK(plain[0] >= 18);
+    CHECK(plain[2] >= 18);
 }
 
 TEST_CASE("DabTool - flow builds up and opacity caps the stroke")

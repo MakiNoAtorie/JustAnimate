@@ -91,6 +91,19 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - A structured preference is a string read through a parser (such as
   `PressureCurve::fromString`); an empty or invalid value gives the neutral
   default.
+- Dab shape parameters live in `BrushTip` (`tiledbuffer.h`); each adds a
+  quantized field to the `DabMask` cache key. The default tip keeps the old
+  fast path so golden hashes do not change. `DabTool::drawDab` takes the tip
+  from `dabTip(direction)`; subclasses pass it through unchanged.
+- Tip angles are degrees, counter-clockwise on screen (canvas y points down).
+- Stroke settings shared by Pencil, Brush and Eraser get defaults in
+  `StrokeTool::loadSettings`; each tool only adds `mPropertyUsed`.
+- Bitmap dabs are placed only in `DabTool::dabSegment`. Width modifiers
+  (taper, jitter) multiply `dabWidth`, never replace it. `drawStroke` may hold
+  back pen points until release; do not assume `mLastBrushPoint` is the
+  current point.
+- Global stroke shaping outside a preset (pressure curve, taper) is a
+  `PreferenceManager` setting read in `DabTool::pointerPressEvent`.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
   branchless loops, no `QPainter`; mask math uses float and `sqrt` only, so
   platforms hash alike. Read pixels only via `TiledBuffer::tiles()`; call

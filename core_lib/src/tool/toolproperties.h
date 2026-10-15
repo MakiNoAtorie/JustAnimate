@@ -409,9 +409,13 @@ struct StrokeToolProperties: public ToolPropertiesBase
         FILLCONTOUR_ENABLED      = 107,
         SMOOTHING_STRENGTH       = 108,
         SPACING_VALUE            = 109,
-        FLOW_VALUE               = 110,
-        OPACITY_VALUE            = 111,
-        WASH_ENABLED             = 112,
+        TIP_SQUARE_ENABLED       = 110,
+        TIP_ASPECT_VALUE         = 111,
+        TIP_ANGLE_VALUE          = 112,
+        TIP_FOLLOW_DIRECTION_ENABLED = 113,
+        FLOW_VALUE               = 114,
+        OPACITY_VALUE            = 115,
+        WASH_ENABLED             = 116,
 
         END                 = 199,
     };
@@ -430,6 +434,10 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { ANTI_ALIASING_ENABLED, "AntiAliasingEnabled"},
             { FILLCONTOUR_ENABLED,   "FillContourEnabled" },
             { SPACING_VALUE,         "Spacing" },
+            { TIP_SQUARE_ENABLED,    "TipSquare" },
+            { TIP_ASPECT_VALUE,      "TipAspect" },
+            { TIP_ANGLE_VALUE,       "TipAngle" },
+            { TIP_FOLLOW_DIRECTION_ENABLED, "TipFollowDirection" },
             { FLOW_VALUE,            "Flow" },
             { OPACITY_VALUE,         "Opacity" },
             { WASH_ENABLED,          "WashEnabled" }
@@ -451,6 +459,10 @@ struct StrokeToolProperties: public ToolPropertiesBase
     SmoothingMode smoothingMode() const { return static_cast<SmoothingMode>(getInfo(SMOOTHING_MODE).intValue()); }
     int smoothingStrength() const { return getInfo(SMOOTHING_STRENGTH).intValue(); }
     qreal spacing() const { return getInfo(SPACING_VALUE).realValue(); }
+    bool tipSquare() const { return getInfo(TIP_SQUARE_ENABLED).boolValue(); }
+    qreal tipAspect() const { return getInfo(TIP_ASPECT_VALUE).realValue(); }
+    qreal tipAngle() const { return getInfo(TIP_ANGLE_VALUE).realValue(); }
+    bool tipFollowsDirection() const { return getInfo(TIP_FOLLOW_DIRECTION_ENABLED).boolValue(); }
     qreal flow() const { return getInfo(FLOW_VALUE).realValue(); }
     qreal opacity() const { return getInfo(OPACITY_VALUE).realValue(); }
     bool washEnabled() const { return getInfo(WASH_ENABLED).boolValue(); }

@@ -36,6 +36,7 @@ private:
     void setFeatherValue(qreal);
     void setFeatherEnabled(bool);
     void setSpacingValue(qreal);
+    void updateTip();
     void setFlowValue(qreal);
     void setStrokeOpacityValue(qreal);
     void setWashEnabled(bool);

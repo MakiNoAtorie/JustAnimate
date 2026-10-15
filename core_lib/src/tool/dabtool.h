@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include "pressurecurve.h"
 #include "stroketool.h"
+#include "tiledbuffer.h"
 
 #include <QPen>
 
@@ -46,7 +47,7 @@ public:
 
 protected:
     /// Paints one bitmap dab.
-    virtual void drawDab(QPointF point, qreal width, qreal opacity) = 0;
+    virtual void drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip) = 0;
     /// The pen of the live vector stroke preview.
     virtual QPen vectorPreviewPen() = 0;
     /// Commits the stroke to a vector layer on release.
@@ -61,6 +62,10 @@ protected:
     /// Dab width and opacity at this pen pressure, through the pressure curve; both ignore pressure when it is off.
     qreal dabWidth(qreal pressure) const;
     qreal dabOpacity(qreal pressure) const;
+    /// Width factor from 0 to 1 at this distance along the stroke, for the start and end taper.
+    qreal taperAt(qreal distance) const;
+    /// The tip settings; with follow direction on, the angle adds the direction of travel.
+    BrushTip dabTip(QPointF direction) const;
     /// Alpha of one dab in a spaced line, so the line reaches dabOpacity at any spacing.
     qreal spacedDabOpacity(qreal pressure, qreal brushWidth) const;
 
@@ -71,6 +76,17 @@ protected:
     PressureCurve mPressureCurve; // read from preferences at each press
 
 private:
+    /// Places dabs from mLastBrushPoint to b.
+    void dabSegment(QPointF b, qreal endPressure);
+
+    // Taper lengths in canvas px, 0 is off; read from preferences at each press.
+    qreal mTaperStart = 0;
+    qreal mTaperEnd = 0;
+    qreal mStrokeLength = 0; // to the newest pen point
+    qreal mBrushDistance = 0; // to mLastBrushPoint
+    bool mStrokeEnding = false;
+    // Pen points not yet dabbed: the last mTaperEnd px wait until the end of the stroke is known.
+    QList<QPair<QPointF, qreal>> mPendingPoints;
     /// Moves the prediction to the current pen state and repaints where it was and is.
     void updatePrediction();
     QRect predictionRect() const;
