@@ -264,6 +264,8 @@
     <addaction name="actionPen"/>
     <addaction name="actionHand"/>
     <addaction name="actionPolyline"/>
+    <addaction name="actionShape"/>
+    <addaction name="actionLassoFill"/>
     <addaction name="actionBucket"/>
     <addaction name="actionEyedropper"/>
     <addaction name="actionBrush"/>
@@ -704,6 +706,24 @@
    </property>
    <property name="text">
     <string>Polyline</string>
+   </property>
+  </action>
+  <action name="actionShape">
+   <property name="icon">
+    <iconset resource="../data/app.qrc">
+     <normaloff>:/icons/themes/playful/tools/tool-shape.svg</normaloff>:/icons/themes/playful/tools/tool-shape.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Shape</string>
+   </property>
+  </action>
+  <action name="actionLassoFill">
+   <property name="icon">
+    <iconset resource="../data/app.qrc">
+     <normaloff>:/icons/themes/playful/tools/tool-lassofill.svg</normaloff>:/icons/themes/playful/tools/tool-lassofill.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Lasso Fill</string>
    </property>
   </action>
   <action name="actionSmudge">

@@ -6,11 +6,13 @@
 #include "basetool.h"
 #include "stroketool.h"
 #include "polylinetool.h"
+#include "shapetool.h"
 #include "util.h"
 
 #include "toolmanager.h"
 #include "layermanager.h"
 
+#include <QComboBox>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QMessageBox>
@@ -83,6 +85,14 @@ void StrokeOptionsWidget::initUI()
         connect(box, &QSpinBox::valueChanged, this, [this, type = type](int value) { mCurrentTool->setDynamic(type, value); });
     }
     ui->verticalLayout_2->insertWidget(ui->verticalLayout_2->indexOf(ui->tipImageLayout) + 1, mDynamicsBox);
+
+    // Item index is the ShapeTool::Mode value.
+    mShapeModeCombo = new QComboBox(this);
+    mShapeModeCombo->addItems({ tr("Line"), tr("Rectangle"), tr("Ellipse"), tr("Polygon") });
+    ui->verticalLayout_2->insertWidget(0, mShapeModeCombo);
+    connect(mShapeModeCombo, &QComboBox::activated, this, [this](int mode) {
+        static_cast<ShapeTool*>(mCurrentTool)->setShapeMode(mode);
+    });
 
     mCurrentTool = strokeTool;
 
@@ -178,6 +188,10 @@ void StrokeOptionsWidget::updateUI()
         setClosedPathEnabled(polyP.closedPathEnabled());
         setBezierPathEnabled(polyP.bezierPathEnabled());
     }
+
+    if (strokeTool->type() == SHAPE) {
+        setShapeMode(static_cast<const ShapeTool*>(strokeTool)->shapeMode());
+    }
 }
 
 void StrokeOptionsWidget::updateToolConnections(BaseTool* tool)
@@ -214,6 +228,9 @@ void StrokeOptionsWidget::makeConnectionFromModelToUI(StrokeTool* strokeTool)
         PolylineTool* polyline = static_cast<PolylineTool*>(strokeTool);
         connect(polyline, &PolylineTool::bezierPathEnabledChanged, this, &StrokeOptionsWidget::setBezierPathEnabled);
         connect(polyline, &PolylineTool::closePathChanged, this, &StrokeOptionsWidget::setClosedPathEnabled);
+    }
+    if (strokeTool->type() == SHAPE) {
+        connect(static_cast<ShapeTool*>(strokeTool), &ShapeTool::shapeModeChanged, this, &StrokeOptionsWidget::setShapeMode);
     }
 }
 
@@ -351,6 +368,13 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->fillContourBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FILLCONTOUR_ENABLED));
     ui->useBezierBox->setVisible(tool->isPropertyEnabled(PolylineToolProperties::BEZIERPATH_ENABLED));
     ui->useClosedPathBox->setVisible(tool->isPropertyEnabled(PolylineToolProperties::CLOSEDPATH_ENABLED));
+    if (mShapeModeCombo) mShapeModeCombo->setVisible(tool->isPropertyEnabled(ShapeToolProperties::SHAPEMODE_VALUE));
+}
+
+void StrokeOptionsWidget::setShapeMode(int mode)
+{
+    QSignalBlocker b(mShapeModeCombo);
+    mShapeModeCombo->setCurrentIndex(mode);
 }
 
 void StrokeOptionsWidget::setWidthValue(qreal width)

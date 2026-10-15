@@ -91,6 +91,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Brush engine, tips and presets: read `docs/brush-engine.md` before you
   edit `dabtool.*`, `tiledbuffer.*`, `stroketool.*`, `toolproperties.h`,
   `brushpresets.*` or the preset dock and editor.
+- Shape and path strokes on bitmap layers go through `DabTool::dabPath`.
+  A tool subclass skips its base tool's legacy settings migration. A tool
+  that uses Shift or Alt clears `mQuickSizingProperties`.
 - Dark/light decisions use `Theme::isDark()`, never
   `PlatformHandler::isDarkMode()`.
 - Dock layouts and workspaces: free functions in `app/src/defaultlayout.*`
@@ -109,7 +112,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   are checked pixel-identical against a fresh `CanvasPainter::paint` (with
   `LayerVisibility::ALL`). Clear them from the modification signals; what
   those can't scope to one layer is keyed by content (keyframe pointer,
-  visibility, opacity, `QImage::cacheKey`).
+  visibility, opacity, `QImage::cacheKey`). Layer-range caches reuse
+  `LayerCellCache`/`layersKey` in `CanvasPainter`; a setting that changes
+  cached output joins the `invalidateAllCache` list in `ScribbleArea`.
 - Opt-in fast mode: `SETTING::FAST_RENDER_LAYERS_ABOVE`, key
   `"FastRenderLayersAbove"`, default off.
 - Project thumbnails (welcome screen): app side, written after a successful

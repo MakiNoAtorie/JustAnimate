@@ -97,6 +97,7 @@ enum class SETTING
     LOAD_MOST_RECENT,
     LOAD_DEFAULT_PRESET,
     DEFAULT_PRESET,
+    FAST_RENDER_LAYERS_ABOVE,
     COUNT, // COUNT must always be the last one.
 };
 

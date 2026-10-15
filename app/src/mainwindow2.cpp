@@ -463,6 +463,8 @@ void MainWindow2::createMenus()
     toolsActionGroup->addAction(ui->actionSelect);
     toolsActionGroup->addAction(ui->actionBrush);
     toolsActionGroup->addAction(ui->actionPolyline);
+    toolsActionGroup->addAction(ui->actionShape);
+    toolsActionGroup->addAction(ui->actionLassoFill);
     toolsActionGroup->addAction(ui->actionSmudge);
     toolsActionGroup->addAction(ui->actionPen);
     toolsActionGroup->addAction(ui->actionHand);
@@ -477,6 +479,8 @@ void MainWindow2::createMenus()
         else if (action == ui->actionSelect) mToolBox->setActiveTool(SELECT);
         else if (action == ui->actionBrush) mToolBox->setActiveTool(BRUSH);
         else if (action == ui->actionPolyline) mToolBox->setActiveTool(POLYLINE);
+        else if (action == ui->actionShape) mToolBox->setActiveTool(SHAPE);
+        else if (action == ui->actionLassoFill) mToolBox->setActiveTool(LASSOFILL);
         else if (action == ui->actionSmudge) mToolBox->setActiveTool(SMUDGE);
         else if (action == ui->actionPen) mToolBox->setActiveTool(PEN);
         else if (action == ui->actionHand) mToolBox->setActiveTool(HAND);
@@ -1377,6 +1381,8 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionSelect->setShortcut(cmdKeySeq(CMD_TOOL_SELECT));
     ui->actionBrush->setShortcut(cmdKeySeq(CMD_TOOL_BRUSH));
     ui->actionPolyline->setShortcut(cmdKeySeq(CMD_TOOL_POLYLINE));
+    ui->actionShape->setShortcut(cmdKeySeq(CMD_TOOL_SHAPE));
+    ui->actionLassoFill->setShortcut(cmdKeySeq(CMD_TOOL_LASSOFILL));
     ui->actionSmudge->setShortcut(cmdKeySeq(CMD_TOOL_SMUDGE));
     ui->actionPen->setShortcut(cmdKeySeq(CMD_TOOL_PEN));
     ui->actionHand->setShortcut(cmdKeySeq(CMD_TOOL_HAND));

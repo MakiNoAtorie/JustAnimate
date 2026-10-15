@@ -49,6 +49,8 @@ enum ToolType : int
     BUCKET,
     EYEDROPPER,
     BRUSH,
+    SHAPE,
+    LASSOFILL,
     TOOL_TYPE_COUNT
 };
 
@@ -186,6 +188,8 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOOL_SELECT "CmdToolSelect"
 #define CMD_TOOL_BRUSH "CmdToolBrush"
 #define CMD_TOOL_POLYLINE "CmdToolPolyline"
+#define CMD_TOOL_SHAPE "CmdToolShape"
+#define CMD_TOOL_LASSOFILL "CmdToolLassoFill"
 #define CMD_TOOL_SMUDGE "CmdToolSmudge"
 #define CMD_TOOL_PEN "CmdToolPen"
 #define CMD_TOOL_HAND "CmdToolHand"
@@ -264,6 +268,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_INVERT_SCROLL_ZOOM_DIRECTION "InvertScrollZoomDirection"
 
 #define SETTING_ANTIALIAS        "Antialiasing"
+#define SETTING_FAST_RENDER_LAYERS_ABOVE "FastRenderLayersAbove"
 #define SETTING_SHOW_GRID        "ShowGrid"
 #define SETTING_COUNT            "Count"
 #define SETTING_SHADOW           "Shadow"

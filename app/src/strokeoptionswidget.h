@@ -7,6 +7,7 @@
 class Editor;
 class BaseTool;
 class QCheckBox;
+class QComboBox;
 class SpinSlider;
 class QSpinBox;
 
@@ -49,6 +50,7 @@ private:
     void setFillContourEnabled(bool);
     void setBezierPathEnabled(bool);
     void setClosedPathEnabled(bool);
+    void setShapeMode(int);
 
     void setVisibility(BaseTool*);
 
@@ -57,6 +59,7 @@ private:
 
     StrokeTool* mCurrentTool = nullptr;
     QWidget* mDynamicsBox = nullptr;
+    QComboBox* mShapeModeCombo = nullptr;
     QList<std::pair<int, QSpinBox*>> mDynamicsSpinBoxes;
 
     Editor* mEditor = nullptr;

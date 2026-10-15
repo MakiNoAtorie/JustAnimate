@@ -43,22 +43,23 @@ std::unique_ptr<Object> threeLayers()
     return object;
 }
 
-void setUp(CanvasPainter& painter, const Object* object)
+void setUp(CanvasPainter& painter, const Object* object, int paintedLayer = 2, bool fastAbove = false)
 {
     QTransform view = QTransform::fromTranslate(150, 100);
     painter.setViewTransform(view, view.inverted());
     CanvasPainterOptions options;
     options.eLayerVisibility = LayerVisibility::ALL;
+    options.bFastLayersAbove = fastAbove;
     painter.setOptions(options);
-    painter.setPaintSettings(object, 2, 1, nullptr);
+    painter.setPaintSettings(object, paintedLayer, 1, nullptr);
 }
 
 // The frame rendered by a fresh painter, with nothing cached.
-QImage uncached(const Object* object)
+QImage uncached(const Object* object, int paintedLayer = 2)
 {
     QPixmap canvas(kCanvas.size());
     CanvasPainter painter(canvas);
-    setUp(painter, object);
+    setUp(painter, object, paintedLayer);
     painter.paint(kCanvas);
     return canvas.toImage();
 }
@@ -102,4 +103,44 @@ TEST_CASE("Below-layers cache: a change to a layer below the painted layer shows
     object->getLayer(1)->switchVisibility();
     painter.paint(kCanvas);
     CHECK(canvas.toImage() == uncached(object.get()));
+}
+
+TEST_CASE("Fast mode is off by default", "[CanvasPainter]")
+{
+    CHECK_FALSE(CanvasPainterOptions().bFastLayersAbove);
+}
+
+TEST_CASE("Fast mode: cells of the layers above filled by small updates match an uncached render", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object = threeLayers();
+    QPixmap canvas(kCanvas.size());
+    CanvasPainter painter(canvas);
+    setUp(painter, object.get(), 0, true);
+
+    painter.paint(QRect(10, 10, 40, 40));
+    painter.paintCached(QRect(100, 50, 30, 80));
+    painter.paint(kCanvas);
+    CHECK(canvas.toImage() == uncached(object.get(), 0));
+}
+
+TEST_CASE("Fast mode: a change to a layer above the painted layer shows on the next paint", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object = threeLayers();
+    QPixmap canvas(kCanvas.size());
+    CanvasPainter painter(canvas);
+    setUp(painter, object.get(), 0, true);
+    painter.paint(kCanvas);
+    const QImage before = canvas.toImage();
+
+    // No signal and no resetLayerCache(): the cache must notice the change itself.
+    auto* above = static_cast<LayerBitmap*>(object->getLayer(2));
+    above->getBitmapImageAtFrame(1)->drawRect(QRectF(-150, -100, 120, 80), Qt::NoPen, QColor(20, 120, 40),
+                                              QPainter::CompositionMode_SourceOver, false);
+    painter.paintCached(kCanvas);
+    CHECK(canvas.toImage() != before);
+    CHECK(canvas.toImage() == uncached(object.get(), 0));
+
+    object->getLayer(1)->switchVisibility();
+    painter.paint(kCanvas);
+    CHECK(canvas.toImage() == uncached(object.get(), 0));
 }

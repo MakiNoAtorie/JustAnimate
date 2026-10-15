@@ -47,9 +47,19 @@ struct CanvasPainterOptions
     LayerVisibility eLayerVisibility = LayerVisibility::RELATED;
     float fLayerVisibilityThreshold = 0.f;
     bool bOnionSkinMultiLayer = false;
+    // Cache the layers above the painted layer too (SETTING::FAST_RENDER_LAYERS_ABOVE).
+    bool bFastLayersAbove = false;
     float scaling = 1.0f;
     QPainter::CompositionMode cmBufferBlendMode = QPainter::CompositionMode_SourceOver;
     OnionSkinPainterOptions mOnionSkinOptions;
+};
+
+// Composite of a range of layers, filled in 64 px cells; another key or view empties it.
+struct LayerCellCache
+{
+    QBitArray cells; // one bit per cell, set when the cell is current
+    QVector<qint64> key;
+    QTransform view;
 };
 
 class CanvasPainter
@@ -88,8 +98,9 @@ private:
 
     void renderPostLayers(QPainter& painter, const QRect& blitRect);
     void renderPreLayers(QPainter& painter, const QRect& blitRect);
-    void updatePreLayers(const QRect& blitRect);
-    QVector<qint64> preLayersKey() const;
+    void updateCells(LayerCellCache& cache, QPixmap& pixmap, const QVector<qint64>& key, const QRect& blitRect,
+                     void (CanvasPainter::*render)(QPainter&, const QRect&));
+    QVector<qint64> layersKey(int startLayer, int endLayer) const;
 
     void paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startLayer, int endLayer);
 
@@ -125,10 +136,8 @@ private:
     QPixmap mPreLayersPixmap;
     QPixmap mCurrentLayerPixmap;
     QPixmap mOnionSkinPixmap;
-    // Below-composite cache: one bit per 64 px cell of mPreLayersPixmap, set when the cell is current.
-    QBitArray mPreLayersCells;
-    QVector<qint64> mPreLayersKey;
-    QTransform mPreLayersView;
+    LayerCellCache mPreLayersCache;
+    LayerCellCache mPostLayersCache; // used only with bFastLayersAbove
     bool mPostLayersPixmapCacheValid = false;
 
     // There's a considerable amount of overhead in simply allocating a QPointF on the fly.
