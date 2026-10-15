@@ -103,8 +103,10 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Speed-ups: Release `benchmark` target, before/after back to back on the
   same machine, numbers in the commit message; a kept attempt that is not
   outside noise goes to `docs/rejected-optimizations.md` instead. Caches
-  are checked pixel-identical against an uncached render and are cleared
-  only from the existing modification signals.
+  are checked pixel-identical against a fresh `CanvasPainter::paint` (with
+  `LayerVisibility::ALL`). Clear them from the modification signals; what
+  those can't scope to one layer is keyed by content (keyframe pointer,
+  visibility, opacity, `QImage::cacheKey`).
 - Opt-in fast mode: `SETTING::FAST_RENDER_LAYERS_ABOVE`, key
   `"FastRenderLayersAbove"`, default off.
 - Project thumbnails (welcome screen): app side, written after a successful
