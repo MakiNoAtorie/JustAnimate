@@ -406,6 +406,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
         FEATHER_ENABLED          = 105,
         ANTI_ALIASING_ENABLED    = 106,
         FILLCONTOUR_ENABLED      = 107,
+        SPACING_VALUE            = 108,
 
         END                 = 199,
     };
@@ -421,7 +422,8 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { PRESSURE_ENABLED,      "PressureEnabled" },
             { INVISIBILITY_ENABLED,  "InvisibilityEnabled" },
             { ANTI_ALIASING_ENABLED, "AntiAliasingEnabled"},
-            { FILLCONTOUR_ENABLED,   "FillContourEnabled" }
+            { FILLCONTOUR_ENABLED,   "FillContourEnabled" },
+            { SPACING_VALUE,         "Spacing" }
         });
     }
 
@@ -437,6 +439,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
 
     qreal width() const { return getInfo(WIDTH_VALUE).realValue(); }
     qreal feather() const { return getInfo(FEATHER_VALUE).realValue(); }
+    qreal spacing() const { return getInfo(SPACING_VALUE).realValue(); }
     int stabilizerLevel() const { return getInfo(STABILIZATION_VALUE).intValue(); }
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }

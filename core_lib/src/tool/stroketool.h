@@ -67,6 +67,7 @@ public:
     virtual void setStablizationLevel(int level);
     virtual void setWidth(qreal width);
     virtual void setFeather(qreal feather);
+    virtual void setSpacing(qreal percent);
     virtual void setPressureEnabled(bool enabled);
     virtual void setFeatherEnabled(bool enabled);
     virtual void setAntiAliasingEnabled(bool enabled);
@@ -76,6 +77,7 @@ public:
 signals:
     void widthChanged(qreal value);
     void featherChanged(qreal value);
+    void spacingChanged(qreal value);
     void pressureEnabledChanged(bool enabled);
     void featherEnabledChanged(bool enabled);
     void antiAliasingEnabledChanged(bool enabled);
@@ -124,6 +126,8 @@ protected:
 
     static const qreal FEATHER_MIN;
     static const qreal FEATHER_MAX;
+    static constexpr qreal SPACING_MIN = 1.0;
+    static constexpr qreal SPACING_MAX = 400.0;
     static const qreal WIDTH_MIN;
     static const qreal WIDTH_MAX;
 

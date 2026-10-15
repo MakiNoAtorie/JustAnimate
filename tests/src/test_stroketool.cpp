@@ -183,6 +183,46 @@ TEST_CASE("DabTool - dabs are evenly spaced at any input speed and take pressure
     CHECK(lightEnd < 15);
 }
 
+TEST_CASE("DabTool - Spacing percent sets the dab density and defaults to 12.5")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(false);
+    brush->setStablizationLevel(StabilizationLevel::NONE);
+    editor->scrubTo(1);
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    auto dabs = [&]() {
+        StageProfiler::reset();
+        tablet(area, QEvent::TabletPress, QPointF(100, 300), 1.0);
+        tablet(area, QEvent::TabletMove, QPointF(500, 300), 1.0);
+        tablet(area, QEvent::TabletRelease, QPointF(500, 300), 1.0);
+        return static_cast<double>(StageProfiler::calls(StageProfiler::DabMask));
+    };
+    const double normal = dabs();
+    brush->setSpacing(25.0);
+    const double sparse = dabs();
+    StageProfiler::enabled() = profiling;
+    INFO("default " << normal << " 25% " << sparse);
+    CHECK(normal == Approx(161).epsilon(0.05));
+    CHECK(sparse == Approx(normal / 2).epsilon(0.05));
+}
+
 TEST_CASE("Pencil, Brush and Eraser - a tap paints a dab and a vector stroke edits curves")
 {
     TestSession s;

@@ -67,6 +67,7 @@ void StrokeTool::loadSettings()
     QHash<int, PropertyInfo> info;
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
     info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
+    info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;
@@ -400,6 +401,12 @@ void StrokeTool::setFeatherEnabled(bool enabled)
 {
     toolProperties().setBaseValue(StrokeToolProperties::FEATHER_ENABLED, enabled);
     emit featherEnabledChanged(enabled);
+}
+
+void StrokeTool::setSpacing(qreal percent)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::SPACING_VALUE, percent);
+    emit spacingChanged(strokeToolProperties().spacing());
 }
 
 void StrokeTool::setFeather(qreal feather)

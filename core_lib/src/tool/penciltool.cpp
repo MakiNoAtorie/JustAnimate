@@ -45,6 +45,7 @@ void PencilTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::FILLCONTOUR_ENABLED] = { Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::STABILIZATION_VALUE] = { Layer::BITMAP, Layer::VECTOR };
+    mPropertyUsed[StrokeToolProperties::SPACING_VALUE] = { Layer::BITMAP };
 
     QSettings pencilSettings(PENCIL2D, PENCIL2D);
 
@@ -55,6 +56,7 @@ void PencilTool::loadSettings()
     info[StrokeToolProperties::PRESSURE_ENABLED] = true;
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::STABILIZATION_VALUE] = { StabilizationLevel::NONE, StabilizationLevel::STRONG, StabilizationLevel::STRONG };
+    info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
     info[StrokeToolProperties::FILLCONTOUR_ENABLED] = false;
 
     toolProperties().insertProperties(info);
