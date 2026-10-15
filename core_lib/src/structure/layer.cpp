@@ -526,94 +526,38 @@ bool Layer::canMoveSelectedFramesToOffset(int offset) const
     return true;
 }
 
-void Layer::setExposureForSelectedFrames(int offset)
+void Layer::setExposureForSelectedFrames(int value, bool hold)
 {
-    auto selectedFramesByLast = mSelectedFrames_byLast;
-    auto selectedFramesByPos = mSelectedFrames_byPosition;
+    if (mSelectedFrames_byPosition.isEmpty()) { return; }
 
-    int addSpaceBetweenFrames = offset;
-
-    if (selectedFramesByLast.isEmpty()) { return; }
-
-    const int max = selectedFramesByPos.count()-1;
-    const int posForIndex = selectedFramesByPos[max];
-    const int nextPos = getNextKeyFramePosition(selectedFramesByPos[max]);
-
-    // When exposing the frame in front of the right most element in the selection.
-    if (posForIndex != nextPos) {
-        selectedFramesByPos.append(nextPos);
-    }
-
-    auto initialLastList = selectedFramesByLast;
-    auto initialPosList = selectedFramesByPos;
-
-    auto offsetList = QList<int>();
-
-    // Create an offset list to have reference of how many frames should be moved
-    for (int offset = 0; offset < selectedFramesByPos.count(); offset++)
+    // One pass from the first keyframe: each selected hold changes and shifts every later keyframe.
+    QHash<int, int> newPositions;
+    for (int pos : mSelectedFrames_byPosition) { newPositions.insert(pos, pos); }
+    QList<QPair<int, int>> fromTo;
+    int shift = 0;
+    int previous = 0;
+    bool previousSelected = false;
+    for (auto it = mKeyFrames.crbegin(); it != mKeyFrames.crend(); ++it)
     {
-        int pos = selectedFramesByPos[offset];
-        int nextKeyPos = getNextKeyFramePosition(pos);
-
-        if (pos >= getMaxKeyFramePosition()) {
-            offsetList << (pos - 1) - getPreviousKeyFramePosition(pos) + addSpaceBetweenFrames;
-        } else { // first frame doesn't move so only the space that's required
-            offsetList << nextKeyPos - (pos + 1) + addSpaceBetweenFrames;
+        const int pos = it->first;
+        if (previousSelected)
+        {
+            const int length = pos - previous;
+            shift += qMax(1, hold ? value : length + value) - length;
         }
+        if (shift != 0) { fromTo.append(qMakePair(pos, pos + shift)); }
+        previousSelected = newPositions.contains(pos);
+        if (previousSelected) { newPositions[pos] = pos + shift; }
+        previous = pos;
     }
 
-    // Either positive or negative
-    int offsetDirection = offset > 0 ? 1 : -1;
-
-    for (int i = 0; i < selectedFramesByPos.count(); i++) {
-        const int itPos = selectedFramesByPos[i];
-        const int nextIndex = i + 1;
-        const int positionInFront = itPos + 1;
-
-        // Index safety
-        if (nextIndex < 0 || nextIndex >= selectedFramesByPos.count()) {
-            continue;
-        }
-
-        // Offset above 0 will move frames forward
-        // Offset below 0 will move a frame backwards
-        while ((offset > 0 && getNextKeyFramePosition(itPos) - positionInFront < offsetList[i]) ||
-               (getNextKeyFramePosition(itPos) - positionInFront > offsetList[i] && getNextKeyFramePosition(itPos) - positionInFront > 0)) {
-
-           selectAllFramesAfter(getNextKeyFramePosition(itPos));
-
-           for (int selIndex = 0; selIndex < mSelectedFrames_byPosition.count(); selIndex++) {
-
-               if (nextIndex+selIndex >= selectedFramesByPos.count()) { break; }
-
-               int pos = selectedFramesByPos[nextIndex+selIndex];
-
-               if (!mSelectedFrames_byPosition.contains(pos)) { continue; }
-
-               selectedFramesByPos[nextIndex+selIndex] = pos + offsetDirection;
-
-               // To make the sure we get the correct index for last selection list
-               // use the initial list where values doesn't affect the index.
-               int initialPos = initialPosList[nextIndex+selIndex];
-               int indexOfLast = initialLastList.indexOf(initialPos);
-               if (indexOfLast == -1 || nextIndex+selIndex >= selectedFramesByLast.count()) {
-                   continue;
-               }
-               selectedFramesByLast[indexOfLast] = selectedFramesByLast[indexOfLast] + offsetDirection;
-           }
-
-           moveSelectedFrames(offsetDirection);
-        }
-    }
-
-    deselectAll();
-
-    // Reselect frames again based on last selection list to ensure selection behaviour
-    // works correctly
-    for (int pos : selectedFramesByLast) {
-        Q_UNUSED(pos)
-        setFrameSelected(selectedFramesByLast.takeLast(), true);
-    }
+    QList<int> byLast = mSelectedFrames_byLast;
+    QList<int> byPosition = mSelectedFrames_byPosition;
+    moveKeyFrames(fromTo);
+    for (int& pos : byLast) { pos = newPositions.value(pos); }
+    for (int& pos : byPosition) { pos = newPositions.value(pos); }
+    mSelectedFrames_byLast = byLast;
+    mSelectedFrames_byPosition = byPosition;
 }
 
 bool Layer::reverseOrderOfSelection()

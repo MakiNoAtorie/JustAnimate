@@ -446,6 +446,10 @@ void MainWindow2::createMenus()
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
     connect(ui->actionAdd_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::addExposureToSelectedFrames);
     connect(ui->actionSubtract_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::subtractExposureFromSelectedFrames);
+    connect(ui->actionHold_1s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(1, true); });
+    connect(ui->actionHold_2s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(2, true); });
+    connect(ui->actionHold_3s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(3, true); });
+    connect(ui->actionClean_Exposure, &QAction::triggered, mCommands, &ActionCommands::cleanExposureOfSelectedFrames);
     connect(ui->actionNext_Frame, &QAction::triggered, mCommands, &ActionCommands::GotoNextFrame);
     connect(ui->actionPrevious_Frame, &QAction::triggered, mCommands, &ActionCommands::GotoPrevFrame);
     connect(ui->actionNext_KeyFrame, &QAction::triggered, mCommands, &ActionCommands::GotoNextKeyFrame);
@@ -1395,6 +1399,10 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionRemove_Frame->setShortcut(cmdKeySeq(CMD_REMOVE_FRAME));
     ui->actionAdd_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_ADD_FRAME_EXPOSURE));
     ui->actionSubtract_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_SUBTRACT_FRAME_EXPOSURE));
+    ui->actionHold_1s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_1S));
+    ui->actionHold_2s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_2S));
+    ui->actionHold_3s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_3S));
+    ui->actionClean_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_CLEAN_EXPOSURE));
     ui->actionReverse_Frames_Order->setShortcut(cmdKeySeq(CMD_REVERSE_SELECTED_FRAMES));
     ui->actionRemove_Frames->setShortcut(cmdKeySeq(CMD_REMOVE_SELECTED_FRAMES));
     ui->actionMove_Frame_Backward->setShortcut(cmdKeySeq(CMD_MOVE_FRAME_BACKWARD));

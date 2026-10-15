@@ -227,6 +227,10 @@
      </property>
      <addaction name="actionAdd_Frame_Exposure"/>
      <addaction name="actionSubtract_Frame_Exposure"/>
+     <addaction name="actionHold_1s"/>
+     <addaction name="actionHold_2s"/>
+     <addaction name="actionHold_3s"/>
+     <addaction name="actionClean_Exposure"/>
      <addaction name="separator"/>
      <addaction name="actionReverse_Frames_Order"/>
      <addaction name="actionRemove_Frames"/>
@@ -1102,6 +1106,29 @@
   <action name="actionSubtract_Frame_Exposure">
    <property name="text">
     <string>Subtract Exposure</string>
+   </property>
+  </action>
+  <action name="actionHold_1s">
+   <property name="text">
+    <string>Exposure: 1s</string>
+   </property>
+  </action>
+  <action name="actionHold_2s">
+   <property name="text">
+    <string>Exposure: 2s</string>
+   </property>
+  </action>
+  <action name="actionHold_3s">
+   <property name="text">
+    <string>Exposure: 3s</string>
+   </property>
+  </action>
+  <action name="actionClean_Exposure">
+   <property name="text">
+    <string>Clean Exposure</string>
+   </property>
+   <property name="toolTip">
+    <string>Remove drawings that repeat the drawing before them, so it holds instead</string>
    </property>
   </action>
   <action name="actionReverse_Frames_Order">

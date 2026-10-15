@@ -77,6 +77,12 @@ public:
 
     int animationLength(bool includeSounds = true);
 
+    /** Layer::setExposureForSelectedFrames on every layer with selected frames, as one undo step. */
+    void setExposureForSelectedFrames(int value, bool hold);
+    /** Removes each selected bitmap or vector drawing that repeats the drawing before it, as one undo step.
+     *  The drawing before it then holds over its frames. */
+    void cleanExposureOfSelectedFrames();
+
     /** Selects the keyframes from frame `fromFrame` to `toFrame` on the layers from `fromLayer` to `toLayer`.
      *  Deselects the frames of every other layer. The bounds can be in any order. */
     void selectFrames(int fromLayer, int toLayer, int fromFrame, int toFrame);
