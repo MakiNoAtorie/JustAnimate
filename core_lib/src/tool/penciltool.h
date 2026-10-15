@@ -18,12 +18,12 @@ GNU General Public License for more details.
 #ifndef PENCILTOOL_H
 #define PENCILTOOL_H
 
-#include "stroketool.h"
+#include "dabtool.h"
 #include <QColor>
 
 class Layer;
 
-class PencilTool : public StrokeTool
+class PencilTool : public DabTool
 {
     Q_OBJECT
 public:
@@ -37,18 +37,15 @@ public:
     void loadSettings() override;
     QCursor cursor() override;
 
-    void pointerPressEvent(PointerEvent*) override;
-    void pointerMoveEvent(PointerEvent*) override;
-    void pointerReleaseEvent(PointerEvent*) override;
-
-    void drawStroke();
-    void paintAt(QPointF point);
     void paintVectorStroke(Layer* layer);
 
-private:
-    QPointF mLastBrushPoint{ 0, 0 };
-    QPointF mMouseDownPoint;
+protected:
+    void strokeStarted() override;
+    void drawDab(QPointF point, qreal width, qreal opacity) override;
+    QPen vectorPreviewPen() override;
+    void finishVectorStroke(Layer* layer) override;
 
+private:
     StrokeToolProperties mSettings;
 };
 

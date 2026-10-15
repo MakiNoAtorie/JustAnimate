@@ -33,7 +33,7 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 
 
-PencilTool::PencilTool(QObject* parent) : StrokeTool(parent)
+PencilTool::PencilTool(QObject* parent) : DabTool(parent)
 {
 }
 
@@ -86,152 +86,28 @@ QCursor PencilTool::cursor()
     return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
 }
 
-void PencilTool::pointerPressEvent(PointerEvent *event)
+void PencilTool::strokeStarted()
 {
-    mInterpolator.pointerPressEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    mMouseDownPoint = getCurrentPoint();
-    mLastBrushPoint = getCurrentPoint();
-
-    startStroke(event->inputType());
-
     // note: why are we doing this on device press event?
     if (mEditor->layers()->currentLayer()->type() == Layer::VECTOR && !mEditor->preference()->isOn(SETTING::INVISIBLE_LINES))
     {
         mScribbleArea->toggleThinLines();
     }
-
-    StrokeTool::pointerPressEvent(event);
 }
 
-void PencilTool::pointerMoveEvent(PointerEvent* event)
+void PencilTool::drawDab(QPointF point, qreal width, qreal opacity)
 {
-    mInterpolator.pointerMoveEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    if (event->buttons() & Qt::LeftButton && event->inputType() == mCurrentInputType)
-    {
-        mCurrentPressure = mInterpolator.getPressure();
-        drawStroke();
-        if (mSettings.stabilizerLevel() != mInterpolator.getStabilizerLevel())
-        {
-            mInterpolator.setStabilizerLevel(mSettings.stabilizerLevel());
-        }
-    }
-    StrokeTool::pointerMoveEvent(event);
+    mScribbleArea->drawPencil(point, width, mSettings.feather(), mEditor->color()->frontColor(), opacity);
 }
 
-void PencilTool::pointerReleaseEvent(PointerEvent *event)
+QPen PencilTool::vectorPreviewPen()
 {
-    mInterpolator.pointerReleaseEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    if (event->inputType() != mCurrentInputType) return;
-
-    qreal distance = QLineF(getCurrentPoint(), mMouseDownPoint).length();
-    if (distance < 1)
-    {
-        paintAt(mMouseDownPoint);
-    }
-    else
-    {
-        drawStroke();
-    }
-
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer->type() == Layer::VECTOR) {
-        paintVectorStroke(layer);
-    }
-    endStroke();
-
-    StrokeTool::pointerReleaseEvent(event);
+    return QPen(mEditor->color()->frontColor(), 1, Qt::DotLine, Qt::RoundCap, Qt::RoundJoin);
 }
 
-// draw a single paint dab at the given location
-void PencilTool::paintAt(QPointF point)
+void PencilTool::finishVectorStroke(Layer* layer)
 {
-    //qDebug() << "Made a single dab at " << point;
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer->type() == Layer::BITMAP)
-    {
-        qreal opacity = (mSettings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
-        qreal fixedBrushFeather = mSettings.feather();
-
-        mCurrentWidth = brushWidth;
-        mScribbleArea->drawPencil(point,
-                                  brushWidth,
-                                  fixedBrushFeather,
-                                  mEditor->color()->frontColor(),
-                                  opacity);
-    }
-}
-
-
-void PencilTool::drawStroke()
-{
-    StrokeTool::drawStroke();
-    QList<QPointF> p = mInterpolator.interpolateStroke();
-
-    Layer* layer = mEditor->layers()->currentLayer();
-
-    if (layer->type() == Layer::BITMAP)
-    {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal opacity = (mSettings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
-        mCurrentWidth = brushWidth;
-
-        qreal fixedBrushFeather = mSettings.feather();
-        qreal brushStep = qMax(1.0, (0.5 * brushWidth));
-
-        QPointF a = mLastBrushPoint;
-        QPointF b = getCurrentPoint();
-
-        qreal distance = 4 * QLineF(b, a).length();
-        int steps = qRound(distance / brushStep);
-
-        for (int i = 0; i < steps; i++)
-        {
-            QPointF point = mLastBrushPoint + (i + 1) * brushStep * (getCurrentPoint() - mLastBrushPoint) / distance;
-            mScribbleArea->drawPencil(point,
-                                      brushWidth,
-                                      fixedBrushFeather,
-                                      mEditor->color()->frontColor(),
-                                      opacity);
-
-            if (i == (steps - 1))
-            {
-                mLastBrushPoint = getCurrentPoint();
-            }
-        }
-    }
-    else if (layer->type() == Layer::VECTOR)
-    {
-        mCurrentWidth = 0; // FIXME: WTF?
-        QPen pen(mEditor->color()->frontColor(),
-                 1,
-                 Qt::DotLine,
-                 Qt::RoundCap,
-                 Qt::RoundJoin);
-
-        if (p.size() == 4)
-        {
-            QPainterPath path(p[0]);
-            path.cubicTo(p[1],
-                         p[2],
-                         p[3]);
-            mScribbleArea->drawPath(path, pen, Qt::NoBrush, QPainter::CompositionMode_Source);
-        }
-    }
+    paintVectorStroke(layer);
 }
 
 void PencilTool::paintVectorStroke(Layer* layer)

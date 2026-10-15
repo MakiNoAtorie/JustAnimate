@@ -31,7 +31,7 @@ GNU General Public License for more details.
 #include "pointerevent.h"
 
 
-EraserTool::EraserTool(QObject* parent) : StrokeTool(parent)
+EraserTool::EraserTool(QObject* parent) : DabTool(parent)
 {
 }
 
@@ -90,151 +90,31 @@ QCursor EraserTool::cursor()
     return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
 }
 
-void EraserTool::pointerPressEvent(PointerEvent *event)
+void EraserTool::drawDab(QPointF point, qreal width, qreal opacity)
 {
-    mInterpolator.pointerPressEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    startStroke(event->inputType());
-    mLastBrushPoint = getCurrentPoint();
-    mMouseDownPoint = getCurrentPoint();
-
-    StrokeTool::pointerPressEvent(event);
+    mScribbleArea->drawBrush(point,
+                             width,
+                             mSettings.feather(),
+                             Qt::white,
+                             QPainter::CompositionMode_SourceOver,
+                             opacity,
+                             mSettings.featherEnabled(),
+                             mSettings.AntiAliasingEnabled() == ON);
 }
 
-void EraserTool::pointerMoveEvent(PointerEvent* event)
+QPen EraserTool::vectorPreviewPen()
 {
-    mInterpolator.pointerMoveEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    if (event->buttons() & Qt::LeftButton && event->inputType() == mCurrentInputType)
+    mCurrentWidth = mSettings.width();
+    if (mSettings.pressureEnabled())
     {
-        mCurrentPressure = mInterpolator.getPressure();
-        updateStrokes();
-        if (mSettings.stabilizerLevel() != mInterpolator.getStabilizerLevel())
-        {
-            mInterpolator.setStabilizerLevel(mSettings.stabilizerLevel());
-        }
+        mCurrentWidth = (mCurrentWidth + (mInterpolator.getPressure() * mCurrentWidth)) * 0.5;
     }
-
-    StrokeTool::pointerMoveEvent(event);
+    return QPen(Qt::white, mCurrentWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
 }
 
-void EraserTool::pointerReleaseEvent(PointerEvent *event)
+void EraserTool::finishVectorStroke(Layer*)
 {
-    mInterpolator.pointerReleaseEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    if (event->inputType() != mCurrentInputType) return;
-
-
-    qreal distance = QLineF(getCurrentPoint(), mMouseDownPoint).length();
-    if (distance < 1)
-    {
-        paintAt(mMouseDownPoint);
-    }
-    else
-    {
-        drawStroke();
-    }
-
     removeVectorPaint();
-    endStroke();
-
-    StrokeTool::pointerReleaseEvent(event);
-}
-
-// draw a single paint dab at the given location
-void EraserTool::paintAt(QPointF point)
-{
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer->type() == Layer::BITMAP)
-    {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal opacity = (mSettings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
-        mCurrentWidth = brushWidth;
-
-        mScribbleArea->drawBrush(point,
-                                 brushWidth,
-                                 mSettings.feather(),
-                                 QColor(255, 255, 255, 255),
-                                 QPainter::CompositionMode_SourceOver,
-                                 opacity,
-                                 mSettings.featherEnabled(),
-                                 mSettings.AntiAliasingEnabled() == ON);
-    }
-}
-
-void EraserTool::drawStroke()
-{
-    StrokeTool::drawStroke();
-    QList<QPointF> p = mInterpolator.interpolateStroke();
-
-    Layer* layer = mEditor->layers()->currentLayer();
-
-    if (layer->type() == Layer::BITMAP)
-    {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal opacity = (mSettings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
-        mCurrentWidth = brushWidth;
-
-        qreal brushStep = (0.5 * brushWidth);
-        brushStep = qMax(1.0, brushStep);
-
-        BlitRect rect;
-
-        QPointF a = mLastBrushPoint;
-        QPointF b = getCurrentPoint();
-
-        qreal distance = 4 * QLineF(b, a).length();
-        int steps = qRound(distance / brushStep);
-
-        for (int i = 0; i < steps; i++)
-        {
-            QPointF point = mLastBrushPoint + (i + 1) * brushStep * (getCurrentPoint() - mLastBrushPoint) / distance;
-
-            mScribbleArea->drawBrush(point,
-                                     brushWidth,
-                                     mSettings.feather(),
-                                     Qt::white,
-                                     QPainter::CompositionMode_SourceOver,
-                                     opacity,
-                                     mSettings.featherEnabled(),
-                                     mSettings.AntiAliasingEnabled() == ON);
-            if (i == (steps - 1))
-            {
-                mLastBrushPoint = getCurrentPoint();
-            }
-        }
-    }
-    else if (layer->type() == Layer::VECTOR)
-    {
-        mCurrentWidth = mSettings.width();
-        if (mSettings.pressureEnabled())
-        {
-            mCurrentWidth = (mCurrentWidth + (mInterpolator.getPressure() * mCurrentWidth)) * 0.5;
-        }
-        qreal brushWidth = mCurrentWidth;
-
-        QPen pen(Qt::white, brushWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
-
-        if (p.size() == 4)
-        {
-            QPainterPath path(p[0]);
-            path.cubicTo(p[1],
-                         p[2],
-                         p[3]);
-            mScribbleArea->drawPath(path, pen, Qt::NoBrush, QPainter::CompositionMode_Source);
-        }
-    }
 }
 
 void EraserTool::removeVectorPaint()
@@ -254,14 +134,9 @@ void EraserTool::removeVectorPaint()
     }
 }
 
-void EraserTool::updateStrokes()
+void EraserTool::strokeMoved()
 {
     Layer* layer = mEditor->layers()->currentLayer();
-    if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
-    {
-        drawStroke();
-    }
-
     if (layer->type() == Layer::VECTOR)
     {
         qreal radius = mSettings.width() / 2;

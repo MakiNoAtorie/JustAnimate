@@ -121,6 +121,48 @@ TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous str
     CHECK(lightDot <= 15);
 }
 
+TEST_CASE("Pencil, Brush and Eraser - a tap paints a dab and a vector stroke edits curves")
+{
+    TestSession s;
+    LayerBitmap* bitmap = s.object->addNewBitmapLayer();
+    LayerVector* vector = s.object->addNewVectorLayer();
+    bitmap->getBitmapImageAtFrame(1)->drawRect(QRectF(-50, -50, 100, 100), Qt::NoPen, QColor(0, 0, 0),
+                                                QPainter::CompositionMode_SourceOver, false);
+    VectorImage* vimage = vector->getVectorImageAtFrame(1);
+    BezierCurve curve({ QPointF(0, 0), QPointF(5, 0) });
+    curve.setColorNumber(1);
+    vimage->addCurve(curve, 1.0);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->scrubTo(1);
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+
+    for (ToolType tool : { PENCIL, BRUSH, ERASER })
+    {
+        CAPTURE(tool);
+        editor->tools()->setCurrentTool(tool);
+        const ToolSettingsGuard guard(editor->tools()->currentTool());
+        static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(20);
+
+        editor->layers()->setCurrentLayer(bitmap);
+        const QImage before = *bitmap->getBitmapImageAtFrame(1)->image();
+        tap(area, origin + QPointF(30, 30), 1.0);
+        CHECK(*bitmap->getBitmapImageAtFrame(1)->image() != before);
+
+        editor->layers()->setCurrentLayer(vector);
+        const int curves = vector->getVectorImageAtFrame(1)->getLastCurveNumber();
+        stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+        if (tool == ERASER)
+            CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() < curves);
+        else
+            CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() == curves + 1);
+    }
+}
+
 TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
 {
     TestSession session;

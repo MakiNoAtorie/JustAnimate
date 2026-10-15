@@ -18,12 +18,12 @@ GNU General Public License for more details.
 #ifndef BRUSHTOOL_H
 #define BRUSHTOOL_H
 
-#include "stroketool.h"
+#include "dabtool.h"
 #include <QColor>
 
 class Layer;
 
-class BrushTool : public StrokeTool
+class BrushTool : public DabTool
 {
     Q_OBJECT
 
@@ -38,20 +38,12 @@ public:
     void loadSettings() override;
     QCursor cursor() override;
 
-    void pointerMoveEvent(PointerEvent*) override;
-    void pointerPressEvent(PointerEvent*) override;
-    void pointerReleaseEvent(PointerEvent*) override;
-
-    void drawStroke();
     void paintVectorStroke(Layer* layer);
-    void paintAt(QPointF point);
 
 protected:
-    QPointF mLastBrushPoint;
-    QPointF mMouseDownPoint;
-
-    QColor mCurrentPressuredColor;
-    qreal mOpacity = 1.0;
+    void drawDab(QPointF point, qreal width, qreal opacity) override;
+    QPen vectorPreviewPen() override;
+    void finishVectorStroke(Layer* layer) override;
 
     StrokeToolProperties mSettings;
 };

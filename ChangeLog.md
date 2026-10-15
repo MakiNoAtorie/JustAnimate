@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Onion skin: choose the opacity falloff (linear, gentle, steep) and the previous/next tint colours, and turn onion skin off per layer from the layer's right-click menu (3.1).
+- Pencil, Brush and Eraser share one press, release and dab-placement path; strokes look the same (B1 prefactor).
 - The default dock layout fits 1366x768 and 4K screens without overlap (side columns full height, timeline under the canvas), and Reset Windows restores it (4.2).
 - Pointer events carry tablet tilt (X/Y) and a timestamp; mouse events report zero tilt (2.1).
 - CI: the macOS package smoke test no longer fails when the DMG is slow to unmount (0.1).
