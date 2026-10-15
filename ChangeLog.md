@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The welcome screen offers project templates (HD, 4K, vertical, square, GIF) that set the canvas size and frame rate (4.3).
 - A welcome screen replaces the preset dialog: recent projects with thumbnails (missing files are marked), open, and new from a preset (4.3).
 - Canvas: onion skin frames are tinted once and reused, so scrubbing with onion skin on is faster (1.4).
 - Timeline: drag a box across layers to select frames on all of them, then drag to move them together as one undo step (3.4).
