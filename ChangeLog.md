@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Shape tool (U): line, rectangle and ellipse on bitmap and vector layers; Shift constrains, Alt draws from the center; bitmap shapes use the tool's brush settings (2.3).
 - Fill behind lines is the bucket's existing Behind blend mode; a test now checks it keeps antialiased line edges over the fill (2.6).
 - Bucket "close gaps" option: line gaps up to N px count as closed when filling (0 = off, default) (2.4).
 - Brush preset editor (New, Edit, Duplicate in the preset dock) edits every engine setting, the tip image, a per-preset pressure curve and the description with a live preview stroke (B8).
