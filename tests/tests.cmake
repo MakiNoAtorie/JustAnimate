@@ -33,6 +33,8 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_emergencysave.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapbucket.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_brushpresets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_brushpresetdock.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_erasertool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_eyedroppertool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_editorimport.cpp
@@ -85,6 +87,18 @@ add_executable(pencil2d_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basedockwidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basedockwidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/buttonappearancewatcher.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/buttonappearancewatcher.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpresetdock.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpresetdock.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpreseteditor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpreseteditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pressurecurvewidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pressurecurvewidget.cpp
 )
 
 # Include directories

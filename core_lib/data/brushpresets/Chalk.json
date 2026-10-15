@@ -1,0 +1,15 @@
+{
+  "description": "Rough stick with scattered dabs.",
+  "settings": {
+    "Width": 28,
+    "FeatherEnabled": false,
+    "Opacity": 90,
+    "Flow": 55,
+    "Spacing": 14,
+    "SizeJitter": 25,
+    "Scatter": 20,
+    "AngleJitter": 180,
+    "DabCount": 4
+  },
+  "tipImage": ""
+}

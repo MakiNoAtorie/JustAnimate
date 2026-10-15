@@ -242,6 +242,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_WINDOW_STATE        "WindowState"
 #define SETTING_SHOW_STATUS_BAR     "ShowStatusBar"
 #define SETTING_CURVE_SMOOTHING     "CurveSmoothing"
+#define SETTING_PRESSURE_CURVE      "PressureCurve"
 #define SETTING_SHORT_SCRUB         "ShortScrub"
 #define SETTING_FPS                 "Fps"
 #define SETTING_FIELD_W             "FieldW"

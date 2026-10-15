@@ -11,6 +11,10 @@
 #include "toolmanager.h"
 #include "layermanager.h"
 
+#include <QFileDialog>
+#include <QFormLayout>
+#include <QMessageBox>
+
 StrokeOptionsWidget::StrokeOptionsWidget(Editor* editor, QWidget *parent) :
     BaseWidget(parent),
     ui(new Ui::StrokeOptionsWidget)
@@ -44,6 +48,41 @@ void StrokeOptionsWidget::initUI()
 
     auto spacingInfo = p.getInfo(StrokeToolProperties::SPACING_VALUE);
     ui->spacingSlider->init(tr("Spacing %"), SpinSlider::LOG, spacingInfo.minReal(), spacingInfo.maxReal());
+    ui->flowSlider->init(tr("Flow %"), SpinSlider::LINEAR, 1, 100);
+    ui->opacitySlider->init(tr("Opacity %"), SpinSlider::LINEAR, 1, 100);
+
+    auto aspectInfo = p.getInfo(StrokeToolProperties::TIP_ASPECT_VALUE);
+    ui->tipAspectSlider->init(tr("Tip Aspect %"), SpinSlider::LINEAR, aspectInfo.minReal(), aspectInfo.maxReal());
+    auto angleInfo = p.getInfo(StrokeToolProperties::TIP_ANGLE_VALUE);
+    ui->tipAngleSlider->init(tr("Tip Angle"), SpinSlider::LINEAR, angleInfo.minReal(), angleInfo.maxReal());
+
+    mDynamicsBox = new QWidget(this);
+    auto* dynamics = new QFormLayout(mDynamicsBox);
+    dynamics->setContentsMargins(0, 0, 0, 0);
+    struct Row { int type; QString label; QString suffix; };
+    const Row rows[] = {
+        { StrokeToolProperties::SPEED_TO_SIZE_VALUE, tr("Speed to size"), "%" },
+        { StrokeToolProperties::TILT_TO_SIZE_VALUE, tr("Tilt to size"), "%" },
+        { StrokeToolProperties::TILT_TO_ANGLE_VALUE, tr("Tilt to tip angle"), "%" },
+        { StrokeToolProperties::SIZE_JITTER_VALUE, tr("Size jitter"), "%" },
+        { StrokeToolProperties::SCATTER_VALUE, tr("Scatter"), "%" },
+        { StrokeToolProperties::ANGLE_JITTER_VALUE, tr("Angle jitter"), QString(QChar(0x00B0)) },
+        { StrokeToolProperties::DAB_COUNT_VALUE, tr("Dabs per step"), "" },
+        // Taper also gives mouse strokes thin ends, like simulated pressure.
+        { StrokeToolProperties::TAPER_START_VALUE, tr("Start taper"), tr(" px") },
+        { StrokeToolProperties::TAPER_END_VALUE, tr("End taper"), tr(" px") },
+    };
+    for (const auto& [type, label, suffix] : rows)
+    {
+        const PropertyInfo info = p.getInfo(type);
+        auto* box = new QSpinBox(mDynamicsBox);
+        box->setRange(info.minInt(), info.maxInt());
+        box->setSuffix(suffix);
+        dynamics->addRow(label, box);
+        mDynamicsSpinBoxes.append({ type, box });
+        connect(box, &QSpinBox::valueChanged, this, [this, type = type](int value) { mCurrentTool->setDynamic(type, value); });
+    }
+    ui->verticalLayout_2->insertWidget(ui->verticalLayout_2->indexOf(ui->tipImageLayout) + 1, mDynamicsBox);
 
     mCurrentTool = strokeTool;
 
@@ -95,6 +134,20 @@ void StrokeOptionsWidget::updateUI()
         setSpacingValue(info.realValue());
     }
 
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::TIP_ASPECT_VALUE)) {
+        updateTip();
+    }
+
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::SCATTER_VALUE)) {
+        updateDynamics();
+    }
+
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::FLOW_VALUE)) {
+        setFlowValue(p.flow());
+        setStrokeOpacityValue(p.opacity());
+        setWashEnabled(p.washEnabled());
+    }
+
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED)) {
         setFeatherEnabled(p.featherEnabled());
     }
@@ -144,6 +197,11 @@ void StrokeOptionsWidget::makeConnectionFromModelToUI(StrokeTool* strokeTool)
     connect(strokeTool, &StrokeTool::widthChanged, this, &StrokeOptionsWidget::setWidthValue);
     connect(strokeTool, &StrokeTool::featherChanged, this, &StrokeOptionsWidget::setFeatherValue);
     connect(strokeTool, &StrokeTool::spacingChanged, this, &StrokeOptionsWidget::setSpacingValue);
+    connect(strokeTool, &StrokeTool::tipChanged, this, &StrokeOptionsWidget::updateTip);
+    connect(strokeTool, &StrokeTool::dynamicsChanged, this, &StrokeOptionsWidget::updateDynamics);
+    connect(strokeTool, &StrokeTool::flowChanged, this, &StrokeOptionsWidget::setFlowValue);
+    connect(strokeTool, &StrokeTool::strokeOpacityChanged, this, &StrokeOptionsWidget::setStrokeOpacityValue);
+    connect(strokeTool, &StrokeTool::washEnabledChanged, this, &StrokeOptionsWidget::setWashEnabled);
     connect(strokeTool, &StrokeTool::featherEnabledChanged, this, &StrokeOptionsWidget::setFeatherEnabled);
     connect(strokeTool, &StrokeTool::pressureEnabledChanged, this, &StrokeOptionsWidget::setPressureEnabled);
     connect(strokeTool, &StrokeTool::smoothingModeChanged, this, &StrokeOptionsWidget::setSmoothingMode);
@@ -216,6 +274,41 @@ void StrokeOptionsWidget::makeConnectionFromUIToModel()
         mCurrentTool->setSpacing(value);
     });
 
+    connect(ui->tipAspectSlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setTipAspect(value);
+    });
+    connect(ui->tipAngleSlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setTipAngle(value);
+    });
+    connect(ui->squareTipBox, &QCheckBox::clicked, [=](bool enabled) {
+        mCurrentTool->setTipSquare(enabled);
+    });
+    connect(ui->followDirectionBox, &QCheckBox::clicked, [=](bool enabled) {
+        mCurrentTool->setTipFollowsDirection(enabled);
+    });
+    connect(ui->loadTipImageButton, &QPushButton::clicked, [=] {
+        const QString fileName = QFileDialog::getOpenFileName(this, tr("Open Brush Tip"), QString(),
+                                                              tr("Brush tips (*.png *.gbr);;All files (*)"));
+        if (fileName.isEmpty()) return;
+        const Status st = mCurrentTool->setTipImage(fileName);
+        if (!st.ok()) QMessageBox::warning(this, tr("Open Brush Tip"), st.description());
+    });
+    connect(ui->clearTipImageButton, &QPushButton::clicked, [=] {
+        mCurrentTool->setTipImage(QString());
+    });
+
+    connect(ui->flowSlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setFlow(value);
+    });
+
+    connect(ui->opacitySlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setStrokeOpacity(value);
+    });
+
+    connect(ui->washBox, &QCheckBox::clicked, [=](bool enabled) {
+        mCurrentTool->setWashEnabled(enabled);
+    });
+
     clearFocusOnFinished(ui->spacingSpinBox);
     clearFocusOnFinished(ui->sizeSpinBox);
     clearFocusOnFinished(ui->featherSpinBox);
@@ -237,6 +330,17 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->featherSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_VALUE));
     ui->spacingSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
     ui->spacingSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
+    const bool tip = tool->isPropertyEnabled(StrokeToolProperties::TIP_ASPECT_VALUE);
+    ui->tipAspectSlider->setVisible(tip);
+    ui->tipAngleSlider->setVisible(tip);
+    ui->squareTipBox->setVisible(tip);
+    ui->followDirectionBox->setVisible(tip);
+    ui->flowSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FLOW_VALUE));
+    ui->opacitySlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::OPACITY_VALUE));
+    ui->washBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::WASH_ENABLED));
+    ui->loadTipImageButton->setVisible(tip);
+    ui->clearTipImageButton->setVisible(tip);
+    if (mDynamicsBox) mDynamicsBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SCATTER_VALUE));
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));
@@ -274,6 +378,47 @@ void StrokeOptionsWidget::setSpacingValue(qreal spacing)
 
     QSignalBlocker b2(ui->spacingSpinBox);
     ui->spacingSpinBox->setValue(spacing);
+}
+
+void StrokeOptionsWidget::setFlowValue(qreal flow)
+{
+    QSignalBlocker b(ui->flowSlider);
+    ui->flowSlider->setValue(flow);
+}
+
+void StrokeOptionsWidget::setStrokeOpacityValue(qreal opacity)
+{
+    QSignalBlocker b(ui->opacitySlider);
+    ui->opacitySlider->setValue(opacity);
+}
+
+void StrokeOptionsWidget::setWashEnabled(bool enabled)
+{
+    QSignalBlocker b(ui->washBox);
+    ui->washBox->setChecked(enabled);
+}
+
+void StrokeOptionsWidget::updateTip()
+{
+    const StrokeToolProperties& p = mCurrentTool->strokeToolProperties();
+    QSignalBlocker b(ui->tipAspectSlider);
+    ui->tipAspectSlider->setValue(p.tipAspect());
+    QSignalBlocker b2(ui->tipAngleSlider);
+    ui->tipAngleSlider->setValue(p.tipAngle());
+    QSignalBlocker b3(ui->squareTipBox);
+    ui->squareTipBox->setChecked(p.tipSquare());
+    QSignalBlocker b4(ui->followDirectionBox);
+    ui->followDirectionBox->setChecked(p.tipFollowsDirection());
+}
+
+void StrokeOptionsWidget::updateDynamics()
+{
+    const StrokeToolProperties& p = mCurrentTool->strokeToolProperties();
+    for (const auto& [type, box] : mDynamicsSpinBoxes)
+    {
+        QSignalBlocker b(box);
+        box->setValue(p.getInfo(type).intValue());
+    }
 }
 
 void StrokeOptionsWidget::setFeatherEnabled(bool enabled)

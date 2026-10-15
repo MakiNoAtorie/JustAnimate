@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "toolmanager.h"
 #include "mathutils.h"
+#include "tiledbuffer.h"
 
 #include "canvascursorpainter.h"
 
@@ -68,6 +69,23 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
     info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
     info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
+    info[StrokeToolProperties::TIP_SQUARE_ENABLED] = false;
+    info[StrokeToolProperties::TIP_ASPECT_VALUE] = { TIP_ASPECT_MIN, 100.0, 100.0 };
+    info[StrokeToolProperties::TIP_ANGLE_VALUE] = { -180.0, 180.0, 0.0 };
+    info[StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED] = false;
+    info[StrokeToolProperties::FLOW_VALUE] = { 1.0, 100.0, 100.0 };
+    info[StrokeToolProperties::OPACITY_VALUE] = { 1.0, 100.0, 100.0 };
+    info[StrokeToolProperties::WASH_ENABLED] = false;
+    info[StrokeToolProperties::SPEED_TO_SIZE_VALUE] = { -100, 100, 0 };
+    info[StrokeToolProperties::TILT_TO_SIZE_VALUE] = { -100, 100, 0 };
+    info[StrokeToolProperties::TILT_TO_ANGLE_VALUE] = { -100, 100, 0 };
+    info[StrokeToolProperties::SIZE_JITTER_VALUE] = { 0, 100, 0 };
+    info[StrokeToolProperties::SCATTER_VALUE] = { 0, 500, 0 };
+    info[StrokeToolProperties::ANGLE_JITTER_VALUE] = { 0, 180, 0 };
+    info[StrokeToolProperties::DAB_COUNT_VALUE] = { 1, 16, 1 };
+    info[StrokeToolProperties::FLOW_PER_DAB_ENABLED] = false;
+    info[StrokeToolProperties::TAPER_START_VALUE] = { 0, 1000, 0 };
+    info[StrokeToolProperties::TAPER_END_VALUE] = { 0, 1000, 0 };
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;
@@ -435,6 +453,68 @@ void StrokeTool::setSpacing(qreal percent)
 {
     toolProperties().setBaseValue(StrokeToolProperties::SPACING_VALUE, percent);
     emit spacingChanged(strokeToolProperties().spacing());
+}
+
+void StrokeTool::setFlow(qreal percent)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::FLOW_VALUE, percent);
+    emit flowChanged(strokeToolProperties().flow());
+}
+
+void StrokeTool::setStrokeOpacity(qreal percent)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::OPACITY_VALUE, percent);
+    emit strokeOpacityChanged(strokeToolProperties().opacity());
+}
+
+void StrokeTool::setWashEnabled(bool enabled)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::WASH_ENABLED, enabled);
+    emit washEnabledChanged(enabled);
+}
+
+void StrokeTool::setDynamic(int type, int value)
+{
+    toolProperties().setBaseValue(type, value);
+    emit dynamicsChanged();
+}
+
+void StrokeTool::setTipSquare(bool square)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::TIP_SQUARE_ENABLED, square);
+    emit tipChanged();
+}
+
+void StrokeTool::setTipAspect(qreal percent)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::TIP_ASPECT_VALUE, percent);
+    emit tipChanged();
+}
+
+void StrokeTool::setTipAngle(qreal degrees)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::TIP_ANGLE_VALUE, degrees);
+    emit tipChanged();
+}
+
+void StrokeTool::setTipFollowsDirection(bool follow)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, follow);
+    emit tipChanged();
+}
+
+Status StrokeTool::setTipImage(const QString& fileName)
+{
+    QImage mask;
+    if (!fileName.isEmpty())
+    {
+        const Status st = loadBrushTipImage(fileName, mask);
+        if (!st.ok()) return st;
+    }
+    mTipImage = mask;
+    mTipImagePath = fileName;
+    emit tipChanged();
+    return Status::OK;
 }
 
 void StrokeTool::setFeather(qreal feather)

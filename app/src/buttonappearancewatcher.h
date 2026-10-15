@@ -26,6 +26,9 @@ enum class AppearanceEventType
     ICON_ACTIVE
 };
 
+#include <QEvent>
+#include <QObject>
+
 #include "appearance.h"
 
 class ButtonAppearanceWatcher : public QObject

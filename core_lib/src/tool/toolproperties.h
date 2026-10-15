@@ -409,6 +409,23 @@ struct StrokeToolProperties: public ToolPropertiesBase
         FILLCONTOUR_ENABLED      = 107,
         SMOOTHING_STRENGTH       = 108,
         SPACING_VALUE            = 109,
+        TIP_SQUARE_ENABLED       = 110,
+        TIP_ASPECT_VALUE         = 111,
+        TIP_ANGLE_VALUE          = 112,
+        TIP_FOLLOW_DIRECTION_ENABLED = 113,
+        FLOW_VALUE               = 114,
+        OPACITY_VALUE            = 115,
+        WASH_ENABLED             = 116,
+        SPEED_TO_SIZE_VALUE      = 117,
+        TILT_TO_SIZE_VALUE       = 118,
+        TILT_TO_ANGLE_VALUE      = 119,
+        SIZE_JITTER_VALUE        = 120,
+        SCATTER_VALUE            = 121,
+        ANGLE_JITTER_VALUE       = 122,
+        DAB_COUNT_VALUE          = 123,
+        FLOW_PER_DAB_ENABLED     = 124,
+        TAPER_START_VALUE        = 125,
+        TAPER_END_VALUE          = 126,
 
         END                 = 199,
     };
@@ -426,7 +443,24 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { INVISIBILITY_ENABLED,  "InvisibilityEnabled" },
             { ANTI_ALIASING_ENABLED, "AntiAliasingEnabled"},
             { FILLCONTOUR_ENABLED,   "FillContourEnabled" },
-            { SPACING_VALUE,         "Spacing" }
+            { SPACING_VALUE,         "Spacing" },
+            { TIP_SQUARE_ENABLED,    "TipSquare" },
+            { TIP_ASPECT_VALUE,      "TipAspect" },
+            { TIP_ANGLE_VALUE,       "TipAngle" },
+            { TIP_FOLLOW_DIRECTION_ENABLED, "TipFollowDirection" },
+            { FLOW_VALUE,            "Flow" },
+            { OPACITY_VALUE,         "Opacity" },
+            { WASH_ENABLED,          "WashEnabled" },
+            { SPEED_TO_SIZE_VALUE,   "SpeedToSize" },
+            { TILT_TO_SIZE_VALUE,    "TiltToSize" },
+            { TILT_TO_ANGLE_VALUE,   "TiltToAngle" },
+            { SIZE_JITTER_VALUE,     "SizeJitter" },
+            { SCATTER_VALUE,         "Scatter" },
+            { ANGLE_JITTER_VALUE,    "AngleJitter" },
+            { DAB_COUNT_VALUE,       "DabCount" },
+            { FLOW_PER_DAB_ENABLED,  "FlowPerDab" },
+            { TAPER_START_VALUE,     "TaperStart" },
+            { TAPER_END_VALUE,       "TaperEnd" }
         });
     }
 
@@ -445,6 +479,23 @@ struct StrokeToolProperties: public ToolPropertiesBase
     SmoothingMode smoothingMode() const { return static_cast<SmoothingMode>(getInfo(SMOOTHING_MODE).intValue()); }
     int smoothingStrength() const { return getInfo(SMOOTHING_STRENGTH).intValue(); }
     qreal spacing() const { return getInfo(SPACING_VALUE).realValue(); }
+    bool tipSquare() const { return getInfo(TIP_SQUARE_ENABLED).boolValue(); }
+    qreal tipAspect() const { return getInfo(TIP_ASPECT_VALUE).realValue(); }
+    qreal tipAngle() const { return getInfo(TIP_ANGLE_VALUE).realValue(); }
+    bool tipFollowsDirection() const { return getInfo(TIP_FOLLOW_DIRECTION_ENABLED).boolValue(); }
+    qreal flow() const { return getInfo(FLOW_VALUE).realValue(); }
+    qreal opacity() const { return getInfo(OPACITY_VALUE).realValue(); }
+    bool washEnabled() const { return getInfo(WASH_ENABLED).boolValue(); }
+    int speedToSize() const { return getInfo(SPEED_TO_SIZE_VALUE).intValue(); } // percent
+    int tiltToSize() const { return getInfo(TILT_TO_SIZE_VALUE).intValue(); } // percent
+    int tiltToAngle() const { return getInfo(TILT_TO_ANGLE_VALUE).intValue(); } // percent
+    int sizeJitter() const { return getInfo(SIZE_JITTER_VALUE).intValue(); } // percent
+    int scatter() const { return getInfo(SCATTER_VALUE).intValue(); } // percent of dab width
+    int angleJitter() const { return getInfo(ANGLE_JITTER_VALUE).intValue(); } // degrees
+    int dabCount() const { return getInfo(DAB_COUNT_VALUE).intValue(); }
+    bool flowPerDab() const { return getInfo(FLOW_PER_DAB_ENABLED).boolValue(); }
+    int taperStart() const { return getInfo(TAPER_START_VALUE).intValue(); } // canvas px, 0 = off
+    int taperEnd() const { return getInfo(TAPER_END_VALUE).intValue(); } // canvas px, 0 = off
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }

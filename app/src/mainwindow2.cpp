@@ -25,6 +25,8 @@ GNU General Public License for more details.
 // Qt headers
 #include <QActionGroup>
 #include <QDir>
+#include <QFileDialog>
+#include <QInputDialog>
 #include <QList>
 #include <QMenu>
 #include <QFile>
@@ -60,6 +62,7 @@ GNU General Public License for more details.
 #include "undoredomanager.h"
 
 #include "actioncommands.h"
+#include "brushpresets.h"
 #include "fileformat.h"     //contains constants used by Pencil File Format
 #include "util.h"
 #include "undoredocommand.h"
@@ -73,6 +76,7 @@ GNU General Public License for more details.
 #include "timeline.h"
 #include "toolbox.h"
 #include "onionskinwidget.h"
+#include "brushpresetdock.h"
 #include "pegbaralignmentdialog.h"
 #include "addtransparencytopaperdialog.h"
 #include "repositionframesdialog.h"
@@ -191,6 +195,9 @@ void MainWindow2::createDockWidgets()
     mOnionSkinWidget = new OnionSkinWidget(this);
     mOnionSkinWidget->setObjectName("Onion Skin");
 
+    mBrushPresets = new BrushPresetDock(this);
+    mBrushPresets->setObjectName("BrushPresets");
+
     mToolOptions = new ToolOptionWidget(this);
     mToolOptions->setObjectName("ToolOption");
 
@@ -203,6 +210,7 @@ void MainWindow2::createDockWidgets()
         << mColorInspector
         << mColorPalette
         << mOnionSkinWidget
+        << mBrushPresets
         << mToolOptions
         << mToolBox;
 
@@ -283,6 +291,25 @@ void MainWindow2::createMenus()
 
     connect(ui->actionImport_Append_Palette, &QAction::triggered, this, &MainWindow2::importPalette);
     connect(ui->actionImport_Replace_Palette, &QAction::triggered, this, &MainWindow2::openPalette);
+
+    // Brush preset files; the preset dock lists the result.
+    ui->menuImport->addAction(tr("Brush Preset..."), this, [this] {
+        const QString file = QFileDialog::getOpenFileName(this, tr("Import Brush Preset"), QString(), tr("Brush preset (*.jabrush)"));
+        const Status st = file.isEmpty() ? Status(Status::CANCELED) : BrushPresets().importPreset(file);
+        if (!st.ok() && st != Status::CANCELED)
+            QMessageBox::warning(this, tr("Import Brush Preset"), st.description());
+    });
+    ui->menuExport->addAction(tr("Brush Preset..."), this, [this] {
+        const QStringList names = BrushPresets().names();
+        bool ok = false;
+        const QString name = names.isEmpty() ? QString() : QInputDialog::getItem(this, tr("Export Brush Preset"), tr("Preset:"), names, 0, false, &ok);
+        if (!ok)
+            return;
+        const QString file = QFileDialog::getSaveFileName(this, tr("Export Brush Preset"), name + ".jabrush", tr("Brush preset (*.jabrush)"));
+        const Status st = file.isEmpty() ? Status(Status::CANCELED) : BrushPresets().exportPreset(name, file);
+        if (!st.ok() && st != Status::CANCELED)
+            QMessageBox::warning(this, tr("Export Brush Preset"), st.description());
+    });
 
     //--- Edit Menu ---
     replaceUndoRedoActions();
@@ -471,7 +498,8 @@ void MainWindow2::createMenus()
         mColorPalette->toggleViewAction(),
         mTimeLine->toggleViewAction(),
         mColorInspector->toggleViewAction(),
-        mOnionSkinWidget->toggleViewAction()
+        mOnionSkinWidget->toggleViewAction(),
+        mBrushPresets->toggleViewAction()
     };
 
     for (QAction* action : actions)
@@ -1099,7 +1127,7 @@ void MainWindow2::resetAndDockAllSubWidgets()
 
 DefaultDockLayout MainWindow2::dockLayout() const
 {
-    return {{mToolBox, mToolOptions, mOnionSkinWidget}, {mColorBox, mColorInspector, mColorPalette}, mTimeLine};
+    return {{mToolBox, mToolOptions, mBrushPresets, mOnionSkinWidget}, {mColorBox, mColorInspector, mColorPalette}, mTimeLine};
 }
 
 QSize MainWindow2::availableScreenSize() const

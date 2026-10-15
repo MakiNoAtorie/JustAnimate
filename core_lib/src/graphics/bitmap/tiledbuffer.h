@@ -19,12 +19,13 @@ GNU General Public License for more details.
 #include <QObject>
 #include <QPainter>
 #include <QHash>
+#include <QImage>
 #include <QSemaphore>
 #include <vector>
 
 #include "blitrect.h"
+#include "pencilerror.h"
 
-class QImage;
 class QRect;
 class Tile;
 
@@ -44,6 +45,19 @@ inline bool operator==(const TileIndex &e1, const TileIndex &e2)
            && e1.y == e2.y;
 }
 
+/** The shape of a dab. The default is the round tip. */
+struct BrushTip
+{
+    bool square = false;
+    qreal aspect = 1.0; // height / width, 0.01..1
+    qreal angle = 0.0;  // degrees, counter-clockwise on screen
+    QImage image;       // Format_Alpha8 coverage; when set, it replaces the generated shape and square
+};
+
+/** Loads a brush tip mask from a GIMP .gbr file or an image file such as PNG.
+ *  An image with alpha paints its opaque dark parts; one without alpha paints its dark parts. */
+Status loadBrushTipImage(const QString& fileName, QImage& mask);
+
 class TiledBuffer: public QObject
 {
     Q_OBJECT
@@ -59,9 +73,13 @@ public:
 
     /** Draws a brush with the specified parameters to the tiled buffer */
     void drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush brush, QPainter::CompositionMode cm, bool antialiasing);
-    /** Draws a round dab with SourceOver: full alpha inside 1 - feather/100 of the radius, then a linear fade.
-     *  feather is 0..100 and also lowers the centre alpha, like ScribbleArea::setGaussianGradient. */
-    void drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing);
+    /** Draws a dab with SourceOver: full alpha inside 1 - feather/100 of the radius, then a linear fade.
+     *  feather is 0..100 and also lowers the centre alpha, like ScribbleArea::setGaussianGradient.
+     *  diameter is the tip width; tip sets the shape. */
+    void drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing,
+                 const BrushTip& tip = {});
+    /** Below 1, drawDab moves pixels toward this alpha by its opacity and never past it (wash). */
+    void setWashOpacity(qreal opacity) { mWashOpacity = opacity; }
     /** Draws a path with the specified parameters to the tiled buffer */
     void drawPath(QPainterPath path, QPen pen, QBrush brush,
                   QPainter::CompositionMode cm, bool antialiasing);
@@ -77,6 +95,8 @@ public:
     qsizetype poolBytes() const { return mPoolBytes; }
     /** Sets the most bytes the pool keeps, and frees pooled tiles above it. */
     void setPoolCapBytes(qsizetype cap);
+    /** Bytes held by cached dab masks. */
+    qsizetype dabMaskBytes() const { return mDabMaskBytes; }
 
     /** Threads that rendered the last batch of queued dabs; 0 if none was queued. */
     int lastDabWorkers() const { return mLastDabWorkers; }
@@ -114,10 +134,12 @@ private:
         QRect rect;
         std::vector<quint8> alpha;
     };
-    const DabMask& dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing);
+    const DabMask& dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing, const BrushTip& tip);
+    static DabMask imageDabMask(const QImage& image, float width, float aspect, int angle, float cx, float cy);
 
     QHash<quint64, DabMask> mDabMasks;
     qsizetype mDabMaskBytes = 0;
+    qint64 mTipImageKey = 0; // QImage::cacheKey of the image tip the cached masks were made from
     std::vector<float> mProfile; // alpha over r^2 / R^2 for mProfileFeather
     int mProfileFeather = -1;
 
@@ -127,6 +149,7 @@ private:
         QRect rect;
         quint32 src;
         quint32 srcAlpha;
+        quint32 washWeight; // 0: SourceOver; else moves pixels toward src by this / 255
     };
     void blendDab(Tile* tile, const QueuedDab& dab) const;
     /** Renders queued dabs on the thread pool, one tile per task, each tile in dab order. */
@@ -138,6 +161,7 @@ private:
     QSemaphore mDabsDone;
     int mLastDabWorkers = 0;
     double mDabNsPerPixel = 1.0; // rolling mean of inline dab time
+    qreal mWashOpacity = 1.0;
 };
 
 #endif // TILEDBUFFER_H

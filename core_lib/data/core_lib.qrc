@@ -2,4 +2,15 @@
     <qresource prefix="/">
         <file>resources/kb.ini</file>
     </qresource>
+    <qresource prefix="/brushpresets">
+        <file alias="2B Pencil.json">brushpresets/2B Pencil.json</file>
+        <file alias="Chalk.json">brushpresets/Chalk.json</file>
+        <file alias="G-Pen.json">brushpresets/G-Pen.json</file>
+        <file alias="Hard Eraser.json">brushpresets/Hard Eraser.json</file>
+        <file alias="HB Pencil.json">brushpresets/HB Pencil.json</file>
+        <file alias="Marker.json">brushpresets/Marker.json</file>
+        <file alias="Soft Airbrush.json">brushpresets/Soft Airbrush.json</file>
+        <file alias="Soft Eraser.json">brushpresets/Soft Eraser.json</file>
+        <file alias="Watercolour.json">brushpresets/Watercolour.json</file>
+    </qresource>
 </RCC>

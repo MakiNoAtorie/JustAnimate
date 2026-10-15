@@ -18,7 +18,12 @@ GNU General Public License for more details.
 #ifndef TOOLSPAGE_H
 #define TOOLSPAGE_H
 
+#include <QList>
+#include <utility>
+#include "preferencesdef.h"
+
 class PreferenceManager;
+class PressureCurveWidget;
 
 namespace Ui {
 class ToolsPage;
@@ -41,6 +46,7 @@ public slots:
 private:
     Ui::ToolsPage* ui = nullptr;
     PreferenceManager* mManager = nullptr;
+    PressureCurveWidget* mPressureCurve = nullptr;
 };
 
 #endif // TOOLSPAGE_H

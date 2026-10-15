@@ -17,8 +17,11 @@ GNU General Public License for more details.
 #include "tiledbuffer.h"
 
 #include <QElapsedTimer>
+#include <QFile>
+#include <QImageReader>
 #include <QPainterPath>
 #include <QThreadPool>
+#include <QtEndian>
 #include <QtMath>
 #include <algorithm>
 #include <atomic>
@@ -172,6 +175,20 @@ void TiledBuffer::blendDab(Tile* tile, const QueuedDab& dab) const
     {
         // Same alpha as the image path below: byteMul's alpha lane is mul255.
         tile->coverageDirty = true;
+        if (dab.washWeight)
+        {
+            for (int y = area.top(); y <= area.bottom(); ++y)
+            {
+                quint8* d = tile->coverage().data() + (y - tilePos.y()) * UNIFORM_TILE_SIZE + (area.left() - tilePos.x());
+                const quint8* m = mask + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+                for (int k = 0, w = area.width(); k < w; ++k)
+                {
+                    const quint32 c = d[k];
+                    d[k] = static_cast<quint8>(c + mul255(qMax(dab.srcAlpha, c) - c, mul255(dab.washWeight, m[k])));
+                }
+            }
+            return;
+        }
         for (int y = area.top(); y <= area.bottom(); ++y)
         {
             quint8* d = tile->coverage().data() + (y - tilePos.y()) * UNIFORM_TILE_SIZE + (area.left() - tilePos.x());
@@ -180,6 +197,28 @@ void TiledBuffer::blendDab(Tile* tile, const QueuedDab& dab) const
             {
                 const quint32 s = mul255(dab.srcAlpha, m[k]);
                 d[k] = static_cast<quint8>(s + mul255(d[k], 255 - s));
+            }
+        }
+    }
+    else if (dab.washWeight)
+    {
+        QImage& image = tile->image();
+        for (int y = area.top(); y <= area.bottom(); ++y)
+        {
+            QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
+            const quint8* m = mask + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+            for (int k = 0, w = area.width(); k < w; ++k)
+            {
+                // Each channel moves toward src and stops there, so no pixel goes past the wash alpha.
+                const quint32 a = mul255(dab.washWeight, m[k]);
+                quint32 out = 0;
+                for (int shift = 0; shift < 32; shift += 8)
+                {
+                    const quint32 dc = (d[k] >> shift) & 0xff;
+                    const quint32 sc = (dab.src >> shift) & 0xff;
+                    out |= (dc + mul255(qMax(sc, dc) - dc, a)) << shift;
+                }
+                d[k] = out;
             }
         }
     }
@@ -261,12 +300,155 @@ void TiledBuffer::endCoverage()
     mCoverageMode = false;
 }
 
-const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing)
+Status loadBrushTipImage(const QString& fileName, QImage& mask)
 {
-    // Key: diameter in 1/4 px, feather in 1/16 %, sub-pixel phase in 1/4 px.
+    constexpr quint32 kMaxSide = 10000; // GIMP's own brush size limit
+    const Status bad(Status::ERROR_LOAD_IMAGE_FAIL, QObject::tr("This file is not a valid brush tip: %1").arg(fileName));
+    if (!fileName.endsWith(".gbr", Qt::CaseInsensitive))
+    {
+        // Check the size from the header before the decoder allocates the image.
+        QImageReader reader(fileName);
+        const QSize size = reader.size();
+        if (!size.isValid() || size.width() > int(kMaxSide) || size.height() > int(kMaxSide)) return bad;
+        QImage image = reader.read();
+        if (image.isNull() || image.width() > int(kMaxSide) || image.height() > int(kMaxSide)) return bad;
+        const bool hasAlpha = image.hasAlphaChannel();
+        image = image.convertToFormat(QImage::Format_ARGB32);
+        QImage out(image.size(), QImage::Format_Alpha8);
+        for (int y = 0; y < image.height(); ++y)
+        {
+            const QRgb* src = reinterpret_cast<const QRgb*>(image.constScanLine(y));
+            uchar* dst = out.scanLine(y);
+            for (int x = 0; x < image.width(); ++x)
+            {
+                const int dark = 255 - qGray(src[x]);
+                dst[x] = uchar(hasAlpha ? (qAlpha(src[x]) * dark + 127) / 255 : dark);
+            }
+        }
+        mask = out;
+        return Status::OK;
+    }
+
+    // GIMP brush: big-endian header size, version, width, height, bytes per pixel, then in version 2
+    // "GIMP" and spacing; the name fills the rest of the header, then the pixels follow.
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) return Status(Status::ERROR_FILE_CANNOT_OPEN, fileName);
+    const QByteArray header = file.read(28);
+    if (header.size() < 20) return bad;
+    auto field = [&](int i) { return qFromBigEndian<quint32>(header.constData() + 4 * i); };
+    const quint32 headerSize = field(0), version = field(1), width = field(2), height = field(3), depth = field(4);
+    const quint32 minHeader = (version == 1) ? 20 : 28;
+    if ((version != 1 && version != 2) || headerSize < minHeader || quint32(header.size()) < minHeader) return bad;
+    if (version == 2 && header.mid(20, 4) != "GIMP") return bad;
+    if (width == 0 || height == 0 || width > kMaxSide || height > kMaxSide || (depth != 1 && depth != 4)) return bad;
+    const qint64 pixelBytes = qint64(width) * height * depth;
+    if (qint64(headerSize) + pixelBytes > file.size() || !file.seek(headerSize)) return bad;
+    const QByteArray pixels = file.read(pixelBytes);
+    if (pixels.size() != pixelBytes) return bad;
+
+    QImage out(int(width), int(height), QImage::Format_Alpha8);
+    const uchar* src = reinterpret_cast<const uchar*>(pixels.constData());
+    for (int y = 0; y < out.height(); ++y)
+    {
+        uchar* dst = out.scanLine(y);
+        for (int x = 0; x < out.width(); ++x, src += depth)
+            dst[x] = (depth == 1) ? src[0] : src[3]; // 255 paints; RGBA tips use their alpha
+    }
+    mask = out;
+    return Status::OK;
+}
+
+TiledBuffer::DabMask TiledBuffer::imageDabMask(const QImage& image, float width, float aspect, int angle, float cx, float cy)
+{
+    DabMask mask;
+    QImage src = image.convertToFormat(QImage::Format_Alpha8);
+    if (width <= 0 || src.isNull()) return mask;
+    // Box-halve large images first, so bilinear sampling does not skip pixels.
+    // ponytail: halves on every new mask, keep a mip chain per image if big tips build masks slowly.
+    while (src.width() >= 2 * width && src.width() > 1 && src.height() > 1)
+    {
+        QImage half(src.width() / 2, src.height() / 2, QImage::Format_Alpha8);
+        for (int y = 0; y < half.height(); ++y)
+        {
+            const uchar* a = src.constScanLine(2 * y);
+            const uchar* b = src.constScanLine(2 * y + 1);
+            uchar* dst = half.scanLine(y);
+            for (int x = 0; x < half.width(); ++x)
+                dst[x] = uchar((a[2 * x] + a[2 * x + 1] + b[2 * x] + b[2 * x + 1] + 2) / 4);
+        }
+        src = half;
+    }
+
+    const int w = src.width();
+    const int h = src.height();
+    const float sx = w / width;   // image pixels per dab pixel along the tip width
+    const float sy = sx / aspect; // and across it
+    const float halfW = width / 2;
+    const float halfH = halfW * h / w * aspect;
+    const float rad = qDegreesToRadians(float(angle));
+    const float cosA = std::cos(rad);
+    const float sinA = std::sin(rad);
+    const float reachX = std::abs(cosA) * halfW + std::abs(sinA) * halfH;
+    const float reachY = std::abs(sinA) * halfW + std::abs(cosA) * halfH;
+    const int x0 = qFloor(cx - reachX);
+    const int x1 = qCeil(cx + reachX);
+    const int y0 = qFloor(cy - reachY);
+    const int y1 = qCeil(cy + reachY);
+    mask.rect = QRect(QPoint(x0, y0), QPoint(x1, y1));
+    const int mw = mask.rect.width();
+    mask.alpha.assign(mw * mask.rect.height(), 0);
+    for (int y = y0; y <= y1; ++y)
+    {
+        const float dy = y + 0.5f - cy;
+        quint8* row = mask.alpha.data() + (y - y0) * mw - x0;
+        for (int x = x0; x <= x1; ++x)
+        {
+            // Same tip frame as the generated tips: u along the width, v across it.
+            const float dx = x + 0.5f - cx;
+            const float ix = (dx * cosA - dy * sinA) * sx + w / 2.0f;
+            const float iy = (dx * sinA + dy * cosA) * sy + h / 2.0f;
+            if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
+            // Bilinear between pixel centres, clamped at the image edge.
+            const float fx = ix - 0.5f;
+            const float fy = iy - 0.5f;
+            const int px = qFloor(fx);
+            const int py = qFloor(fy);
+            const float tx = fx - px;
+            const float ty = fy - py;
+            const int xa = qMax(px, 0), xb = qMin(px + 1, w - 1);
+            const uchar* ra = src.constScanLine(qMax(py, 0));
+            const uchar* rb = src.constScanLine(qMin(py + 1, h - 1));
+            const float top = ra[xa] + (ra[xb] - ra[xa]) * tx;
+            const float bottom = rb[xa] + (rb[xb] - rb[xa]) * tx;
+            row[x] = static_cast<quint8>(top + (bottom - top) * ty + 0.5f);
+        }
+    }
+    return mask;
+}
+
+const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing, const BrushTip& tip)
+{
+    // Key: diameter in 1/4 px, tip angle in degrees, aspect in %, feather in 1/16 %, sub-pixel phase in 1/4 px.
     const int dq = qMax(0, qRound(diameter * 4));
-    const int fq = qBound(0, qRound(feather * 16), 1600);
-    const quint64 key = (quint64(dq) << 32) | (quint64(fq) << 8) | (phaseX << 4) | (phaseY << 1) | (antialiasing ? 1 : 0);
+    const bool image = !tip.image.isNull();
+    // Feather does not shape an image mask.
+    const int fq = image ? 0 : qBound(0, qRound(feather * 16), 1600);
+    const int aq = qBound(1, qRound(tip.aspect * 100), 100);
+    const bool square = tip.square && !image;
+    const bool circle = !image && !square && aq == 100;
+    // The shape repeats every 90 degrees for a square, every 180 degrees for other generated tips.
+    const int period = image ? 360 : (square && aq == 100) ? 90 : 180;
+    const int angleQ = circle ? 0 : ((qRound(tip.angle) % period) + period) % period;
+    const quint64 key = (quint64(image) << 63) | (quint64(dq) << 40) | (quint64(angleQ) << 27) | (quint64(aq) << 20)
+                        | (quint64(square) << 19) | (quint64(fq) << 8) | (phaseX << 4) | (phaseY << 1) | (antialiasing ? 1 : 0);
+    // Cached image masks belong to one image.
+    if (image && tip.image.cacheKey() != mTipImageKey)
+    {
+        flushDabs();
+        mDabMasks.clear();
+        mDabMaskBytes = 0;
+        mTipImageKey = tip.image.cacheKey();
+    }
     auto it = mDabMasks.constFind(key);
     if (it != mDabMasks.constEnd()) return *it;
     flushDabs(); // queued dabs point into the cache
@@ -276,6 +458,13 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
     {
         mDabMasks.clear();
         mDabMaskBytes = 0;
+    }
+
+    if (image)
+    {
+        DabMask mask = imageDabMask(tip.image, dq / 4.0f, aq / 100.0f, angleQ, phaseX / 4.0f, phaseY / 4.0f);
+        mDabMaskBytes += qsizetype(mask.alpha.size());
+        return *mDabMasks.insert(key, std::move(mask));
     }
 
     const float r = dq / 8.0f;
@@ -302,11 +491,31 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
     const float inner2 = inner * inner;
     const float solid2 = (1 - f) * (1 - f) * r2;
 
-    // Pixel x is inside when |x + 0.5 - cx| < reach.
-    const int x0 = qFloor(cx - reach - 0.5f) + 1;
-    const int x1 = qCeil(cx + reach - 0.5f) - 1;
-    const int y0 = qFloor(cy - reach - 0.5f) + 1;
-    const int y1 = qCeil(cy + reach - 0.5f) - 1;
+    // Tip frame: u along the tip width, v across it, scaled by 1 / aspect so the shape has radius r.
+    // shortcut: anti-aliasing runs in the scaled frame, so the edge across a thin tip is sharper.
+    const float rad = qDegreesToRadians(float(angleQ));
+    const float cosA = std::cos(rad);
+    const float sinA = std::sin(rad);
+    const float aspect = aq / 100.0f;
+    const float invAspect = 1.0f / aspect;
+    float halfW = reach;
+    float halfH = reach;
+    if (tip.square)
+    {
+        halfW = reach * (std::abs(cosA) + aspect * std::abs(sinA));
+        halfH = reach * (std::abs(sinA) + aspect * std::abs(cosA));
+    }
+    else if (!circle)
+    {
+        halfW = reach * std::sqrt(cosA * cosA + aspect * aspect * sinA * sinA);
+        halfH = reach * std::sqrt(sinA * sinA + aspect * aspect * cosA * cosA);
+    }
+
+    // Pixel x is inside the box when |x + 0.5 - cx| < halfW.
+    const int x0 = qFloor(cx - halfW - 0.5f) + 1;
+    const int x1 = qCeil(cx + halfW - 0.5f) - 1;
+    const int y0 = qFloor(cy - halfH - 0.5f) + 1;
+    const int y1 = qCeil(cy + halfH - 0.5f) - 1;
     DabMask mask;
     if (x1 >= x0 && y1 >= y0)
     {
@@ -320,12 +529,19 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
             const float dy2 = dy * dy;
             const float half = std::sqrt(qMax(0.0f, reach2 - dy2));
             quint8* row = mask.alpha.data() + (y - y0) * w - x0;
-            const int rowLo = qMax(x0, qFloor(cx - half - 0.5f));
-            const int rowHi = qMin(x1, qCeil(cx + half - 0.5f));
+            const int rowLo = circle ? qMax(x0, qFloor(cx - half - 0.5f)) : x0;
+            const int rowHi = circle ? qMin(x1, qCeil(cx + half - 0.5f)) : x1;
             for (int x = rowLo; x <= rowHi; ++x)
             {
                 const float dx = x + 0.5f - cx;
-                const float d2 = dx * dx + dy2;
+                float d2 = dx * dx + dy2;
+                if (!circle)
+                {
+                    // Screen y points down, so a positive angle turns the tip counter-clockwise on screen.
+                    const float u = dx * cosA - dy * sinA;
+                    const float v = (dx * sinA + dy * cosA) * invAspect;
+                    d2 = tip.square ? qMax(u * u, v * v) : u * u + v * v;
+                }
                 if (d2 >= reach2) continue;
                 float a = 255.0f;
                 if (d2 > solid2) a *= mProfile[qMin(int(d2 * toIndex + 0.5f), kProfileSize)];
@@ -344,12 +560,16 @@ const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, 
     return *mDabMasks.insert(key, std::move(mask));
 }
 
-void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing)
+void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing,
+                          const BrushTip& tip)
 {
     StageScope stage(StageProfiler::DabMask);
     feather = qBound(0.0, feather, 100.0);
     // Same centre alpha as ScribbleArea::setGaussianGradient.
-    const int mainAlpha = qRound(color.alphaF() * 255 * opacity);
+    const bool wash = mWashOpacity < 1;
+    const quint32 washWeight = wash ? quint32(qBound(0, qRound(255 * opacity), 255)) : 0;
+    if (wash && washWeight == 0) return;
+    const int mainAlpha = qRound(color.alphaF() * 255 * (wash ? mWashOpacity : opacity));
     const int alpha = mainAlpha - qRound(mainAlpha * feather / 100);
     if (alpha <= 0) return;
     const quint32 srcAlpha = qMin(alpha, 255);
@@ -365,13 +585,13 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
     const int qx = qRound(center.x() * 4);
     const int qy = qRound(center.y() * 4);
     const QPoint origin(qFloor(qx / 4.0), qFloor(qy / 4.0));
-    const DabMask& mask = dabMask(diameter, feather, qx - origin.x() * 4, qy - origin.y() * 4, antialiasing);
+    const DabMask& mask = dabMask(diameter, feather, qx - origin.x() * 4, qy - origin.y() * 4, antialiasing, tip);
     const QRect rect = mask.rect.translated(origin);
     if (rect.isEmpty()) return;
 
     // Small dabs blend here; larger ones queue for flushDabs. Once one is queued, the rest queue
     // behind it to keep dab order.
-    const QueuedDab dab{ &mask, rect, src, srcAlpha };
+    const QueuedDab dab{ &mask, rect, src, srcAlpha, washWeight };
     const double pixels = double(rect.width()) * rect.height();
     const double predictedNs = mDabNsPerPixel * pixels;
     const bool inlineDab = mQueuedDabs.empty() && predictedNs < 5000;

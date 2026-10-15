@@ -32,6 +32,7 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QMessageBox>
 
+#include "brushpresets.h"
 #include "commandlineexporter.h"
 #include "commandlineparser.h"
 #include "mainwindow2.h"
@@ -156,6 +157,8 @@ void Pencil2D::installTranslators()
 void Pencil2D::prepareGuiStartup(const QString& inputPath)
 {
     PlatformHandler::configurePlatformSpecificSettings();
+    BrushPresets().addClassic();
+    BrushPresets().addDefaults();
 
     mainWindow.reset(new MainWindow2);
     connect(this, &Pencil2D::openFileRequested, mainWindow.get(), &MainWindow2::openFile);

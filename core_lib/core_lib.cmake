@@ -76,12 +76,14 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/inputsmoother.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blitrect.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/stageprofiler.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pressurecurve.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/cameraeasingtype.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/camerafieldoption.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/colordictionary.h
@@ -176,10 +178,12 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/inputsmoother.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blitrect.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pressurecurve.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/cameraeasingtype.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/emergencysave.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/fileformat.cpp

@@ -1,0 +1,13 @@
+{
+  "description": "Fine, light graphite line for sketching.",
+  "settings": {
+    "Width": 3,
+    "Opacity": 85,
+    "Flow": 60,
+    "Spacing": 8,
+    "TiltToSize": 40,
+    "SizeJitter": 5,
+    "Scatter": 4
+  },
+  "tipImage": ""
+}

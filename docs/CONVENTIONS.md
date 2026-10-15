@@ -85,6 +85,75 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   Input smoothing lives only in `InputSmoother` and runs on
   `PointerEvent::timestamp()`, never a `QTimer`. Preview-only drawing goes in
   the tool's `paint()` overlay, never the tiled buffer.
+- Pen pressure reaches dab width and opacity only through
+  `DabTool::dabWidth`/`dabOpacity`, which apply the global `PressureCurve`.
+  Read preferences once per press, never once per dab.
+- A structured preference is a string read through a parser (such as
+  `PressureCurve::fromString`); an empty or invalid value gives the neutral
+  default.
+- Dab shape parameters live in `BrushTip` (`tiledbuffer.h`); each adds a
+  quantized field to the `DabMask` cache key. The default tip keeps the old
+  fast path so golden hashes do not change. `DabTool::drawDab` takes the tip
+  from `dabTip(direction)`; subclasses pass it through unchanged.
+- Tip angles are degrees, counter-clockwise on screen (canvas y points down).
+- Stroke settings shared by Pencil, Brush and Eraser get defaults in
+  `StrokeTool::loadSettings`; each tool only adds `mPropertyUsed`.
+- Bitmap dabs are placed only in `DabTool::dabSegment`. Width modifiers
+  (taper, jitter) multiply `dabWidth`, never replace it. `drawStroke` may hold
+  back pen points until release; do not assume `mLastBrushPoint` is the
+  current point.
+- The global pressure curve is the only brush setting in `PreferenceManager`
+  (read in `DabTool::pointerPressEvent`). Every other brush setting, taper
+  included, is a `StrokeToolProperties` value, so presets keep it.
+- Dab alpha: `DabTool::dabOpacity` is what the whole stroke reaches;
+  `spacedDabOpacity` is one dab's alpha, `1-(1-a)^(spacing/width)`, so
+  spacing does not change darkness; flow per dab with pressure off is full
+  flow, as before v0.3. Wash mode is per stroke
+  (`ScribbleArea::setWashOpacity` on every press); with wash off the
+  SourceOver loop is unchanged.
+- Tests that check exact brush alpha call `setFeather(1)`.
+- Brush tip files (.gbr, PNG) are untrusted: bound every header field and
+  check data length against file size before reading. A tip image is a
+  `Format_Alpha8` coverage mask (255 = full paint).
+- Per-dab random values come from the raw output of `DabTool::mRandom`
+  (`mt19937`), never std distributions; tests seed it with `seedRandom()`.
+  `sizeDynamics()` runs once per placed dab and consumes the RNG, so never
+  call it from spacing or prediction.
+- Pen speed and tilt reach dabs only through `StrokeInterpolator::speed()`/
+  `tilt()`, stored per pending `DabTool::PenPoint`. Dynamics, jitter,
+  scatter, taper and dabs per step are per-tool
+  `StrokeToolProperties` (set through `StrokeTool::setDynamic`, shown in the
+  stroke options widget). They default to 0 (dab count 1), which leaves
+  output unchanged.
+- Brush presets go only through `BrushPresets` (`brushpresets.*`): one
+  `<name>.json` per preset, name checked by `isValidName`. A preset holds
+  every `ToolProperties` value keyed by identifier, plus `tipImage`
+  (`StrokeTool::tipImagePath()`, empty = generated tip). The only global
+  setting a preset may override is the optional `pressureCurve` (empty =
+  global curve). Per-preset state outside `ToolProperties` (tip path, curve)
+  lives on `StrokeTool`, never in QSettings; tests reset it at scope exit.
+  Saving never overwrites another preset. New keys are optional; preset JSON is untrusted
+  (wrong type or missing gives the default, numbers clamped, unknown keys
+  ignored, corrupt file skipped with `qWarning`).
+- New `StrokeToolProperties` ids take the next free number on the
+  integration branch tip. A setting that changes how dab alpha adds up is a
+  bool, off by default, so a preset can bring back older output.
+- Built-in presets list only keys that differ from tool defaults, and are
+  seeded at GUI startup through `BrushPresets::seed`: once per name (the
+  `.seeded` file in the preset folder), never over an existing file, so a
+  deleted built-in stays deleted. Optional string `description` per preset.
+- Only `remove` deletes tips: under `<presets>/tips/`, unused by other
+  presets. Import never overwrites a tip. Callers use `exists()`/`filePath()`.
+- A .jabrush is a zip with exactly `preset.json` plus at most one
+  `tip.<suffix>`. Import untrusted zips in memory
+  (`mz_zip_reader_extract_to_mem`, sizes bounded), write only after every
+  check passes, never overwrite an existing preset.
+- Offscreen brush rendering uses a hidden Editor/ScribbleArea driven by
+  tablet events (`PresetSampler`, `brushpreseteditor.h`). The preset editor
+  builds controls from `ToolProperties` ranges (`objectName` = identifier);
+  a new property needs only a row label in `BrushPresetEditor::settingLabel`
+  (reuse the stroke options text). Code that changes tool values outside the
+  options widget emits `ToolManager::toolsReset`.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
   branchless loops, no `QPainter`; mask math uses float and `sqrt` only, so
   platforms hash alike. Read pixels only via `TiledBuffer::tiles()`; call
