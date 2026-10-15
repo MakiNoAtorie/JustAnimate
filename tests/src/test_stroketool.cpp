@@ -666,3 +666,98 @@ TEST_CASE("DabTool - spacing does not change how dark a low-flow stroke is")
     CHECK(dense == Approx(76).margin(8));
     CHECK(sparse == Approx(dense).margin(8));
 }
+
+TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter replays the same")
+{
+    const SettingsGuard settingsGuard({ SETTING_SPEED_TO_SIZE, SETTING_TILT_TO_SIZE, SETTING_TILT_TO_ANGLE, SETTING_SIZE_JITTER });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 2; f <= 6; ++f)
+        layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    // A stroke from x = 100 to 500 in `events` moves 8 ms apart; returns the ink height at x = 300.
+    auto strokeAt = [&](int frame, int events, QPointF tilt) {
+        editor->scrubTo(frame);
+        auto send = [&](QEvent::Type type, qreal x, quint64 t) {
+            const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
+            const QPointF pos(x, 300);
+            QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                           1.0, tilt.x(), tilt.y(), 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+            e.setTimestamp(t);
+            QApplication::sendEvent(area, &e);
+        };
+        send(QEvent::TabletPress, 100, 1000);
+        for (int i = 1; i <= events; ++i)
+            send(QEvent::TabletMove, 100 + 400.0 * i / events, 1000 + 8 * i);
+        send(QEvent::TabletRelease, 500, 1000 + 8 * events);
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(frame);
+        const int x = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint().x() - bitmap->left();
+        const QImage* img = bitmap->image();
+        int height = 0;
+        for (int y = 0; y < img->height(); ++y)
+            height += qAlpha(img->pixel(x, y)) != 0;
+        return height;
+    };
+
+    SECTION("Speed to size: a fast stroke is thinner than a slow one")
+    {
+        editor->preference()->set(SETTING::SPEED_TO_SIZE, -100);
+        const int slow = strokeAt(1, 100, QPointF()); // 0.5 px/ms
+        const int fast = strokeAt(2, 5, QPointF());   // 10 px/ms
+        INFO("slow " << slow << "px fast " << fast << "px");
+        CHECK(slow > 15);
+        CHECK(fast < slow / 2);
+    }
+    SECTION("Tilt to size: a tilted pen paints a wider stroke")
+    {
+        editor->preference()->set(SETTING::TILT_TO_SIZE, 100);
+        const int upright = strokeAt(1, 20, QPointF());
+        const int tilted = strokeAt(2, 20, QPointF(60, 0));
+        INFO("upright " << upright << "px tilted " << tilted << "px");
+        CHECK(upright < 23);
+        CHECK(tilted > 35);
+    }
+    SECTION("Tilt to angle: a flat tip turns with the pen tilt")
+    {
+        brush->setTipAspect(10); // 20 px wide, 2 px tall
+        editor->preference()->set(SETTING::TILT_TO_ANGLE, 100);
+        const int upright = strokeAt(1, 20, QPointF());
+        const int tilted = strokeAt(2, 20, QPointF(0, -60)); // tip turns to 90 degrees
+        INFO("upright " << upright << "px tilted " << tilted << "px");
+        CHECK(upright < 6);
+        CHECK(tilted > 15);
+    }
+    SECTION("Size jitter: the same seed paints the same stroke")
+    {
+        strokeAt(1, 20, QPointF());
+        editor->preference()->set(SETTING::SIZE_JITTER, 100);
+        brush->seedRandom(7);
+        strokeAt(2, 20, QPointF());
+        brush->seedRandom(7);
+        strokeAt(3, 20, QPointF());
+        brush->seedRandom(8);
+        strokeAt(4, 20, QPointF());
+        const QImage plain = *layer->getBitmapImageAtFrame(1)->image();
+        const QImage a = *layer->getBitmapImageAtFrame(2)->image();
+        const QImage b = *layer->getBitmapImageAtFrame(3)->image();
+        const QImage other = *layer->getBitmapImageAtFrame(4)->image();
+        CHECK(a == b);
+        CHECK(a != plain);
+        CHECK(a != other);
+    }
+}

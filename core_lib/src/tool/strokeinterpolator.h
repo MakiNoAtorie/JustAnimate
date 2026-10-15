@@ -46,6 +46,10 @@ public:
     QPointF getCurrentPressPixel() const { return mCurrentPressPixel; }
     /// Where the pen will be horizonMs after the last sample, at its last velocity; at most maxDistance px ahead.
     QPointF predictedPixel(qreal horizonMs, qreal maxDistance) const;
+    /// Filtered pen speed in viewport px/ms; 0 at press.
+    qreal speed() const { return mSpeed; }
+    /// Pen tilt in degrees (x, y), each -60 to 60; 0 for a mouse.
+    QPointF tilt() const { return mTilt; }
 
 private:
     InputSmoother mSmoother;
@@ -55,6 +59,8 @@ private:
     QPointF mLastPixel = { 0, 0 };
 
     QPointF mVelocity; // px/ms, of the smoothed position
+    qreal mSpeed = 0;
+    QPointF mTilt;
     quint64 mTime = 0;
 
     bool    mStrokeStarted = false;
