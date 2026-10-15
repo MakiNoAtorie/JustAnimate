@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Timeline: Insert Frame (Ripple) and Delete Frame (Ripple) shift every later frame of the layer, as one undo step (3.4).
 - The welcome screen offers project templates (HD, 4K, vertical, square, GIF) that set the canvas size and frame rate (4.3).
 - A welcome screen replaces the preset dialog: recent projects with thumbnails (missing files are marked), open, and new from a preset (4.3).
 - Canvas: onion skin frames are tinted once and reused, so scrubbing with onion skin on is faster (1.4).

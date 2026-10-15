@@ -84,6 +84,13 @@ public:
     /** Moves the selected frames of every layer by `offset` as one undo step.
      *  Stops at frame 1. Moves nothing and returns false when a frame is in the way on any layer. */
     bool moveSelectedFrames(int offset);
+    /** Adds a blank keyframe after the current frame of the current layer and moves every later keyframe one frame right.
+     *  One undo step. Returns false on a hidden layer. */
+    bool rippleInsertFrame();
+    /** Removes the keyframe shown at the current frame of the current layer and moves every later keyframe left
+     *  by its length, hold included. One undo step. Returns false on a hidden layer, before the first keyframe
+     *  or on the only keyframe. */
+    bool rippleRemoveFrame();
 
     /** This should be emitted whenever the animation length frames, eg. adding, removing, duplicating */
     void notifyAnimationLengthChanged();
