@@ -35,7 +35,7 @@ GNU General Public License for more details.
 #include "pointerevent.h"
 
 
-BrushTool::BrushTool(QObject* parent) : StrokeTool(parent)
+BrushTool::BrushTool(QObject* parent) : DabTool(parent)
 {
 }
 
@@ -94,167 +94,26 @@ QCursor BrushTool::cursor()
     return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
 }
 
-void BrushTool::pointerPressEvent(PointerEvent *event)
+void BrushTool::drawDab(QPointF point, qreal width, qreal opacity)
 {
-    mInterpolator.pointerPressEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    mMouseDownPoint = getCurrentPoint();
-    mLastBrushPoint = getCurrentPoint();
-
-    startStroke(event->inputType());
-
-    StrokeTool::pointerPressEvent(event);
+    mScribbleArea->drawBrush(point,
+                             width,
+                             mSettings.feather(),
+                             mEditor->color()->frontColor(),
+                             QPainter::CompositionMode_SourceOver,
+                             opacity,
+                             true);
 }
 
-void BrushTool::pointerMoveEvent(PointerEvent* event)
+QPen BrushTool::vectorPreviewPen()
 {
-    mInterpolator.pointerMoveEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    if (event->buttons() & Qt::LeftButton && event->inputType() == mCurrentInputType)
-    {
-        mCurrentPressure = mInterpolator.getPressure();
-        drawStroke();
-        if (mSettings.stabilizerLevel() != mInterpolator.getStabilizerLevel())
-        {
-            mInterpolator.setStabilizerLevel(mSettings.stabilizerLevel());
-        }
-    }
-
-    StrokeTool::pointerMoveEvent(event);
+    qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1;
+    return QPen(mEditor->color()->frontColor(), mSettings.width() * pressure, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
 }
 
-void BrushTool::pointerReleaseEvent(PointerEvent *event)
+void BrushTool::finishVectorStroke(Layer* layer)
 {
-    mInterpolator.pointerReleaseEvent(event);
-    if (handleQuickSizing(event)) {
-        return;
-    }
-
-    if (event->inputType() != mCurrentInputType) return;
-
-    Layer* layer = mEditor->layers()->currentLayer();
-
-    qreal distance = QLineF(getCurrentPoint(), mMouseDownPoint).length();
-    if (distance < 1)
-    {
-        paintAt(mMouseDownPoint);
-    }
-    else
-    {
-        drawStroke();
-    }
-
-    if (layer->type() == Layer::VECTOR) {
-        paintVectorStroke(layer);
-    }
-
-    endStroke();
-
-    StrokeTool::pointerReleaseEvent(event);
-}
-
-// draw a single paint dab at the given location
-void BrushTool::paintAt(QPointF point)
-{
-    //qDebug() << "Made a single dab at " << point;
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer->type() == Layer::BITMAP)
-    {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal opacity = (mSettings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
-        mCurrentWidth = brushWidth;
-        mScribbleArea->drawBrush(point,
-                                 brushWidth,
-                                 mSettings.feather(),
-                                 mEditor->color()->frontColor(),
-                                 QPainter::CompositionMode_SourceOver,
-                                 opacity,
-                                 true);
-    }
-}
-
-void BrushTool::drawStroke()
-{
-    StrokeTool::drawStroke();
-    QList<QPointF> p = mInterpolator.interpolateStroke();
-
-    Layer* layer = mEditor->layers()->currentLayer();
-
-    if (layer->type() == Layer::BITMAP)
-    {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal opacity = (mSettings.pressureEnabled()) ? (mCurrentPressure * 0.5) : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
-        mCurrentWidth = brushWidth;
-
-        qreal brushStep = (0.5 * brushWidth);
-        brushStep = qMax(1.0, brushStep);
-
-        QPointF a = mLastBrushPoint;
-        QPointF b = getCurrentPoint();
-
-        qreal distance = 4 * QLineF(b, a).length();
-        int steps = qRound(distance / brushStep);
-
-        for (int i = 0; i < steps; i++)
-        {
-            QPointF point = mLastBrushPoint + (i + 1) * brushStep * (getCurrentPoint() - mLastBrushPoint) / distance;
-
-            mScribbleArea->drawBrush(point,
-                                     brushWidth,
-                                     mSettings.feather(),
-                                     mEditor->color()->frontColor(),
-                                     QPainter::CompositionMode_SourceOver,
-                                     opacity,
-                                     true);
-            if (i == (steps - 1))
-            {
-                mLastBrushPoint = getCurrentPoint();
-            }
-        }
-
-        // Line visualizer
-        // for debugging
-//        QPainterPath tempPath;
-
-//        QPointF mappedMousePos = mEditor->view()->mapScreenToCanvas(strokeManager()->getMousePos());
-//        tempPath.moveTo(getCurrentPoint());
-//        tempPath.lineTo(mappedMousePos);
-
-//        QPen pen( Qt::black,
-//                   1,
-//                   Qt::SolidLine,
-//                   Qt::RoundCap,
-//                   Qt::RoundJoin );
-//        mScribbleArea->drawPolyline(tempPath, pen, true);
-
-    }
-    else if (layer->type() == Layer::VECTOR)
-    {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1;
-        qreal brushWidth = mSettings.width() * pressure;
-
-        QPen pen(mEditor->color()->frontColor(),
-                 brushWidth,
-                 Qt::SolidLine,
-                 Qt::RoundCap,
-                 Qt::RoundJoin);
-
-        if (p.size() == 4)
-        {
-            QPainterPath path(p[0]);
-            path.cubicTo(p[1], p[2], p[3]);
-
-            mScribbleArea->drawPath(path, pen, Qt::NoBrush, QPainter::CompositionMode_Source);
-        }
-    }
+    paintVectorStroke(layer);
 }
 
 // This function uses the points from DrawStroke

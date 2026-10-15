@@ -39,7 +39,8 @@ TEST_CASE("EraserTool - Erasing on a vector layer before its first keyframe does
     REQUIRE(layer->getLastKeyFrameAtPosition(1) == nullptr);
 
     EraserTool* eraser = static_cast<EraserTool*>(editor->tools()->getTool(ERASER));
-    eraser->updateStrokes();
+    eraser->drawStroke();
+    eraser->strokeMoved();
     eraser->removeVectorPaint();
 
     REQUIRE(layer->keyFrameCount() == 1);
