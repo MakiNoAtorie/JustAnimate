@@ -80,6 +80,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Code that runs in a crash handler uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
+- Long file I/O (zip, unzip) runs on a worker thread through
+  `FileManager::runArchiveJob`; the calling thread emits progress. Only one
+  `FileManager::save` runs at a time.
 - `.gitignore` ignores `*.rc`; add a `!` exception for a resource file you
   mean to commit.
 - New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
