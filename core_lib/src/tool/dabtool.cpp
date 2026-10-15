@@ -48,7 +48,13 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     startStroke(event->inputType());
     mPressureCurve = PressureCurve::fromString(mEditor->preference()->getString(SETTING::PRESSURE_CURVE));
     mLastBrushPressure = mCurrentPressure;
-    mDistanceToNextDab = dabSpacing(dabWidth(mCurrentPressure));
+    mTaperStart = mEditor->preference()->getInt(SETTING::TAPER_START);
+    mTaperEnd = mEditor->preference()->getInt(SETTING::TAPER_END);
+    mStrokeLength = 0;
+    mBrushDistance = 0;
+    mStrokeEnding = false;
+    mPendingPoints.clear();
+    mDistanceToNextDab = dabSpacing(dabWidth(mCurrentPressure) * taperAt(0));
     strokeStarted();
 
     StrokeTool::pointerPressEvent(event);
@@ -83,7 +89,8 @@ void DabTool::pointerReleaseEvent(PointerEvent* event)
     if (event->inputType() != mCurrentInputType) return;
 
     qreal distance = QLineF(getCurrentPoint(), mMouseDownPoint).length();
-    if (distance < 1)
+    mStrokeEnding = true;
+    if (distance < 1 && mPendingPoints.isEmpty())
     {
         paintAt(mMouseDownPoint);
     }
@@ -154,6 +161,14 @@ qreal DabTool::dabOpacity(qreal pressure) const
     return strokeToolProperties().pressureEnabled() ? mPressureCurve.value(pressure) * 0.5 : 1.0;
 }
 
+qreal DabTool::taperAt(qreal distance) const
+{
+    qreal f = 1;
+    if (mTaperStart > 0) f = qMin(f, distance / mTaperStart);
+    if (mTaperEnd > 0 && mStrokeEnding) f = qMin(f, (mStrokeLength - distance) / mTaperEnd);
+    return qBound(0.0, f, 1.0);
+}
+
 BrushTip DabTool::dabTip(QPointF direction) const
 {
     const StrokeToolProperties& p = strokeToolProperties();
@@ -178,6 +193,30 @@ void DabTool::paintAt(QPointF point)
     }
 }
 
+void DabTool::dabSegment(QPointF b, qreal endPressure)
+{
+    const qreal startPressure = mLastBrushPressure;
+    const QPointF a = mLastBrushPoint;
+    const qreal length = QLineF(a, b).length();
+
+    // Carry the leftover distance to the next event, so spacing does not depend on the event rate.
+    qreal t = mDistanceToNextDab;
+    const BrushTip tip = dabTip(b - a);
+    while (t <= length)
+    {
+        const qreal f = (length > 0) ? t / length : 1.0;
+        const qreal pressure = startPressure + (endPressure - startPressure) * f;
+        const qreal brushWidth = dabWidth(pressure) * taperAt(mBrushDistance + t);
+        mCurrentWidth = brushWidth;
+        drawDab(a + (b - a) * f, brushWidth, dabOpacity(pressure), tip);
+        t += dabSpacing(brushWidth);
+    }
+    mDistanceToNextDab = t - length;
+    mBrushDistance += length;
+    mLastBrushPoint = b;
+    mLastBrushPressure = endPressure;
+}
+
 void DabTool::drawStroke()
 {
     StrokeTool::drawStroke();
@@ -187,27 +226,30 @@ void DabTool::drawStroke()
 
     if (layer->type() == Layer::BITMAP)
     {
-        const qreal startPressure = mLastBrushPressure;
-        const qreal endPressure = mCurrentPressure;
-        const QPointF a = mLastBrushPoint;
         const QPointF b = getCurrentPoint();
-        const qreal length = QLineF(a, b).length();
+        mStrokeLength += QLineF(mPendingPoints.isEmpty() ? mLastBrushPoint : mPendingPoints.last().first, b).length();
+        mPendingPoints.append({ b, mCurrentPressure });
 
-        // Carry the leftover distance to the next event, so spacing does not depend on the event rate.
-        qreal t = mDistanceToNextDab;
-        const BrushTip tip = dabTip(b - a);
-        while (t <= length)
+        // Dab up to the point where the end taper can start; all of it once the stroke ends.
+        const qreal limit = mStrokeEnding ? mStrokeLength : mStrokeLength - mTaperEnd;
+        while (!mPendingPoints.isEmpty())
         {
-            const qreal f = (length > 0) ? t / length : 1.0;
-            const qreal pressure = startPressure + (endPressure - startPressure) * f;
-            const qreal brushWidth = dabWidth(pressure);
-            mCurrentWidth = brushWidth;
-            drawDab(a + (b - a) * f, brushWidth, dabOpacity(pressure), tip);
-            t += dabSpacing(brushWidth);
+            const auto [point, pressure] = mPendingPoints.first();
+            const qreal length = QLineF(mLastBrushPoint, point).length();
+            if (mBrushDistance + length <= limit)
+            {
+                dabSegment(point, pressure);
+                mPendingPoints.removeFirst();
+                continue;
+            }
+            if (limit > mBrushDistance)
+            {
+                const qreal f = (limit - mBrushDistance) / length;
+                dabSegment(mLastBrushPoint + (point - mLastBrushPoint) * f,
+                           mLastBrushPressure + (pressure - mLastBrushPressure) * f);
+            }
+            break;
         }
-        mDistanceToNextDab = t - length;
-        mLastBrushPoint = b;
-        mLastBrushPressure = mCurrentPressure;
     }
     else if (layer->type() == Layer::VECTOR)
     {
