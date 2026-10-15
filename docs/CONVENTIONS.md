@@ -126,8 +126,11 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Brush presets go only through `BrushPresets` (`brushpresets.*`): one
   `<name>.json` per preset, name checked by `isValidName`. A preset holds
   every `ToolProperties` value keyed by identifier, plus `tipImage`
-  (`StrokeTool::tipImagePath()`, empty = generated tip). Global preferences
-  never go in a preset. New keys are optional; preset JSON is untrusted
+  (`StrokeTool::tipImagePath()`, empty = generated tip). The only global
+  setting a preset may override is the optional `pressureCurve` (empty =
+  global curve). Per-preset state outside `ToolProperties` (tip path, curve)
+  lives on `StrokeTool`, never in QSettings; tests reset it at scope exit.
+  Saving never overwrites another preset. New keys are optional; preset JSON is untrusted
   (wrong type or missing gives the default, numbers clamped, unknown keys
   ignored, corrupt file skipped with `qWarning`).
 - New `StrokeToolProperties` ids take the next free number on the
@@ -141,7 +144,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   (`mz_zip_reader_extract_to_mem`, sizes bounded), write only after every
   check passes, never overwrite an existing preset.
 - Offscreen brush rendering uses a hidden Editor/ScribbleArea driven by
-  tablet events (`PresetSampler`). Code that changes tool values outside the
+  tablet events (`PresetSampler`, `brushpreseteditor.h`). The preset editor
+  builds controls from `ToolProperties` ranges (`objectName` = identifier),
+  so new properties need no editor code. Code that changes tool values outside the
   options widget emits `ToolManager::toolsReset`.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
   branchless loops, no `QPainter`; mask math uses float and `sqrt` only, so
