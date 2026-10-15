@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #define TILE_H
 
 #include <QPoint>
-#include <QPixmap>
+#include <QImage>
 
 class Tile
 {
@@ -27,8 +27,8 @@ public:
     explicit Tile (const QPoint& pos, QSize size);
     ~Tile();
 
-    const QPixmap& pixmap() const { return mTilePixmap; }
-    QPixmap& pixmap() { return mTilePixmap; }
+    const QImage& image() const { return mTileImage; }
+    QImage& image() { return mTileImage; }
 
     const QPoint& pos() const { return mPos; }
     const QPointF& posF() const { return mPosF; }
@@ -40,7 +40,7 @@ public:
     void clear();
 
 private:
-    QPixmap mTilePixmap;
+    QImage mTileImage;
     QPointF mPosF;
     QPoint mPos;
     QRect mBounds;
