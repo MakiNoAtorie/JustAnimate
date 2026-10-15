@@ -38,7 +38,7 @@ public:
     void strokeMoved() override;
 
 protected:
-    void drawDab(QPointF point, qreal width, qreal opacity) override;
+    void drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip) override;
     QPen vectorPreviewPen() override;
     void finishVectorStroke(Layer* layer) override;
     bool showsPrediction() const override { return false; }

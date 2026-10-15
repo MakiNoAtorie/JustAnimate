@@ -69,6 +69,10 @@ public:
     virtual void setWidth(qreal width);
     virtual void setFeather(qreal feather);
     virtual void setSpacing(qreal percent);
+    void setTipSquare(bool square);
+    void setTipAspect(qreal percent);
+    void setTipAngle(qreal degrees);
+    void setTipFollowsDirection(bool follow);
     virtual void setPressureEnabled(bool enabled);
     virtual void setFeatherEnabled(bool enabled);
     virtual void setAntiAliasingEnabled(bool enabled);
@@ -79,6 +83,7 @@ signals:
     void widthChanged(qreal value);
     void featherChanged(qreal value);
     void spacingChanged(qreal value);
+    void tipChanged();
     void pressureEnabledChanged(bool enabled);
     void featherEnabledChanged(bool enabled);
     void antiAliasingEnabledChanged(bool enabled);
@@ -138,6 +143,7 @@ protected:
     static const qreal FEATHER_MAX;
     static constexpr qreal SPACING_MIN = 1.0;
     static constexpr qreal SPACING_MAX = 400.0;
+    static constexpr qreal TIP_ASPECT_MIN = 5.0;
     static const qreal WIDTH_MIN;
     static const qreal WIDTH_MAX;
 

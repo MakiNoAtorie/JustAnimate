@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #define DABTOOL_H
 
 #include "stroketool.h"
+#include "tiledbuffer.h"
 
 #include <QPen>
 
@@ -45,7 +46,7 @@ public:
 
 protected:
     /// Paints one bitmap dab.
-    virtual void drawDab(QPointF point, qreal width, qreal opacity) = 0;
+    virtual void drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip) = 0;
     /// The pen of the live vector stroke preview.
     virtual QPen vectorPreviewPen() = 0;
     /// Commits the stroke to a vector layer on release.
@@ -60,6 +61,8 @@ protected:
     /// Dab width and opacity at this pen pressure; both ignore pressure when it is off.
     qreal dabWidth(qreal pressure) const;
     qreal dabOpacity(qreal pressure) const;
+    /// The tip settings; with follow direction on, the angle adds the direction of travel.
+    BrushTip dabTip(QPointF direction) const;
 
     QPointF mLastBrushPoint{ 0, 0 };
     qreal mLastBrushPressure = 1.0;
