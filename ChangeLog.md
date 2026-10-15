@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Brush presets: Pencil, Brush and Eraser settings and the tip image save as one JSON file per preset in the app data folder; corrupt files are skipped (B8).
 - Pencil, Brush and Eraser can paint with an image tip loaded from a PNG or GIMP .gbr file; a damaged .gbr shows an error (B5).
 - Brush dynamics: Preferences, Tools sets how pen speed and tilt change Pencil, Brush and Eraser dab size, how tilt turns the tip, and a seeded random size jitter (B3).
 - Flow and opacity: Pencil and Brush have Flow (per dab, builds up), Opacity (per stroke) and a Wash mode that keeps overlaps at the stroke opacity; spacing no longer changes how dark a stroke is (B3).

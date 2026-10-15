@@ -496,6 +496,7 @@ Status StrokeTool::setTipImage(const QString& fileName)
         if (!st.ok()) return st;
     }
     mTipImage = mask;
+    mTipImagePath = fileName;
     emit tipChanged();
     return Status::OK;
 }

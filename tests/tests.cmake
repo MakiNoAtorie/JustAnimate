@@ -33,6 +33,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_emergencysave.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapbucket.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_brushpresets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_erasertool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_eyedroppertool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_editorimport.cpp
