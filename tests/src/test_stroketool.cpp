@@ -30,6 +30,8 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "layervector.h"
 #include "object.h"
+#include "preferencemanager.h"
+#include "pressurecurve.h"
 #include "scribblearea.h"
 #include "stageprofiler.h"
 #include "testfixture.h"
@@ -370,4 +372,82 @@ TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
         redoAction->trigger();
         REQUIRE(colorNumber() == 2);
     }
+}
+
+TEST_CASE("PressureCurve - monotone cubic through its control points")
+{
+    const PressureCurve identity;
+    for (qreal x : { 0.0, 0.25, 0.5, 1.0 })
+        CHECK(identity.value(x) == Approx(x));
+
+    const PressureCurve soft = PressureCurve::fromString("0,0 0.5,0.2 0.8,0.9 1,1");
+    CHECK(soft.value(0.5) == Approx(0.2));
+    CHECK(soft.value(0.8) == Approx(0.9));
+    CHECK(soft.value(-1) == Approx(0));
+    CHECK(soft.value(2) == Approx(1));
+    qreal last = 0;
+    for (int i = 0; i <= 100; ++i)
+    {
+        const qreal y = soft.value(i / 100.0);
+        CHECK(y >= last);
+        CHECK(y <= 1.0);
+        last = y;
+    }
+    CHECK(PressureCurve::fromString(soft.toString()).points() == soft.points());
+
+    // Bad strings give the identity curve.
+    for (const char* bad : { "", "0,0", "0,0 x,1", "0,0 0.5,1 0.4,1 1,1", "0,0 2,1" })
+    {
+        CAPTURE(bad);
+        CHECK(PressureCurve::fromString(bad).points() == identity.points());
+    }
+}
+
+TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacity")
+{
+    const SettingsGuard settingsGuard({ SETTING_PRESSURE_CURVE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(2);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(true);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    // Ink height and peak alpha at x = 300 of a light stroke.
+    auto lightStroke = [&](int frame) {
+        editor->scrubTo(frame);
+        tablet(area, QEvent::TabletPress, QPointF(100, 300), 0.2);
+        tablet(area, QEvent::TabletMove, QPointF(500, 300), 0.2);
+        tablet(area, QEvent::TabletRelease, QPointF(500, 300), 0.2);
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(frame);
+        const int x = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint().x() - bitmap->left();
+        const QImage* img = bitmap->image();
+        int height = 0, alpha = 0;
+        for (int y = 0; y < img->height(); ++y)
+        {
+            height += qAlpha(img->pixel(x, y)) != 0;
+            alpha = qMax(alpha, qAlpha(img->pixel(x, y)));
+        }
+        return std::make_pair(height, alpha);
+    };
+    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+    const auto linear = lightStroke(1);
+    editor->preference()->set(SETTING::PRESSURE_CURVE, QString("0,0.9 1,1"));
+    const auto firm = lightStroke(2);
+    INFO("linear " << linear.first << "px a" << linear.second << " firm " << firm.first << "px a" << firm.second);
+    CHECK(linear.first < 8);
+    CHECK(firm.first > 15);
+    CHECK(firm.second > linear.second);
 }

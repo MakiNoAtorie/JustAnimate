@@ -61,6 +61,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/theme.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolboxwidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/tooloptionwidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pressurecurvewidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolspage.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/transformoptionswidget.h
 )
@@ -122,6 +123,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolboxwidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/tooloptionwidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pressurecurvewidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolspage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/transformoptionswidget.cpp
 )

@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "layer.h"
 #include "layermanager.h"
+#include "preferencemanager.h"
 #include "scribblearea.h"
 #include "viewmanager.h"
 
@@ -44,6 +45,7 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     mLastBrushPoint = getCurrentPoint();
 
     startStroke(event->inputType());
+    mPressureCurve = PressureCurve::fromString(mEditor->preference()->getString(SETTING::PRESSURE_CURVE));
     mLastBrushPressure = mCurrentPressure;
     mDistanceToNextDab = dabSpacing(dabWidth(mCurrentPressure));
     strokeStarted();
@@ -143,12 +145,12 @@ qreal DabTool::dabSpacing(qreal brushWidth) const
 
 qreal DabTool::dabWidth(qreal pressure) const
 {
-    return strokeToolProperties().width() * (strokeToolProperties().pressureEnabled() ? pressure : 1.0);
+    return strokeToolProperties().width() * (strokeToolProperties().pressureEnabled() ? mPressureCurve.value(pressure) : 1.0);
 }
 
 qreal DabTool::dabOpacity(qreal pressure) const
 {
-    return strokeToolProperties().pressureEnabled() ? pressure * 0.5 : 1.0;
+    return strokeToolProperties().pressureEnabled() ? mPressureCurve.value(pressure) * 0.5 : 1.0;
 }
 
 void DabTool::paintAt(QPointF point)

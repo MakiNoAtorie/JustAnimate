@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Pressure curve: Preferences, Tools has an editable curve that maps pen pressure to Pencil, Brush and Eraser dab size and opacity; drag, double-click to add and right-click to remove points (B3).
 - Large Pencil, Brush and Eraser dabs render on all CPU cores, small ones stay on the main thread: about 5.7x the dabs per second of 0.1 with a 200 px brush at 128% zoom (256 screen px), same pixels (B2).
 - Lower drawing latency: Pencil and Brush preview a short prediction of the pen path that never reaches the drawing, and queued tablet moves are merged (B4).
 - One-colour Pencil, Brush and Eraser strokes build up a 1-byte alpha buffer and get their colour once, in reused tiles (pool capped at 128 MiB): about 1.4x faster dabs at large sizes; overlapping translucent dabs no longer drift in colour (B2).
