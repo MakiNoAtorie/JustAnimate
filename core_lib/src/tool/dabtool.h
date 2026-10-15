@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #ifndef DABTOOL_H
 #define DABTOOL_H
 
+#include "pressurecurve.h"
 #include "stroketool.h"
 #include "tiledbuffer.h"
 
@@ -58,7 +59,7 @@ protected:
 
     /// Distance between dab centres for a dab of this width.
     qreal dabSpacing(qreal brushWidth) const;
-    /// Dab width and opacity at this pen pressure; both ignore pressure when it is off.
+    /// Dab width and opacity at this pen pressure, through the pressure curve; both ignore pressure when it is off.
     qreal dabWidth(qreal pressure) const;
     qreal dabOpacity(qreal pressure) const;
     /// The tip settings; with follow direction on, the angle adds the direction of travel.
@@ -68,6 +69,7 @@ protected:
     qreal mLastBrushPressure = 1.0;
     qreal mDistanceToNextDab = 0;
     QPointF mMouseDownPoint;
+    PressureCurve mPressureCurve; // read from preferences at each press
 
 private:
     /// Moves the prediction to the current pen state and repaints where it was and is.

@@ -17,15 +17,31 @@ GNU General Public License for more details.
 
 #include "toolspage.h"
 
+#include <QLabel>
+#include <QPushButton>
 #include <QtMath>
 
 #include "preferencemanager.h"
+#include "pressurecurvewidget.h"
 
 #include "ui_toolspage.h"
 
 ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
 {
     ui->setupUi(this);
+
+    mPressureCurve = new PressureCurveWidget(this);
+    auto* resetCurve = new QPushButton(tr("Reset Pressure Curve"), this);
+    ui->verticalLayout_2->addWidget(new QLabel(tr("Pressure curve (pen pressure to size and opacity):"), this));
+    ui->verticalLayout_2->addWidget(mPressureCurve);
+    ui->verticalLayout_2->addWidget(resetCurve, 0, Qt::AlignLeft);
+    connect(mPressureCurve, &PressureCurveWidget::curveChanged, this, [this](const PressureCurve& curve) {
+        mManager->set(SETTING::PRESSURE_CURVE, curve.toString());
+    });
+    connect(resetCurve, &QPushButton::clicked, this, [this] {
+        mPressureCurve->setCurve(PressureCurve());
+        mManager->set(SETTING::PRESSURE_CURVE, QString());
+    });
 
     connect(ui->useQuickSizingBox, &QCheckBox::stateChanged, this, &ToolsPage::quickSizingChange);
     connect(ui->rotationIncrementSlider, &QSlider::valueChanged, this, &ToolsPage::rotationIncrementChange);
@@ -42,6 +58,7 @@ void ToolsPage::updateValues()
     ui->useQuickSizingBox->setChecked(mManager->isOn(SETTING::QUICK_SIZING));
     ui->invertZoomDirectionBox->setChecked(mManager->isOn(SETTING::INVERT_DRAG_ZOOM_DIRECTION));
     setRotationIncrement(mManager->getInt(SETTING::ROTATION_INCREMENT));
+    mPressureCurve->setCurve(PressureCurve::fromString(mManager->getString(SETTING::PRESSURE_CURVE)));
 }
 
 void ToolsPage::quickSizingChange(int b)
