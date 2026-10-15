@@ -3,6 +3,8 @@
 #include <QApplication>
 #include <QDockWidget>
 #include <QMainWindow>
+#include <QSettings>
+#include <QTemporaryDir>
 #include <QTextEdit>
 
 #include "defaultlayout.h"
@@ -56,4 +58,37 @@ TEST_CASE("Default dock layout", "[DockLayout]")
         REQUIRE(win.dockWidgetArea(docks.left[0]) == Qt::LeftDockWidgetArea);
         REQUIRE(win.dockWidgetArea(docks.right[0]) == Qt::RightDockWidgetArea);
     }
+}
+
+TEST_CASE("Workspaces", "[DockLayout]")
+{
+    QTemporaryDir dir;
+    QSettings settings(dir.filePath("ws.ini"), QSettings::IniFormat);
+    QMainWindow win;
+    win.setCentralWidget(new QTextEdit);
+    DefaultDockLayout docks;
+    docks.left = {makeDock(&win, "ToolBox")};
+    docks.right = {makeDock(&win, "ColorPalette"), makeDock(&win, "Onion Skin")};
+    docks.bottom = makeDock(&win, "TimeLine");
+    const QSize screen(1366, 768);
+    win.resize(screen);
+    win.show();
+
+    switchWorkspace(&win, docks, screen, settings, "Animate");
+    REQUIRE(docks.bottom->isVisible());
+
+    switchWorkspace(&win, docks, screen, settings, "Ink");
+    QApplication::processEvents();
+    REQUIRE(!docks.bottom->isVisible());
+    REQUIRE(!docks.right[0]->isVisible());
+    REQUIRE(docks.left[0]->isVisible());
+
+    // An edit to a workspace comes back when it is selected again
+    docks.right[1]->show();
+    switchWorkspace(&win, docks, screen, settings, "Draw");
+    REQUIRE(!docks.right[1]->isVisible());
+    switchWorkspace(&win, docks, screen, settings, "Ink");
+    QApplication::processEvents();
+    REQUIRE(docks.right[1]->isVisible());
+    REQUIRE(currentWorkspace(settings) == "Ink");
 }

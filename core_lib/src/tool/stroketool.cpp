@@ -71,7 +71,8 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;
-    info[StrokeToolProperties::STABILIZATION_VALUE] = { StabilizationLevel::NONE, StabilizationLevel::STRONG, StabilizationLevel::STRONG };
+    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
+    info[StrokeToolProperties::SMOOTHING_STRENGTH] = { 0, 100, 50 };
     info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = false;
     info[StrokeToolProperties::FILLCONTOUR_ENABLED] = false;
 
@@ -167,8 +168,7 @@ void StrokeTool::startStroke(PointerEvent::InputType inputType)
     mStrokePoints.clear();
 
     //Experimental
-    QPointF startStrokes = mInterpolator.interpolateStart(mLastPixel);
-    mStrokePoints << mEditor->view()->mapScreenToCanvas(startStrokes);
+    mStrokePoints << mEditor->view()->mapScreenToCanvas(mLastPixel);
 
     // A tap never moves, so take the pressure from the press, not the previous stroke (A17).
     mCurrentPressure = mInterpolator.getPressure();
@@ -207,8 +207,6 @@ bool StrokeTool::emptyFrameActionEnabled()
 
 void StrokeTool::endStroke()
 {
-    mInterpolator.interpolateEnd();
-    mStrokePressures << mInterpolator.getPressure();
     mStrokePoints.clear();
     mStrokePressures.clear();
 
@@ -225,9 +223,7 @@ void StrokeTool::drawStroke()
     QPointF pixel = getCurrentPixel();
     if (pixel != mLastPixel || !mFirstDraw)
     {
-        // get last pixel before interpolation initializes
-        QPointF startStrokes = mInterpolator.interpolateStart(getLastPixel());
-        mStrokePoints << mEditor->view()->mapScreenToCanvas(startStrokes);
+        mStrokePoints << mEditor->view()->mapScreenToCanvas(getLastPixel());
         mStrokePressures << mInterpolator.getPressure();
     }
     else
@@ -391,10 +387,42 @@ void StrokeTool::paint(QPainter& painter, const QRect& blitRect)
     painter.restore();
 }
 
-void StrokeTool::setStablizationLevel(int level)
+PropertyInfo StrokeTool::smoothingModeInfo(SmoothingMode defaultMode)
 {
-    toolProperties().setBaseValue(StrokeToolProperties::STABILIZATION_VALUE, level);
-    emit stabilizationLevelChanged(level);
+    return { static_cast<int>(SmoothingMode::None), static_cast<int>(InputSmoother::LAST_MODE), static_cast<int>(defaultMode) };
+}
+
+void StrokeTool::setLegacySmoothing(int level)
+{
+    const SmoothingPreset preset = InputSmoother::presetForLegacyLevel(level);
+    toolProperties().setBaseValue(StrokeToolProperties::SMOOTHING_MODE, static_cast<int>(preset.mode));
+    toolProperties().setBaseValue(StrokeToolProperties::SMOOTHING_STRENGTH, preset.strength);
+}
+
+void StrokeTool::migrateLineStabilization(const QSettings& settings)
+{
+    const QString oldKey = typeName() + "/LineStabilization";
+    if (settings.contains(oldKey) && !settings.contains(typeName() + "/SmoothingMode"))
+    {
+        setLegacySmoothing(settings.value(oldKey).toInt());
+    }
+}
+
+void StrokeTool::applySmoothing()
+{
+    mInterpolator.setSmoothing(strokeToolProperties().smoothingMode(), strokeToolProperties().smoothingStrength());
+}
+
+void StrokeTool::setSmoothingMode(int mode)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::SMOOTHING_MODE, mode);
+    emit smoothingModeChanged(mode);
+}
+
+void StrokeTool::setSmoothingStrength(int strength)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::SMOOTHING_STRENGTH, strength);
+    emit smoothingStrengthChanged(strength);
 }
 
 void StrokeTool::setFeatherEnabled(bool enabled)

@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <QPair>
 
 #include "pencildef.h"
+#include "inputsmoother.h"
 
 struct PropertyInfo
 {
@@ -400,13 +401,14 @@ struct StrokeToolProperties: public ToolPropertiesBase
         WIDTH_VALUE         = START,
 
         FEATHER_VALUE       = 101,
-        STABILIZATION_VALUE = 102,
+        SMOOTHING_MODE      = 102,
         PRESSURE_ENABLED         = 103,
         INVISIBILITY_ENABLED     = 104,
         FEATHER_ENABLED          = 105,
         ANTI_ALIASING_ENABLED    = 106,
         FILLCONTOUR_ENABLED      = 107,
-        SPACING_VALUE            = 108,
+        SMOOTHING_STRENGTH       = 108,
+        SPACING_VALUE            = 109,
 
         END                 = 199,
     };
@@ -418,7 +420,8 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { WIDTH_VALUE,           "Width" },
             { FEATHER_VALUE,         "Feather" },
             { FEATHER_ENABLED,       "FeatherEnabled" },
-            { STABILIZATION_VALUE,   "LineStabilization" },
+            { SMOOTHING_MODE,        "SmoothingMode" },
+            { SMOOTHING_STRENGTH,    "SmoothingStrength" },
             { PRESSURE_ENABLED,      "PressureEnabled" },
             { INVISIBILITY_ENABLED,  "InvisibilityEnabled" },
             { ANTI_ALIASING_ENABLED, "AntiAliasingEnabled"},
@@ -439,8 +442,9 @@ struct StrokeToolProperties: public ToolPropertiesBase
 
     qreal width() const { return getInfo(WIDTH_VALUE).realValue(); }
     qreal feather() const { return getInfo(FEATHER_VALUE).realValue(); }
+    SmoothingMode smoothingMode() const { return static_cast<SmoothingMode>(getInfo(SMOOTHING_MODE).intValue()); }
+    int smoothingStrength() const { return getInfo(SMOOTHING_STRENGTH).intValue(); }
     qreal spacing() const { return getInfo(SPACING_VALUE).realValue(); }
-    int stabilizerLevel() const { return getInfo(STABILIZATION_VALUE).intValue(); }
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }

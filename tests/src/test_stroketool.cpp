@@ -140,7 +140,7 @@ TEST_CASE("DabTool - dabs are evenly spaced at any input speed and take pressure
     const ToolSettingsGuard guard(brush);
     brush->setWidth(20);
     brush->setFeatherEnabled(false);
-    brush->setStablizationLevel(StabilizationLevel::NONE);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
 
     const bool profiling = StageProfiler::enabled();
     StageProfiler::enabled() = true;
@@ -202,7 +202,7 @@ TEST_CASE("DabTool - Spacing percent sets the dab density and defaults to 12.5")
     brush->setWidth(20);
     brush->setFeatherEnabled(false);
     brush->setPressureEnabled(false);
-    brush->setStablizationLevel(StabilizationLevel::NONE);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
     editor->scrubTo(1);
 
     const bool profiling = StageProfiler::enabled();

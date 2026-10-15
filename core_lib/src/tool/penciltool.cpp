@@ -44,7 +44,7 @@ void PencilTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::WIDTH_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::FILLCONTOUR_ENABLED] = { Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::STABILIZATION_VALUE] = { Layer::BITMAP, Layer::VECTOR };
+    mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::SPACING_VALUE] = { Layer::BITMAP };
 
     QSettings pencilSettings(PENCIL2D, PENCIL2D);
@@ -55,17 +55,18 @@ void PencilTool::loadSettings()
     info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 50.0 };
     info[StrokeToolProperties::PRESSURE_ENABLED] = true;
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
-    info[StrokeToolProperties::STABILIZATION_VALUE] = { StabilizationLevel::NONE, StabilizationLevel::STRONG, StabilizationLevel::STRONG };
+    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
     info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
     info[StrokeToolProperties::FILLCONTOUR_ENABLED] = false;
 
     toolProperties().insertProperties(info);
     toolProperties().loadFrom(typeName(), pencilSettings);
+    migrateLineStabilization(pencilSettings);
 
     if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
         toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("pencilWidth", 4.0).toReal());
         toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, pencilSettings.value("pencilPressure", true).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::STABILIZATION_VALUE, pencilSettings.value("pencilLineStabilization", StabilizationLevel::STRONG).toInt());
+        setLegacySmoothing(pencilSettings.value("pencilLineStabilization", StabilizationLevel::STRONG).toInt());
         toolProperties().setBaseValue(StrokeToolProperties::FILLCONTOUR_ENABLED, pencilSettings.value("FillContour", false).toBool());
 
         pencilSettings.remove("pencilWidth");
