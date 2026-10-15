@@ -415,20 +415,19 @@ struct Golden
 // The look of Pencil, Brush and Eraser; B0 hashes are in git history.
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
-    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1), 1-euro smoothing (B4), cached dab masks and coverage-only strokes (B2), 1-euro catch-up on pen lift, flow and opacity (B3).
-    // linux and darwin: CI prints the rows to add.
-    { "winnt x86_64", "pencil", 4, "713fdc3434ba9484f246d80b89702eb1c2634322", "b25a85edd25798658b8a7dc4c065fe84dd5a2525" },
-    { "winnt x86_64", "pencil", 24, "9659fc79338e00e3ce9d24b3a192d69e521beb7f", "6dfafbb19e2fca40e27765f6de9e8405f15870cc" },
-    { "winnt x86_64", "pencil", 96, "dd3c52d9adac7516444c7e2fb0adc7ec6ac7618a", "1dabe840fc3c19c4f1ab0b70aafd9626fb5ebd33" },
-    { "winnt x86_64", "pencil", 200, "47f58eeb57648e798323ce792d9f066f63656c8c", "7e2552d7087ba8dccc35dad7e0abdde13f3c2ae9" },
-    { "winnt x86_64", "brush", 4, "628936218a10f642d977063d9bf3d44f9a5df567", "d002196d458ebe9e96f90df3ff876ba1086c7c5d" },
-    { "winnt x86_64", "brush", 24, "89b011c71012f4c90ccfbf53a560f2ca5ca4cf38", "428759e78c0d74c04aea6440704cdd0b3cfbe2f2" },
-    { "winnt x86_64", "brush", 96, "335d45b13e2cf20961323bf240c9e8cf601dcfb4", "8f68afbad6cd227d4d5eb48ba49a511f52a339c4" },
-    { "winnt x86_64", "brush", 200, "bdcf96926b2d1add49ef36a73de1df3b6effc7e1", "817c30c2efe4f05906e590a3e7a6bd6a3815a487" },
-    { "winnt x86_64", "eraser", 4, "825f29b9d899ec6be9c742d5b20ab705d4411e7a", "e6c0bdb403bcc6d69a69c0ff040f79bfbfb6eeab" },
-    { "winnt x86_64", "eraser", 24, "2eb5d32d53bdd057fc48c586ca109325b1223e41", "d6189f4b7d07d74532235c06742a2e509420faf7" },
-    { "winnt x86_64", "eraser", 96, "7a7f3c09b90828603a4cfcdfaa1f3b00aa8e9a44", "678910db446768ae1dcf7a2c28365b483df35928" },
-    { "winnt x86_64", "eraser", 200, "578233e5f4786b044186df2f7b1f0347018c5db2", "75dbd2674f0b43f1a46f9b83c3a75d2610059678" },
+    // All platforms (CI-confirmed on winnt, linux, darwin), after even dab spacing (B1), 1-euro smoothing (B4), cached dab masks and coverage-only strokes (B2), 1-euro catch-up on pen lift, flow and opacity (B3).
+    { "", "pencil", 4, "713fdc3434ba9484f246d80b89702eb1c2634322", "b25a85edd25798658b8a7dc4c065fe84dd5a2525" },
+    { "", "pencil", 24, "9659fc79338e00e3ce9d24b3a192d69e521beb7f", "6dfafbb19e2fca40e27765f6de9e8405f15870cc" },
+    { "", "pencil", 96, "dd3c52d9adac7516444c7e2fb0adc7ec6ac7618a", "1dabe840fc3c19c4f1ab0b70aafd9626fb5ebd33" },
+    { "", "pencil", 200, "47f58eeb57648e798323ce792d9f066f63656c8c", "7e2552d7087ba8dccc35dad7e0abdde13f3c2ae9" },
+    { "", "brush", 4, "628936218a10f642d977063d9bf3d44f9a5df567", "d002196d458ebe9e96f90df3ff876ba1086c7c5d" },
+    { "", "brush", 24, "89b011c71012f4c90ccfbf53a560f2ca5ca4cf38", "428759e78c0d74c04aea6440704cdd0b3cfbe2f2" },
+    { "", "brush", 96, "335d45b13e2cf20961323bf240c9e8cf601dcfb4", "8f68afbad6cd227d4d5eb48ba49a511f52a339c4" },
+    { "", "brush", 200, "bdcf96926b2d1add49ef36a73de1df3b6effc7e1", "817c30c2efe4f05906e590a3e7a6bd6a3815a487" },
+    { "", "eraser", 4, "825f29b9d899ec6be9c742d5b20ab705d4411e7a", "e6c0bdb403bcc6d69a69c0ff040f79bfbfb6eeab" },
+    { "", "eraser", 24, "2eb5d32d53bdd057fc48c586ca109325b1223e41", "d6189f4b7d07d74532235c06742a2e509420faf7" },
+    { "", "eraser", 96, "7a7f3c09b90828603a4cfcdfaa1f3b00aa8e9a44", "678910db446768ae1dcf7a2c28365b483df35928" },
+    { "", "eraser", 200, "578233e5f4786b044186df2f7b1f0347018c5db2", "75dbd2674f0b43f1a46f9b83c3a75d2610059678" },
 };
 
 // Pencil, Brush and Eraser at their defaults on master before v0.3 (git 042a65c); the Classic
