@@ -221,9 +221,7 @@ void BitmapImage::paste(const TiledBuffer* tiledBuffer, QPainter::CompositionMod
     painter.setCompositionMode(cm);
     auto const tiles = tiledBuffer->tiles();
     for (const Tile* item : tiles) {
-        const QPixmap& tilePixmap = item->pixmap();
-        const QPoint& tilePos = item->pos();
-        painter.drawPixmap(tilePos-mBounds.topLeft(), tilePixmap);
+        painter.drawImage(item->pos() - mBounds.topLeft(), item->image());
     }
     painter.end();
 

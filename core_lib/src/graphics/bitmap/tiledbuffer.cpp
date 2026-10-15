@@ -80,7 +80,7 @@ void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush br
 
             Tile* tile = getTileFromIndex({tileX, tileY});
 
-            QPainter painter(&tile->pixmap());
+            QPainter painter(&tile->image());
 
             painter.translate(-tile->pos());
             painter.setRenderHint(QPainter::Antialiasing, antialiasing);
@@ -115,7 +115,7 @@ void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPain
 
             Tile* tile = getTileFromIndex({tileX, tileY});
 
-            QPainter painter(&tile->pixmap());
+            QPainter painter(&tile->image());
 
             painter.translate(-tile->pos());
             painter.setRenderHint(QPainter::Antialiasing, antialiasing);
@@ -148,7 +148,7 @@ void TiledBuffer::drawPath(QPainterPath path, QPen pen, QBrush brush,
 
             Tile* tile = getTileFromIndex({tileX, tileY});
 
-            QPainter painter(&tile->pixmap());
+            QPainter painter(&tile->image());
 
             painter.translate(-tile->pos());
             painter.setRenderHint(QPainter::Antialiasing, antialiasing);

@@ -19,7 +19,7 @@ GNU General Public License for more details.
 #include <QAbstractButton>
 #include <QEvent>
 
-#include "platformhandler.h"
+#include "theme.h"
 
 ButtonAppearanceWatcher::ButtonAppearanceWatcher(IconResource normalIconResource,
                                                  IconResource hoverIconResource,
@@ -51,7 +51,7 @@ bool ButtonAppearanceWatcher::eventFilter(QObject* watched, QEvent* event)
         }
         mOldAppearanceType = apType;
 
-        bool isDarkmode = PlatformHandler::isDarkMode();
+        bool isDarkmode = Theme::isDark();
         button->setIcon(res.iconForMode(isDarkmode));
         return true;
     }
@@ -62,7 +62,7 @@ bool ButtonAppearanceWatcher::eventFilter(QObject* watched, QEvent* event)
 AppearanceEventType ButtonAppearanceWatcher::determineAppearanceEvent(QEvent *event) const
 {
     if (event->type() == QEvent::ApplicationPaletteChange) {
-        bool isDarkmode = PlatformHandler::isDarkMode();
+        bool isDarkmode = Theme::isDark();
         if (isDarkmode) {
             return AppearanceEventType::DARK_APPEARANCE;
         } else {
