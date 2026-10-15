@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "tiledbuffer.h"
 
 #include <QPen>
+#include <random>
 
 class Layer;
 
@@ -44,6 +45,9 @@ public:
     void setPredictionEnabled(bool enabled) { mPredictionEnabled = enabled; }
 
     void paint(QPainter& painter, const QRect& blitRect) override;
+
+    /// Restarts the size jitter sequence, so a replay paints the same dabs.
+    void seedRandom(quint32 seed) { mRandom.seed(seed); }
 
 protected:
     /// Paints one bitmap dab.
@@ -90,6 +94,15 @@ private:
     /// Moves the prediction to the current pen state and repaints where it was and is.
     void updatePrediction();
     QRect predictionRect() const;
+    /// Size factor from pen speed, tilt and random jitter; draws one random number per call.
+    qreal sizeDynamics();
+
+    // Preferences in -1..1 (jitter 0..1), read at each press.
+    qreal mSpeedToSize = 0;
+    qreal mTiltToSize = 0;
+    qreal mTiltToAngle = 0;
+    qreal mSizeJitter = 0;
+    std::mt19937 mRandom{ 1 };
 
     bool mPredictionEnabled = true;
     QLineF mPrediction; // canvas coordinates; null when hidden

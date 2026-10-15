@@ -18,6 +18,10 @@ GNU General Public License for more details.
 #ifndef TOOLSPAGE_H
 #define TOOLSPAGE_H
 
+#include <QList>
+#include <utility>
+#include "preferencesdef.h"
+
 class PreferenceManager;
 class PressureCurveWidget;
 class QSpinBox;
@@ -46,6 +50,7 @@ private:
     PressureCurveWidget* mPressureCurve = nullptr;
     QSpinBox* mTaperStart = nullptr;
     QSpinBox* mTaperEnd = nullptr;
+    QList<std::pair<SETTING, QSpinBox*>> mDynamicsBoxes;
 };
 
 #endif // TOOLSPAGE_H

@@ -39,7 +39,9 @@ void StrokeInterpolator::pointerPressEvent(PointerEvent* event)
     mLastPixel = mCurrentPixel = event->viewportPos();
     mSmoother.reset(mCurrentPixel, event->timestamp());
     mVelocity = QPointF();
+    mSpeed = 0;
     mTime = event->timestamp();
+    mTilt = QPointF(event->tiltX(), event->tiltY());
 
     mStrokeStarted = true;
     setPressure(event->pressure());
@@ -55,12 +57,17 @@ void StrokeInterpolator::pointerMoveEvent(PointerEvent* event)
     {
         // Same rule as the smoother: samples that share a timestamp count 1 ms apart.
         const quint64 t = event->timestamp();
-        mVelocity = (mCurrentPixel - mLastPixel) / qreal(t > mTime ? t - mTime : 1);
+        const qreal dt = qreal(t > mTime ? t - mTime : 1);
+        mVelocity = (mCurrentPixel - mLastPixel) / dt;
         mTime = qMax(mTime, t);
+        // First-order low-pass (exp decay, 20 ms time constant) with sqrt only, so platforms agree.
+        const qreal speed = std::sqrt(mVelocity.x() * mVelocity.x() + mVelocity.y() * mVelocity.y());
+        mSpeed += (speed - mSpeed) * dt / (dt + 20);
     }
     if (event->isTabletEvent())
     {
         setPressure(event->pressure());
+        mTilt = QPointF(event->tiltX(), event->tiltY());
     }
 }
 
