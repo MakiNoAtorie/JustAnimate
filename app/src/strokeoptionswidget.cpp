@@ -88,7 +88,7 @@ void StrokeOptionsWidget::initUI()
 
     // Item index is the ShapeTool::Mode value.
     mShapeModeCombo = new QComboBox(this);
-    mShapeModeCombo->addItems({ tr("Line"), tr("Rectangle"), tr("Ellipse") });
+    mShapeModeCombo->addItems({ tr("Line"), tr("Rectangle"), tr("Ellipse"), tr("Polygon") });
     ui->verticalLayout_2->insertWidget(0, mShapeModeCombo);
     connect(mShapeModeCombo, &QComboBox::activated, this, [this](int mode) {
         static_cast<ShapeTool*>(mCurrentTool)->setShapeMode(mode);

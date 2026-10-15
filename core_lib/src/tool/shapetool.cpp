@@ -55,7 +55,7 @@ void ShapeTool::loadSettings()
     mPropertyUsed[ShapeToolProperties::SHAPEMODE_VALUE] = { Layer::BITMAP, Layer::VECTOR };
 
     QSettings settings(PENCIL2D, PENCIL2D);
-    toolProperties().insertProperties({ { ShapeToolProperties::SHAPEMODE_VALUE, PropertyInfo(LINE, ELLIPSE, RECTANGLE) } });
+    toolProperties().insertProperties({ { ShapeToolProperties::SHAPEMODE_VALUE, PropertyInfo(LINE, POLYGON, RECTANGLE) } });
     toolProperties().loadFrom(typeName(), settings);
 
     // Shift and Alt shape the outline; quick sizing would take them.
@@ -128,17 +128,33 @@ void ShapeTool::pointerPressEvent(PointerEvent* event)
     if (event->button() != Qt::LeftButton || (layerType != Layer::BITMAP && layerType != Layer::VECTOR))
         return;
 
+    if (mDrawing && shapeMode() == POLYGON)
+    {
+        mInterpolator.pointerPressEvent(event);
+        const QPointF p = getCurrentPoint();
+        const QPointF d = mEditor->view()->mapCanvasToScreen(p) - mEditor->view()->mapCanvasToScreen(mPolygon[0]);
+        if (mPolygon.size() >= 3 && d.manhattanLength() < 10)
+            finishShape(mPolygon);
+        else
+            setOutline(mPolygon << p);
+        return;
+    }
+
     // Starts the stroke: empty-frame handling, undo state and brush settings.
     DabTool::pointerPressEvent(event);
     mDrawing = true;
     mFrom = getCurrentPoint();
-    setOutline(outline(shapeMode(), mFrom, mFrom, event->modifiers()));
+    if (shapeMode() == POLYGON)
+        mPolygon = QPolygonF({ mFrom });
+    setOutline(shapeMode() == POLYGON ? mPolygon : outline(shapeMode(), mFrom, mFrom, event->modifiers()));
 }
 
 void ShapeTool::pointerMoveEvent(PointerEvent* event)
 {
     mInterpolator.pointerMoveEvent(event);
-    if (mDrawing)
+    if (mDrawing && shapeMode() == POLYGON)
+        setOutline(QPolygonF(mPolygon) << getCurrentPoint());
+    else if (mDrawing)
         setOutline(outline(shapeMode(), mFrom, getCurrentPoint(), event->modifiers()));
     StrokeTool::pointerMoveEvent(event);
 }
@@ -147,9 +163,30 @@ void ShapeTool::pointerReleaseEvent(PointerEvent* event)
 {
     mInterpolator.pointerReleaseEvent(event);
     if (!mDrawing) return;
-    mDrawing = false;
+    if (shapeMode() == POLYGON) // the shape ends on its closing click
+    {
+        StrokeTool::pointerReleaseEvent(event);
+        return;
+    }
+    finishShape(outline(shapeMode(), mFrom, getCurrentPoint(), event->modifiers()));
+    StrokeTool::pointerReleaseEvent(event);
+}
 
-    const QPolygonF shape = outline(shapeMode(), mFrom, getCurrentPoint(), event->modifiers());
+void ShapeTool::pointerDoubleClickEvent(PointerEvent* event)
+{
+    if (mDrawing && shapeMode() == POLYGON)
+        finishShape(mPolygon);
+    else
+        pointerPressEvent(event);
+}
+
+void ShapeTool::finishShape(const QPolygonF& points)
+{
+    mDrawing = false;
+    QPolygonF shape = points;
+    if (shapeMode() == POLYGON)
+        shape << shape.first();
+    mPolygon.clear();
     setOutline(QPolygonF());
 
     Layer* layer = mEditor->layers()->currentLayer();
@@ -162,7 +199,7 @@ void ShapeTool::pointerReleaseEvent(PointerEvent* event)
         VectorImage* image = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
         if (image != nullptr) // null if the frame was deleted while drawing
         {
-            BezierCurve curve(shape,shapeMode() == ELLIPSE);
+            BezierCurve curve(shape, shapeMode() == ELLIPSE);
             curve.setWidth(mSettings.invisibilityEnabled() ? 0 : mSettings.width());
             curve.setFeather(mSettings.feather());
             curve.setFilled(false);
@@ -174,7 +211,6 @@ void ShapeTool::pointerReleaseEvent(PointerEvent* event)
         }
     }
     endStroke();
-    StrokeTool::pointerReleaseEvent(event);
 }
 
 bool ShapeTool::keyPressEvent(QKeyEvent* event)

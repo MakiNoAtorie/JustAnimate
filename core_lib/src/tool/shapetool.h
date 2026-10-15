@@ -17,13 +17,13 @@ GNU General Public License for more details.
 
 #include "brushtool.h"
 
-/// Drags out a line, rectangle or ellipse. Bitmap shapes are dabbed with this tool's brush settings.
+/// Drags out a line, rectangle or ellipse, or clicks out a polygon. Bitmap shapes are dabbed with this tool's brush settings.
 class ShapeTool : public BrushTool
 {
     Q_OBJECT
 
 public:
-    enum Mode { LINE = 0, RECTANGLE = 1, ELLIPSE = 2 };
+    enum Mode { LINE = 0, RECTANGLE = 1, ELLIPSE = 2, POLYGON = 3 };
 
     explicit ShapeTool(QObject* parent = nullptr);
 
@@ -41,6 +41,7 @@ public:
     void pointerPressEvent(PointerEvent*) override;
     void pointerMoveEvent(PointerEvent*) override;
     void pointerReleaseEvent(PointerEvent*) override;
+    void pointerDoubleClickEvent(PointerEvent*) override;
     bool keyPressEvent(QKeyEvent* event) override;
     void paint(QPainter& painter, const QRect& blitRect) override;
 
@@ -48,11 +49,13 @@ signals:
     void shapeModeChanged(int mode);
 
 private:
+    void finishShape(const QPolygonF& shape);
     void setOutline(const QPolygonF& outline);
     QRect outlineScreenRect() const;
 
     bool mDrawing = false;
     QPointF mFrom;
+    QPolygonF mPolygon; // clicked polygon points, canvas
     QPolygonF mOutline; // canvas points of the live preview
 };
 

@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Saving and opening zip and unzip the project on a worker thread, so the progress bar keeps moving and the window keeps repainting; an autosave that fires during a save is skipped (1.6).
+- Shape tool polygon mode: click to add points; a double click or a click on the first point closes it, on bitmap and vector layers (2.3).
 - Shape tool (U): line, rectangle and ellipse on bitmap and vector layers; Shift constrains, Alt draws from the center; bitmap shapes use the tool's brush settings (2.3).
 - Canvas: the layers below the one you paint are cached in 64 px cells and redrawn only when they change, so repaints with many layers are faster (1.3).
 - Fill behind lines is the bucket's existing Behind blend mode; a test now checks it keeps antialiased line edges over the fill (2.6).
