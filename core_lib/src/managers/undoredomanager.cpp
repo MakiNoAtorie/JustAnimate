@@ -120,6 +120,10 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
             removeKeyFrames(*saveState, description);
             break;
         }
+        case UndoRedoRecordType::KEYFRAMES_PASTE: {
+            pasteKeyFrames(*saveState, description);
+            break;
+        }
         default: {
             QString reason("Unhandled case for: ");
             reason.append(description);
@@ -255,6 +259,35 @@ void UndoRedoManager::removeKeyFrames(const UndoSaveState& undoState, const QStr
     pushCommand(element);
 }
 
+void UndoRedoManager::pasteKeyFrames(const UndoSaveState& undoState, const QString& description)
+{
+    const Layer* layer = editor()->layers()->findLayerById(undoState.layerId);
+    if (layer == nullptr) { return; }
+
+    QList<QPair<int, int>> moves;
+    QList<const KeyFrame*> pasted;
+    layer->foreachKeyFrame([&](KeyFrame* key)
+    {
+        auto it = undoState.keyframePositions.constFind(key);
+        if (it == undoState.keyframePositions.constEnd()) {
+            pasted.append(key);
+        } else if (it.value() != key->pos()) {
+            moves.append(qMakePair(it.value(), key->pos()));
+        }
+    });
+    if (pasted.isEmpty()) { return; }
+
+    // Children redo in order and undo in reverse: make room first, then insert.
+    QUndoCommand* element = new QUndoCommand(description);
+    if (!moves.isEmpty()) {
+        new MoveKeyFramesCommand(moves, undoState.layerId, description, editor(), element);
+    }
+    for (const KeyFrame* key : pasted) {
+        new KeyFramePasteCommand(key, undoState.layerId, description, editor(), element);
+    }
+    pushCommand(element);
+}
+
 void UndoRedoManager::replaceBitmap(const UndoSaveState& undoState, const QString& description)
 {
     if (undoState.keyframe == nullptr || undoState.layerType != Layer::BITMAP) { return; }
@@ -356,7 +389,8 @@ void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState) cons
         undoSaveState->keyframe = std::unique_ptr<KeyFrame>(keyframe->clone());
     }
 
-    if (undoSaveState->recordType == UndoRedoRecordType::KEYFRAME_MOVE) {
+    if (undoSaveState->recordType == UndoRedoRecordType::KEYFRAME_MOVE ||
+        undoSaveState->recordType == UndoRedoRecordType::KEYFRAMES_PASTE) {
         layer->foreachKeyFrame([undoSaveState](KeyFrame* key) {
             undoSaveState->keyframePositions.insert(key, key->pos());
         });

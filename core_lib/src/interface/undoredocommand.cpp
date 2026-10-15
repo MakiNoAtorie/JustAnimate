@@ -153,6 +153,53 @@ void KeyFrameAddCommand::redo()
     editor()->scrubTo(redoPosition);
 }
 
+KeyFramePasteCommand::KeyFramePasteCommand(const KeyFrame* pastedKeyFrame,
+                                           int layerId,
+                                           const QString& description,
+                                           Editor* editor,
+                                           QUndoCommand* parent)
+    : UndoRedoCommand(editor, parent), pastedKeyFrame(pastedKeyFrame->clone()), layerId(layerId)
+{
+    setText(description);
+}
+
+KeyFramePasteCommand::~KeyFramePasteCommand()
+{
+    delete pastedKeyFrame;
+}
+
+void KeyFramePasteCommand::undo()
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return setObsolete(true); }
+
+    UndoRedoCommand::undo();
+
+    layer->removeKeyFrame(pastedKeyFrame->pos());
+
+    emit editor()->frameModified(pastedKeyFrame->pos());
+    editor()->layers()->notifyAnimationLengthChanged();
+}
+
+void KeyFramePasteCommand::redo()
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return setObsolete(true); }
+
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    KeyFrame* key = pastedKeyFrame->clone();
+    if (!layer->addKeyFrame(pastedKeyFrame->pos(), key)) {
+        delete key;
+    }
+
+    emit editor()->frameModified(pastedKeyFrame->pos());
+    editor()->layers()->notifyAnimationLengthChanged();
+}
+
 MoveKeyFramesCommand::MoveKeyFramesCommand(const QList<QPair<int, int>>& moves,
                                          int layerId,
                                          const QString& description,

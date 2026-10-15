@@ -99,6 +99,24 @@ private:
     int redoPosition = 0;
 };
 
+class KeyFramePasteCommand : public UndoRedoCommand
+{
+public:
+    KeyFramePasteCommand(const KeyFrame* pastedKeyFrame,
+                         int layerId,
+                         const QString& description,
+                         Editor* editor,
+                         QUndoCommand* parent = nullptr);
+    ~KeyFramePasteCommand() override;
+
+    void undo() override;
+    void redo() override;
+
+private:
+    KeyFrame* pastedKeyFrame = nullptr;
+    int layerId = 0;
+};
+
 class MoveKeyFramesCommand : public UndoRedoCommand
 {
 public:

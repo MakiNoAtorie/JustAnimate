@@ -335,7 +335,6 @@ void Editor::pasteToFrames()
         // It's a bug if the keyframe is nullptr at this point...
         Q_ASSERT(key != nullptr);
 
-        // TODO: undo/redo implementation
         currentLayer->addKeyFrame(newPosition, key);
         if (currentLayer->type() == Layer::SOUND)
         {
@@ -376,8 +375,9 @@ void Editor::paste()
         }
         undoRedo()->record(saveStateId, tr("Paste"));
     } else {
-        // TODO: implement undo/redo
+        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_PASTE);
         pasteToFrames();
+        undoRedo()->record(saveStateId, tr("Paste frames"));
     }
 
     emit frameModified(mFrame);

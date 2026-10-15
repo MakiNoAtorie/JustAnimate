@@ -52,6 +52,7 @@ enum class UndoRedoRecordType {
     KEYFRAME_MOVE, // Any change of keyframe positions on the current layer: move, reverse, exposure
     BITMAPS_MOVE, // Moving bitmap keyframes on the canvas, e.g. peg bar alignment
     KEYFRAMES_REMOVE, // Removing the selected keyframes
+    KEYFRAMES_PASTE, // Pasting keyframes, which can push later keyframes back
     // SCRUB_LAYER, // Scrubbing layer
     // SCRUB_KEYFRAME, // Scrubbing keyframe
     INVALID
@@ -193,6 +194,7 @@ private:
     void moveKeyFrames(const UndoSaveState& undoState, const QString& description);
     void moveBitmaps(const UndoSaveState& undoState, const QString& description);
     void removeKeyFrames(const UndoSaveState& undoState, const QString& description);
+    void pasteKeyFrames(const UndoSaveState& undoState, const QString& description);
 
     void initCommonKeyFrameState(UndoSaveState* undoSaveState) const;
 

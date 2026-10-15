@@ -489,6 +489,14 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
         checkUndoRedo([&] { editor->copyAndCut(); }, "5=5 1=1");
     }
 
+    SECTION("Paste frames, which pushes the later frames back")
+    {
+        select({ 1, 3 });
+        editor->copy();
+        editor->scrubTo(5);
+        checkUndoRedo([&] { editor->paste(); }, "8=6 7=3 6=5 5=1 3=3 1=1");
+    }
+
     SECTION("Move frames")
     {
         select({ 5, 6 });
