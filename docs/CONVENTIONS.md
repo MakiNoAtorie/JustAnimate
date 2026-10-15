@@ -73,6 +73,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Bitmap pixels are premultiplied: `qUnpremultiply` before use as a `QColor`.
 - Untrusted files: reject the whole archive before writing anything; return
   a failed `Status`, never `Q_ASSERT` on it.
+- A tool property a test may leave unregistered gets a getter that returns
+  the default when it is missing.
 - Code that runs in a crash handler uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
@@ -92,7 +94,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `tests/tests.cmake`.
 
 - Tool property ids: bucket `FILLCLOSEGAPS_VALUE = 307` ("FillCloseGaps",
-  px, 0 = off) and `FILLBEHINDLINES_ENABLED = 308` ("FillBehindLines", off).
+  px, 0 = off). Fill behind lines is the existing Behind blend mode.
   New tools append to `ToolType` before `TOOL_TYPE_COUNT`: `SHAPE`, then
   `LASSOFILL`. `ShapeToolProperties` ids 600–699 (`SHAPEMODE_VALUE = 600`,
   "ShapeMode": 0 line, 1 rectangle, 2 ellipse, 3 polygon); lasso fill 700–799.
