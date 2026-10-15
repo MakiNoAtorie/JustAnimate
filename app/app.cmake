@@ -46,6 +46,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/preferencesdialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/presetdialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutspage.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/spinslider.h
@@ -57,6 +58,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinepage.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolbox.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/theme.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolboxwidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/tooloptionwidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolspage.h
@@ -105,6 +107,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/preferencesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/presetdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutspage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/spinslider.cpp
@@ -116,6 +119,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinepage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolbox.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolboxwidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/tooloptionwidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/toolspage.cpp

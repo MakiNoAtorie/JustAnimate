@@ -18,7 +18,8 @@ GNU General Public License for more details.
 #define TILE_H
 
 #include <QPoint>
-#include <QPixmap>
+#include <QImage>
+#include <vector>
 
 class Tile
 {
@@ -27,8 +28,8 @@ public:
     explicit Tile (const QPoint& pos, QSize size);
     ~Tile();
 
-    const QPixmap& pixmap() const { return mTilePixmap; }
-    QPixmap& pixmap() { return mTilePixmap; }
+    const QImage& image() const { return mTileImage; }
+    QImage& image() { return mTileImage; }
 
     const QPoint& pos() const { return mPos; }
     const QPointF& posF() const { return mPosF; }
@@ -38,9 +39,19 @@ public:
     /** Loads the input image into the tile */
     void load(const QImage& image, const QPoint& topLeft);
     void clear();
+    /** Moves the tile to pos; keeps the pixels. */
+    void moveTo(const QPoint& pos);
+
+    /** Stroke alpha (0..255), one byte per pixel, when TiledBuffer accumulates coverage. */
+    std::vector<quint8>& coverage() { return mCoverage; }
+    /** True when coverage changed after the image was last colourized. */
+    bool coverageDirty = false;
+    /** Queued TiledBuffer dabs that touch this tile, in draw order. */
+    std::vector<int> pendingDabs;
 
 private:
-    QPixmap mTilePixmap;
+    std::vector<quint8> mCoverage;
+    QImage mTileImage;
     QPointF mPosF;
     QPoint mPos;
     QRect mBounds;

@@ -18,66 +18,47 @@ GNU General Public License for more details.
 #ifndef STROKEINTERPOLATOR_H
 #define STROKEINTERPOLATOR_H
 
-#include <QQueue>
 #include <QPointF>
 #include <QList>
-#include <QTimer>
 
+#include "inputsmoother.h"
 
 class PointerEvent;
 
-class StrokeInterpolator : public QObject
+class StrokeInterpolator
 {
 public:
-    StrokeInterpolator();
-
     void pointerPressEvent(PointerEvent* event);
     void pointerMoveEvent(PointerEvent* event);
     void pointerReleaseEvent(PointerEvent* event);
     void setPressure(float pressure);
-    void setStabilizerLevel(int level);
+    /// Applies from the next press.
+    void setSmoothing(SmoothingMode mode, int strength) { mSmoother.setMode(mode, strength); }
 
     float getPressure() { return mTabletPressure; }
-    int getStabilizerLevel() { return mStabilizerLevel; }
     bool isActive() const { return mStrokeStarted; }
 
+    /// The segment from the last to the current pixel, as cubic Bezier points; empty if it has no length.
     QList<QPointF> interpolateStroke();
-    void interpolatePoll();
-    QPointF interpolateStart(QPointF firstPoint);
-    void interpolatePollAndPaint();
-    void interpolateEnd();
-    void smoothMousePos(QPointF pos);
-    QList<QPointF> meanInpolOp(QList<QPointF> points, qreal x, qreal y, qreal pressure);
-    QList<QPointF> noInpolOp(QList<QPointF> points);
-    QList<QPointF> tangentInpolOp(QList<QPointF> points);
 
     QPointF getCurrentPixel() const { return mCurrentPixel; }
     QPointF getLastPixel() const { return mLastPixel; }
-    QPointF getLastMeanPixel() const { return mLastInterpolated; }
     QPointF getCurrentPressPixel() const { return mCurrentPressPixel; }
+    /// Where the pen will be horizonMs after the last sample, at its last velocity; at most maxDistance px ahead.
+    QPointF predictedPixel(qreal horizonMs, qreal maxDistance) const;
 
 private:
-    static const int STROKE_QUEUE_LENGTH = 3; // 4 points for cubic bezier
-
-    void reset();
-
-    float pressure = 1.0f; // last pressure
-    QQueue<QPointF> strokeQueue;
-    QQueue<qreal> pressureQueue;
-
-    QTimer timer;
+    InputSmoother mSmoother;
 
     QPointF mCurrentPressPixel = { 0, 0 };
     QPointF mCurrentPixel = { 0, 0 };
     QPointF mLastPixel = { 0, 0 };
-    QPointF mLastInterpolated = { 0, 0 };
 
-    QPointF m_previousTangent;
-    bool    mHasTangent = false;
+    QPointF mVelocity; // px/ms, of the smoothed position
+    quint64 mTime = 0;
+
     bool    mStrokeStarted = false;
-    bool    mTabletInUse = false;
     float   mTabletPressure = 1.f;
-    int     mStabilizerLevel = 0;
 };
 
 #endif // STROKEINTERPOLATOR_H

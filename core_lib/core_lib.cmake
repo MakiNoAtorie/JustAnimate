@@ -61,6 +61,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/soundclip.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/basetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushtool.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabtool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/buckettool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/cameratool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/erasertool.h
@@ -73,6 +74,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/radialoffsettool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/selecttool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/inputsmoother.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.h
@@ -159,6 +161,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/soundclip.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/basetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushtool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabtool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/buckettool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/cameratool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/erasertool.cpp
@@ -171,6 +174,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/radialoffsettool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/selecttool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/inputsmoother.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.cpp

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 */
 #include "pencil2d.h"
+#include "theme.h"
 #include "appinfo.h"
 
 #include <memory>
@@ -42,6 +43,9 @@ GNU General Public License for more details.
 Pencil2D::Pencil2D(int& argc, char** argv) :
     QApplication(argc, argv)
 {
+    // Merge tablet moves that queue up while a frame paints, so the canvas catches up with the pen.
+    setAttribute(Qt::AA_CompressTabletEvents);
+
     // Set organization and application name
     setOrganizationName(APP_ORGANIZATION);
     setOrganizationDomain(APP_DOMAIN);
@@ -57,6 +61,7 @@ Pencil2D::Pencil2D(int& argc, char** argv) :
     // Associate the application with our desktop entry
     setDesktopFileName(APP_DESKTOP_ID);
     installTranslators();
+    Theme::apply(Theme::saved());
 }
 
 Pencil2D::~Pencil2D()

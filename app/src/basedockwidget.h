@@ -29,6 +29,8 @@ class BaseDockWidget : public QDockWidget
 protected:
     explicit BaseDockWidget(QWidget* pParent);
     virtual  ~BaseDockWidget();
+    void changeEvent(QEvent* event) override;
+    void updateTitleStyle();
 
 public:
     virtual void initUI() = 0;

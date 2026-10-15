@@ -19,22 +19,14 @@ GNU General Public License for more details.
 #include <QResizeEvent>
 
 #include "basedockwidget.h"
-#include "platformhandler.h"
+#include "theme.h"
 #include "titlebarwidget.h"
 
 BaseDockWidget::BaseDockWidget(QWidget* pParent)
 : QDockWidget(pParent, Qt::Tool)
 {
 
-#ifdef __APPLE__
-    if (PlatformHandler::isDarkMode())
-    {
-        setStyleSheet("QDockWidget::title { background: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #4e4f4d, stop: 1 #424241);  "
-                      "background-repeat: repeat-x; text-align: center;"
-                      "border-style: solid; border-bottom-color: #000000;"
-                      "border-width: 1px; }");
-    }
-#endif
+    updateTitleStyle();
 
     mTitleBarWidget = new TitleBarWidget(this);
     mNoTitleBarWidget = new QWidget(this);
@@ -50,6 +42,24 @@ BaseDockWidget::BaseDockWidget(QWidget* pParent)
 
     connect(this, &QDockWidget::topLevelChanged, mTitleBarWidget, &TitleBarWidget::setIsFloating);
     connect(this, &QDockWidget::windowTitleChanged, mTitleBarWidget, &TitleBarWidget::setTitle);
+}
+
+void BaseDockWidget::updateTitleStyle()
+{
+#ifdef __APPLE__
+    setStyleSheet(!Theme::isDark() ? QString() : QStringLiteral(
+        "QDockWidget::title { background: QLinearGradient( x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #4e4f4d, stop: 1 #424241);  "
+        "background-repeat: repeat-x; text-align: center;"
+        "border-style: solid; border-bottom-color: #000000;"
+        "border-width: 1px; }"));
+#endif
+}
+
+void BaseDockWidget::changeEvent(QEvent* event)
+{
+    QDockWidget::changeEvent(event);
+    if (event->type() == QEvent::ApplicationPaletteChange)
+        updateTitleStyle();
 }
 
 BaseDockWidget::~BaseDockWidget()

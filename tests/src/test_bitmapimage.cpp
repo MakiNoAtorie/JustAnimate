@@ -16,7 +16,10 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include "bitmapimage.h"
+#include "tile.h"
+#include "tiledbuffer.h"
 #include <QElapsedTimer>
+#include <QThread>
 #include <QDebug>
 
 TEST_CASE("BitmapImage constructors")
@@ -462,4 +465,143 @@ TEST_CASE("BitmapImage floodFill")
     REQUIRE(result->constScanLine(1, 1) == 0);
     REQUIRE(result->constScanLine(9, 5) == 0);
     delete result;
+}
+
+TEST_CASE("BitmapImage paste: brush tiles are premultiplied images")
+{
+    TiledBuffer buffer;
+    const QColor red(255, 0, 0, 128);
+    buffer.drawBrush(QPointF(70, 32), 20, QPen(Qt::NoPen), QBrush(red), QPainter::CompositionMode_SourceOver, false);
+    REQUIRE(buffer.tiles().size() == 2); // the dab crosses the tile edge at x = 64
+
+    for (const Tile* tile : buffer.tiles())
+        REQUIRE(tile->image().format() == QImage::Format_ARGB32_Premultiplied);
+
+    BitmapImage image(QRect(0, 0, 128, 64), Qt::transparent);
+    image.paste(&buffer);
+    REQUIRE(image.constScanLine(62, 32) == qPremultiply(red.rgba()));
+    REQUIRE(image.constScanLine(70, 32) == qPremultiply(red.rgba()));
+    REQUIRE(image.constScanLine(70, 60) == 0);
+}
+
+TEST_CASE("TiledBuffer drawDab: a cached mask lands only in the tiles the dab covers")
+{
+    TiledBuffer buffer;
+    const QColor red(255, 0, 0);
+    buffer.drawDab(QPointF(40, 40), 40, 0, red, 1.0, false); // covers x, y 20..60: tile (0, 0) only
+    REQUIRE(buffer.tiles().size() == 1);
+
+    BitmapImage solid(QRect(0, 0, 64, 64), Qt::transparent);
+    solid.paste(&buffer);
+    CHECK(solid.constScanLine(40, 40) == qRgba(255, 0, 0, 255));
+    CHECK(solid.constScanLine(40, 21) == qRgba(255, 0, 0, 255));
+    CHECK(solid.constScanLine(40, 19) == 0);
+    CHECK(solid.constScanLine(25, 25) == 0); // outside the circle, inside its box
+
+    // Feather 50: the centre keeps 255 - 128 alpha, the outer half fades to zero.
+    TiledBuffer soft;
+    soft.drawDab(QPointF(40, 40), 40, 50, red, 1.0, false);
+    BitmapImage feathered(QRect(0, 0, 64, 64), Qt::transparent);
+    feathered.paste(&soft);
+    CHECK(qAlpha(feathered.constScanLine(40, 40)) == 127);
+    CHECK(qAlpha(feathered.constScanLine(40, 33)) == 127);
+    CHECK(qAlpha(feathered.constScanLine(40, 25)) < 127);
+    CHECK(qAlpha(feathered.constScanLine(40, 25)) > qAlpha(feathered.constScanLine(40, 22)));
+    CHECK(qAlpha(feathered.constScanLine(40, 22)) > 0);
+    CHECK(feathered.constScanLine(40, 19) == 0);
+}
+
+TEST_CASE("TiledBuffer drawDab: a constant-colour stroke keeps its colour where translucent dabs overlap")
+{
+    TiledBuffer buffer;
+    const QColor color(200, 30, 90);
+    for (int i = 0; i < 10; ++i)
+        buffer.drawDab(QPointF(30 + i, 30), 30, 20, color, 0.3, true);
+
+    BitmapImage image(QRect(0, 0, 64, 64), Qt::transparent);
+    image.paste(&buffer);
+    int painted = 0;
+    for (int y = 0; y < 64; ++y)
+        for (int x = 0; x < 64; ++x)
+        {
+            const QRgb p = image.constScanLine(x, y);
+            if (qAlpha(p) == 0) continue;
+            ++painted;
+            CAPTURE(x, y, qAlpha(p));
+            REQUIRE(p == qPremultiply(qRgba(200, 30, 90, qAlpha(p))));
+        }
+    REQUIRE(painted > 500);
+    REQUIRE(qAlpha(image.constScanLine(34, 30)) > 230); // the overlap builds up alpha
+}
+
+TEST_CASE("TiledBuffer: a stroke that changes colour keeps the first colour's pixels")
+{
+    TiledBuffer buffer;
+    buffer.drawDab(QPointF(20, 20), 10, 0, QColor(255, 0, 0), 1.0, false);
+    buffer.drawDab(QPointF(40, 20), 10, 0, QColor(0, 0, 255), 1.0, false);
+
+    BitmapImage image(QRect(0, 0, 64, 64), Qt::transparent);
+    image.paste(&buffer);
+    CHECK(image.constScanLine(20, 20) == qRgba(255, 0, 0, 255));
+    CHECK(image.constScanLine(40, 20) == qRgba(0, 0, 255, 255));
+    CHECK(image.constScanLine(30, 20) == 0);
+}
+
+TEST_CASE("TiledBuffer drawDab: large dabs render on worker threads with the same pixels as one dab at a time")
+{
+    // Translucent overlapping dabs: the result depends on dab order in every tile.
+    auto draw = [](TiledBuffer& buffer, bool flushEachDab) {
+        const QColor red(200, 30, 90);
+        const QColor blue(20, 60, 220);
+        for (int i = 0; i < 8; ++i)
+        {
+            // From dab 4 on the colour changes, so the second half uses the image path, not coverage.
+            buffer.drawDab(QPointF(800 + i * 40, 800 + i * 25), 1500, 30, i < 4 ? red : blue, 0.3, true);
+            buffer.drawDab(QPointF(700 + i * 60, 760), 4, 0, i < 4 ? red : blue, 0.5, true); // a small dab between
+            if (flushEachDab) buffer.tiles();
+        }
+        BitmapImage image(QRect(0, 0, 1700, 1700), Qt::transparent);
+        image.paste(&buffer);
+        return *image.image();
+    };
+    TiledBuffer batched;
+    const QImage threaded = draw(batched, false);
+    const int workers = batched.lastDabWorkers();
+    TiledBuffer oneByOne;
+    const QImage serial = draw(oneByOne, true);
+
+    REQUIRE(qAlpha(serial.pixel(800, 800)) > 0);
+    CHECK(threaded == serial);
+    if (QThread::idealThreadCount() > 1)
+        CHECK(workers > 1);
+}
+
+TEST_CASE("TiledBuffer: cleared tiles go to a pool that stays under its cap and comes back clean")
+{
+    TiledBuffer buffer;
+    const qsizetype tileBytes = 64 * 64 * 4 + 64 * 64; // image and coverage
+    buffer.setPoolCapBytes(5 * tileBytes);
+
+    // A 300 px dab covers 5 x 5 tiles, more than the pool keeps.
+    buffer.drawDab(QPointF(160, 160), 300, 0, QColor(255, 0, 0), 1.0, false);
+    REQUIRE(buffer.tiles().size() == 25);
+    REQUIRE(buffer.poolBytes() == 0);
+    buffer.clear();
+    CHECK(buffer.poolBytes() > 0);
+    CHECK(buffer.poolBytes() <= 5 * tileBytes);
+
+    // Reused tiles start transparent, with both the coverage and the plain image paths.
+    const qsizetype pooled = buffer.poolBytes();
+    buffer.drawDab(QPointF(32, 32), 4, 0, QColor(0, 255, 0), 1.0, false);
+    CHECK(buffer.poolBytes() < pooled);
+    buffer.drawBrush(QPointF(96, 32), 4, QPen(Qt::NoPen), QBrush(Qt::blue), QPainter::CompositionMode_SourceOver, false);
+    BitmapImage image(QRect(0, 0, 128, 64), Qt::transparent);
+    image.paste(&buffer);
+    CHECK(image.constScanLine(32, 32) == qRgba(0, 255, 0, 255));
+    CHECK(image.constScanLine(96, 32) == qRgba(0, 0, 255, 255));
+    CHECK(image.constScanLine(10, 10) == 0);
+    CHECK(image.constScanLine(70, 10) == 0);
+
+    buffer.setPoolCapBytes(0);
+    CHECK(buffer.poolBytes() == 0);
 }

@@ -46,6 +46,13 @@ public:
      * Returns rotation value if any, otherwise 0 */
     qreal rotation() const;
 
+    /** Tablet tilt in degrees (-60 to 60), 0 for mouse events */
+    qreal tiltX() const;
+    qreal tiltY() const;
+
+    /** Event time in ms, as given by Qt (QInputEvent::timestamp) */
+    quint64 timestamp() const;
+
     /**
      * Returns the tangential pressure of a tablet's that support it
      * This is typically given by a finger wheel on an airbrush tool. The range

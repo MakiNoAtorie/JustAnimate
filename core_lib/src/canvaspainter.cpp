@@ -282,11 +282,11 @@ void CanvasPainter::paintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPa
 
         if (nFrame < mFrameNumber)
         {
-            colorBrush = Qt::red;
+            colorBrush = mOnionSkinPainterOptions.prevColor;
         }
         else if (nFrame > mFrameNumber)
         {
-            colorBrush = Qt::blue;
+            colorBrush = mOnionSkinPainterOptions.nextColor;
         }
         onionSkinPainter.setWorldMatrixEnabled(false);
 
@@ -320,7 +320,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
         currentBitmapPainter.setCompositionMode(mOptions.cmBufferBlendMode);
         const auto tiles = mTiledBuffer->tiles();
         for (const Tile* tile : tiles) {
-            currentBitmapPainter.drawPixmap(tile->posF(), tile->pixmap());
+            currentBitmapPainter.drawImage(tile->posF(), tile->image());
         }
     }
 
@@ -361,7 +361,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
 
         const auto tiles = mTiledBuffer->tiles();
         for (const Tile* tile : tiles) {
-            currentVectorPainter.drawPixmap(tile->posF(), tile->pixmap());
+            currentVectorPainter.drawImage(tile->posF(), tile->image());
         }
     }
 

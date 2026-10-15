@@ -102,9 +102,45 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,1">
+    <layout class="QHBoxLayout" name="horizontalLayoutSpacing">
      <item>
-      <widget class="QLabel" name="stabilizerLabel">
+      <widget class="SpinSlider" name="spacingSlider" native="true">
+       <property name="toolTip">
+        <string>Set dab spacing as a percentage of the stroke width</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="spacingSpinBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>60</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="minimum">
+        <double>1.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>400.000000000000000</double>
+       </property>
+       <property name="value">
+        <double>12.500000000000000</double>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,0,1">
+     <item>
+      <widget class="QLabel" name="smoothingLabel">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
          <horstretch>0</horstretch>
@@ -112,33 +148,48 @@
         </sizepolicy>
        </property>
        <property name="text">
-        <string>Stabilizer</string>
+        <string>Smoothing</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="inpolLevelsCombo">
+      <widget class="QComboBox" name="smoothingModeCombo">
        <property name="toolTip">
-        <string>Use stabilizer to interpolate strokes</string>
-       </property>
-       <property name="currentText">
-        <string comment="Stablizer level">None</string>
+        <string>Smooth the stroke while you draw</string>
        </property>
        <item>
         <property name="text">
-         <string comment="Stabilizer option">None</string>
+         <string comment="Smoothing mode">None</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string comment="Stabilizer option">Simple</string>
+         <string comment="Smoothing mode">1-euro filter</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string comment="Stabilizer option">Strong</string>
+         <string comment="Smoothing mode">Weighted</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string comment="Smoothing mode">Stabilizer</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSlider" name="smoothingStrengthSlider">
+       <property name="toolTip">
+        <string>Smoothing strength</string>
+       </property>
+       <property name="maximum">
+        <number>100</number>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
       </widget>
      </item>
     </layout>

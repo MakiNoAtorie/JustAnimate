@@ -5,6 +5,21 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Large Pencil, Brush and Eraser dabs render on all CPU cores, small ones stay on the main thread: about 5.7x the dabs per second of 0.1 with a 200 px brush at 128% zoom (256 screen px), same pixels (B2).
+- Lower drawing latency: Pencil and Brush preview a short prediction of the pen path that never reaches the drawing, and queued tablet moves are merged (B4).
+- One-colour Pencil, Brush and Eraser strokes build up a 1-byte alpha buffer and get their colour once, in reused tiles (pool capped at 128 MiB): about 1.4x faster dabs at large sizes; overlapping translucent dabs no longer drift in colour (B2).
+- Pencil, Brush and Eraser dabs are written from cached masks instead of a gradient painter per tile: up to 9x faster on small brushes; edges and feather differ slightly (B2).
+- Pencil, Brush and Eraser have a "Spacing %" setting for dab density; the default 12.5% keeps strokes unchanged (B1).
+- Weighted and Stabilizer smoothing modes: pick them in the stroke options with the strength slider; in every smoothing mode the stroke ends at the pen when you lift it (B4).
+- Saved workspaces: Window, Workspace switches between Draw, Animate and Ink dock layouts, and each remembers your changes across restarts (4.2).
+- Stroke smoothing: None or 1-euro filter with a 0-100 strength slider, run on input timestamps instead of a 5 ms timer; old None/Simple/Strong stabilizer settings carry over (B4).
+- Pencil, Brush and Eraser space dabs evenly at any stroke speed and change pressure smoothly along each stroke (B1).
+- Brush stroke tiles are premultiplied images instead of pixmaps, so later dab work can write pixels directly; strokes look the same (B2).
+- Light, Dark or System theme in Preferences, General; applies at once, persists, and icons follow it (4.1).
+- Onion skin: choose the opacity falloff (linear, gentle, steep) and the previous/next tint colours, and turn onion skin off per layer from the layer's right-click menu (3.1).
+- Pencil, Brush and Eraser share one press, release and dab-placement path; strokes look the same (B1 prefactor).
+- The default dock layout fits 1366x768 and 4K screens without overlap (side columns full height, timeline under the canvas), and Reset Windows restores it (4.2).
+- Pointer events carry tablet tilt (X/Y) and a timestamp; mouse events report zero tilt (2.1).
 - CI: the macOS package smoke test no longer fails when the DMG is slow to unmount (0.1).
 - Legacy .pcl projects open but no longer save: Save on a .pcl project asks for a .pclx name, so a failed save can never damage the .pcl original (A12).
 - Opening a .pclx whose entry cannot be checked or whose folder cannot be made fails with an error instead of extracting part of it (A3).

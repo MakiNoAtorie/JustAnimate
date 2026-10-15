@@ -18,6 +18,8 @@ GNU General Public License for more details.
 
 #include "mainwindow2.h"
 #include "appinfo.h"
+#include "defaultlayout.h"
+#include <QScreen>
 #include "ui_mainwindow2.h"
 
 // Qt headers
@@ -220,13 +222,7 @@ void MainWindow2::createDockWidgets()
         qDebug() << "Init Dock widget: " << pWidget->objectName();
     }
 
-    addDockWidget(Qt::RightDockWidgetArea, mColorBox);
-    addDockWidget(Qt::RightDockWidgetArea, mColorInspector);
-    addDockWidget(Qt::RightDockWidgetArea, mColorPalette);
-    addDockWidget(Qt::LeftDockWidgetArea, mToolBox);
-    addDockWidget(Qt::LeftDockWidgetArea, mToolOptions);
-    addDockWidget(Qt::LeftDockWidgetArea, mOnionSkinWidget);
-    addDockWidget(Qt::BottomDockWidgetArea, mTimeLine);
+    applyDefaultDockLayout();
     setDockNestingEnabled(true);
 
     /*
@@ -484,6 +480,20 @@ void MainWindow2::createMenus()
         winMenu->insertAction(ui->menuToolbars->menuAction(), action);
     }
     winMenu->insertSeparator(ui->menuToolbars->menuAction());
+
+    QMenu* workspaceMenu = new QMenu(tr("Workspace"), winMenu);
+    auto* workspaceGroup = new QActionGroup(this);
+    QSettings workspaceSettings(PENCIL2D, PENCIL2D);
+    for (const QString& name : workspaceNames())
+    {
+        QAction* a = workspaceMenu->addAction(QCoreApplication::translate("Workspace", name.toUtf8().constData()));
+        a->setData(name);
+        a->setCheckable(true);
+        a->setChecked(name == currentWorkspace(workspaceSettings));
+        workspaceGroup->addAction(a);
+    }
+    connect(workspaceGroup, &QActionGroup::triggered, this, [this](QAction* a) { switchToWorkspace(a->data().toString()); });
+    winMenu->insertMenu(ui->menuToolbars->menuAction(), workspaceMenu);
     connect(ui->actionResetWindows, &QAction::triggered, this, &MainWindow2::resetAndDockAllSubWidgets);
     connect(ui->actionLockWindows, &QAction::toggled, this, &MainWindow2::lockWidgets);
     bindPreferenceSetting(ui->actionLockWindows, prefs, SETTING::LAYOUT_LOCK);
@@ -1084,21 +1094,28 @@ void MainWindow2::resetAndDockAllSubWidgets()
     QSettings settings(PENCIL2D, PENCIL2D);
     settings.remove(SETTING_WINDOW_GEOMETRY);
     settings.remove(SETTING_WINDOW_STATE);
+    resetCurrentWorkspace(this, dockLayout(), availableScreenSize(), settings);
+}
 
-    for (BaseDockWidget* dock : mDockWidgets)
-    {
-        dock->setFloating(false);
-        dock->raise();
-        dock->show();
-    }
+DefaultDockLayout MainWindow2::dockLayout() const
+{
+    return {{mToolBox, mToolOptions, mOnionSkinWidget}, {mColorBox, mColorInspector, mColorPalette}, mTimeLine};
+}
 
-    addDockWidget(Qt::RightDockWidgetArea, mColorBox);
-    addDockWidget(Qt::RightDockWidgetArea, mColorInspector);
-    addDockWidget(Qt::RightDockWidgetArea, mColorPalette);
-    addDockWidget(Qt::LeftDockWidgetArea, mToolBox);
-    addDockWidget(Qt::LeftDockWidgetArea, mToolOptions);
-    addDockWidget(Qt::LeftDockWidgetArea, mOnionSkinWidget);
-    addDockWidget(Qt::BottomDockWidgetArea, mTimeLine);
+QSize MainWindow2::availableScreenSize() const
+{
+    return screen() ? screen()->availableSize() : QSize(1366, 768);
+}
+
+void MainWindow2::applyDefaultDockLayout()
+{
+    ::applyDefaultDockLayout(this, dockLayout(), availableScreenSize());
+}
+
+void MainWindow2::switchToWorkspace(const QString& name)
+{
+    QSettings settings(PENCIL2D, PENCIL2D);
+    switchWorkspace(this, dockLayout(), availableScreenSize(), settings, name);
 }
 
 void MainWindow2::newObject()
@@ -1224,6 +1241,7 @@ void MainWindow2::writeSettings()
     QSettings settings(PENCIL2D, PENCIL2D);
     settings.setValue(SETTING_WINDOW_GEOMETRY, saveGeometry());
     settings.setValue(SETTING_WINDOW_STATE, saveState());
+    saveCurrentWorkspace(this, settings);
 }
 
 void MainWindow2::setupKeyboardShortcuts()

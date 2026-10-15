@@ -19,7 +19,7 @@ GNU General Public License for more details.
 #include <QPainter>
 
 Tile::Tile(const QPoint& pos, QSize size):
-    mTilePixmap(size),
+    mTileImage(size, QImage::Format_ARGB32_Premultiplied),
     mPosF(pos),
     mPos(pos),
     mBounds(pos, size),
@@ -34,14 +34,21 @@ Tile::~Tile()
 
 void Tile::load(const QImage& image, const QPoint& topLeft)
 {
-    QPainter painter(&mTilePixmap);
+    QPainter painter(&mTileImage);
 
     painter.translate(-mPos);
     painter.drawImage(topLeft, image);
     painter.end();
 }
 
+void Tile::moveTo(const QPoint& pos)
+{
+    mPos = pos;
+    mPosF = pos;
+    mBounds.moveTopLeft(pos);
+}
+
 void Tile::clear()
 {
-    mTilePixmap.fill(Qt::transparent);
+    mTileImage.fill(Qt::transparent);
 }

@@ -144,6 +144,9 @@ void ScribbleArea::settingUpdated(SETTING setting)
     case SETTING::INVISIBLE_LINES:
     case SETTING::OUTLINES:
     case SETTING::ONION_TYPE:
+    case SETTING::ONION_FALLOFF:
+    case SETTING::ONION_PREV_COLOR:
+    case SETTING::ONION_NEXT_COLOR:
     case SETTING::ONION_WHILE_PLAYBACK:
         invalidateAllCache();
         break;
@@ -1064,6 +1067,26 @@ VectorImage* ScribbleArea::currentVectorImage(Layer* layer) const
     return vectorLayer->getLastVectorImageAtFrame(mEditor->currentFrame());
 }
 
+OnionSkinPainterOptions ScribbleArea::onionSkinOptions() const
+{
+    OnionSkinPainterOptions o;
+    o.enabledWhilePlaying = mPrefs->getInt(SETTING::ONION_WHILE_PLAYBACK);
+    o.isPlaying = mEditor->playback()->isPlaying();
+    o.isAbsolute = (mPrefs->getString(SETTING::ONION_TYPE) == "absolute");
+    o.skinPrevFrames = mPrefs->isOn(SETTING::PREV_ONION);
+    o.skinNextFrames = mPrefs->isOn(SETTING::NEXT_ONION);
+    o.colorizePrevFrames = mPrefs->isOn(SETTING::ONION_RED);
+    o.colorizeNextFrames = mPrefs->isOn(SETTING::ONION_BLUE);
+    o.framesToSkinPrev = mPrefs->getInt(SETTING::ONION_PREV_FRAMES_NUM);
+    o.framesToSkinNext = mPrefs->getInt(SETTING::ONION_NEXT_FRAMES_NUM);
+    o.maxOpacity = mPrefs->getInt(SETTING::ONION_MAX_OPACITY);
+    o.minOpacity = mPrefs->getInt(SETTING::ONION_MIN_OPACITY);
+    o.falloff = static_cast<OnionSkinFalloff>(mPrefs->getInt(SETTING::ONION_FALLOFF));
+    o.prevColor = QColor(mPrefs->getString(SETTING::ONION_PREV_COLOR));
+    o.nextColor = QColor(mPrefs->getString(SETTING::ONION_NEXT_COLOR));
+    return o;
+}
+
 void ScribbleArea::prepCameraPainter(int frame)
 {
     Object* object = mEditor->object();
@@ -1077,20 +1100,7 @@ void ScribbleArea::prepCameraPainter(int frame)
                                   mPrefs->getFloat(SETTING::LAYER_VISIBILITY_THRESHOLD),
                                   mEditor->view()->getScaleInversed());
 
-    OnionSkinPainterOptions onionSkinOptions;
-    onionSkinOptions.enabledWhilePlaying = mPrefs->getInt(SETTING::ONION_WHILE_PLAYBACK);
-    onionSkinOptions.isPlaying = mEditor->playback()->isPlaying();
-    onionSkinOptions.isAbsolute = (mPrefs->getString(SETTING::ONION_TYPE) == "absolute");
-    onionSkinOptions.skinPrevFrames = mPrefs->isOn(SETTING::PREV_ONION);
-    onionSkinOptions.skinNextFrames = mPrefs->isOn(SETTING::NEXT_ONION);
-    onionSkinOptions.colorizePrevFrames = mPrefs->isOn(SETTING::ONION_RED);
-    onionSkinOptions.colorizeNextFrames = mPrefs->isOn(SETTING::ONION_BLUE);
-    onionSkinOptions.framesToSkinPrev = mPrefs->getInt(SETTING::ONION_PREV_FRAMES_NUM);
-    onionSkinOptions.framesToSkinNext = mPrefs->getInt(SETTING::ONION_NEXT_FRAMES_NUM);
-    onionSkinOptions.maxOpacity = mPrefs->getInt(SETTING::ONION_MAX_OPACITY);
-    onionSkinOptions.minOpacity = mPrefs->getInt(SETTING::ONION_MIN_OPACITY);
-
-    mCameraPainter.setOnionSkinPainterOptions(onionSkinOptions);
+    mCameraPainter.setOnionSkinPainterOptions(onionSkinOptions());
 }
 
 void ScribbleArea::prepCanvas(int frame)
@@ -1107,20 +1117,7 @@ void ScribbleArea::prepCanvas(int frame)
     o.scaling = mEditor->view()->scaling();
     o.cmBufferBlendMode = mEditor->tools()->currentTool()->type() == ToolType::ERASER ? QPainter::CompositionMode_DestinationOut : QPainter::CompositionMode_SourceOver;
 
-    OnionSkinPainterOptions onionSkinOptions;
-    onionSkinOptions.enabledWhilePlaying = mPrefs->getInt(SETTING::ONION_WHILE_PLAYBACK);
-    onionSkinOptions.isPlaying = mEditor->playback()->isPlaying();
-    onionSkinOptions.isAbsolute = (mPrefs->getString(SETTING::ONION_TYPE) == "absolute");
-    onionSkinOptions.skinPrevFrames = mPrefs->isOn(SETTING::PREV_ONION);
-    onionSkinOptions.skinNextFrames = mPrefs->isOn(SETTING::NEXT_ONION);
-    onionSkinOptions.colorizePrevFrames = mPrefs->isOn(SETTING::ONION_RED);
-    onionSkinOptions.colorizeNextFrames = mPrefs->isOn(SETTING::ONION_BLUE);
-    onionSkinOptions.framesToSkinPrev = mPrefs->getInt(SETTING::ONION_PREV_FRAMES_NUM);
-    onionSkinOptions.framesToSkinNext = mPrefs->getInt(SETTING::ONION_NEXT_FRAMES_NUM);
-    onionSkinOptions.maxOpacity = mPrefs->getInt(SETTING::ONION_MAX_OPACITY);
-    onionSkinOptions.minOpacity = mPrefs->getInt(SETTING::ONION_MIN_OPACITY);
-
-    mCanvasPainter.setOnionSkinOptions(onionSkinOptions);
+    mCanvasPainter.setOnionSkinOptions(onionSkinOptions());
     mCanvasPainter.setOptions(o);
 
     ViewManager* vm = mEditor->view();
@@ -1174,23 +1171,13 @@ void ScribbleArea::drawPen(QPointF thePoint, qreal brushWidth, QColor fillColor,
 
 void ScribbleArea::drawPencil(QPointF thePoint, qreal brushWidth, qreal fixedBrushFeather, QColor fillColor, qreal opacity)
 {
-    drawBrush(thePoint, brushWidth, fixedBrushFeather, fillColor, QPainter::CompositionMode_SourceOver, opacity, true);
+    drawBrush(thePoint, brushWidth, fixedBrushFeather, fillColor, opacity, true);
 }
 
-void ScribbleArea::drawBrush(QPointF thePoint, qreal brushWidth, qreal mOffset, QColor fillColor, QPainter::CompositionMode compMode, qreal opacity, bool usingFeather, bool useAA)
+void ScribbleArea::drawBrush(QPointF thePoint, qreal brushWidth, qreal mOffset, QColor fillColor, qreal opacity, bool usingFeather, bool useAA)
 {
-    QBrush brush;
-    if (usingFeather)
-    {
-        QRadialGradient radialGrad(thePoint, 0.5 * brushWidth);
-        setGaussianGradient(radialGrad, fillColor, opacity, mOffset);
-        brush = radialGrad;
-    }
-    else
-    {
-        brush = QBrush(fillColor, Qt::SolidPattern);
-    }
-    mTiledBuffer.drawBrush(thePoint, brushWidth, Qt::NoPen, brush, compMode, useAA);
+    // Without feather the dab is solid fillColor and ignores opacity.
+    mTiledBuffer.drawDab(thePoint, brushWidth, usingFeather ? mOffset : 0, fillColor, usingFeather ? opacity : 1.0, useAA);
 }
 
 void ScribbleArea::drawPolyline(QPainterPath path, QPen pen, bool useAA)

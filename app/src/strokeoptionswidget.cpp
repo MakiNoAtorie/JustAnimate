@@ -42,6 +42,9 @@ void StrokeOptionsWidget::initUI()
     auto featherInfo = p.getInfo(StrokeToolProperties::FEATHER_VALUE);
     ui->featherSlider->init(tr("Feather"), SpinSlider::LOG, featherInfo.minReal(), featherInfo.maxReal());
 
+    auto spacingInfo = p.getInfo(StrokeToolProperties::SPACING_VALUE);
+    ui->spacingSlider->init(tr("Spacing %"), SpinSlider::LOG, spacingInfo.minReal(), spacingInfo.maxReal());
+
     mCurrentTool = strokeTool;
 
     makeConnectionFromUIToModel();
@@ -81,6 +84,17 @@ void StrokeOptionsWidget::updateUI()
         setFeatherValue(info.realValue());
     }
 
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE))
+    {
+        auto info = p.getInfo(StrokeToolProperties::SPACING_VALUE);
+        QSignalBlocker b5(ui->spacingSlider);
+        ui->spacingSlider->setRange(info.minReal(), info.maxReal());
+        QSignalBlocker b6(ui->spacingSpinBox);
+        ui->spacingSpinBox->setRange(info.minReal(), info.maxReal());
+
+        setSpacingValue(info.realValue());
+    }
+
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED)) {
         setFeatherEnabled(p.featherEnabled());
     }
@@ -97,8 +111,9 @@ void StrokeOptionsWidget::updateUI()
         setAntiAliasingEnabled(p.AntiAliasingEnabled());
     }
 
-    if (strokeTool->isPropertyEnabled(StrokeToolProperties::STABILIZATION_VALUE)) {
-        setStabilizerLevel(p.stabilizerLevel());
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::SMOOTHING_MODE)) {
+        setSmoothingMode(static_cast<int>(p.smoothingMode()));
+        setSmoothingStrength(p.smoothingStrength());
     }
 
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::FILLCONTOUR_ENABLED)) {
@@ -128,9 +143,11 @@ void StrokeOptionsWidget::makeConnectionFromModelToUI(StrokeTool* strokeTool)
 {
     connect(strokeTool, &StrokeTool::widthChanged, this, &StrokeOptionsWidget::setWidthValue);
     connect(strokeTool, &StrokeTool::featherChanged, this, &StrokeOptionsWidget::setFeatherValue);
+    connect(strokeTool, &StrokeTool::spacingChanged, this, &StrokeOptionsWidget::setSpacingValue);
     connect(strokeTool, &StrokeTool::featherEnabledChanged, this, &StrokeOptionsWidget::setFeatherEnabled);
     connect(strokeTool, &StrokeTool::pressureEnabledChanged, this, &StrokeOptionsWidget::setPressureEnabled);
-    connect(strokeTool, &StrokeTool::stabilizationLevelChanged, this, &StrokeOptionsWidget::setStabilizerLevel);
+    connect(strokeTool, &StrokeTool::smoothingModeChanged, this, &StrokeOptionsWidget::setSmoothingMode);
+    connect(strokeTool, &StrokeTool::smoothingStrengthChanged, this, &StrokeOptionsWidget::setSmoothingStrength);
     connect(strokeTool, &StrokeTool::antiAliasingEnabledChanged, this, &StrokeOptionsWidget::setAntiAliasingEnabled);
     connect(strokeTool, &StrokeTool::fillContourEnabledChanged, this, &StrokeOptionsWidget::setFillContourEnabled);
     connect(strokeTool, &StrokeTool::invisibleStrokeEnabledChanged, this, &StrokeOptionsWidget::setPenInvisibilityEnabled);
@@ -191,11 +208,24 @@ void StrokeOptionsWidget::makeConnectionFromUIToModel()
         mCurrentTool->setFeather(value);
     });
 
+    connect(ui->spacingSlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setSpacing(value);
+    });
+
+    connect(ui->spacingSpinBox, spinboxValueChanged, [=](qreal value) {
+        mCurrentTool->setSpacing(value);
+    });
+
+    clearFocusOnFinished(ui->spacingSpinBox);
     clearFocusOnFinished(ui->sizeSpinBox);
     clearFocusOnFinished(ui->featherSpinBox);
 
-    connect(ui->inpolLevelsCombo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [=](int value) {
-        mCurrentTool->setStablizationLevel(value);
+    connect(ui->smoothingModeCombo, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), [=](int value) {
+        mCurrentTool->setSmoothingMode(value);
+    });
+
+    connect(ui->smoothingStrengthSlider, &QSlider::valueChanged, [=](int value) {
+        mCurrentTool->setSmoothingStrength(value);
     });
 }
 
@@ -205,12 +235,15 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->sizeSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::WIDTH_VALUE));
     ui->featherSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_VALUE));
     ui->featherSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_VALUE));
+    ui->spacingSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
+    ui->spacingSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));
     ui->useAABox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::ANTI_ALIASING_ENABLED));
-    ui->stabilizerLabel->setVisible(tool->isPropertyEnabled(StrokeToolProperties::STABILIZATION_VALUE));
-    ui->inpolLevelsCombo->setVisible(tool->isPropertyEnabled(StrokeToolProperties::STABILIZATION_VALUE));
+    ui->smoothingLabel->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SMOOTHING_MODE));
+    ui->smoothingModeCombo->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SMOOTHING_MODE));
+    ui->smoothingStrengthSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SMOOTHING_MODE));
     ui->fillContourBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FILLCONTOUR_ENABLED));
     ui->useBezierBox->setVisible(tool->isPropertyEnabled(PolylineToolProperties::BEZIERPATH_ENABLED));
     ui->useClosedPathBox->setVisible(tool->isPropertyEnabled(PolylineToolProperties::CLOSEDPATH_ENABLED));
@@ -232,6 +265,15 @@ void StrokeOptionsWidget::setFeatherValue(qreal featherValue)
 
     QSignalBlocker b2(ui->featherSpinBox);
     ui->featherSpinBox->setValue(featherValue);
+}
+
+void StrokeOptionsWidget::setSpacingValue(qreal spacing)
+{
+    QSignalBlocker b(ui->spacingSlider);
+    ui->spacingSlider->setValue(spacing);
+
+    QSignalBlocker b2(ui->spacingSpinBox);
+    ui->spacingSpinBox->setValue(spacing);
 }
 
 void StrokeOptionsWidget::setFeatherEnabled(bool enabled)
@@ -258,10 +300,17 @@ void StrokeOptionsWidget::setAntiAliasingEnabled(bool enabled)
     ui->useAABox->setChecked(enabled);
 }
 
-void StrokeOptionsWidget::setStabilizerLevel(int level)
+void StrokeOptionsWidget::setSmoothingMode(int mode)
 {
-    QSignalBlocker b(ui->inpolLevelsCombo);
-    ui->inpolLevelsCombo->setCurrentIndex(level);
+    QSignalBlocker b(ui->smoothingModeCombo);
+    ui->smoothingModeCombo->setCurrentIndex(mode);
+    ui->smoothingStrengthSlider->setEnabled(mode != static_cast<int>(SmoothingMode::None));
+}
+
+void StrokeOptionsWidget::setSmoothingStrength(int strength)
+{
+    QSignalBlocker b(ui->smoothingStrengthSlider);
+    ui->smoothingStrengthSlider->setValue(strength);
 }
 
 void StrokeOptionsWidget::setFillContourEnabled(bool enabled)

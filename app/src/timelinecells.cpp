@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QApplication>
 #include <QResizeEvent>
 #include <QInputDialog>
+#include <QMenu>
 #include <QPainter>
 #include <QRegularExpression>
 #include <QSettings>
@@ -650,7 +651,7 @@ void TimeLineCells::paintLayerGutter(QPainter& painter) const
 void TimeLineCells::paintOnionSkin(QPainter& painter) const
 {
     Layer* layer = mEditor->layers()->currentLayer();
-    if (layer == nullptr) { return; }
+    if (layer == nullptr || !layer->onionSkin()) { return; }
 
     int frameNumber = mEditor->currentFrame();
 
@@ -848,6 +849,17 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             {
                 mEditor->layers()->setCurrentLayer(layerNumber);
                 mEditor->layers()->currentLayer()->deselectAll();
+            }
+            if (event->pos().x() >= 15 && event->button() == Qt::RightButton)
+            {
+                QMenu menu;
+                QAction* onion = menu.addAction(tr("Onion Skin"));
+                onion->setCheckable(true);
+                onion->setChecked(mEditor->object()->getLayer(layerNumber)->onionSkin());
+                if (menu.exec(event->globalPosition().toPoint()) == onion)
+                {
+                    mEditor->switchOnionSkinOfLayer(layerNumber);
+                }
             }
         }
         if (layerNumber == -1)

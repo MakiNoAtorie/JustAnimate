@@ -36,6 +36,7 @@ GNU General Public License for more details.
 
 #include "bitmapimage.h"
 #include "colormanager.h"
+#include "dabtool.h"
 #include "editor.h"
 #include "filemanager.h"
 #include "layerbitmap.h"
@@ -47,6 +48,7 @@ GNU General Public License for more details.
 #include "stroketool.h"
 #include "testfixture.h"
 #include "toolmanager.h"
+#include "viewmanager.h"
 
 namespace
 {
@@ -343,8 +345,8 @@ void tablet(QWidget* w, const QPointingDevice* pen, QEvent::Type type, const Sam
 
 // Replays the strokes as tablet input with one tool at its default settings and the given size,
 // on a fresh canvas: a blue layer below and a half-transparent yellow block on the painted layer
-// (so the eraser has something to erase). Events are sent synchronously, no event loop runs, so
-// the stabilizer's poll timer never fires and the result only depends on the input.
+// (so the eraser has something to erase). Events carry no timestamp, so smoothing takes them as
+// 1 ms apart and the result only depends on the input.
 ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes)
 {
     Session s;
@@ -407,46 +409,47 @@ struct Golden
     const char* frameSha1;
 };
 
-// The look of Pencil, Brush and Eraser before the brush engine work (ROADMAP B0).
+// The look of Pencil, Brush and Eraser; B0 hashes are in git history.
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
-    // winnt: MSVC, Qt 6.8.3 and 6.5.3. linux and darwin: CI, Qt 6.5.3.
-    { "winnt x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
-    { "winnt x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
-    { "winnt x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
-    { "winnt x86_64", "pencil", 200, "b2621f11c3e6214dbd89014eafc12d22ac374589", "928eabfdfac9b0e3d9ce87e8e087350185e67b79" },
-    { "winnt x86_64", "brush", 4, "08ac3b83dbf641ffeb5b645d6b79fb4dc332f8e1", "646b6145475d7df921aa824535dbc5524350a989" },
-    { "winnt x86_64", "brush", 24, "ac77c286b9b6e9f907000f19a4327ec3ddbcc3e6", "93688a6d99a914987bf51ff7dcccdd8b27754938" },
-    { "winnt x86_64", "brush", 96, "875e33735b958bec8be54804e56cf8ae5220f03a", "fa9935dab752949aa2b61497f10381791b613ccc" },
-    { "winnt x86_64", "brush", 200, "0fa12608f628ee6bb7e05af77c82b9f2b3287ccb", "27cd857dc3e459c11ee8d134dd6ab88b20fac4cc" },
-    { "winnt x86_64", "eraser", 4, "d7e2f2e5e32b6b22059c24951ac933943fd957b7", "88130c67007948c838b5a64bb13667fcb08a1f69" },
-    { "winnt x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
-    { "winnt x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
-    { "winnt x86_64", "eraser", 200, "516a81d7c6b1d424b1a5e6f9beb9074cdd54dec2", "3aca31806a5bda175678e38b2d0043338db1c7ce" },
-    { "linux x86_64", "pencil", 4, "95bcfd1fb8741d96b9cbc6e1a5fe36e463630cd5", "0e5839770095d7d4f2dd5c835f644d1c357f47fc" },
-    { "linux x86_64", "pencil", 24, "c93201fdd6162d2e2c8f2e545a18d94037f73060", "3c3623bb137089d3b7ddea42324d17575b949573" },
-    { "linux x86_64", "pencil", 96, "da215f2b465cc8c11f9b201079613ed8cf21ad09", "bf0001e4484bcb37862331e33d15097bc057311e" },
-    { "linux x86_64", "pencil", 200, "b2621f11c3e6214dbd89014eafc12d22ac374589", "928eabfdfac9b0e3d9ce87e8e087350185e67b79" },
-    { "linux x86_64", "brush", 4, "08ac3b83dbf641ffeb5b645d6b79fb4dc332f8e1", "646b6145475d7df921aa824535dbc5524350a989" },
-    { "linux x86_64", "brush", 24, "ac77c286b9b6e9f907000f19a4327ec3ddbcc3e6", "93688a6d99a914987bf51ff7dcccdd8b27754938" },
-    { "linux x86_64", "brush", 96, "875e33735b958bec8be54804e56cf8ae5220f03a", "fa9935dab752949aa2b61497f10381791b613ccc" },
-    { "linux x86_64", "brush", 200, "0fa12608f628ee6bb7e05af77c82b9f2b3287ccb", "27cd857dc3e459c11ee8d134dd6ab88b20fac4cc" },
-    { "linux x86_64", "eraser", 4, "d7e2f2e5e32b6b22059c24951ac933943fd957b7", "88130c67007948c838b5a64bb13667fcb08a1f69" },
-    { "linux x86_64", "eraser", 24, "939fd7b9c3de6707ae6cc51dbefc981f02ec55fb", "efda53b3b9f3c2ca4108e32bb8bf97197a14e2c2" },
-    { "linux x86_64", "eraser", 96, "bdb36e3ad35666b8bbe227f06a13eb553237f726", "7772380fa4e0d4b5ee3fb2b5aab8694a3c35ac3c" },
-    { "linux x86_64", "eraser", 200, "516a81d7c6b1d424b1a5e6f9beb9074cdd54dec2", "3aca31806a5bda175678e38b2d0043338db1c7ce" },
-    { "darwin arm64", "pencil", 4, "5000a2e5b14e7dbc08aa011dc157de2bf7929cae", "ae3fa4fe54391a65474202d40c6179662044e735" },
-    { "darwin arm64", "pencil", 24, "3f9e24bb45c76fbe381aa547dc22553e4a016c12", "ee398f6ad88318aaf85b35b5bcc03883601e4564" },
-    { "darwin arm64", "pencil", 96, "133828f4ae764ccd6532d1a7dded26147d2c86f8", "48657693ffed51c954aed70ee84b8efef8e89bd6" },
-    { "darwin arm64", "pencil", 200, "763ca6ddca698fdfc128b5751f867e26310a0d3a", "fa59cd26a8df95b6d1d6100cd79c00439468c31e" },
-    { "darwin arm64", "brush", 4, "6ba6764ce248bdaffc996826ed38461ece651182", "81b1e88689e4fe30fd68c01919b95d732cb2421f" },
-    { "darwin arm64", "brush", 24, "745acceb3f282859c158f324584aa802aae3447c", "169bd9f89abad3f6313c8d30ca7fcd39ad4d85f0" },
-    { "darwin arm64", "brush", 96, "754cc8fc17664d12718051dc5bd44902f0ad05f5", "0d9ca4ac77b726634b33da2bc7bbb989787b9e37" },
-    { "darwin arm64", "brush", 200, "dfb745b451f8e9b93f47e96bb3b907e6cd0270e4", "c384456c5bb527b01888ef738f8fb3a9e8739a2d" },
-    { "darwin arm64", "eraser", 4, "c059930a509377a716ed948c0ca35523fd6ff8e2", "4d4f6a380cbd0335356e91de2071ef1de48d69c6" },
-    { "darwin arm64", "eraser", 24, "968522fda805d0c1805c5a7157914a6f2ae4fb2c", "6e09d76e867c69c92d60f6d72b2f38acdc2e1385" },
-    { "darwin arm64", "eraser", 96, "d4543c7fb4b70a8f91cef3ee0c7ed0f528e8752c", "333353a675795c9bc0ec968faa4fdf013561dc1e" },
-    { "darwin arm64", "eraser", 200, "f3512e3a650f8a8d4b3ea565731afa3a3e839b56", "1f52f221dffe72a5e0e5d65df20889433f3fe406" },
+    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1), 1-euro smoothing (B4), cached dab masks and coverage-only strokes (B2), 1-euro catch-up on pen lift.
+    // linux and darwin: same as winnt, confirmed on CI.
+    { "winnt x86_64", "pencil", 4, "70e0944a3098804b8acead5d0d6cfb3c8099cad2", "c9660a81966d70e76615ef094ad6a48078e4c1c0" },
+    { "winnt x86_64", "pencil", 24, "4c2cee44f4d356e5d9625b0ca68c10c213156dc1", "5866b97d3919072dafaea551411b48dfd7d36df8" },
+    { "winnt x86_64", "pencil", 96, "c9e416bc6d2810adb19b98ff9bfbb99ae7032ea9", "a797264ccade2bb6503b11b8149c6a958e6c8860" },
+    { "winnt x86_64", "pencil", 200, "b1d8db552adac8a0e58a0e288c500aba848b1868", "e082b6fe6f36108b89b93171a5afea5f654249be" },
+    { "winnt x86_64", "brush", 4, "f3b5888ffdf1700367ed51862bb23d54ea87fc15", "2fa829005dd1999bc697278016beb56e84589224" },
+    { "winnt x86_64", "brush", 24, "d568cb5847668c80f99e20e05c01da6eb50d2f5e", "6bbab1562be890b1037577d093afc966d4b07f3c" },
+    { "winnt x86_64", "brush", 96, "3fbe9bcae98fc4ed0e2084599a27b78354aeed37", "c632ee22c20ced7de612ed941bde749b7c568028" },
+    { "winnt x86_64", "brush", 200, "e75f6cde6bcca74a7383b00284225ebd67957a4a", "198bddb5c44b3eca0b9ae91a8fec5c5b7b80777e" },
+    { "winnt x86_64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
+    { "winnt x86_64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
+    { "winnt x86_64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
+    { "winnt x86_64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
+    { "linux x86_64", "pencil", 4, "70e0944a3098804b8acead5d0d6cfb3c8099cad2", "c9660a81966d70e76615ef094ad6a48078e4c1c0" },
+    { "linux x86_64", "pencil", 24, "4c2cee44f4d356e5d9625b0ca68c10c213156dc1", "5866b97d3919072dafaea551411b48dfd7d36df8" },
+    { "linux x86_64", "pencil", 96, "c9e416bc6d2810adb19b98ff9bfbb99ae7032ea9", "a797264ccade2bb6503b11b8149c6a958e6c8860" },
+    { "linux x86_64", "pencil", 200, "b1d8db552adac8a0e58a0e288c500aba848b1868", "e082b6fe6f36108b89b93171a5afea5f654249be" },
+    { "linux x86_64", "brush", 4, "f3b5888ffdf1700367ed51862bb23d54ea87fc15", "2fa829005dd1999bc697278016beb56e84589224" },
+    { "linux x86_64", "brush", 24, "d568cb5847668c80f99e20e05c01da6eb50d2f5e", "6bbab1562be890b1037577d093afc966d4b07f3c" },
+    { "linux x86_64", "brush", 96, "3fbe9bcae98fc4ed0e2084599a27b78354aeed37", "c632ee22c20ced7de612ed941bde749b7c568028" },
+    { "linux x86_64", "brush", 200, "e75f6cde6bcca74a7383b00284225ebd67957a4a", "198bddb5c44b3eca0b9ae91a8fec5c5b7b80777e" },
+    { "linux x86_64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
+    { "linux x86_64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
+    { "linux x86_64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
+    { "linux x86_64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
+    { "darwin arm64", "pencil", 4, "70e0944a3098804b8acead5d0d6cfb3c8099cad2", "c9660a81966d70e76615ef094ad6a48078e4c1c0" },
+    { "darwin arm64", "pencil", 24, "4c2cee44f4d356e5d9625b0ca68c10c213156dc1", "5866b97d3919072dafaea551411b48dfd7d36df8" },
+    { "darwin arm64", "pencil", 96, "c9e416bc6d2810adb19b98ff9bfbb99ae7032ea9", "a797264ccade2bb6503b11b8149c6a958e6c8860" },
+    { "darwin arm64", "pencil", 200, "b1d8db552adac8a0e58a0e288c500aba848b1868", "e082b6fe6f36108b89b93171a5afea5f654249be" },
+    { "darwin arm64", "brush", 4, "f3b5888ffdf1700367ed51862bb23d54ea87fc15", "2fa829005dd1999bc697278016beb56e84589224" },
+    { "darwin arm64", "brush", 24, "d568cb5847668c80f99e20e05c01da6eb50d2f5e", "6bbab1562be890b1037577d093afc966d4b07f3c" },
+    { "darwin arm64", "brush", 96, "3fbe9bcae98fc4ed0e2084599a27b78354aeed37", "c632ee22c20ced7de612ed941bde749b7c568028" },
+    { "darwin arm64", "brush", 200, "e75f6cde6bcca74a7383b00284225ebd67957a4a", "198bddb5c44b3eca0b9ae91a8fec5c5b7b80777e" },
+    { "darwin arm64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
+    { "darwin arm64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
+    { "darwin arm64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
+    { "darwin arm64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
 };
 
 } // namespace
@@ -548,6 +551,114 @@ TEST_CASE("Stage profiler: counts the paint stages and leaves the painted pixels
     StageProfiler::reset();
 }
 
+namespace
+{
+
+struct PredictionRun
+{
+    QImage midStroke; // the canvas while the pen is down
+    QImage afterRelease;
+    QByteArray layerSha1;
+};
+
+// One mouse stroke to the right with the given tool, prediction on or off.
+PredictionRun predictionRun(ToolType toolType, bool predict)
+{
+    Session s;
+    s.editor->layers()->setCurrentLayer(1);
+    s.editor->color()->setFrontColor(QColor(200, 30, 90));
+    s.editor->tools()->setCurrentTool(toolType);
+    BaseTool* tool = s.editor->tools()->currentTool();
+    const ToolSettingsGuard guard(tool);
+    tool->resetSettings();
+    auto* dabTool = static_cast<DabTool*>(tool);
+    dabTool->setWidth(24);
+    dabTool->setPredictionEnabled(predict);
+
+    PredictionRun r;
+    mouse(s.area, QEvent::MouseButtonPress, QPointF(300, 360), Qt::LeftButton);
+    for (int x = 310; x <= 600; x += 10)
+    {
+        mouse(s.area, QEvent::MouseMove, QPointF(x, 360), Qt::LeftButton);
+        QApplication::processEvents();
+    }
+    r.midStroke = s.area->grab().toImage();
+    mouse(s.area, QEvent::MouseButtonRelease, QPointF(600, 360), Qt::NoButton);
+    QApplication::processEvents();
+    r.afterRelease = s.area->grab().toImage();
+    r.layerSha1 = layerHash(static_cast<LayerBitmap*>(s.editor->layers()->currentLayer())->getBitmapImageAtFrame(1));
+    dabTool->setPredictionEnabled(true);
+    return r;
+}
+
+} // namespace
+
+TEST_CASE("Pen prediction: the preview runs ahead of the pen and never reaches the layer", "[PenPrediction]")
+{
+    for (ToolType t : { PENCIL, BRUSH })
+    {
+        CAPTURE(t);
+        const PredictionRun on = predictionRun(t, true);
+        const PredictionRun off = predictionRun(t, false);
+        const QColor background = off.midStroke.pixelColor(640, 600);
+
+        // The stroke ends at x 600 with a 12 px radius, so x 625 is only painted by the prediction.
+        CHECK(off.midStroke.pixelColor(625, 360) == background);
+        CHECK(on.midStroke.pixelColor(625, 360) != background);
+        CHECK(on.afterRelease.pixelColor(625, 360) == background);
+
+        CHECK(on.layerSha1 == off.layerSha1);
+        CHECK(on.afterRelease == off.afterRelease);
+    }
+}
+
+// Hidden: input-to-pixel time for a 256 screen px brush on a 4K canvas: one tablet move, then the
+// repaint it causes. Prints median and max ms per move. Use a Release build.
+TEST_CASE("Pen prediction: input-to-pixel latency of a 256 px brush on a 4K canvas", "[.latency]")
+{
+    Session s;
+    s.editor->layers()->setCurrentLayer(1);
+    s.area->resize(3840, 2160);
+    QApplication::processEvents();
+    s.editor->tools()->setCurrentTool(BRUSH);
+    BaseTool* tool = s.editor->tools()->currentTool();
+    const ToolSettingsGuard guard(tool);
+    tool->resetSettings();
+    // Width tops out at 200 canvas px: zoom 128 % so the dab covers 256 screen px.
+    static_cast<StrokeTool*>(tool)->setWidth(200);
+    s.editor->view()->scale(1.28);
+    REQUIRE(s.area->size() == QSize(3840, 2160));
+
+    const QPointingDevice pen("latency pen", 2, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
+                              QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
+    StageProfiler::reset();
+    std::vector<double> ms;
+    QElapsedTimer t;
+    for (int stroke = 0; stroke < 5; ++stroke)
+    {
+        const qreal y = 400 + stroke * 300;
+        tablet(s.area, &pen, QEvent::TabletPress, { QPointF(200, y), 0.8 }, Qt::LeftButton, Qt::LeftButton);
+        QApplication::processEvents();
+        for (int i = 1; i <= 200; ++i)
+        {
+            t.start();
+            tablet(s.area, &pen, QEvent::TabletMove, { QPointF(200 + i * 17, y + (i % 20 - 10) * 4), 0.8 },
+                   Qt::NoButton, Qt::LeftButton);
+            QApplication::processEvents();
+            ms.push_back(t.nsecsElapsed() / 1e6);
+        }
+        tablet(s.area, &pen, QEvent::TabletRelease, { QPointF(3600, y), 0.8 }, Qt::LeftButton, Qt::NoButton);
+        QApplication::processEvents();
+    }
+    std::sort(ms.begin(), ms.end());
+    std::printf("latency 256px brush 3840x2160: median %.2f ms, p95 %.2f ms, max %.2f ms over %zu moves\n",
+                ms[ms.size() / 2], ms[ms.size() * 95 / 100], ms.back(), ms.size());
+    if (StageProfiler::enabled())
+        StageProfiler::report();
+    std::fflush(stdout);
+    CHECK(s.counter.paints > 0);
+}
+
 // Hidden: timing run for `compare_replay.py`. Prints one line per tool and size:
 // "replay <tool> <size> <median ms> <layer sha1> <frame sha1>". Use a Release build.
 TEST_CASE("Brush replay: time every tool and size, print hashes", "[.replay]")
@@ -568,5 +679,54 @@ TEST_CASE("Brush replay: time every tool and size, print hashes", "[.replay]")
         if (StageProfiler::enabled())
             StageProfiler::report(); // last repetition only
     }
+    std::fflush(stdout);
+}
+
+// Hidden: Brush dab throughput with pressure off, to compare dab engines. Width tops out at 200
+// canvas px, so 128 % zoom makes the large case 256 screen px. Prints dabs/s per size. Use a Release build.
+TEST_CASE("Brush replay: dabs per second at 256 and 4 screen px", "[.dabrate]")
+{
+    const std::vector<Stroke> strokes = seededStrokes(2, 4, 1500); // long strokes: dabs outweigh the paste per stroke
+    const QPointingDevice pen("dabrate pen", 3, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
+                              QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
+    const bool wasOn = StageProfiler::enabled();
+    StageProfiler::enabled() = true; // counts the dabs
+    for (int screenPx : { 256, 4 })
+    {
+        std::vector<double> rates;
+        unsigned long long dabs = 0;
+        for (int rep = 0; rep < 5; ++rep)
+        {
+            Session s;
+            s.editor->layers()->setCurrentLayer(1);
+            s.editor->tools()->setCurrentTool(BRUSH);
+            BaseTool* tool = s.editor->tools()->currentTool();
+            const ToolSettingsGuard guard(tool);
+            tool->resetSettings();
+            auto* strokeTool = static_cast<StrokeTool*>(tool);
+            strokeTool->setWidth(screenPx / 1.28);
+            strokeTool->setPressureEnabled(false);
+            s.editor->view()->scale(1.28);
+            StageProfiler::reset();
+            QElapsedTimer t;
+            t.start();
+            for (const Stroke& stroke : strokes)
+            {
+                tablet(s.area, &pen, QEvent::TabletPress, stroke.front(), Qt::LeftButton, Qt::LeftButton);
+                for (size_t i = 1; i < stroke.size(); ++i)
+                    tablet(s.area, &pen, QEvent::TabletMove, stroke[i], Qt::NoButton, Qt::LeftButton);
+                tablet(s.area, &pen, QEvent::TabletRelease, stroke.back(), Qt::LeftButton, Qt::NoButton);
+            }
+            const double sec = t.nsecsElapsed() / 1e9;
+            dabs = StageProfiler::calls(StageProfiler::DabMask);
+            rates.push_back(dabs / sec);
+        }
+        if (wasOn) StageProfiler::report(); // last repetition only
+        std::sort(rates.begin(), rates.end());
+        std::printf("dabrate %d px: median %.0f dabs/s (%.0f-%.0f) over %llu dabs\n", screenPx, rates[2], rates.front(),
+                    rates.back(), dabs);
+    }
+    StageProfiler::enabled() = wasOn;
+    StageProfiler::reset();
     std::fflush(stdout);
 }

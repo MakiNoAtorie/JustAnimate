@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "object.h"
 #include "scribblearea.h"
+#include "stageprofiler.h"
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "undoredomanager.h"
@@ -119,6 +120,197 @@ TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous str
     CHECK(hardDot >= 30);
     CHECK(lightDot > 0);
     CHECK(lightDot <= 15);
+}
+
+TEST_CASE("StrokeTool - a stabilized stroke ends at the pen on lift")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(2);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(10);
+    brush->setPressureEnabled(false);
+    brush->setFeatherEnabled(false);
+
+    auto rightEdge = [](BitmapImage* image) {
+        const int left = image->left();
+        const QImage* img = image->image();
+        int right = -1;
+        for (int y = 0; y < img->height(); ++y)
+            for (int x = right + 1; x < img->width(); ++x)
+                if (qAlpha(img->pixel(x, y)) != 0) right = x;
+        return left + right;
+    };
+
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    editor->scrubTo(1);
+    stroke(area, QPointF(100, 300), QPointF(500, 300), 1.0);
+    const int pen = rightEdge(layer->getBitmapImageAtFrame(1));
+
+    for (SmoothingMode mode : { SmoothingMode::Weighted, SmoothingMode::Stabilizer })
+    {
+        CAPTURE(static_cast<int>(mode));
+        brush->setSmoothingMode(static_cast<int>(mode));
+        brush->setSmoothingStrength(100);
+        layer->removeKeyFrame(2);
+        layer->addNewKeyFrameAt(2);
+        editor->scrubTo(2);
+        stroke(area, QPointF(100, 300), QPointF(500, 300), 1.0);
+        CHECK(rightEdge(layer->getBitmapImageAtFrame(2)) == pen);
+    }
+}
+
+TEST_CASE("DabTool - dabs are evenly spaced at any input speed and take pressure per dab")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(2);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeatherEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    // Counts the dabs of one straight 400 px stroke sent as `events` move events.
+    auto dabsFor = [&](int events) {
+        const QPointF from(100, 300), to(500, 300);
+        StageProfiler::reset();
+        tablet(area, QEvent::TabletPress, from, 1.0);
+        for (int i = 1; i <= events; ++i)
+            tablet(area, QEvent::TabletMove, from + (to - from) * i / events, 1.0);
+        tablet(area, QEvent::TabletRelease, to, 1.0);
+        return static_cast<double>(StageProfiler::calls(StageProfiler::DabMask));
+    };
+    brush->setPressureEnabled(false);
+    editor->scrubTo(1);
+    const double slow = dabsFor(400);
+    const double fast = dabsFor(4);
+    StageProfiler::enabled() = profiling;
+    INFO("slow " << slow << " fast " << fast);
+    CHECK(fast > 0);
+    CHECK(slow == Approx(fast).epsilon(0.05));
+
+    // A fast ramp from light to hard: the light end stays thin.
+    brush->setPressureEnabled(true);
+    editor->scrubTo(2);
+    tablet(area, QEvent::TabletPress, QPointF(100, 300), 0.1);
+    tablet(area, QEvent::TabletMove, QPointF(500, 300), 1.0);
+    tablet(area, QEvent::TabletRelease, QPointF(500, 300), 1.0);
+    const QImage* img = layer->getBitmapImageAtFrame(2)->image();
+    int left = img->width();
+    for (int y = 0; y < img->height(); ++y)
+        for (int x = 0; x < left; ++x)
+            if (qAlpha(img->pixel(x, y)) != 0)
+                left = x;
+    int lightEnd = 0;
+    for (int y = 0; y < img->height(); ++y)
+        lightEnd += qAlpha(img->pixel(left + 20, y)) != 0;
+    INFO("ink height 20 px from the light end " << lightEnd);
+    CHECK(lightEnd > 0);
+    CHECK(lightEnd < 15);
+}
+
+TEST_CASE("DabTool - Spacing percent sets the dab density and defaults to 12.5")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    editor->scrubTo(1);
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    auto dabs = [&]() {
+        StageProfiler::reset();
+        tablet(area, QEvent::TabletPress, QPointF(100, 300), 1.0);
+        tablet(area, QEvent::TabletMove, QPointF(500, 300), 1.0);
+        tablet(area, QEvent::TabletRelease, QPointF(500, 300), 1.0);
+        return static_cast<double>(StageProfiler::calls(StageProfiler::DabMask));
+    };
+    const double normal = dabs();
+    brush->setSpacing(25.0);
+    const double sparse = dabs();
+    StageProfiler::enabled() = profiling;
+    INFO("default " << normal << " 25% " << sparse);
+    CHECK(normal == Approx(161).epsilon(0.05));
+    CHECK(sparse == Approx(normal / 2).epsilon(0.05));
+}
+
+TEST_CASE("Pencil, Brush and Eraser - a tap paints a dab and a vector stroke edits curves")
+{
+    TestSession s;
+    LayerBitmap* bitmap = s.object->addNewBitmapLayer();
+    LayerVector* vector = s.object->addNewVectorLayer();
+    bitmap->getBitmapImageAtFrame(1)->drawRect(QRectF(-50, -50, 100, 100), Qt::NoPen, QColor(0, 0, 0),
+                                                QPainter::CompositionMode_SourceOver, false);
+    VectorImage* vimage = vector->getVectorImageAtFrame(1);
+    BezierCurve curve({ QPointF(0, 0), QPointF(5, 0) });
+    curve.setColorNumber(1);
+    vimage->addCurve(curve, 1.0);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->scrubTo(1);
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+
+    for (ToolType tool : { PENCIL, BRUSH, ERASER })
+    {
+        CAPTURE(tool);
+        editor->tools()->setCurrentTool(tool);
+        const ToolSettingsGuard guard(editor->tools()->currentTool());
+        static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(20);
+
+        editor->layers()->setCurrentLayer(bitmap);
+        const QImage before = *bitmap->getBitmapImageAtFrame(1)->image();
+        tap(area, origin + QPointF(30, 30), 1.0);
+        CHECK(*bitmap->getBitmapImageAtFrame(1)->image() != before);
+
+        editor->layers()->setCurrentLayer(vector);
+        const int curves = vector->getVectorImageAtFrame(1)->getLastCurveNumber();
+        stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+        if (tool == ERASER)
+            CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() < curves);
+        else
+            CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() == curves + 1);
+    }
 }
 
 TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")

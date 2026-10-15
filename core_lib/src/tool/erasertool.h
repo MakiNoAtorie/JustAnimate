@@ -18,9 +18,9 @@ GNU General Public License for more details.
 #ifndef ERASERTOOL_H
 #define ERASERTOOL_H
 
-#include "stroketool.h"
+#include "dabtool.h"
 
-class EraserTool : public StrokeTool
+class EraserTool : public DabTool
 {
     Q_OBJECT
 
@@ -34,18 +34,14 @@ public:
     void loadSettings() override;
     QCursor cursor() override;
 
-    void pointerMoveEvent(PointerEvent*) override;
-    void pointerPressEvent(PointerEvent*) override;
-    void pointerReleaseEvent(PointerEvent*) override;
-
-    void drawStroke();
-    void paintAt(QPointF point);
     void removeVectorPaint();
-    void updateStrokes();
+    void strokeMoved() override;
 
 protected:
-    QPointF mLastBrushPoint;
-    QPointF mMouseDownPoint;
+    void drawDab(QPointF point, qreal width, qreal opacity) override;
+    QPen vectorPreviewPen() override;
+    void finishVectorStroke(Layer* layer) override;
+    bool showsPrediction() const override { return false; }
 
     StrokeToolProperties mSettings;
 };

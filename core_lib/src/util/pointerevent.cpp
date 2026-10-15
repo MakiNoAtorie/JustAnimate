@@ -85,6 +85,25 @@ qreal PointerEvent::rotation() const
     return 0.0;
 }
 
+qreal PointerEvent::tiltX() const
+{
+    return mTabletEvent ? mTabletEvent->xTilt() : 0.0;
+}
+
+qreal PointerEvent::tiltY() const
+{
+    return mTabletEvent ? mTabletEvent->yTilt() : 0.0;
+}
+
+quint64 PointerEvent::timestamp() const
+{
+    if (mTabletEvent)
+    {
+        return mTabletEvent->timestamp();
+    }
+    return mMouseEvent ? mMouseEvent->timestamp() : 0;
+}
+
 qreal PointerEvent::tangentialPressure() const
 {
     if (mTabletEvent)

@@ -133,6 +133,9 @@ void PreferenceManager::loadPrefs()
     set(SETTING::ONION_NEXT_FRAMES_NUM,    settings.value(SETTING_ONION_NEXT_FRAMES_NUM,  5).toInt());
     set(SETTING::ONION_WHILE_PLAYBACK,     settings.value(SETTING_ONION_WHILE_PLAYBACK,   0).toInt());
     set(SETTING::ONION_TYPE,               settings.value(SETTING_ONION_TYPE,             "relative").toString());
+    set(SETTING::ONION_FALLOFF,            settings.value(SETTING_ONION_FALLOFF,          0).toInt());
+    set(SETTING::ONION_PREV_COLOR,         settings.value(SETTING_ONION_PREV_COLOR,       "#ff0000").toString());
+    set(SETTING::ONION_NEXT_COLOR,         settings.value(SETTING_ONION_NEXT_COLOR,       "#0000ff").toString());
     set(SETTING::LAYER_VISIBILITY,         settings.value(SETTING_LAYER_VISIBILITY,       2).toInt());
     set(SETTING::LAYER_VISIBILITY_THRESHOLD, settings.value(SETTING_LAYER_VISIBILITY_THRESHOLD, 0.5f).toFloat());
 
@@ -204,6 +207,12 @@ void PreferenceManager::set(SETTING option, QString value)
         break;
     case SETTING::ONION_TYPE:
         settings.setValue(SETTING_ONION_TYPE, value);
+        break;
+    case SETTING::ONION_PREV_COLOR:
+        settings.setValue(SETTING_ONION_PREV_COLOR, value);
+        break;
+    case SETTING::ONION_NEXT_COLOR:
+        settings.setValue(SETTING_ONION_NEXT_COLOR, value);
         break;
     case SETTING::LANGUAGE:
         settings.setValue(SETTING_LANGUAGE, value);
@@ -284,6 +293,9 @@ void PreferenceManager::set(SETTING option, int value)
         break;
     case SETTING::ONION_NEXT_FRAMES_NUM:
         settings.setValue(SETTING_ONION_NEXT_FRAMES_NUM, value);
+        break;
+    case SETTING::ONION_FALLOFF:
+        settings.setValue(SETTING_ONION_FALLOFF, value);
         break;
     case SETTING::OVERLAY_ANGLE:
         settings.setValue(SETTING_OVERLAY_ANGLE, value);
