@@ -76,6 +76,12 @@ QString ffprobeLocation();
 QString ffmpegLocation();
 
 quint64 imageSize(const QImage&);
+
+// Worker cap for parallelFor: all cores, at most 8, so a save leaves the machine usable.
+int parallelWorkerCount();
+// Calls fn(i) for i in [0, count) on up to parallelWorkerCount() threads and returns when all are done.
+// fn must be safe to run on any thread at the same time as other indices.
+void parallelFor(int count, const std::function<void(int)>& fn);
 QString uniqueString(int len);
 
 /**

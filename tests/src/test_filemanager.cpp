@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QImage>
+#include <QImageWriter>
+#include <QPainter>
 #include "qminiz.h"
 #include "fileformat.h"
 #include "filemanager.h"
@@ -539,6 +541,40 @@ TEST_CASE("FileManager atomic save", "[FileManager]")
         const bool unchanged = (readAll(projectPath) == original);
         REQUIRE(unchanged);
         REQUIRE(dirEntries() == QStringList{ "shot.v2.pclx" });
+    }
+}
+
+TEST_CASE("FileManager saves bitmap frames byte-identical to serial PNG encoding", "[FileManager][ParallelSave]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    const int frames = 40;
+    for (int f = 1; f <= frames; ++f)
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f)); // a new layer starts with frame 1
+        BitmapImage* image = layer->getBitmapImageAtFrame(f);
+        image->drawEllipse(QRectF(f * 3, f * 2, 20 + f, 30), QPen(Qt::black, 2), QBrush(QColor::fromHsv(f * 9, 200, 200)),
+                           QPainter::CompositionMode_SourceOver, true);
+        // Reference: the frame encoded alone, the same way BitmapImage::writeFile does.
+        REQUIRE(QImageWriter(testDir.filePath(QString("serial%1.png").arg(f))).write(*image->image()));
+    }
+
+    FileManager fm;
+    REQUIRE(fm.save(obj.get(), testDir.filePath("frames.pclx")).ok());
+
+    for (int f = 1; f <= frames; ++f)
+    {
+        CAPTURE(f);
+        QFile saved(layer->getBitmapImageAtFrame(f)->fileName());
+        QFile serial(testDir.filePath(QString("serial%1.png").arg(f)));
+        REQUIRE(saved.open(QFile::ReadOnly));
+        REQUIRE(serial.open(QFile::ReadOnly));
+        const bool identical = (saved.readAll() == serial.readAll());
+        REQUIRE(identical);
     }
 }
 
