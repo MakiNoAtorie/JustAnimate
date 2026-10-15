@@ -91,6 +91,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Brush engine, tips and presets: read `docs/brush-engine.md` before you
   edit `dabtool.*`, `tiledbuffer.*`, `stroketool.*`, `toolproperties.h`,
   `brushpresets.*` or the preset dock and editor.
+- Shape and path strokes on bitmap layers go through `DabTool::dabPath`.
+  A tool subclass skips its base tool's legacy settings migration. A tool
+  that uses Shift or Alt clears `mQuickSizingProperties`.
 - Dark/light decisions use `Theme::isDark()`, never
   `PlatformHandler::isDarkMode()`.
 - Dock layouts and workspaces: free functions in `app/src/defaultlayout.*`
