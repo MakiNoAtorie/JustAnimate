@@ -44,6 +44,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "object.h"
 #include "playbackmanager.h"
+#include "preferencemanager.h"
 #include "scribblearea.h"
 #include "stageprofiler.h"
 #include "stroketool.h"
@@ -189,6 +190,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "draw pencil",  "stroke", cfg.strokes },
         { "draw brush",   "stroke", cfg.strokes },
         { "draw top",     "stroke", cfg.strokes },
+        { "scrub onion",  "frame",  cfg.frames },
     };
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
@@ -252,6 +254,21 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         t.start();
         drawStrokes(s, PENCIL, cfg.strokes);
         sc[6].ms.push_back(t.nsecsElapsed() / 1e6);
+
+        // Scrub again with tinted onion skin on both sides (default 5 frames each).
+        const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
+        for (SETTING o : { SETTING::PREV_ONION, SETTING::NEXT_ONION, SETTING::ONION_RED, SETTING::ONION_BLUE })
+            s.editor->preference()->set(o, true);
+        s.area->onObjectLoaded();
+        s.counter.paints = 0;
+        t.start();
+        for (int f = 1; f <= cfg.frames; ++f)
+        {
+            s.editor->scrubTo(f);
+            s.area->repaint();
+        }
+        sc[7].ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(s.counter.paints == cfg.frames);
     }
     return sc;
 }
@@ -511,7 +528,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 7);
+    REQUIRE(sc.size() == 8);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

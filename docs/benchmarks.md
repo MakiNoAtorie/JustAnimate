@@ -37,6 +37,7 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | draw pencil | 20 strokes of 100 mouse moves on frame 1, repaint after every move |
 | draw brush | the same with the brush tool |
 | draw top | the pencil strokes on the top layer, so all other layers are below the painted one |
+| scrub onion | the scrub again on the top layer, onion skin on with 5 tinted frames before and after |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke.
