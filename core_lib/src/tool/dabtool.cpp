@@ -58,6 +58,9 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     mTiltToSize = mEditor->preference()->getInt(SETTING::TILT_TO_SIZE) / 100.0;
     mTiltToAngle = mEditor->preference()->getInt(SETTING::TILT_TO_ANGLE) / 100.0;
     mSizeJitter = mEditor->preference()->getInt(SETTING::SIZE_JITTER) / 100.0;
+    mScatter = mEditor->preference()->getInt(SETTING::SCATTER) / 100.0;
+    mAngleJitter = mEditor->preference()->getInt(SETTING::ANGLE_JITTER);
+    mDabCount = qMax(1, mEditor->preference()->getInt(SETTING::DAB_COUNT));
     mLastBrushPressure = mCurrentPressure;
     mTaperStart = mEditor->preference()->getInt(SETTING::TAPER_START);
     mTaperEnd = mEditor->preference()->getInt(SETTING::TAPER_END);
@@ -219,6 +222,12 @@ qreal DabTool::sizeDynamics()
     return qMax(factor, kMinSizeFactor);
 }
 
+qreal DabTool::randomSigned()
+{
+    // mt19937 raw output only: std distributions differ between platforms.
+    return (mRandom() % 20001) / 10000.0 - 1.0;
+}
+
 void DabTool::paintAt(QPointF point)
 {
     Layer* layer = mEditor->layers()->currentLayer();
@@ -242,9 +251,21 @@ void DabTool::dabSegment(QPointF b, qreal endPressure)
     {
         const qreal f = (length > 0) ? t / length : 1.0;
         const qreal pressure = startPressure + (endPressure - startPressure) * f;
-        const qreal brushWidth = dabWidth(pressure) * taperAt(mBrushDistance + t) * sizeDynamics();
-        mCurrentWidth = brushWidth;
-        drawDab(a + (b - a) * f, brushWidth, spacedDabOpacity(pressure, brushWidth), tip);
+        const qreal baseWidth = dabWidth(pressure) * taperAt(mBrushDistance + t);
+        qreal brushWidth = baseWidth;
+        for (int i = 0; i < mDabCount; ++i)
+        {
+            brushWidth = baseWidth * sizeDynamics();
+            mCurrentWidth = brushWidth;
+            BrushTip scattered = tip;
+            QPointF offset;
+            // Draw random numbers only for scatter that is on, so 0 scatter keeps the jitter sequence.
+            if (mScatter > 0)
+                offset = QPointF(randomSigned(), randomSigned()) * mScatter * baseWidth;
+            if (mAngleJitter > 0)
+                scattered.angle += randomSigned() * mAngleJitter;
+            drawDab(a + (b - a) * f + offset, brushWidth, spacedDabOpacity(pressure, brushWidth), scattered);
+        }
         t += dabSpacing(brushWidth);
     }
     mDistanceToNextDab = t - length;
