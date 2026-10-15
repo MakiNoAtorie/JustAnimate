@@ -39,6 +39,7 @@ GNU General Public License for more details.
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "undoredomanager.h"
+#include "util.h"
 #include "vectorimage.h"
 #include "viewmanager.h"
 
@@ -527,6 +528,8 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
     TestSession s;
     LayerBitmap* layer = s.object->addNewBitmapLayer();
     layer->addNewKeyFrameAt(2);
+    layer->addNewKeyFrameAt(3);
+    layer->addNewKeyFrameAt(4);
 
     s.start();
     Editor* editor = s.editor.get();
@@ -538,6 +541,7 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
+    OnScopeExit(brush->setPressureCurve(QString()));
     brush->setWidth(20);
     brush->setFeatherEnabled(false);
     brush->setPressureEnabled(true);
@@ -568,6 +572,13 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
     CHECK(linear.first < 8);
     CHECK(firm.first > 15);
     CHECK(firm.second > linear.second);
+
+    // A tool curve (from a preset) overrides the global one; empty gives the global curve back.
+    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+    brush->setPressureCurve("0,0.9 1,1");
+    CHECK(lightStroke(3) == firm);
+    brush->setPressureCurve(QString());
+    CHECK(lightStroke(4) == linear);
 }
 
 TEST_CASE("DabTool - a mouse stroke tapers at both ends")

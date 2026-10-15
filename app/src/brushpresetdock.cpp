@@ -14,103 +14,45 @@ GNU General Public License for more details.
 */
 #include "brushpresetdock.h"
 
-#include <QApplication>
 #include <QDir>
+#include <QHBoxLayout>
 #include <QListWidget>
-#include <QPainter>
-#include <QTabletEvent>
-#include <QtMath>
+#include <QPushButton>
+#include <QVBoxLayout>
 
-#include "bitmapimage.h"
-#include "brushtool.h"
-#include "colormanager.h"
+#include "brushpreseteditor.h"
 #include "editor.h"
-#include "layerbitmap.h"
-#include "layermanager.h"
-#include "object.h"
-#include "scribblearea.h"
 #include "toolmanager.h"
-#include "undoredomanager.h"
-
-/// A hidden editor whose Brush paints the sample strokes, so samples use the real dab engine.
-struct PresetSampler
-{
-    std::unique_ptr<ScribbleArea> area{ new ScribbleArea(nullptr) };
-    std::unique_ptr<Editor> editor{ new Editor }; // destroyed before the area
-    LayerBitmap* layer = nullptr;
-    BrushTool* brush = nullptr;
-
-    explicit PresetSampler(const QColor& ink)
-    {
-        Object* object = new Object;
-        object->init();
-        layer = object->addNewBitmapLayer();
-        area->setEditor(editor.get());
-        editor->setScribbleArea(area.get());
-        editor->setObject(object);
-        editor->init();
-        area->init();
-        area->resize(400, 100);
-        editor->layers()->setCurrentLayer(layer);
-        editor->tools()->setCurrentTool(BRUSH);
-        editor->color()->setFrontColor(ink);
-        brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
-    }
-
-    ~PresetSampler()
-    {
-        // ~ToolManager stores tool settings: reload them so the user's settings are written back unchanged.
-        for (int t = 0; t < TOOL_TYPE_COUNT; ++t)
-            editor->tools()->getTool(static_cast<ToolType>(t))->loadSettings();
-    }
-
-    void tablet(QEvent::Type type, QPointF pos, qreal pressure)
-    {
-        const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
-        QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
-                       pressure, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
-        QApplication::sendEvent(area.get(), &e);
-    }
-
-    QImage paint(const BrushPresets& presets, const QString& name, QSize size)
-    {
-        BitmapImage* image = layer->getBitmapImageAtFrame(1);
-        image->clear();
-        presets.apply(name, *brush);
-        brush->seedRandom(1);
-
-        // An S curve whose pressure rises and falls.
-        const int steps = 40;
-        const auto point = [](qreal t) { return QPointF(50 + 300 * t, 50 - 25 * qSin(t * 2 * M_PI)); };
-        tablet(QEvent::TabletPress, point(0), 0.1);
-        for (int i = 1; i <= steps; ++i)
-        {
-            const qreal t = qreal(i) / steps;
-            tablet(QEvent::TabletMove, point(t), 0.1 + 0.9 * qSin(t * M_PI));
-        }
-        tablet(QEvent::TabletRelease, point(1), 0.1);
-        editor->undoRedo()->clearStack();
-
-        QImage out(size, QImage::Format_ARGB32_Premultiplied);
-        out.fill(Qt::transparent);
-        const QRect bounds = image->bounds();
-        if (bounds.isEmpty())
-            return out;
-        QPainter p(&out);
-        p.setRenderHint(QPainter::SmoothPixmapTransform);
-        const QSize fitted = bounds.size().scaled(size, Qt::KeepAspectRatio);
-        p.drawImage(QRect(QPoint((size.width() - fitted.width()) / 2, (size.height() - fitted.height()) / 2), fitted),
-                    *image->image());
-        return out;
-    }
-};
 
 BrushPresetDock::BrushPresetDock(QWidget* parent, const QString& folder) : BaseDockWidget(parent), mPresets(folder)
 {
     setWindowTitle(tr("Brush Presets", "Window title of brush preset dock"));
     mList = new QListWidget(this);
     mList->setIconSize(sampleSize());
-    setWidget(mList);
+    auto newButton = new QPushButton(tr("New"), this);
+    auto editButton = new QPushButton(tr("Edit"), this);
+    auto duplicateButton = new QPushButton(tr("Duplicate"), this);
+    auto buttons = new QHBoxLayout;
+    buttons->addWidget(newButton);
+    buttons->addWidget(editButton);
+    buttons->addWidget(duplicateButton);
+    auto content = new QWidget(this);
+    auto layout = new QVBoxLayout(content);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(mList);
+    layout->addLayout(buttons);
+    setWidget(content);
+    connect(newButton, &QPushButton::clicked, this, [this] { openEditor(QString(), QString(), QString()); });
+    connect(editButton, &QPushButton::clicked, this, [this] {
+        const QString name = currentName();
+        if (!name.isEmpty())
+            openEditor(name, name, name);
+    });
+    connect(duplicateButton, &QPushButton::clicked, this, [this] {
+        const QString name = currentName();
+        if (!name.isEmpty())
+            openEditor(name, tr("%1 copy").arg(name), QString());
+    });
     connect(mList, &QListWidget::currentRowChanged, this, &BrushPresetDock::applyRow);
     connect(mList, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) { applyRow(mList->row(item)); });
     connect(&mWatcher, &QFileSystemWatcher::directoryChanged, this, &BrushPresetDock::updateUI);
@@ -131,7 +73,7 @@ void BrushPresetDock::updateUI()
     if (!mSampler)
         mSampler = std::make_unique<PresetSampler>(palette().color(QPalette::Text));
 
-    const QString current = mList->currentItem() ? mList->currentItem()->data(Qt::UserRole).toString() : QString();
+    const QString current = currentName();
     const QSignalBlocker blocker(mList);
     mList->clear();
     const QStringList names = mPresets.names();
@@ -166,4 +108,28 @@ void BrushPresetDock::applyRow(int row)
 QIcon BrushPresetDock::sample(const QString& name)
 {
     return QIcon(QPixmap::fromImage(mSampler->paint(mPresets, name, sampleSize())));
+}
+
+QString BrushPresetDock::currentName() const
+{
+    return mList->currentItem() ? mList->currentItem()->data(Qt::UserRole).toString() : QString();
+}
+
+void BrushPresetDock::openEditor(const QString& source, const QString& name, const QString& original)
+{
+    auto dialog = new BrushPresetEditor(mPresets, source, name, original, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &QDialog::accepted, this, [this, dialog] {
+        // Select the saved preset, which applies it to the current tool.
+        updateUI();
+        for (int row = 0; row < mList->count(); ++row)
+        {
+            if (mList->item(row)->data(Qt::UserRole).toString() != dialog->name())
+                continue;
+            const QSignalBlocker blocker(mList);
+            mList->setCurrentRow(row);
+            applyRow(row);
+        }
+    });
+    dialog->open();
 }

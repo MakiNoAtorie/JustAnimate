@@ -95,6 +95,10 @@ add_executable(pencil2d_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/buttonappearancewatcher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpresetdock.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpresetdock.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpreseteditor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpreseteditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pressurecurvewidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pressurecurvewidget.cpp
 )
 
 # Include directories

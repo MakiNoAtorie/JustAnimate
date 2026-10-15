@@ -93,7 +93,7 @@ QStringList BrushPresets::names() const
     return result;
 }
 
-bool BrushPresets::save(const QString& name, StrokeTool& tool) const
+bool BrushPresets::save(const QString& name, StrokeTool& tool, const QString& description) const
 {
     if (!isValidName(name) || !QDir().mkpath(mFolder))
         return false;
@@ -110,7 +110,11 @@ bool BrushPresets::save(const QString& name, StrokeTool& tool) const
         }
     }
 
-    const QJsonObject preset{ { "settings", settings }, { "tipImage", tool.tipImagePath() } };
+    QJsonObject preset{ { "settings", settings }, { "tipImage", tool.tipImagePath() } };
+    if (!tool.pressureCurve().isEmpty())
+        preset.insert("pressureCurve", tool.pressureCurve());
+    if (!description.isEmpty())
+        preset.insert("description", description);
     return writeFile(filePath(name), QJsonDocument(preset).toJson());
 }
 
@@ -159,6 +163,7 @@ bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
         qWarning() << "Brush preset" << name << "uses the generated tip: cannot load" << tipImage;
         tool.setTipImage(QString());
     }
+    tool.setPressureCurve(preset->value("pressureCurve").toString());
     return true;
 }
 
@@ -204,7 +209,9 @@ Status BrushPresets::exportPreset(const QString& name, const QString& fileName) 
     if (!preset)
         return failed;
 
-    QJsonObject out{ { "name", name }, { "settings", preset->value("settings") }, { "tipImage", QString() } };
+    QJsonObject out{ { "name", name }, { "settings", preset->value("settings") }, { "tipImage", QString() },
+                     { "pressureCurve", preset->value("pressureCurve").toString() },
+                     { "description", preset->value("description").toString() } };
     QByteArray tipEntry, tipData;
     const QString tipPath = preset->value("tipImage").toString();
     if (!tipPath.isEmpty())
@@ -298,7 +305,9 @@ Status BrushPresets::importPreset(const QString& fileName) const
         tipPath = QDir(mFolder).filePath("tips/" + name + "." + QFileInfo(tipEntry).suffix());
     }
 
-    const QJsonObject stored{ { "settings", preset.value("settings").toObject() }, { "tipImage", tipPath } };
+    const QJsonObject stored{ { "settings", preset.value("settings").toObject() }, { "tipImage", tipPath },
+                              { "pressureCurve", preset.value("pressureCurve").toString() },
+                              { "description", preset.value("description").toString() } };
     if (!QDir().mkpath(QDir(mFolder).filePath("tips")) ||
         (!tipPath.isEmpty() && !writeFile(tipPath, tipData)) ||
         !writeFile(filePath(name), QJsonDocument(stored).toJson()))

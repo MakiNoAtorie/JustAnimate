@@ -87,6 +87,10 @@ public:
     Status setTipImage(const QString& fileName);
     /// The file of the current image tip; empty for the generated tip.
     QString tipImagePath() const { return mTipImagePath; }
+    /// A pressure curve string (`PressureCurve::fromString`) that overrides the global
+    /// preference, set by a preset; empty uses the global curve.
+    void setPressureCurve(const QString& curve) { mPressureCurveOverride = curve; }
+    QString pressureCurve() const { return mPressureCurveOverride; }
     virtual void setPressureEnabled(bool enabled);
     virtual void setFeatherEnabled(bool enabled);
     virtual void setAntiAliasingEnabled(bool enabled);
@@ -158,6 +162,7 @@ protected:
     StrokeInterpolator mInterpolator;
     QImage mTipImage; // null for the generated tip
     QString mTipImagePath;
+    QString mPressureCurveOverride;
 
     static const qreal FEATHER_MIN;
     static const qreal FEATHER_MAX;

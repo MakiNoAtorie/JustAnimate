@@ -52,7 +52,8 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     mLastBrushPoint = getCurrentPoint();
 
     startStroke(event->inputType());
-    mPressureCurve = PressureCurve::fromString(mEditor->preference()->getString(SETTING::PRESSURE_CURVE));
+    mPressureCurve = PressureCurve::fromString(pressureCurve().isEmpty() ? mEditor->preference()->getString(SETTING::PRESSURE_CURVE)
+                                                                         : pressureCurve());
     mScribbleArea->setWashOpacity(strokeToolProperties().washEnabled() ? strokeToolProperties().opacity() / 100 : 1.0);
     const StrokeToolProperties& p = strokeToolProperties();
     mSpeedToSize = p.speedToSize() / 100.0;

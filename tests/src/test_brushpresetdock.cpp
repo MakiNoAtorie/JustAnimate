@@ -14,17 +14,22 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <QCheckBox>
 #include <QCoreApplication>
 #include <QDeadlineTimer>
+#include <QDoubleSpinBox>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QTemporaryDir>
 
 #include "brushpresetdock.h"
+#include "brushpreseteditor.h"
 #include "brushpresets.h"
 #include "brushtool.h"
+#include "pressurecurvewidget.h"
 #include "testfixture.h"
 #include "toolmanager.h"
 
@@ -32,15 +37,19 @@ namespace
 {
 
 // Number of pixels with any ink.
-int inkPixels(const QIcon& icon)
+int inkPixels(const QImage& img)
 {
-    const QImage img = icon.pixmap(BrushPresetDock::sampleSize()).toImage();
     int count = 0;
     for (int y = 0; y < img.height(); ++y)
         for (int x = 0; x < img.width(); ++x)
             if (qAlpha(img.pixel(x, y)) != 0)
                 ++count;
     return count;
+}
+
+int inkPixels(const QIcon& icon)
+{
+    return inkPixels(icon.pixmap(BrushPresetDock::sampleSize()).toImage());
 }
 
 struct DockSession
@@ -132,4 +141,64 @@ TEST_CASE("Sample strokes update when a preset file changes", "[BrushPresetDock]
         after = inkPixels(d.list()->item(0)->icon());
     }
     CHECK(after > before);
+}
+
+TEST_CASE("The preset editor previews edits live and saves every part of the preset", "[BrushPresetDock]")
+{
+    DockSession d;
+    d.brush->setWidth(4);
+    const BrushPresets presets(d.dir.path());
+    REQUIRE(presets.save("Fine", *d.brush));
+    QImage tip(8, 8, QImage::Format_RGB32);
+    tip.fill(Qt::black);
+    REQUIRE(tip.save(d.dir.filePath("tip.png")));
+
+    BrushPresetEditor editor(presets, "Fine", "Fine", "Fine");
+    const int before = inkPixels(editor.preview());
+    REQUIRE(before > 0);
+    auto width = editor.findChild<QDoubleSpinBox*>("Width");
+    REQUIRE(width);
+    CHECK(width->value() == 4);
+    width->setValue(40);
+    CHECK(inkPixels(editor.preview()) > before);
+
+    editor.findChild<QLineEdit*>("description")->setText("Wide lines");
+    auto tipEdit = editor.findChild<QLineEdit*>("tipImage");
+    tipEdit->setText(d.dir.filePath("tip.png"));
+    emit tipEdit->editingFinished();
+    editor.findChild<QCheckBox*>("globalCurve")->setChecked(false);
+    editor.findChild<PressureCurveWidget*>()->setCurve(PressureCurve::fromString("0,0.9 1,1"));
+    REQUIRE(editor.save());
+
+    REQUIRE(presets.apply("Fine", *d.brush));
+    CHECK(d.brush->strokeToolProperties().width() == 40);
+    CHECK(d.brush->tipImagePath() == d.dir.filePath("tip.png"));
+    CHECK(d.brush->pressureCurve() == PressureCurve::fromString("0,0.9 1,1").toString());
+    CHECK(presets.description("Fine") == "Wide lines");
+    d.brush->setTipImage(QString());
+    d.brush->setPressureCurve(QString());
+}
+
+TEST_CASE("The preset editor never overwrites another preset", "[BrushPresetDock]")
+{
+    DockSession d;
+    d.brush->setWidth(4);
+    const BrushPresets presets(d.dir.path());
+    REQUIRE(presets.save("Fine", *d.brush));
+
+    BrushPresetEditor duplicate(presets, "Fine", "Fine");
+    CHECK_FALSE(duplicate.save()); // a new or duplicated preset needs a free name
+    duplicate.findChild<QLineEdit*>("name")->setText("Fine copy");
+    duplicate.findChild<QDoubleSpinBox*>("Width")->setValue(30);
+    REQUIRE(duplicate.save());
+    CHECK(presets.names() == QStringList{ "Fine copy", "Fine" });
+
+    BrushPresetEditor rename(presets, "Fine", "Fine", "Fine");
+    rename.findChild<QLineEdit*>("name")->setText("Fine copy");
+    CHECK_FALSE(rename.save());
+    rename.findChild<QLineEdit*>("name")->setText("Thin");
+    REQUIRE(rename.save());
+    CHECK(presets.names() == QStringList{ "Fine copy", "Thin" });
+    REQUIRE(presets.apply("Fine copy", *d.brush));
+    CHECK(d.brush->strokeToolProperties().width() == 30);
 }

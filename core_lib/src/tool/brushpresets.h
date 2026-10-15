@@ -23,7 +23,8 @@ GNU General Public License for more details.
 class StrokeTool;
 
 /// Brush presets: one JSON file per preset, `<folder>/<name>.json`, of the form
-/// `{ "settings": { "<property identifier>": value, ... }, "tipImage": "<file or empty>" }`.
+/// `{ "settings": { "<property identifier>": value, ... }, "tipImage": "<file or empty>",
+/// "pressureCurve": "<curve or empty>", "description": "<text>" }`.
 /// Preset files are untrusted: unknown keys are ignored, and missing or bad
 /// values give the property default.
 class BrushPresets
@@ -35,9 +36,9 @@ public:
     /// Names of the readable presets, sorted. Corrupt files are skipped with a warning.
     QStringList names() const;
 
-    /// Creates or overwrites the preset with the tool's stroke settings and tip image.
-    /// Global preferences such as the pressure curve are not part of a preset.
-    bool save(const QString& name, StrokeTool& tool) const;
+    /// Creates or overwrites the preset with the tool's stroke settings, tip image
+    /// and pressure curve override (`StrokeTool::pressureCurve`, empty = global curve).
+    bool save(const QString& name, StrokeTool& tool, const QString& description = QString()) const;
 
     /// Sets every tool property and the tip image from the preset; a tip file
     /// that cannot load gives the generated tip. Returns false and changes

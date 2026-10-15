@@ -52,7 +52,11 @@ struct BrushSession
         brush = static_cast<BrushTool*>(s.editor->tools()->getTool(BRUSH));
         guard = std::make_unique<ToolSettingsGuard>(brush);
     }
-    ~BrushSession() { brush->setTipImage(QString()); }
+    ~BrushSession()
+    {
+        brush->setTipImage(QString());
+        brush->setPressureCurve(QString());
+    }
 };
 
 // Writes a zip with the given entry names and contents.
@@ -210,6 +214,32 @@ TEST_CASE("Brush presets export and import as jabrush files", "[BrushPresets]")
     QImage mask;
     REQUIRE(loadBrushTipImage(b.brush->tipImagePath(), mask).ok());
     CHECK(mask.size() == QSize(4, 4));
+}
+
+TEST_CASE("A preset keeps its description and pressure curve", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    BrushSession b;
+    const BrushPresets presets(dir.filePath("presets"));
+    b.brush->setPressureCurve("0,0.9 1,1");
+    REQUIRE(presets.save("Firm", *b.brush, "Bold lines"));
+    b.brush->setPressureCurve(QString());
+    REQUIRE(presets.save("Plain", *b.brush));
+
+    REQUIRE(presets.apply("Firm", *b.brush));
+    CHECK(b.brush->pressureCurve() == "0,0.9 1,1");
+    CHECK(presets.description("Firm") == "Bold lines");
+    REQUIRE(presets.apply("Plain", *b.brush));
+    CHECK(b.brush->pressureCurve().isEmpty()); // empty = the global curve
+    CHECK(presets.description("Plain").isEmpty());
+
+    // Both travel in a .jabrush.
+    REQUIRE(presets.exportPreset("Firm", dir.filePath("Firm.jabrush")).ok());
+    const BrushPresets other(dir.filePath("other"));
+    REQUIRE(other.importPreset(dir.filePath("Firm.jabrush")).ok());
+    REQUIRE(other.apply("Firm", *b.brush));
+    CHECK(b.brush->pressureCurve() == "0,0.9 1,1");
+    CHECK(other.description("Firm") == "Bold lines");
 }
 
 TEST_CASE("Malformed jabrush files are rejected before writing", "[BrushPresets]")
