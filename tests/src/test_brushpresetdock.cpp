@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include <QDeadlineTimer>
 #include <QDoubleSpinBox>
 #include <QFile>
+#include <QFormLayout>
+#include <QLabel>
+#include <QRegularExpression>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLineEdit>
@@ -177,6 +180,34 @@ TEST_CASE("The preset editor previews edits live and saves every part of the pre
     CHECK(presets.description("Fine") == "Wide lines");
     d.brush->setTipImage(QString());
     d.brush->setPressureCurve(QString());
+}
+
+TEST_CASE("The preset editor labels every setting in words", "[BrushPresetDock]")
+{
+    DockSession d;
+    const BrushPresets presets(d.dir.path());
+    BrushPresetEditor editor(presets, QString(), "New");
+    auto form = editor.findChild<QFormLayout*>();
+    REQUIRE(form);
+    int rows = 0;
+    const ToolProperties& props = d.brush->toolProperties();
+    for (const auto& range : props.typeRanges())
+    {
+        for (int key = range.first; key < range.second; ++key)
+        {
+            if (props.getInfo(key).type() == PropertyInfo::INVALID)
+                continue;
+            const QString id = props.identifier(key);
+            CAPTURE(id.toStdString());
+            QWidget* control = editor.findChild<QWidget*>(id);
+            REQUIRE(control);
+            auto label = qobject_cast<QLabel*>(form->labelForField(control));
+            REQUIRE(label);
+            CHECK_FALSE(label->text().contains(QRegularExpression("[a-z][A-Z]"))); // not an identifier
+            ++rows;
+        }
+    }
+    CHECK(rows > 20);
 }
 
 TEST_CASE("The preset editor never overwrites another preset", "[BrushPresetDock]")

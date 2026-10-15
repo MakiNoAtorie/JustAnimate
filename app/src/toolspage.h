@@ -24,7 +24,6 @@ GNU General Public License for more details.
 
 class PreferenceManager;
 class PressureCurveWidget;
-class QSpinBox;
 
 namespace Ui {
 class ToolsPage;
@@ -48,8 +47,6 @@ private:
     Ui::ToolsPage* ui = nullptr;
     PreferenceManager* mManager = nullptr;
     PressureCurveWidget* mPressureCurve = nullptr;
-    QSpinBox* mTaperStart = nullptr;
-    QSpinBox* mTaperEnd = nullptr;
 };
 
 #endif // TOOLSPAGE_H

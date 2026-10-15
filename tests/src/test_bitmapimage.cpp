@@ -650,6 +650,20 @@ TEST_CASE("TiledBuffer drawDab: an image tip is scaled to the dab width and turn
     CHECK(alphaAt(90, { {40, 50}, {35, 58}, {40, 30}, {25, 50}, {55, 50} }) == std::vector<int>{ 255, 255, 0, 0, 0 });
 }
 
+TEST_CASE("TiledBuffer drawDab: an image tip builds one mask for any feather")
+{
+    QImage image(8, 8, QImage::Format_Alpha8);
+    image.fill(255);
+    BrushTip tip;
+    tip.image = image;
+    TiledBuffer buffer;
+    buffer.drawDab(QPointF(40, 40), 20, 10, QColor(255, 0, 0), 1.0, true, tip);
+    const qsizetype bytes = buffer.dabMaskBytes();
+    REQUIRE(bytes > 0);
+    buffer.drawDab(QPointF(40, 40), 20, 60, QColor(255, 0, 0), 1.0, true, tip);
+    CHECK(buffer.dabMaskBytes() == bytes);
+}
+
 TEST_CASE("TiledBuffer drawDab: a constant-colour stroke keeps its colour where translucent dabs overlap")
 {
     TiledBuffer buffer;

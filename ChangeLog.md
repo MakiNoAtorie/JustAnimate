@@ -15,7 +15,7 @@ the original Pencil2D history is kept below for reference.
 - Pencil, Brush and Eraser can paint with an image tip loaded from a PNG or GIMP .gbr file; a damaged .gbr shows an error (B5).
 - Brush dynamics: Preferences, Tools sets how pen speed and tilt change Pencil, Brush and Eraser dab size, how tilt turns the tip, and a seeded random size jitter (B3).
 - Flow and opacity: Pencil and Brush have Flow (per dab, builds up), Opacity (per stroke) and a Wash mode that keeps overlaps at the stroke opacity; spacing no longer changes how dark a stroke is (B3).
-- Stroke taper: Preferences, Tools sets start and end taper lengths for Pencil, Brush and Eraser, so mouse strokes also get thin ends (B3).
+- Stroke taper: the stroke options of Pencil, Brush and Eraser set start and end taper lengths, saved in brush presets, so mouse strokes also get thin ends (B3).
 - Pencil, Brush and Eraser tips can be square, flattened (aspect %), turned to an angle, or turned with the stroke direction; Feather sets the hardness (B5).
 - Pressure curve: Preferences, Tools has an editable curve that maps pen pressure to Pencil, Brush and Eraser dab size and opacity; drag, double-click to add and right-click to remove points (B3).
 - Large Pencil, Brush and Eraser dabs render on all CPU cores, small ones stay on the main thread: about 5.7x the dabs per second of 0.1 with a 200 px brush at 128% zoom (256 screen px), same pixels (B2).

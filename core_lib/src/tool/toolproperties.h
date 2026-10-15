@@ -424,6 +424,8 @@ struct StrokeToolProperties: public ToolPropertiesBase
         ANGLE_JITTER_VALUE       = 122,
         DAB_COUNT_VALUE          = 123,
         FLOW_PER_DAB_ENABLED     = 124,
+        TAPER_START_VALUE        = 125,
+        TAPER_END_VALUE          = 126,
 
         END                 = 199,
     };
@@ -456,7 +458,9 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { SCATTER_VALUE,         "Scatter" },
             { ANGLE_JITTER_VALUE,    "AngleJitter" },
             { DAB_COUNT_VALUE,       "DabCount" },
-            { FLOW_PER_DAB_ENABLED,  "FlowPerDab" }
+            { FLOW_PER_DAB_ENABLED,  "FlowPerDab" },
+            { TAPER_START_VALUE,     "TaperStart" },
+            { TAPER_END_VALUE,       "TaperEnd" }
         });
     }
 
@@ -490,6 +494,8 @@ struct StrokeToolProperties: public ToolPropertiesBase
     int angleJitter() const { return getInfo(ANGLE_JITTER_VALUE).intValue(); } // degrees
     int dabCount() const { return getInfo(DAB_COUNT_VALUE).intValue(); }
     bool flowPerDab() const { return getInfo(FLOW_PER_DAB_ENABLED).boolValue(); }
+    int taperStart() const { return getInfo(TAPER_START_VALUE).intValue(); } // canvas px, 0 = off
+    int taperEnd() const { return getInfo(TAPER_END_VALUE).intValue(); } // canvas px, 0 = off
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }

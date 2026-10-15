@@ -19,7 +19,6 @@ GNU General Public License for more details.
 
 #include <QLabel>
 #include <QPushButton>
-#include <QSpinBox>
 #include <QtMath>
 
 #include "preferencemanager.h"
@@ -44,20 +43,6 @@ ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
         mManager->set(SETTING::PRESSURE_CURVE, QString());
     });
 
-    // Taper also gives mouse strokes thin ends, like simulated pressure.
-    auto taperBox = [this](const QString& label, SETTING setting) {
-        auto* box = new QSpinBox(this);
-        box->setRange(0, 1000);
-        box->setSuffix(tr(" px"));
-        box->setSpecialValueText(tr("Off"));
-        ui->verticalLayout_2->addWidget(new QLabel(label, this));
-        ui->verticalLayout_2->addWidget(box, 0, Qt::AlignLeft);
-        connect(box, QOverload<int>::of(&QSpinBox::valueChanged), this, [this, setting](int v) { mManager->set(setting, v); });
-        return box;
-    };
-    mTaperStart = taperBox(tr("Stroke start taper (Pencil, Brush, Eraser):"), SETTING::TAPER_START);
-    mTaperEnd = taperBox(tr("Stroke end taper (Pencil, Brush, Eraser):"), SETTING::TAPER_END);
-
     connect(ui->useQuickSizingBox, &QCheckBox::stateChanged, this, &ToolsPage::quickSizingChange);
     connect(ui->rotationIncrementSlider, &QSlider::valueChanged, this, &ToolsPage::rotationIncrementChange);
     connect(ui->invertZoomDirectionBox, &QCheckBox::stateChanged, this, &ToolsPage::invertZoomDirectionChange);
@@ -74,8 +59,6 @@ void ToolsPage::updateValues()
     ui->invertZoomDirectionBox->setChecked(mManager->isOn(SETTING::INVERT_DRAG_ZOOM_DIRECTION));
     setRotationIncrement(mManager->getInt(SETTING::ROTATION_INCREMENT));
     mPressureCurve->setCurve(PressureCurve::fromString(mManager->getString(SETTING::PRESSURE_CURVE)));
-    mTaperStart->setValue(mManager->getInt(SETTING::TAPER_START));
-    mTaperEnd->setValue(mManager->getInt(SETTING::TAPER_END));
 }
 
 void ToolsPage::quickSizingChange(int b)

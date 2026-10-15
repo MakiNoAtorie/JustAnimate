@@ -25,6 +25,7 @@ GNU General Public License for more details.
 
 #include "beziercurve.h"
 #include "bitmapimage.h"
+#include "brushpresets.h"
 #include "brushtool.h"
 #include "colormanager.h"
 #include "editor.h"
@@ -583,7 +584,6 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
 
 TEST_CASE("DabTool - a mouse stroke tapers at both ends")
 {
-    const SettingsGuard settingsGuard({ SETTING_TAPER_START, SETTING_TAPER_END });
     TestSession s;
     LayerBitmap* layer = s.object->addNewBitmapLayer();
     layer->addNewKeyFrameAt(2);
@@ -628,11 +628,11 @@ TEST_CASE("DabTool - a mouse stroke tapers at both ends")
         return heights;
     };
 
-    editor->preference()->set(SETTING::TAPER_START, 100);
-    editor->preference()->set(SETTING::TAPER_END, 100);
+    brush->setDynamic(StrokeToolProperties::TAPER_START_VALUE, 100);
+    brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 100);
     const auto tapered = strokeHeights(1);
-    editor->preference()->set(SETTING::TAPER_START, 0);
-    editor->preference()->set(SETTING::TAPER_END, 0);
+    brush->setDynamic(StrokeToolProperties::TAPER_START_VALUE, 0);
+    brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 0);
     const auto plain = strokeHeights(2);
     INFO("tapered " << tapered[0] << "/" << tapered[1] << "/" << tapered[2]
          << " plain " << plain[0] << "/" << plain[1] << "/" << plain[2]);
@@ -641,6 +641,89 @@ TEST_CASE("DabTool - a mouse stroke tapers at both ends")
     CHECK(tapered[2] <= 6);
     CHECK(plain[0] >= 18);
     CHECK(plain[2] >= 18);
+}
+
+TEST_CASE("DabTool - Classic with pressure off paints full alpha like before v0.3")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    s.start();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    s.editor->layers()->setCurrentLayer(layer);
+
+    s.editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(s.editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    QTemporaryDir dir;
+    REQUIRE(BrushPresets(dir.path()).addClassic());
+    REQUIRE(BrushPresets(dir.path()).apply("Classic", *brush));
+    brush->setWidth(20);
+    brush->setFeather(1);
+    brush->setPressureEnabled(false);
+
+    tap(area, QPointF(400, 300), 0.3);
+    const QImage* img = layer->getBitmapImageAtFrame(1)->image();
+    int alpha = 0;
+    for (int y = 0; y < img->height(); ++y)
+        for (int x = 0; x < img->width(); ++x)
+            alpha = qMax(alpha, qAlpha(img->pixel(x, y)));
+    CHECK(alpha >= 250); // opacity 1 before v0.3; feather 1 takes 1%
+}
+
+TEST_CASE("DabTool - dabs held back for the end taper keep their own pen tilt")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(2);
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->setDynamic(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
+    brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 100);
+
+    // A tilted stroke from x = 100 to 500; the pen stands up at the end if `uprightEnd`.
+    // Returns the ink height at x = 460, which waits for the end taper until release.
+    auto strokeAt = [&](int frame, bool uprightEnd) {
+        editor->scrubTo(frame);
+        auto send = [&](QEvent::Type type, qreal x, qreal tilt) {
+            const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
+            const QPointF pos(x, 300);
+            QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                           1.0, tilt, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+            QApplication::sendEvent(area, &e);
+        };
+        const qreal end = uprightEnd ? 0 : 60;
+        send(QEvent::TabletPress, 100, 60);
+        for (int i = 1; i < 40; ++i)
+            send(QEvent::TabletMove, 100 + 10 * i, 60);
+        send(QEvent::TabletMove, 500, end);
+        send(QEvent::TabletRelease, 500, end);
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(frame);
+        const int x = editor->view()->mapScreenToCanvas(QPointF(460, 300)).toPoint().x() - bitmap->left();
+        const QImage* img = bitmap->image();
+        int height = 0;
+        for (int y = 0; y < img->height(); ++y)
+            height += qAlpha(img->pixel(x, y)) != 0;
+        return height;
+    };
+    const int tilted = strokeAt(1, false);
+    const int uprightEnd = strokeAt(2, true);
+    INFO("tilted " << tilted << "px upright end " << uprightEnd << "px");
+    CHECK(tilted > 12);
+    CHECK(uprightEnd == Approx(tilted).margin(1));
 }
 
 TEST_CASE("DabTool - flow builds up and opacity caps the stroke")

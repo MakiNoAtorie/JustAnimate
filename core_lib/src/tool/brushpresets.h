@@ -46,19 +46,25 @@ public:
     bool apply(const QString& name, StrokeTool& tool) const;
 
     /// Copies each default in the pack (resources under `:/brushpresets`) into the
-    /// folder unless a file of that name exists, so user edits stay.
+    /// folder once: an existing file stays, so user edits stay, and a deleted default
+    /// stays deleted. A default added in a later version is still copied.
     void addDefaults() const;
 
     /// The optional "description" text of the preset; empty when absent or not a string.
     QString description(const QString& name) const;
 
-    /// Writes the "Classic" preset unless it exists: on any stroke tool it draws
+    /// Writes the "Classic" preset once, like addDefaults: on any stroke tool it draws
     /// like that tool's defaults before v0.3 (per-dab flow, pressure on).
     bool addClassic() const;
 
     /// Fails if `to` already exists.
     bool rename(const QString& from, const QString& to) const;
+    /// Also deletes the preset's tip file in `<folder>/tips/` when no other preset uses it.
     bool remove(const QString& name) const;
+    /// Whether a preset file of this name exists.
+    bool exists(const QString& name) const;
+    /// The preset's file, `<folder>/<name>.json`.
+    QString filePath(const QString& name) const;
 
     /// Writes the preset and its tip image file to a `.jabrush` zip:
     /// `preset.json` (`name`, `settings`, `tipImage` = entry name or empty) and `tip.<suffix>`.
@@ -76,7 +82,8 @@ public:
     QString folder() const { return mFolder; }
 
 private:
-    QString filePath(const QString& name) const;
+    /// Writes a built-in preset unless it was seeded before; an existing file stays.
+    bool seed(const QString& name, const QByteArray& json) const;
 
     QString mFolder;
 };

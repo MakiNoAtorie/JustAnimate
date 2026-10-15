@@ -73,6 +73,8 @@ public:
     static QSize previewSize() { return QSize(320, 80); }
 
 private:
+    /// The row label of a tool setting; the identifier for a setting without one.
+    static QString settingLabel(int key, const QString& identifier);
     void updatePreview();
     void applyCurve();
 

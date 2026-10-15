@@ -95,6 +95,8 @@ public:
     qsizetype poolBytes() const { return mPoolBytes; }
     /** Sets the most bytes the pool keeps, and frees pooled tiles above it. */
     void setPoolCapBytes(qsizetype cap);
+    /** Bytes held by cached dab masks. */
+    qsizetype dabMaskBytes() const { return mDabMaskBytes; }
 
     /** Threads that rendered the last batch of queued dabs; 0 if none was queued. */
     int lastDabWorkers() const { return mLastDabWorkers; }

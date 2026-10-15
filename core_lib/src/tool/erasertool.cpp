@@ -65,6 +65,8 @@ void EraserTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::SCATTER_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::ANGLE_JITTER_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::DAB_COUNT_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::ANTI_ALIASING_ENABLED] = { Layer::BITMAP };
 
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
