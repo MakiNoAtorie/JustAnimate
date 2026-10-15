@@ -444,8 +444,19 @@ void MainWindow2::createMenus()
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
+    auto rippleEdit = [this](bool (LayerManager::*edit)())
+    {
+        if (!mEditor->layers()->currentLayer()->visible()) { ui->scribbleArea->showLayerNotVisibleWarning(); return; }
+        (mEditor->layers()->*edit)();
+    };
+    connect(ui->actionRipple_Insert_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleInsertFrame); });
+    connect(ui->actionRipple_Delete_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleRemoveFrame); });
     connect(ui->actionAdd_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::addExposureToSelectedFrames);
     connect(ui->actionSubtract_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::subtractExposureFromSelectedFrames);
+    connect(ui->actionHold_1s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(1, true); });
+    connect(ui->actionHold_2s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(2, true); });
+    connect(ui->actionHold_3s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(3, true); });
+    connect(ui->actionClean_Exposure, &QAction::triggered, mCommands, &ActionCommands::cleanExposureOfSelectedFrames);
     connect(ui->actionNext_Frame, &QAction::triggered, mCommands, &ActionCommands::GotoNextFrame);
     connect(ui->actionPrevious_Frame, &QAction::triggered, mCommands, &ActionCommands::GotoPrevFrame);
     connect(ui->actionNext_KeyFrame, &QAction::triggered, mCommands, &ActionCommands::GotoNextKeyFrame);
@@ -1243,6 +1254,18 @@ bool MainWindow2::tryLoadPreset()
             return;
         }
 
+        if (presetDialog->templateIndex() >= 0)
+        {
+            if (Object* object = Welcome::newObjectFromTemplate(presetDialog->templateIndex()))
+            {
+                mEditor->setObject(object);
+                mEditor->setFps(mEditor->playback()->fps());
+                closeDialogs();
+                setWindowTitle(getWindowTitle());
+                return;
+            }
+        }
+
         int presetIndex = presetDialog->presetIndex();
         if (presetDialog->shouldAlwaysUse())
         {
@@ -1381,8 +1404,14 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionAdd_Frame->setShortcut(cmdKeySeq(CMD_ADD_FRAME));
     ui->actionDuplicate_Frame->setShortcut(cmdKeySeq(CMD_DUPLICATE_FRAME));
     ui->actionRemove_Frame->setShortcut(cmdKeySeq(CMD_REMOVE_FRAME));
+    ui->actionRipple_Insert_Frame->setShortcut(cmdKeySeq(CMD_RIPPLE_INSERT_FRAME));
+    ui->actionRipple_Delete_Frame->setShortcut(cmdKeySeq(CMD_RIPPLE_DELETE_FRAME));
     ui->actionAdd_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_ADD_FRAME_EXPOSURE));
     ui->actionSubtract_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_SUBTRACT_FRAME_EXPOSURE));
+    ui->actionHold_1s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_1S));
+    ui->actionHold_2s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_2S));
+    ui->actionHold_3s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_3S));
+    ui->actionClean_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_CLEAN_EXPOSURE));
     ui->actionReverse_Frames_Order->setShortcut(cmdKeySeq(CMD_REVERSE_SELECTED_FRAMES));
     ui->actionRemove_Frames->setShortcut(cmdKeySeq(CMD_REMOVE_SELECTED_FRAMES));
     ui->actionMove_Frame_Backward->setShortcut(cmdKeySeq(CMD_MOVE_FRAME_BACKWARD));

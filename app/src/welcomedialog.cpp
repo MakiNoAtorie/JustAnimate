@@ -84,6 +84,23 @@ WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, 
     layout->addLayout(newRow);
     connect(newButton, &QPushButton::clicked, this, &QDialog::accept);
 
+    auto* templateRow = new QHBoxLayout;
+    templateRow->addWidget(new QLabel(tr("New project from template:")));
+    auto* templates = new QComboBox;
+    templates->setObjectName("welcomeTemplates");
+    for (const Welcome::Template& t : Welcome::templates())
+    {
+        templates->addItem(tr("%1 (%2 x %3, %4 fps)").arg(t.name).arg(t.size.width()).arg(t.size.height()).arg(t.fps));
+    }
+    templateRow->addWidget(templates, 1);
+    auto* templateButton = new QPushButton(tr("New"));
+    templateRow->addWidget(templateButton);
+    layout->addLayout(templateRow);
+    connect(templateButton, &QPushButton::clicked, this, [this, templates] {
+        mTemplate = templates->currentIndex();
+        accept();
+    });
+
     mAlwaysUse = new QCheckBox(tr("Always use this preset"));
     layout->addWidget(mAlwaysUse);
 

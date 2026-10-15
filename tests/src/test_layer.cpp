@@ -24,6 +24,8 @@ GNU General Public License for more details.
 #include "object.h"
 #include "util.h"
 
+#include <QElapsedTimer>
+
 TEST_CASE("LayerType")
 {
     SECTION("Bitmap Layer")
@@ -599,6 +601,22 @@ TEST_CASE("Layer::setExposureForSelectedFrames")
         REQUIRE(layer->keyExists(21));
     }
     delete obj;
+}
+
+// Hidden: run in Release with "[.exposure-timing]" to time exposure on a long selection.
+TEST_CASE("Layer: exposure on a 500-frame selection", "[.exposure-timing]")
+{
+    Object obj;
+    Layer* layer = obj.addNewBitmapLayer();
+    for (int i = 1; i <= 500; i++) { layer->addNewKeyFrameAt(i); }
+    for (int i = 1; i <= 500; i++) { layer->setFrameSelected(i, true); }
+
+    QElapsedTimer timer;
+    timer.start();
+    layer->setExposureForSelectedFrames(1);
+    WARN("Add exposure, 500 selected frames: " << timer.nsecsElapsed() / 1000 << " us");
+
+    REQUIRE(layer->getMaxKeyFramePosition() == 999);
 }
 
 TEST_CASE("layer::reverseOrderOfSelection()") {

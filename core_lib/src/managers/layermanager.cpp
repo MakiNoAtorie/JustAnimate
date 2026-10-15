@@ -25,6 +25,10 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layercamera.h"
 #include "undoredomanager.h"
+#include "bitmapimage.h"
+#include "vectorimage.h"
+
+#include <QXmlStreamWriter>
 
 LayerManager::LayerManager(Editor* editor) : BaseManager(editor, __FUNCTION__)
 {
@@ -435,6 +439,72 @@ void LayerManager::notifyAnimationLengthChanged()
     emit animationLengthChanged(animationLength(true));
 }
 
+void LayerManager::setExposureForSelectedFrames(int value, bool hold)
+{
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const QString description = hold ? tr("Set exposure") : value > 0 ? tr("Add exposure") : tr("Subtract exposure");
+    const UndoMacro macro(undoRedo, description);
+    for (int i = 0; i < count(); ++i)
+    {
+        Layer* layer = object()->getLayer(i);
+        if (!layer->hasAnySelectedFrames()) { continue; }
+        const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
+        layer->setExposureForSelectedFrames(value, hold);
+        undoRedo->record(saveStateId, description);
+    }
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+}
+
+static bool sameDrawing(Layer::LAYER_TYPE type, KeyFrame* a, KeyFrame* b)
+{
+    if (type == Layer::BITMAP)
+    {
+        auto* x = static_cast<BitmapImage*>(a);
+        auto* y = static_cast<BitmapImage*>(b);
+        // image() loads the frame before bounds() crops it.
+        return *x->image() == *y->image() && x->bounds() == y->bounds();
+    }
+    QByteArray xData, yData;
+    QXmlStreamWriter xWriter(&xData), yWriter(&yData);
+    static_cast<VectorImage*>(a)->createDomElement(xWriter);
+    static_cast<VectorImage*>(b)->createDomElement(yWriter);
+    return xData == yData;
+}
+
+void LayerManager::cleanExposureOfSelectedFrames()
+{
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const QString description = tr("Clean exposure");
+    const UndoMacro macro(undoRedo, description);
+    for (int i = 0; i < count(); ++i)
+    {
+        Layer* layer = object()->getLayer(i);
+        if (!layer->hasAnySelectedFrames() || !layer->isPaintable()) { continue; }
+
+        QList<int> repeats;
+        for (int pos : layer->selectedKeyFramesPositions())
+        {
+            const int previous = layer->getPreviousKeyFramePosition(pos);
+            if (previous < pos && sameDrawing(layer->type(), layer->getKeyFrameAt(previous), layer->getKeyFrameAt(pos)))
+            {
+                repeats.append(pos);
+            }
+        }
+        layer->deselectAll();
+        if (repeats.isEmpty()) { continue; }
+
+        // KEYFRAMES_REMOVE records the selected keyframes.
+        for (int pos : repeats) { layer->setFrameSelected(pos, true); }
+        const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAMES_REMOVE, layer);
+        for (int pos : repeats) { layer->removeKeyFrame(pos); }
+        undoRedo->record(saveStateId, description);
+        notifyLayerChanged(layer);
+    }
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+}
+
 void LayerManager::deselectAllFrames()
 {
     for (int i = 0; i < count(); ++i) { object()->getLayer(i)->deselectAll(); }
@@ -450,6 +520,54 @@ void LayerManager::selectFrames(int fromLayer, int toLayer, int fromFrame, int t
         Layer* layer = object()->getLayer(i);
         for (int pos = qMin(fromFrame, toFrame); pos <= lastFrame; ++pos) { layer->setFrameSelected(pos, true); }
     }
+}
+
+// Moves every keyframe after `position` by `offset` and records the move. Clears the layer's frame selection.
+static void shiftFramesAfter(UndoRedoManager* undoRedo, Layer* layer, int position, int offset, const QString& description)
+{
+    if (layer->getMaxKeyFramePosition() <= position) { return; }
+    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
+    layer->selectAllFramesAfter(position + 1);
+    layer->moveSelectedFrames(offset);
+    layer->deselectAll();
+    undoRedo->record(saveStateId, description);
+}
+
+bool LayerManager::rippleInsertFrame()
+{
+    Layer* layer = currentLayer();
+    if (!layer->visible()) { return false; }
+
+    const int position = editor()->currentFrame();
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const QString description = tr("Insert Frame");
+    const UndoMacro macro(undoRedo, description);
+    shiftFramesAfter(undoRedo, layer, position, 1, description);
+    const bool added = editor()->addKeyFrame(currentLayerIndex(), position + 1) != nullptr;
+    emit editor()->framesModified();
+    return added;
+}
+
+bool LayerManager::rippleRemoveFrame()
+{
+    Layer* layer = currentLayer();
+    const KeyFrame* key = layer->getLastKeyFrameAtPosition(editor()->currentFrame());
+    if (!layer->visible() || key == nullptr || layer->keyFrameCount() == 1) { return false; }
+
+    const int start = key->pos();
+    const int next = layer->getNextKeyFramePosition(start + 1);
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const QString description = tr("Delete Frame");
+    const UndoMacro macro(undoRedo, description);
+    // The remove state records the keyframe shown at the current frame.
+    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_REMOVE, layer);
+    layer->removeKeyFrame(start);
+    undoRedo->record(saveStateId, description);
+    if (next > start) { shiftFramesAfter(undoRedo, layer, start, start - next, description); }
+
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+    return true;
 }
 
 bool LayerManager::moveSelectedFrames(int offset)

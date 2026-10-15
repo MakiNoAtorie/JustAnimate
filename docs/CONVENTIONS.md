@@ -56,6 +56,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   Windows and forwards the child's stderr.
 - Golden values change only in a commit that means to change output.
 - Catch2 test names contain no commas (the CLI filter splits on them).
+  Filter by name (`"UndoRedoManager:*"`) unless the test has a `[Tag]`.
 
 ## Code
 
@@ -130,6 +131,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - A timeline frame selection can span layers: clear it with
   `LayerManager::deselectAllFrames`. Multi-layer frame edits go through
   `LayerManager`, one `createState(type, layer)` per layer in one `UndoMacro`.
+  A batch re-time computes all target positions first, then applies them
+  with one `Layer::moveKeyFrames`.
 - A cache that must survive a scrub is keyed by content only (`onScrubbed`
   resets layer caches). Pixel-identical caches carry a golden hash
   recorded on the code before the change.
