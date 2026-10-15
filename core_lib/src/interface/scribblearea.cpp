@@ -122,6 +122,7 @@ void ScribbleArea::settingUpdated(SETTING setting)
         invalidateAllCache();
         break;
     case SETTING::ANTIALIAS:
+    case SETTING::FAST_RENDER_LAYERS_ABOVE:
     case SETTING::GRID:
     case SETTING::GRID_SIZE_W:
     case SETTING::GRID_SIZE_H:
@@ -1111,6 +1112,7 @@ void ScribbleArea::prepCanvas(int frame)
     o.bOnionSkinMultiLayer = mPrefs->isOn(SETTING::ONION_MUTLIPLE_LAYERS);
     o.bAntiAlias = mPrefs->isOn(SETTING::ANTIALIAS);
     o.bThinLines = mPrefs->isOn(SETTING::INVISIBLE_LINES);
+    o.bFastLayersAbove = mPrefs->isOn(SETTING::FAST_RENDER_LAYERS_ABOVE);
     o.bOutlines = mPrefs->isOn(SETTING::OUTLINES);
     o.eLayerVisibility = mLayerVisibility;
     o.fLayerVisibilityThreshold = mPrefs->getFloat(SETTING::LAYER_VISIBILITY_THRESHOLD);

@@ -126,6 +126,7 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     connect(ui->shadowsBox, &QCheckBox::stateChanged, this, &GeneralPage::shadowsCheckboxStateChanged);
     connect(ui->toolCursorsBox, &QCheckBox::stateChanged, this, &GeneralPage::toolCursorsCheckboxStateChanged);
     connect(ui->antialiasingBox, &QCheckBox::stateChanged, this, &GeneralPage::antiAliasCheckboxStateChanged);
+    connect(ui->fastRenderBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::FAST_RENDER_LAYERS_ABOVE, on); });
     connect(ui->curveSmoothingLevel, &QSlider::valueChanged, this, &GeneralPage::curveSmoothingChanged);
     connect(ui->highResBox, &QCheckBox::stateChanged, this, &GeneralPage::highResCheckboxStateChanged);
     connect(ui->tabletApiBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &GeneralPage::tabletApiChanged);
@@ -174,6 +175,8 @@ void GeneralPage::updateValues()
     ui->toolCursorsBox->setChecked(mManager->isOn(SETTING::TOOL_CURSOR));
     QSignalBlocker b5(ui->antialiasingBox);
     ui->antialiasingBox->setChecked(mManager->isOn(SETTING::ANTIALIAS));
+    QSignalBlocker bFast(ui->fastRenderBox);
+    ui->fastRenderBox->setChecked(mManager->isOn(SETTING::FAST_RENDER_LAYERS_ABOVE));
     QSignalBlocker b6(ui->canvasCursorBox);
     ui->canvasCursorBox->setChecked(mManager->isOn(SETTING::CANVAS_CURSOR));
     QSignalBlocker b7(ui->gridSizeInputW);
