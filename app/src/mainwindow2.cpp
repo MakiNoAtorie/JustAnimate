@@ -73,6 +73,7 @@ GNU General Public License for more details.
 #include "timeline.h"
 #include "toolbox.h"
 #include "onionskinwidget.h"
+#include "brushpresetdock.h"
 #include "pegbaralignmentdialog.h"
 #include "addtransparencytopaperdialog.h"
 #include "repositionframesdialog.h"
@@ -191,6 +192,9 @@ void MainWindow2::createDockWidgets()
     mOnionSkinWidget = new OnionSkinWidget(this);
     mOnionSkinWidget->setObjectName("Onion Skin");
 
+    mBrushPresets = new BrushPresetDock(this);
+    mBrushPresets->setObjectName("BrushPresets");
+
     mToolOptions = new ToolOptionWidget(this);
     mToolOptions->setObjectName("ToolOption");
 
@@ -203,6 +207,7 @@ void MainWindow2::createDockWidgets()
         << mColorInspector
         << mColorPalette
         << mOnionSkinWidget
+        << mBrushPresets
         << mToolOptions
         << mToolBox;
 
@@ -471,7 +476,8 @@ void MainWindow2::createMenus()
         mColorPalette->toggleViewAction(),
         mTimeLine->toggleViewAction(),
         mColorInspector->toggleViewAction(),
-        mOnionSkinWidget->toggleViewAction()
+        mOnionSkinWidget->toggleViewAction(),
+        mBrushPresets->toggleViewAction()
     };
 
     for (QAction* action : actions)
@@ -1099,7 +1105,7 @@ void MainWindow2::resetAndDockAllSubWidgets()
 
 DefaultDockLayout MainWindow2::dockLayout() const
 {
-    return {{mToolBox, mToolOptions, mOnionSkinWidget}, {mColorBox, mColorInspector, mColorPalette}, mTimeLine};
+    return {{mToolBox, mToolOptions, mBrushPresets, mOnionSkinWidget}, {mColorBox, mColorInspector, mColorPalette}, mTimeLine};
 }
 
 QSize MainWindow2::availableScreenSize() const

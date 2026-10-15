@@ -11,6 +11,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app-pch.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/appearance.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basedockwidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpresetdock.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basewidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/bucketoptionswidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/buttonappearancewatcher.h
@@ -72,6 +73,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/addtransparencytopaperdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basedockwidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpresetdock.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basewidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/bucketoptionswidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/buttonappearancewatcher.cpp
