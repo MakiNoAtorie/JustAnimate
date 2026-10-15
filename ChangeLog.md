@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Lower drawing latency: Pencil and Brush preview a short prediction of the pen path that never reaches the drawing, and queued tablet moves are merged (B4).
 - Saved workspaces: Window, Workspace switches between Draw, Animate and Ink dock layouts, and each remembers your changes across restarts (4.2).
 - Stroke smoothing: None or 1-euro filter with a 0-100 strength slider, run on input timestamps instead of a 5 ms timer; old None/Simple/Strong stabilizer settings carry over (B4).
 - Pencil, Brush and Eraser space dabs evenly at any stroke speed and change pressure smoothly along each stroke (B1).

@@ -20,6 +20,8 @@
 
 #include "strokeinterpolator.h"
 
+#include <cmath>
+
 #include "pointerevent.h"
 
 void StrokeInterpolator::setPressure(float pressure)
@@ -36,6 +38,8 @@ void StrokeInterpolator::pointerPressEvent(PointerEvent* event)
 
     mLastPixel = mCurrentPixel = event->viewportPos();
     mSmoother.reset(mCurrentPixel, event->timestamp());
+    mVelocity = QPointF();
+    mTime = event->timestamp();
 
     mStrokeStarted = true;
     setPressure(event->pressure());
@@ -47,6 +51,13 @@ void StrokeInterpolator::pointerMoveEvent(PointerEvent* event)
     // Hover is not smoothed, so the cursor stays on the pen.
     mCurrentPixel = mStrokeStarted ? mSmoother.filter(event->viewportPos(), event->timestamp())
                                    : event->viewportPos();
+    if (mStrokeStarted)
+    {
+        // Same rule as the smoother: samples that share a timestamp count 1 ms apart.
+        const quint64 t = event->timestamp();
+        mVelocity = (mCurrentPixel - mLastPixel) / qreal(t > mTime ? t - mTime : 1);
+        mTime = qMax(mTime, t);
+    }
     if (event->isTabletEvent())
     {
         setPressure(event->pressure());
@@ -62,6 +73,16 @@ void StrokeInterpolator::pointerReleaseEvent(PointerEvent* event)
     }
 
     mStrokeStarted = false;
+}
+
+QPointF StrokeInterpolator::predictedPixel(qreal horizonMs, qreal maxDistance) const
+{
+    // ponytail: constant-velocity extrapolation; fit acceleration over more samples if it overshoots on curves.
+    QPointF ahead = mVelocity * horizonMs;
+    const qreal length = std::hypot(ahead.x(), ahead.y());
+    if (length > maxDistance)
+        ahead *= maxDistance / length;
+    return mCurrentPixel + ahead;
 }
 
 QList<QPointF> StrokeInterpolator::interpolateStroke()

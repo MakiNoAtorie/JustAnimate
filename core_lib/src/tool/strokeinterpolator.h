@@ -44,6 +44,8 @@ public:
     QPointF getCurrentPixel() const { return mCurrentPixel; }
     QPointF getLastPixel() const { return mLastPixel; }
     QPointF getCurrentPressPixel() const { return mCurrentPressPixel; }
+    /// Where the pen will be horizonMs after the last sample, at its last velocity; at most maxDistance px ahead.
+    QPointF predictedPixel(qreal horizonMs, qreal maxDistance) const;
 
 private:
     InputSmoother mSmoother;
@@ -51,6 +53,9 @@ private:
     QPointF mCurrentPressPixel = { 0, 0 };
     QPointF mCurrentPixel = { 0, 0 };
     QPointF mLastPixel = { 0, 0 };
+
+    QPointF mVelocity; // px/ms, of the smoothed position
+    quint64 mTime = 0;
 
     bool    mStrokeStarted = false;
     float   mTabletPressure = 1.f;

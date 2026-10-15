@@ -15,12 +15,22 @@ GNU General Public License for more details.
 */
 #include "dabtool.h"
 
+#include <QPainter>
 #include <QPainterPath>
 
+#include "colormanager.h"
 #include "editor.h"
 #include "layer.h"
 #include "layermanager.h"
 #include "scribblearea.h"
+#include "viewmanager.h"
+
+namespace
+{
+// One 60 Hz frame ahead, and never further than this many viewport px.
+constexpr qreal kPredictionHorizonMs = 16;
+constexpr qreal kPredictionMaxPx = 64;
+} // namespace
 
 void DabTool::pointerPressEvent(PointerEvent* event)
 {
@@ -54,6 +64,7 @@ void DabTool::pointerMoveEvent(PointerEvent* event)
         mCurrentPressure = mInterpolator.getPressure();
         drawStroke();
         strokeMoved();
+        updatePrediction();
     }
 
     StrokeTool::pointerMoveEvent(event);
@@ -62,6 +73,7 @@ void DabTool::pointerMoveEvent(PointerEvent* event)
 void DabTool::pointerReleaseEvent(PointerEvent* event)
 {
     mInterpolator.pointerReleaseEvent(event);
+    updatePrediction();
     if (handleQuickSizing(event)) {
         return;
     }
@@ -85,6 +97,45 @@ void DabTool::pointerReleaseEvent(PointerEvent* event)
     endStroke();
 
     StrokeTool::pointerReleaseEvent(event);
+}
+
+QRect DabTool::predictionRect() const
+{
+    if (mPrediction.isNull()) return QRect();
+    const qreal r = mPredictionWidth / 2 + 2;
+    const QRectF canvasRect = QRectF(mPrediction.p1(), mPrediction.p2()).normalized().adjusted(-r, -r, r, r);
+    return mEditor->view()->mapCanvasToScreen(canvasRect).toAlignedRect();
+}
+
+void DabTool::updatePrediction()
+{
+    const QRect before = predictionRect();
+    mPrediction = QLineF();
+    if (mPredictionEnabled && mInterpolator.isActive() && type() != ERASER &&
+        mEditor->layers()->currentLayer()->type() == Layer::BITMAP)
+    {
+        const QPointF ahead = mEditor->view()->mapScreenToCanvas(
+            mInterpolator.predictedPixel(kPredictionHorizonMs, kPredictionMaxPx));
+        mPrediction = QLineF(getCurrentPoint(), ahead);
+        mPredictionWidth = strokeToolProperties().width() * (strokeToolProperties().pressureEnabled() ? mCurrentPressure : 1.0);
+    }
+    mScribbleArea->update(before | predictionRect());
+}
+
+void DabTool::paint(QPainter& painter, const QRect& blitRect)
+{
+    StrokeTool::paint(painter, blitRect);
+    if (mPrediction.isNull()) return;
+
+    const bool pressureOn = strokeToolProperties().pressureEnabled();
+    QColor color = mEditor->color()->frontColor();
+    color.setAlphaF(color.alphaF() * (pressureOn ? mCurrentPressure * 0.5 : 1.0));
+    painter.save();
+    painter.setTransform(mEditor->view()->getView());
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(color, mPredictionWidth, Qt::SolidLine, Qt::RoundCap));
+    painter.drawLine(mPrediction);
+    painter.restore();
 }
 
 qreal DabTool::dabSpacing(qreal brushWidth)

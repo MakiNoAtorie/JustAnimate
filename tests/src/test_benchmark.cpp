@@ -36,6 +36,7 @@ GNU General Public License for more details.
 
 #include "bitmapimage.h"
 #include "colormanager.h"
+#include "dabtool.h"
 #include "editor.h"
 #include "filemanager.h"
 #include "layerbitmap.h"
@@ -47,6 +48,7 @@ GNU General Public License for more details.
 #include "stroketool.h"
 #include "testfixture.h"
 #include "toolmanager.h"
+#include "viewmanager.h"
 
 namespace
 {
@@ -546,6 +548,114 @@ TEST_CASE("Stage profiler: counts the paint stages and leaves the painted pixels
     CHECK(on.layerSha1 == off.layerSha1);
     CHECK(on.frameSha1 == off.frameSha1);
     StageProfiler::reset();
+}
+
+namespace
+{
+
+struct PredictionRun
+{
+    QImage midStroke; // the canvas while the pen is down
+    QImage afterRelease;
+    QByteArray layerSha1;
+};
+
+// One mouse stroke to the right with the given tool, prediction on or off.
+PredictionRun predictionRun(ToolType toolType, bool predict)
+{
+    Session s;
+    s.editor->layers()->setCurrentLayer(1);
+    s.editor->color()->setFrontColor(QColor(200, 30, 90));
+    s.editor->tools()->setCurrentTool(toolType);
+    BaseTool* tool = s.editor->tools()->currentTool();
+    const ToolSettingsGuard guard(tool);
+    tool->resetSettings();
+    auto* dabTool = static_cast<DabTool*>(tool);
+    dabTool->setWidth(24);
+    dabTool->setPredictionEnabled(predict);
+
+    PredictionRun r;
+    mouse(s.area, QEvent::MouseButtonPress, QPointF(300, 360), Qt::LeftButton);
+    for (int x = 310; x <= 600; x += 10)
+    {
+        mouse(s.area, QEvent::MouseMove, QPointF(x, 360), Qt::LeftButton);
+        QApplication::processEvents();
+    }
+    r.midStroke = s.area->grab().toImage();
+    mouse(s.area, QEvent::MouseButtonRelease, QPointF(600, 360), Qt::NoButton);
+    QApplication::processEvents();
+    r.afterRelease = s.area->grab().toImage();
+    r.layerSha1 = layerHash(static_cast<LayerBitmap*>(s.editor->layers()->currentLayer())->getBitmapImageAtFrame(1));
+    dabTool->setPredictionEnabled(true);
+    return r;
+}
+
+} // namespace
+
+TEST_CASE("Pen prediction: the preview runs ahead of the pen and never reaches the layer", "[PenPrediction]")
+{
+    for (ToolType t : { PENCIL, BRUSH })
+    {
+        CAPTURE(t);
+        const PredictionRun on = predictionRun(t, true);
+        const PredictionRun off = predictionRun(t, false);
+        const QColor background = off.midStroke.pixelColor(640, 600);
+
+        // The stroke ends at x 600 with a 12 px radius, so x 625 is only painted by the prediction.
+        CHECK(off.midStroke.pixelColor(625, 360) == background);
+        CHECK(on.midStroke.pixelColor(625, 360) != background);
+        CHECK(on.afterRelease.pixelColor(625, 360) == background);
+
+        CHECK(on.layerSha1 == off.layerSha1);
+        CHECK(on.afterRelease == off.afterRelease);
+    }
+}
+
+// Hidden: input-to-pixel time for a 256 screen px brush on a 4K canvas: one tablet move, then the
+// repaint it causes. Prints median and max ms per move. Use a Release build.
+TEST_CASE("Pen prediction: input-to-pixel latency of a 256 px brush on a 4K canvas", "[.latency]")
+{
+    Session s;
+    s.editor->layers()->setCurrentLayer(1);
+    s.area->resize(3840, 2160);
+    QApplication::processEvents();
+    s.editor->tools()->setCurrentTool(BRUSH);
+    BaseTool* tool = s.editor->tools()->currentTool();
+    const ToolSettingsGuard guard(tool);
+    tool->resetSettings();
+    // Width tops out at 200 canvas px: zoom 128 % so the dab covers 256 screen px.
+    static_cast<StrokeTool*>(tool)->setWidth(200);
+    s.editor->view()->scale(1.28);
+    REQUIRE(s.area->size() == QSize(3840, 2160));
+
+    const QPointingDevice pen("latency pen", 2, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
+                              QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
+    StageProfiler::reset();
+    std::vector<double> ms;
+    QElapsedTimer t;
+    for (int stroke = 0; stroke < 5; ++stroke)
+    {
+        const qreal y = 400 + stroke * 300;
+        tablet(s.area, &pen, QEvent::TabletPress, { QPointF(200, y), 0.8 }, Qt::LeftButton, Qt::LeftButton);
+        QApplication::processEvents();
+        for (int i = 1; i <= 200; ++i)
+        {
+            t.start();
+            tablet(s.area, &pen, QEvent::TabletMove, { QPointF(200 + i * 17, y + (i % 20 - 10) * 4), 0.8 },
+                   Qt::NoButton, Qt::LeftButton);
+            QApplication::processEvents();
+            ms.push_back(t.nsecsElapsed() / 1e6);
+        }
+        tablet(s.area, &pen, QEvent::TabletRelease, { QPointF(3600, y), 0.8 }, Qt::LeftButton, Qt::NoButton);
+        QApplication::processEvents();
+    }
+    std::sort(ms.begin(), ms.end());
+    std::printf("latency 256px brush 3840x2160: median %.2f ms, p95 %.2f ms, max %.2f ms over %zu moves\n",
+                ms[ms.size() / 2], ms[ms.size() * 95 / 100], ms.back(), ms.size());
+    if (StageProfiler::enabled())
+        StageProfiler::report();
+    std::fflush(stdout);
+    CHECK(s.counter.paints > 0);
 }
 
 // Hidden: timing run for `compare_replay.py`. Prints one line per tool and size:

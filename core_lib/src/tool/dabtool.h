@@ -38,6 +38,11 @@ public:
     void paintAt(QPointF point);
     void drawStroke();
 
+    /// Shows the predicted pen path in the canvas preview; it never reaches the layer.
+    void setPredictionEnabled(bool enabled) { mPredictionEnabled = enabled; }
+
+    void paint(QPainter& painter, const QRect& blitRect) override;
+
 protected:
     /// Paints one bitmap dab.
     virtual void drawDab(QPointF point, qreal width, qreal opacity) = 0;
@@ -55,6 +60,15 @@ protected:
     qreal mLastBrushPressure = 1.0;
     qreal mDistanceToNextDab = 0;
     QPointF mMouseDownPoint;
+
+private:
+    /// Moves the prediction to the current pen state and repaints where it was and is.
+    void updatePrediction();
+    QRect predictionRect() const;
+
+    bool mPredictionEnabled = true;
+    QLineF mPrediction; // canvas coordinates; null when hidden
+    qreal mPredictionWidth = 0;
 };
 
 #endif // DABTOOL_H

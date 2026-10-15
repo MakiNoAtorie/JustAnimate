@@ -43,6 +43,9 @@ GNU General Public License for more details.
 Pencil2D::Pencil2D(int& argc, char** argv) :
     QApplication(argc, argv)
 {
+    // Merge tablet moves that queue up while a frame paints, so the canvas catches up with the pen.
+    setAttribute(Qt::AA_CompressTabletEvents);
+
     // Set organization and application name
     setOrganizationName(APP_ORGANIZATION);
     setOrganizationDomain(APP_DOMAIN);
