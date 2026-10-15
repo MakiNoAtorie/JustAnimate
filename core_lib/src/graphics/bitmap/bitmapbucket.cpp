@@ -153,7 +153,8 @@ void BitmapBucket::paint(const QPointF& updatedPoint, std::function<void(BucketS
                            point,
                            fillColor,
                            mTolerance,
-                           expandValue);
+                           expandValue,
+                           mProperties.fillCloseGaps());
 
     if (!didFloodFill) {
         delete replaceImage;

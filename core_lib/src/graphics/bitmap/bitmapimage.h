@@ -92,7 +92,7 @@ public:
     void clear(QRect rectangle);
     void clear(QRectF rectangle) { clear(rectangle.toRect()); }
 
-    static bool floodFill(BitmapImage** replaceImage, const BitmapImage* targetImage, const QRect& cameraRect, const QPoint& point, const QRgb& fillColor, int tolerance, const int expandValue);
+    static bool floodFill(BitmapImage** replaceImage, const BitmapImage* targetImage, const QRect& cameraRect, const QPoint& point, const QRgb& fillColor, int tolerance, const int expandValue, const int closeGaps = 0);
     static bool* floodFillPoints(const BitmapImage* targetImage,
                                 const QRect& searchBounds,
                                 QPoint point,
