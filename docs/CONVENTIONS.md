@@ -89,6 +89,23 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - App files compiled into a test are listed in both `app/app.cmake` and
   `tests/tests.cmake`.
 
+- Tool property ids: bucket `FILLCLOSEGAPS_VALUE = 307` ("FillCloseGaps",
+  px, 0 = off) and `FILLBEHINDLINES_ENABLED = 308` ("FillBehindLines", off).
+  New tools append to `ToolType` before `TOOL_TYPE_COUNT`: `SHAPE`, then
+  `LASSOFILL`. `ShapeToolProperties` ids 600–699 (`SHAPEMODE_VALUE = 600`,
+  "ShapeMode": 0 line, 1 rectangle, 2 ellipse, 3 polygon); lasso fill 700–799.
+- Speed-ups: Release `benchmark` target, before/after back to back on the
+  same machine, numbers in the commit message; a kept attempt that is not
+  outside noise goes to `docs/rejected-optimizations.md` instead. Caches
+  are checked pixel-identical against an uncached render and are cleared
+  only from the existing modification signals.
+- Opt-in fast mode: `SETTING::FAST_RENDER_LAYERS_ABOVE`, key
+  `"FastRenderLayersAbove"`, default off.
+- Project thumbnails (welcome screen): app side, written after a successful
+  save to `QStandardPaths::CacheLocation/thumbnails/<sha1 of canonical
+  path>.png`. No file-format change. Recent projects reuse the existing
+  recent-files settings; templates are a fixed list in app code.
+
 ## Commits
 
 - One commit per ticket: code, test and a one-line `ChangeLog.md` entry at
