@@ -165,7 +165,7 @@ public:
 
     int totalKeyFrameCount() const;
     void updateActiveFrames(int frame) const;
-    /** Loads the bitmap keyframes in [frame, frame + count) of visible layers on worker threads, into the frame pool */
+    /** Starts reading the bitmap keyframes in [frame, frame + count) of visible layers on worker threads, without blocking */
     void preloadFrames(int frame, int count) const;
     void setActiveFramePoolSize(int sizeInMB);
 

@@ -121,13 +121,18 @@ void parallelFor(int count, const std::function<void(int)>& fn)
         fn(0); // no thread hop for serial callers
         return;
     }
+    QSemaphore done;
+    for (int i = 0; i < count; ++i)
+        workerPool()->start([&fn, &done, i] { fn(i); done.release(); });
+    done.acquire(count);
+}
+
+QThreadPool* workerPool()
+{
     // Shared so threads are reused between calls. Do not use waitForDone: in Qt 6 it joins and deletes every thread.
     static QThreadPool pool;
     pool.setMaxThreadCount(parallelWorkerCount());
-    QSemaphore done;
-    for (int i = 0; i < count; ++i)
-        pool.start([&fn, &done, i] { fn(i); done.release(); });
-    done.acquire(count);
+    return &pool;
 }
 
 quint64 imageSize(const QImage& img)

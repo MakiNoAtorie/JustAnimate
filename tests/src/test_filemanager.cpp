@@ -1034,18 +1034,23 @@ TEST_CASE("Playback loads frames ahead of the playhead and keeps edits on the ne
     auto layer = static_cast<LayerBitmap*>(s.object->getLayer(1));
     s.editor->playback()->play();
     s.editor->scrubTo(1);
-    REQUIRE(layer->getBitmapImageAtFrame(12)->isLoaded()); // past the pool's own window of frame + 3
+    // Frame 12 is past the pool's own window of frame + 3: it is read on a worker, scrubTo does not wait for it.
+    BitmapImage* ahead = layer->getBitmapImageAtFrame(12);
+    REQUIRE_FALSE(ahead->isLoaded());
     REQUIRE_FALSE(layer->getBitmapImageAtFrame(40)->isLoaded());
 
     // Edit a preloaded frame while playing: the next loop shows the edit, not the file on disk.
     BitmapImage* edited = layer->getBitmapImageAtFrame(8);
     edited->drawRect(QRectF(4, 4, 4, 4), QPen(Qt::blue), QBrush(Qt::blue), QPainter::CompositionMode_SourceOver, false);
-    for (int f = 2; f <= frames; ++f)
+    for (int f = 2; f <= 9; ++f)
+        s.editor->scrubTo(f);
+    REQUIRE(ahead->isLoaded()); // entered the pool's window
+    REQUIRE(ahead->pixel(5, 5) == qRgb(255, 0, 0));
+    for (int f = 10; f <= frames; ++f)
         s.editor->scrubTo(f);
     REQUIRE_FALSE(layer->getBitmapImageAtFrame(9)->isLoaded()); // unloaded, far from the playhead
     s.editor->scrubTo(1);
     REQUIRE(edited->pixel(5, 5) == qRgb(0, 0, 255));
-    REQUIRE(layer->getBitmapImageAtFrame(9)->isLoaded());
-    REQUIRE(layer->getBitmapImageAtFrame(9)->pixel(5, 5) == qRgb(255, 0, 0));
+    REQUIRE(layer->getBitmapImageAtFrame(9)->pixel(5, 5) == qRgb(255, 0, 0)); // takes the worker's read
     s.editor->playback()->stop();
 }

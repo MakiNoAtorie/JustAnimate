@@ -978,19 +978,16 @@ void Object::updateActiveFrames(int frame) const
 
 void Object::preloadFrames(int frame, int count) const
 {
-    std::vector<KeyFrame*> keys;
     for (Layer* layer : mLayers)
     {
         if (layer->type() != Layer::BITMAP || !layer->visible()) { continue; }
         for (int k = frame; k < frame + count; ++k)
         {
-            KeyFrame* key = layer->getKeyFrameAt(k);
-            if (key && !key->isLoaded()) { keys.push_back(key); }
+            // Does not block: the frame takes the result when it is drawn or enters the pool.
+            // A loaded frame is skipped, so an edit is never replaced by the file on disk.
+            if (KeyFrame* key = layer->getKeyFrameAt(k)) { static_cast<BitmapImage*>(key)->loadFileAsync(); }
         }
     }
-    // A loaded frame is skipped, so an edit is never replaced by the file on disk.
-    parallelFor(static_cast<int>(keys.size()), [&keys](int i) { keys[i]->loadFile(); });
-    for (KeyFrame* key : keys) { mActiveFramePool->put(key); }
 }
 
 void Object::setActiveFramePoolSize(int sizeInMB)
