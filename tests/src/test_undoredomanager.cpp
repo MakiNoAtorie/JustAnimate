@@ -720,6 +720,86 @@ TEST_CASE("UndoRedoManager: ripple insert and delete shift the later frames of t
     }
 }
 
+TEST_CASE("UndoRedoManager: hold and clean exposure across layers as one step")
+{
+    TestSession session;
+    Object* object = session.object;
+    object->addNewCameraLayer();
+    LayerBitmap* bottom = object->addNewBitmapLayer();
+    LayerBitmap* top = object->addNewBitmapLayer();
+    LayerBitmap* outside = object->addNewBitmapLayer();
+
+    session.start();
+    Editor* editor = session.editor.get();
+    LayerManager* layers = editor->layers();
+    layers->setCurrentLayer(bottom);
+
+    // Each frame has one opaque pixel at (its first position, 0); frame 3 of the bottom layer repeats frame 1.
+    for (LayerBitmap* layer : { bottom, top, outside })
+    {
+        for (int pos : { 1, 3, 4, 8 })
+        {
+            layer->addNewKeyFrameAt(pos);
+            const int x = (layer == bottom && pos == 3) ? 1 : pos;
+            layer->getBitmapImageAtFrame(pos)->setPixel(x, 0, qRgba(0, 0, 0, 255));
+        }
+    }
+
+    // Lists "position=mark" per layer, layers bottom to top, frames last to first.
+    auto frames = [&]
+    {
+        QString list;
+        for (LayerBitmap* layer : { bottom, top, outside })
+        {
+            layer->foreachKeyFrame([&](KeyFrame* key)
+            {
+                int mark = 0;
+                for (int x = 1; x <= 8; ++x)
+                {
+                    if (qAlpha(static_cast<BitmapImage*>(key)->pixel(x, 0)) != 0) { mark = x; }
+                }
+                list += QString("%1=%2 ").arg(key->pos()).arg(mark);
+            });
+            list += "| ";
+        }
+        return list.trimmed().toStdString();
+    };
+    const std::string before = "8=8 4=4 3=1 1=1 | 8=8 4=4 3=3 1=1 | 8=8 4=4 3=3 1=1 |";
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto checkUndoRedo = [&](const std::string& after)
+    {
+        REQUIRE(frames() == after);
+        undoAction->trigger();
+        REQUIRE(frames() == before);
+        REQUIRE_FALSE(undoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(frames() == after);
+    };
+
+    layers->selectFrames(1, 2, 1, 4);
+
+    SECTION("2s gives every selected drawing a 2-frame hold")
+    {
+        layers->setExposureForSelectedFrames(2, true);
+        checkUndoRedo("7=8 5=4 3=1 1=1 | 7=8 5=4 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
+    }
+
+    SECTION("Add exposure")
+    {
+        layers->setExposureForSelectedFrames(1, false);
+        checkUndoRedo("11=8 6=4 4=1 1=1 | 11=8 6=4 4=3 1=1 | 8=8 4=4 3=3 1=1 |");
+    }
+
+    SECTION("Clean exposure removes a drawing that repeats the one before it")
+    {
+        layers->cleanExposureOfSelectedFrames();
+        checkUndoRedo("8=8 4=4 1=1 | 8=8 4=4 3=3 1=1 | 8=8 4=4 3=3 1=1 |");
+    }
+}
+
 TEST_CASE("UndoRedoManager: undo/redo of layer add and delete")
 {
     TestSession session;

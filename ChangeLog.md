@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Timeline Selection: Exposure 1s/2s/3s sets the hold of each selected drawing in one step, Clean Exposure removes drawings that repeat the one before, and exposure on long selections is fast (3.5).
 - Timeline: Insert Frame (Ripple) and Delete Frame (Ripple) shift every later frame of the layer, as one undo step (3.4).
 - The welcome screen offers project templates (HD, 4K, vertical, square, GIF) that set the canvas size and frame rate (4.3).
 - A welcome screen replaces the preset dialog: recent projects with thumbnails (missing files are marked), open, and new from a preset (4.3).
