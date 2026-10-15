@@ -131,7 +131,18 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   (wrong type or missing gives the default, numbers clamped, unknown keys
   ignored, corrupt file skipped with `qWarning`).
 - New `StrokeToolProperties` ids take the next free number on the
-  integration branch tip.
+  integration branch tip. A setting that changes how dab alpha adds up is a
+  bool, off by default, so a preset can bring back older output.
+- Built-in presets list only keys that differ from tool defaults, and are
+  seeded at GUI startup by `BrushPresets` methods that write a file only if
+  it is missing. Optional string `description` per preset.
+- A .jabrush is a zip with exactly `preset.json` plus at most one
+  `tip.<suffix>`. Import untrusted zips in memory
+  (`mz_zip_reader_extract_to_mem`, sizes bounded), write only after every
+  check passes, never overwrite an existing preset.
+- Offscreen brush rendering uses a hidden Editor/ScribbleArea driven by
+  tablet events (`PresetSampler`). Code that changes tool values outside the
+  options widget emits `ToolManager::toolsReset`.
 - Tiles are `QImage` ARGB32_Premultiplied. Dabs write `scanLine()` with
   branchless loops, no `QPainter`; mask math uses float and `sqrt` only, so
   platforms hash alike. Read pixels only via `TiledBuffer::tiles()`; call
