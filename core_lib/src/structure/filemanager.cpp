@@ -253,6 +253,14 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("Invalid Save Path"),
                       tr("The path is empty."));
     }
+    if (!isArchiveFormat(sFileName))
+    {
+        // Legacy .pcl writes frames in place, so a failed save would damage the original.
+        dd << "Error: Legacy .pcl projects are open-only";
+        return Status(Status::INVALID_ARGUMENT, dd,
+                      tr("Invalid Save Path"),
+                      tr("Legacy .pcl projects can be opened but not saved. Save the project as .pclx."));
+    }
 
     const int totalCount = object->totalKeyFrameCount();
     mMaxProgressValue = totalCount + 5;
@@ -284,31 +292,12 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("The path (\"%1\") is not writable.").arg(fileInfo.absoluteFilePath()));
     }
 
-    QString sTempWorkingFolder;
-    QString sMainXMLFile;
-    QString sDataFolder;
+    const QString sTempWorkingFolder = object->workingDir();
+    dd << QString("Working dir: %1").arg(sTempWorkingFolder);
+    Q_ASSERT(QDir(sTempWorkingFolder).exists());
 
-    QString fileFormat = QString("Project format: %1");
-    bool isArchive = isArchiveFormat(sFileName);
-    if (!isArchive)
-    {
-        dd << fileFormat.arg(".pcl");
-
-        sMainXMLFile = sFileName;
-        sDataFolder = sMainXMLFile + "." + PFF_OLD_DATA_DIR;
-    }
-    else
-    {
-        sTempWorkingFolder = object->workingDir();
-
-        dd << QString("Working dir: %1").arg(sTempWorkingFolder);
-        dd << fileFormat.arg(".pclx");
-
-        Q_ASSERT(QDir(sTempWorkingFolder).exists());
-
-        sMainXMLFile = QDir(sTempWorkingFolder).filePath(PFF_XML_FILE_NAME);
-        sDataFolder = QDir(sTempWorkingFolder).filePath(PFF_OLD_DATA_DIR);
-    }
+    const QString sMainXMLFile = QDir(sTempWorkingFolder).filePath(PFF_XML_FILE_NAME);
+    const QString sDataFolder = QDir(sTempWorkingFolder).filePath(PFF_OLD_DATA_DIR);
 
     QFileInfo dataInfo(sDataFolder);
     if (!dataInfo.exists())
@@ -351,46 +340,43 @@ Status FileManager::save(const Object* object, const QString& sFileName)
 
     progressForward();
 
-    if (isArchive)
+    dd << "\n[Archiving diagnostics]\n";
+
+    if (!saveOk) {
+        return Status(Status::FAIL, dd,
+                      tr("Internal Error"),
+                      tr("An internal error occurred. The project could not be saved."));
+    }
+
+    // Write the archive next to the target and only replace the original
+    // once the new file is complete, so a failed save never corrupts it.
+    const QString sTmpFile = sFileName + ".tmp";
+    QFile::remove(sTmpFile);
+
+    dd << "Miniz: Zipping...";
+    Status stMiniz = MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx");
+    if (!stMiniz.ok())
     {
-        dd << "\n[Archiving diagnostics]\n";
-
-        if (!saveOk) {
-            return Status(Status::FAIL, dd,
-                          tr("Internal Error"),
-                          tr("An internal error occurred. The project could not be saved."));
-        }
-
-        // Write the archive next to the target and only replace the original
-        // once the new file is complete, so a failed save never corrupts it.
-        const QString sTmpFile = sFileName + ".tmp";
         QFile::remove(sTmpFile);
+        dd.collect(stMiniz.details());
+        dd << "\nError: Miniz failed to zip project";
+        return Status(Status::ERROR_MINIZ_FAIL, dd,
+                      tr("Miniz Error"),
+                      tr("An internal error occurred. The project could not be saved."));
+    }
+    dd << "Miniz: Zip file saved successfully";
 
-        dd << "Miniz: Zipping...";
-        Status stMiniz = MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx");
-        if (!stMiniz.ok())
-        {
-            QFile::remove(sTmpFile);
-            dd.collect(stMiniz.details());
-            dd << "\nError: Miniz failed to zip project";
-            return Status(Status::ERROR_MINIZ_FAIL, dd,
-                          tr("Miniz Error"),
-                          tr("An internal error occurred. The project could not be saved."));
-        }
-        dd << "Miniz: Zip file saved successfully";
-
-        // Replaces the original in one step (atomic on POSIX, MoveFileEx on Windows).
-        std::error_code renameError;
-        std::filesystem::rename(QFileInfo(sTmpFile).filesystemFilePath(),
-                                QFileInfo(sFileName).filesystemFilePath(), renameError);
-        if (renameError)
-        {
-            QFile::remove(sTmpFile);
-            dd << QString("Error: Unable to rename %1 to %2: %3").arg(sTmpFile, sFileName, QString::fromStdString(renameError.message()));
-            return Status(Status::FAIL, dd,
-                          tr("Internal Error"),
-                          tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(sFileName));
-        }
+    // Replaces the original in one step (atomic on POSIX, MoveFileEx on Windows).
+    std::error_code renameError;
+    std::filesystem::rename(QFileInfo(sTmpFile).filesystemFilePath(),
+                            QFileInfo(sFileName).filesystemFilePath(), renameError);
+    if (renameError)
+    {
+        QFile::remove(sTmpFile);
+        dd << QString("Error: Unable to rename %1 to %2: %3").arg(sTmpFile, sFileName, QString::fromStdString(renameError.message()));
+        return Status(Status::FAIL, dd,
+                      tr("Internal Error"),
+                      tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(sFileName));
     }
 
     progressForward();

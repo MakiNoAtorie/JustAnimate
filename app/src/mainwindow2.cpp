@@ -866,8 +866,10 @@ bool MainWindow2::saveObject(QString strSavedFileName)
 
 bool MainWindow2::saveDocument()
 {
-    if (!mEditor->object()->filePath().isEmpty())
-        return saveObject(mEditor->object()->filePath());
+    // Legacy .pcl is open-only: its project goes to Save As .pclx.
+    const QString filePath = mEditor->object()->filePath();
+    if (QFileInfo(filePath).suffix().compare(PFF_BIG_LETTER_EXTENSION, Qt::CaseInsensitive) == 0)
+        return saveObject(filePath);
     else
         return saveAsNewDocument();
 }

@@ -709,11 +709,9 @@ TEST_CASE("FileManager write errors fail the save", "[FileManager]")
     const QByteArray original = readAll(projectPath);
 
     // Writing to /dev/full fails with "no space left on device", like a full
-    // disk. The folder (.pcl) format writes main.xml and the frames in place,
-    // so the error has to be caught where the file is written; a failed
-    // .pclx save then never replaces the archive (A4).
+    // disk. The error has to be caught where the file is written; a failed
+    // save then never replaces the archive (A4).
     const bool haveFullDevice = QFile::exists("/dev/full");
-    const QString folderProjectPath = testDir.filePath("shot.pcl");
     auto replaceWithFullDevice = [](const QString& path) {
         REQUIRE(QFile::remove(path));
         REQUIRE(QFile::link("/dev/full", path));
@@ -722,44 +720,35 @@ TEST_CASE("FileManager write errors fail the save", "[FileManager]")
     SECTION("A write error in the project XML fails the save")
     {
         if (!haveFullDevice) { WARN("No /dev/full on this platform"); return; }
-        REQUIRE(fm.save(obj.get(), folderProjectPath).ok());
-        const QByteArray originalXml = readAll(folderProjectPath);
 
         // The XML is written to <name>.tmp first.
-        REQUIRE(QFile::link("/dev/full", folderProjectPath + ".tmp"));
+        REQUIRE(QFile::link("/dev/full", QDir(obj->workingDir()).filePath(QString(PFF_XML_FILE_NAME) + ".tmp")));
 
-        REQUIRE_FALSE(fm.save(obj.get(), folderProjectPath).ok());
-        const bool unchanged = (readAll(folderProjectPath) == originalXml);
+        REQUIRE_FALSE(fm.save(obj.get(), projectPath).ok());
+        const bool unchanged = (readAll(projectPath) == original);
         REQUIRE(unchanged);
     }
 
-    SECTION("A failed .pcl save leaves the project XML byte-identical")
+    SECTION("Saving to legacy .pcl is refused and writes nothing")
     {
-        REQUIRE(fm.save(obj.get(), folderProjectPath).ok());
-        REQUIRE_FALSE(QFile::exists(folderProjectPath + ".tmp"));
-        const QByteArray originalXml = readAll(folderProjectPath);
-
-        // Something in the way of the temporary file fails the write.
-        obj->addNewBitmapLayer();
-        REQUIRE(QDir().mkpath(folderProjectPath + ".tmp"));
-
+        const QString folderProjectPath = testDir.filePath("shot.pcl");
         REQUIRE_FALSE(fm.save(obj.get(), folderProjectPath).ok());
-        const bool unchanged = (readAll(folderProjectPath) == originalXml);
-        REQUIRE(unchanged);
+        REQUIRE_FALSE(QFile::exists(folderProjectPath));
+        REQUIRE_FALSE(QFile::exists(folderProjectPath + "." + PFF_OLD_DATA_DIR));
     }
 
     SECTION("A write error in a vector frame fails the save")
     {
         if (!haveFullDevice) { WARN("No /dev/full on this platform"); return; }
-        REQUIRE(fm.save(obj.get(), folderProjectPath).ok());
 
         VectorImage* vec = vectorLayer->getVectorImageAtFrame(1);
         REQUIRE(vec != nullptr);
         vec->setModified(true);
-        const QString dataFolder = folderProjectPath + "." + PFF_OLD_DATA_DIR;
-        replaceWithFullDevice(QDir(dataFolder).filePath(QString::asprintf("%03d.%03d.vec", vectorLayer->id(), 1)));
+        replaceWithFullDevice(QDir(obj->dataDir()).filePath(QString::asprintf("%03d.%03d.vec", vectorLayer->id(), 1)));
 
-        REQUIRE_FALSE(fm.save(obj.get(), folderProjectPath).ok());
+        REQUIRE_FALSE(fm.save(obj.get(), projectPath).ok());
+        const bool unchanged = (readAll(projectPath) == original);
+        REQUIRE(unchanged);
     }
 
     SECTION("A failed frame rename during Save As fails the save and keeps the frame")

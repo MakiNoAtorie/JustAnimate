@@ -31,7 +31,7 @@ GNU General Public License for more details.
     QCoreApplication::translate("FileFormat", "Project formats") + " (*.pclx *.pcl);;" + QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Project") + " (*.pcl)"
 
 #define PFF_SAVE_PROJECT_EXT_FILTER \
-    QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx);;" + QCoreApplication::translate("FileFormat", "Legacy Project") + " (*.pcl)"
+    QCoreApplication::translate("FileFormat", "JustAnimate / Pencil2D Project") + " (*.pclx)"
 
 #define PFF_MOVIE_EXT \
     QCoreApplication::translate("FileFormat", "Movie formats") + "(*.avi *.mpg *.mpeg *.mov *.mp4 *.mkv *.ogv *.swf *.flv *.webm *.wmv);;" \

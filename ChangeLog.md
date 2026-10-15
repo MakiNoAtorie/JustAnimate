@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Legacy .pcl projects open but no longer save: Save on a .pcl project asks for a .pclx name, so a failed save can never damage the .pcl original (A12).
 - Opening a .pclx whose entry cannot be checked or whose folder cannot be made fails with an error instead of extracting part of it (A3).
 - Reposition Frames is one undo step for all the frames and layers it moves, and undo no longer moves the first frame again (0.5).
 - No keyboard shortcut acts while the pen or mouse is down on the canvas: clear frame, exposure, reverse, remove frames and the rest are now blocked like frame navigation (A7).
