@@ -26,7 +26,7 @@ GNU General Public License for more details.
 #include <QPainter>
 #include <QDebug>
 
-#include "platformhandler.h"
+#include "theme.h"
 #include "buttonappearancewatcher.h"
 
 TitleBarWidget::TitleBarWidget(QWidget* parent)
@@ -49,7 +49,7 @@ TitleBarWidget::~TitleBarWidget()
 
 QWidget* TitleBarWidget::createCustomTitleBarWidget(QWidget* parent)
 {
-    bool isDarkmode = PlatformHandler::isDarkMode();
+    bool isDarkmode = Theme::isDark();
     QWidget* containerWidget = new QWidget(parent);
 
     QHBoxLayout* containerLayout = new QHBoxLayout(parent);

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 */
 #include "pencil2d.h"
+#include "theme.h"
 #include "appinfo.h"
 
 #include <memory>
@@ -57,6 +58,7 @@ Pencil2D::Pencil2D(int& argc, char** argv) :
     // Associate the application with our desktop entry
     setDesktopFileName(APP_DESKTOP_ID);
     installTranslators();
+    Theme::apply(Theme::saved());
 }
 
 Pencil2D::~Pencil2D()

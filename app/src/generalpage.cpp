@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include "pencildef.h"
 #include "platformhandler.h"
 #include "preferencemanager.h"
+#include "theme.h"
 
 #include "ui_generalpage.h"
 
@@ -100,6 +101,18 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     ui->backgroundButtons->setId(ui->greyBackgroundButton, 3);
     ui->backgroundButtons->setId(ui->dotsBackgroundButton, 4);
     ui->backgroundButtons->setId(ui->weaveBackgroundButton, 5);
+
+    auto* themeCombo = new QComboBox(this);
+    themeCombo->addItem(tr("Theme: System"), Theme::System);
+    themeCombo->addItem(tr("Theme: Light"), Theme::Light);
+    themeCombo->addItem(tr("Theme: Dark"), Theme::Dark);
+    themeCombo->setCurrentIndex(themeCombo->findData(Theme::saved()));
+    ui->langLayout->addWidget(themeCombo, 1, 0);
+    connect(themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [themeCombo](int i) {
+        auto mode = static_cast<Theme::Mode>(themeCombo->itemData(i).toInt());
+        Theme::save(mode);
+        Theme::apply(mode);
+    });
 
     ui->undoRedoGroupApplyButton->setDisabled(true);
     ui->undoRedoGroupCancelButton->setDisabled(true);
