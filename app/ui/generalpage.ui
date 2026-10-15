@@ -169,6 +169,16 @@
             </property>
            </widget>
           </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="fastRenderBox">
+            <property name="toolTip">
+             <string>Cache the layers above the one you paint, so repaints with many layers are faster.</string>
+            </property>
+            <property name="text">
+             <string>Fast rendering of layers above</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

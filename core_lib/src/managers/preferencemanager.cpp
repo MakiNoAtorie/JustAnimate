@@ -72,6 +72,7 @@ void PreferenceManager::loadPrefs()
 
     // General
     set(SETTING::ANTIALIAS,                settings.value(SETTING_ANTIALIAS,              true).toBool());
+    set(SETTING::FAST_RENDER_LAYERS_ABOVE, settings.value(SETTING_FAST_RENDER_LAYERS_ABOVE, false).toBool());
     set(SETTING::TOOL_CURSOR,              settings.value(SETTING_TOOL_CURSOR,            true).toBool());
     set(SETTING::CANVAS_CURSOR,            settings.value(SETTING_CANVAS_CURSOR,          true).toBool());
     set(SETTING::HIGH_RESOLUTION,          settings.value(SETTING_HIGH_RESOLUTION,        true).toBool());
@@ -386,6 +387,9 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::ANTIALIAS:
         settings.setValue(SETTING_ANTIALIAS, value);
+        break;
+    case SETTING::FAST_RENDER_LAYERS_ABOVE:
+        settings.setValue(SETTING_FAST_RENDER_LAYERS_ABOVE, value);
         break;
     case SETTING::GRID:
         settings.setValue(SETTING_SHOW_GRID, value);

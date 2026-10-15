@@ -49,7 +49,8 @@ void CanvasPainter::reset()
     mCurrentLayerPixmap = QPixmap(mCanvas.size());
     mOnionSkinPixmap = QPixmap(mCanvas.size());
     mPreLayersPixmap.fill(Qt::transparent);
-    mPreLayersCells.clear();
+    mPreLayersCache.cells.clear();
+    mPostLayersCache.cells.clear();
     mCanvas.fill(Qt::transparent);
     mCurrentLayerPixmap.fill(Qt::transparent);
     mPostLayersPixmap.fill(Qt::transparent);
@@ -93,7 +94,7 @@ void CanvasPainter::ignoreTransformedSelection()
 
 void CanvasPainter::paintCached(const QRect& blitRect)
 {
-    updatePreLayers(blitRect);
+    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, mCurrentLayerIndex - 1), blitRect, &CanvasPainter::renderPreLayers);
 
     QPainter mainPainter;
     initializePainter(mainPainter, mCanvas, blitRect);
@@ -103,7 +104,12 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 
     paintCurrentFrame(mainPainter, blitRect, mCurrentLayerIndex, mCurrentLayerIndex);
 
-    if (!mPostLayersPixmapCacheValid)
+    if (mOptions.bFastLayersAbove)
+    {
+        updateCells(mPostLayersCache, mPostLayersPixmap, layersKey(mCurrentLayerIndex + 1, mObject->getLayerCount() - 1),
+                    blitRect, &CanvasPainter::renderPostLayers);
+    }
+    else if (!mPostLayersPixmapCacheValid)
     {
         QPainter postLayerPainter;
         initializePainter(postLayerPainter, mPostLayersPixmap, blitRect);
@@ -119,15 +125,16 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 
 void CanvasPainter::resetLayerCache()
 {
-    mPreLayersCells.fill(false);
+    mPreLayersCache.cells.fill(false);
+    mPostLayersCache.cells.fill(false);
     mPostLayersPixmapCacheValid = false;
 }
 
-// Identifies what the layers below the painted layer show on this frame; another key empties the cache.
-QVector<qint64> CanvasPainter::preLayersKey() const
+// Identifies what layers startLayer..endLayer show on this frame; another key empties the cache.
+QVector<qint64> CanvasPainter::layersKey(int startLayer, int endLayer) const
 {
     QVector<qint64> key{ qint64(quintptr(mObject)), mCurrentLayerIndex, mFrameNumber };
-    for (int i = 0; i < mCurrentLayerIndex; ++i)
+    for (int i = startLayer; i <= endLayer; ++i)
     {
         Layer* layer = mObject->getLayer(i);
         KeyFrame* frame = layer->getLastKeyFrameAtPosition(mFrameNumber);
@@ -148,18 +155,18 @@ QVector<qint64> CanvasPainter::preLayersKey() const
     return key;
 }
 
-// Renders the layers below the painted layer into the stale 64 px cells that blitRect touches.
-void CanvasPainter::updatePreLayers(const QRect& blitRect)
+// Renders into the stale 64 px cells of pixmap that blitRect touches.
+void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QVector<qint64>& key, const QRect& blitRect,
+                                void (CanvasPainter::*render)(QPainter&, const QRect&))
 {
-    const QSize size = mPreLayersPixmap.deviceIndependentSize().toSize();
+    const QSize size = pixmap.deviceIndependentSize().toSize();
     const int cols = (size.width() + kCell - 1) / kCell;
     const int cells = cols * ((size.height() + kCell - 1) / kCell);
-    const QVector<qint64> key = preLayersKey();
-    if (mPreLayersCells.size() != cells || key != mPreLayersKey || mViewTransform != mPreLayersView)
+    if (cache.cells.size() != cells || key != cache.key || mViewTransform != cache.view)
     {
-        mPreLayersCells = QBitArray(cells);
-        mPreLayersKey = key;
-        mPreLayersView = mViewTransform;
+        cache.cells = QBitArray(cells);
+        cache.key = key;
+        cache.view = mViewTransform;
     }
 
     const QRect area = blitRect & QRect(QPoint(), size);
@@ -169,8 +176,8 @@ void CanvasPainter::updatePreLayers(const QRect& blitRect)
     {
         for (int x = area.left() / kCell; x <= area.right() / kCell; ++x)
         {
-            if (mPreLayersCells.testBit(y * cols + x)) { continue; }
-            mPreLayersCells.setBit(y * cols + x);
+            if (cache.cells.testBit(y * cols + x)) { continue; }
+            cache.cells.setBit(y * cols + x);
             stale |= QRect(x * kCell, y * kCell, kCell, kCell);
         }
     }
@@ -178,8 +185,8 @@ void CanvasPainter::updatePreLayers(const QRect& blitRect)
 
     // ponytail: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
     QPainter painter;
-    initializePainter(painter, mPreLayersPixmap, stale);
-    renderPreLayers(painter, stale);
+    initializePainter(painter, pixmap, stale);
+    (this->*render)(painter, stale);
 }
 
 void CanvasPainter::initializePainter(QPainter& painter, QPaintDevice& device, const QRect& blitRect)
@@ -232,7 +239,7 @@ void CanvasPainter::setPaintSettings(const Object* object, int currentLayer, int
 
 void CanvasPainter::paint(const QRect& blitRect)
 {
-    updatePreLayers(blitRect);
+    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, mCurrentLayerIndex - 1), blitRect, &CanvasPainter::renderPreLayers);
 
     QPainter mainPainter;
     QPainter postLayerPainter;
@@ -245,9 +252,17 @@ void CanvasPainter::paint(const QRect& blitRect)
 
     paintCurrentFrame(mainPainter, blitRect, mCurrentLayerIndex, mCurrentLayerIndex);
 
-    initializePainter(postLayerPainter, mPostLayersPixmap, blitRect);
-    renderPostLayers(postLayerPainter, blitRect);
-    postLayerPainter.end();
+    if (mOptions.bFastLayersAbove)
+    {
+        updateCells(mPostLayersCache, mPostLayersPixmap, layersKey(mCurrentLayerIndex + 1, mObject->getLayerCount() - 1),
+                    blitRect, &CanvasPainter::renderPostLayers);
+    }
+    else
+    {
+        initializePainter(postLayerPainter, mPostLayersPixmap, blitRect);
+        renderPostLayers(postLayerPainter, blitRect);
+        postLayerPainter.end();
+    }
 
     mainPainter.setWorldMatrixEnabled(false);
     mainPainter.drawPixmap(mPointZero, mPostLayersPixmap);
