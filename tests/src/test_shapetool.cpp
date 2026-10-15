@@ -176,3 +176,74 @@ TEST_CASE("ShapeTool - draws each shape on bitmap and vector layers")
         }
     }
 }
+
+TEST_CASE("ShapeTool - polygon closes on the first point or a double click")
+{
+    TestSession s;
+    LayerBitmap* bitmap = s.object->addNewBitmapLayer();
+    LayerVector* vector = s.object->addNewVectorLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->tools()->setCurrentTool(SHAPE);
+    ShapeTool* tool = static_cast<ShapeTool*>(editor->tools()->getTool(SHAPE));
+    const ToolSettingsGuard guard(tool);
+    tool->setWidth(4);
+    tool->setShapeMode(ShapeTool::POLYGON);
+    REQUIRE(tool->shapeMode() == ShapeTool::POLYGON);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    auto canvas = [&](QPointF screen) { return editor->view()->mapScreenToCanvas(screen); };
+    auto click = [&](QPointF p) {
+        tablet(area, QEvent::TabletPress, p, Qt::NoModifier);
+        tablet(area, QEvent::TabletRelease, p, Qt::NoModifier);
+    };
+    const QPointF A(200, 200), B(400, 200), C(300, 400);
+    const QPointF edgeAB(300, 200), edgeBC(350, 300), edgeCA(250, 300), inside(300, 250);
+
+    SECTION("Bitmap")
+    {
+        editor->layers()->setCurrentLayer(bitmap);
+        auto inkAt = [&](QPointF screen) {
+            return qAlpha(bitmap->getBitmapImageAtFrame(1)->pixel(canvas(screen).toPoint())) != 0;
+        };
+        click(A);
+        click(B);
+        click(C);
+        CHECK_FALSE(inkAt(edgeAB)); // still open: nothing is drawn yet
+        click(A + QPointF(3, 2));   // on the first point
+        CHECK(inkAt(edgeAB));
+        CHECK(inkAt(edgeBC));
+        CHECK(inkAt(edgeCA)); // the closing edge
+        CHECK_FALSE(inkAt(inside));
+        undoAction->trigger();
+        CHECK_FALSE(inkAt(edgeAB));
+        CHECK_FALSE(inkAt(edgeCA));
+    }
+
+    SECTION("Vector, double click ends")
+    {
+        editor->layers()->setCurrentLayer(vector);
+        BezierCurve first({ QPointF(0, 0), QPointF(5, 0) });
+        first.setColorNumber(1);
+        vector->getVectorImageAtFrame(1)->addCurve(first, 1.0);
+        click(A);
+        click(B);
+        tablet(area, QEvent::TabletPress, C, Qt::NoModifier);
+        tablet(area, QEvent::TabletRelease, C, Qt::NoModifier);
+        CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() == 0);
+        tablet(area, QEvent::TabletPress, C, Qt::NoModifier); // second press at once is a double click
+        tablet(area, QEvent::TabletRelease, C, Qt::NoModifier);
+        VectorImage* image = vector->getVectorImageAtFrame(1);
+        REQUIRE(image->getLastCurveNumber() == 1);
+        BezierCurve& curve = image->curve(1);
+        CHECK(curve.getVertexSize() == 3); // A, B, C; the closing point joins the first
+        CHECK(curve.getBoundingRect().top() == Approx(canvas(A).y()).margin(3));
+        CHECK(curve.getBoundingRect().bottom() == Approx(canvas(C).y()).margin(3));
+        undoAction->trigger();
+        CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() == 0);
+    }
+}
