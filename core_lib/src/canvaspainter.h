@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #define CANVASPAINTER_H
 
 #include <memory>
+#include <QBitArray>
+#include <QVector>
 #include <QCoreApplication>
 #include <QObject>
 #include <QTransform>
@@ -86,6 +88,8 @@ private:
 
     void renderPostLayers(QPainter& painter, const QRect& blitRect);
     void renderPreLayers(QPainter& painter, const QRect& blitRect);
+    void updatePreLayers(const QRect& blitRect);
+    QVector<qint64> preLayersKey() const;
 
     void paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startLayer, int endLayer);
 
@@ -121,7 +125,10 @@ private:
     QPixmap mPreLayersPixmap;
     QPixmap mCurrentLayerPixmap;
     QPixmap mOnionSkinPixmap;
-    bool mPreLayersPixmapCacheValid = false;
+    // Below-composite cache: one bit per 64 px cell of mPreLayersPixmap, set when the cell is current.
+    QBitArray mPreLayersCells;
+    QVector<qint64> mPreLayersKey;
+    QTransform mPreLayersView;
     bool mPostLayersPixmapCacheValid = false;
 
     // There's a considerable amount of overhead in simply allocating a QPointF on the fly.

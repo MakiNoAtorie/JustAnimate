@@ -28,6 +28,11 @@ GNU General Public License for more details.
 
 #include "painterutils.h"
 
+namespace
+{
+const int kCell = 64; // below-composite cache cell, in logical px
+}
+
 CanvasPainter::CanvasPainter(QPixmap& canvas) : mCanvas(canvas)
 {
     reset();
@@ -44,6 +49,7 @@ void CanvasPainter::reset()
     mCurrentLayerPixmap = QPixmap(mCanvas.size());
     mOnionSkinPixmap = QPixmap(mCanvas.size());
     mPreLayersPixmap.fill(Qt::transparent);
+    mPreLayersCells.clear();
     mCanvas.fill(Qt::transparent);
     mCurrentLayerPixmap.fill(Qt::transparent);
     mPostLayersPixmap.fill(Qt::transparent);
@@ -87,14 +93,7 @@ void CanvasPainter::ignoreTransformedSelection()
 
 void CanvasPainter::paintCached(const QRect& blitRect)
 {
-    if (!mPreLayersPixmapCacheValid)
-    {
-        QPainter preLayerPainter;
-        initializePainter(preLayerPainter, mPreLayersPixmap, blitRect);
-        renderPreLayers(preLayerPainter, blitRect);
-        preLayerPainter.end();
-        mPreLayersPixmapCacheValid = true;
-    }
+    updatePreLayers(blitRect);
 
     QPainter mainPainter;
     initializePainter(mainPainter, mCanvas, blitRect);
@@ -120,8 +119,67 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 
 void CanvasPainter::resetLayerCache()
 {
-    mPreLayersPixmapCacheValid = false;
+    mPreLayersCells.fill(false);
     mPostLayersPixmapCacheValid = false;
+}
+
+// Identifies what the layers below the painted layer show on this frame; another key empties the cache.
+QVector<qint64> CanvasPainter::preLayersKey() const
+{
+    QVector<qint64> key{ qint64(quintptr(mObject)), mCurrentLayerIndex, mFrameNumber };
+    for (int i = 0; i < mCurrentLayerIndex; ++i)
+    {
+        Layer* layer = mObject->getLayer(i);
+        KeyFrame* frame = layer->getLastKeyFrameAtPosition(mFrameNumber);
+        key << qint64(quintptr(layer)) << layer->visible() << qint64(quintptr(frame));
+        if (!layer->visible() || frame == nullptr) { continue; }
+        if (layer->type() == Layer::BITMAP)
+        {
+            auto* image = static_cast<BitmapImage*>(frame);
+            const QPoint topLeft = image->topLeft();
+            // QImage::cacheKey changes on every write to the image.
+            key << topLeft.x() << topLeft.y() << image->image()->cacheKey() << qRound64(image->getOpacity() * 1e6);
+        }
+        else if (layer->type() == Layer::VECTOR)
+        {
+            key << qRound64(static_cast<VectorImage*>(frame)->getOpacity() * 1e6);
+        }
+    }
+    return key;
+}
+
+// Renders the layers below the painted layer into the stale 64 px cells that blitRect touches.
+void CanvasPainter::updatePreLayers(const QRect& blitRect)
+{
+    const QSize size = mPreLayersPixmap.deviceIndependentSize().toSize();
+    const int cols = (size.width() + kCell - 1) / kCell;
+    const int cells = cols * ((size.height() + kCell - 1) / kCell);
+    const QVector<qint64> key = preLayersKey();
+    if (mPreLayersCells.size() != cells || key != mPreLayersKey || mViewTransform != mPreLayersView)
+    {
+        mPreLayersCells = QBitArray(cells);
+        mPreLayersKey = key;
+        mPreLayersView = mViewTransform;
+    }
+
+    const QRect area = blitRect & QRect(QPoint(), size);
+    if (area.isEmpty()) { return; }
+    QRect stale;
+    for (int y = area.top() / kCell; y <= area.bottom() / kCell; ++y)
+    {
+        for (int x = area.left() / kCell; x <= area.right() / kCell; ++x)
+        {
+            if (mPreLayersCells.testBit(y * cols + x)) { continue; }
+            mPreLayersCells.setBit(y * cols + x);
+            stale |= QRect(x * kCell, y * kCell, kCell, kCell);
+        }
+    }
+    if (stale.isEmpty()) { return; }
+
+    // ponytail: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
+    QPainter painter;
+    initializePainter(painter, mPreLayersPixmap, stale);
+    renderPreLayers(painter, stale);
 }
 
 void CanvasPainter::initializePainter(QPainter& painter, QPaintDevice& device, const QRect& blitRect)
@@ -174,15 +232,12 @@ void CanvasPainter::setPaintSettings(const Object* object, int currentLayer, int
 
 void CanvasPainter::paint(const QRect& blitRect)
 {
-    QPainter preLayerPainter;
+    updatePreLayers(blitRect);
+
     QPainter mainPainter;
     QPainter postLayerPainter;
 
     initializePainter(mainPainter, mCanvas, blitRect);
-
-    initializePainter(preLayerPainter, mPreLayersPixmap, blitRect);
-    renderPreLayers(preLayerPainter, blitRect);
-    preLayerPainter.end();
 
     mainPainter.setWorldMatrixEnabled(false);
     mainPainter.drawPixmap(mPointZero, mPreLayersPixmap);
@@ -198,7 +253,6 @@ void CanvasPainter::paint(const QRect& blitRect)
     mainPainter.drawPixmap(mPointZero, mPostLayersPixmap);
     mainPainter.setWorldMatrixEnabled(true);
 
-    mPreLayersPixmapCacheValid = true;
     mPostLayersPixmapCacheValid = true;
 }
 

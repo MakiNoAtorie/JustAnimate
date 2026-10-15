@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Canvas: the layers below the one you paint are cached in 64 px cells and redrawn only when they change, so repaints with many layers are faster (1.3).
 - Brush preset editor (New, Edit, Duplicate in the preset dock) edits every engine setting, the tip image, a per-preset pressure curve and the description with a live preview stroke (B8).
 - Brush presets: a default pack (HB and 2B pencil, G-pen, marker, soft airbrush, chalk, watercolour, hard and soft eraser) installs into the preset folder on first launch and never overwrites your presets (B8).
 - Brush presets export to and import from .jabrush files that carry the tip image; malformed or path-escaping files are rejected (B8).
