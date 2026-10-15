@@ -12,6 +12,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_benchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colormanager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_defaultlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineparser.cpp
@@ -77,6 +78,8 @@ add_executable(pencil2d_tests
     ${TEST_RESOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
 )
 
 # Include directories

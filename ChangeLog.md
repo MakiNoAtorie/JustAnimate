@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The default dock layout fits 1366x768 and 4K screens without overlap (side columns full height, timeline under the canvas), and Reset Windows restores it (4.2).
 - CI: the macOS package smoke test no longer fails when the DMG is slow to unmount (0.1).
 - Legacy .pcl projects open but no longer save: Save on a .pcl project asks for a .pclx name, so a failed save can never damage the .pcl original (A12).
 - Opening a .pclx whose entry cannot be checked or whose folder cannot be made fails with an error instead of extracting part of it (A3).

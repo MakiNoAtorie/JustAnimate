@@ -140,6 +140,7 @@ private:
     void readSettings();
     void writeSettings();
     void resetAndDockAllSubWidgets();
+    void applyDefaultDockLayout();
 
     void changePlayState(bool isPlaying);
 
