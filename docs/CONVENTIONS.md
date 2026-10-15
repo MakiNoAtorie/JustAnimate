@@ -78,6 +78,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   the default when it is missing.
 - CPU-parallel loops use `parallelFor` (`util.h`, at most 8 threads). Tasks
   touch only their own item; signals and progress stay on the calling thread.
+  Never call `QThreadPool::waitForDone` on a shared pool: it deletes threads.
 - Code that runs in a crash handler uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
@@ -120,7 +121,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   cached output joins the `invalidateAllCache` list in `ScribbleArea`.
 - Frame pool: frames more than 50 frames from the playhead unload; frames
   with unsaved changes stay in RAM. Viewing a frame never marks it
-  modified. Memory claims use the benchmark's peak RAM line.
+  modified. Memory claims use the benchmark's peak RAM line. Playback
+  preloads frames ahead through `Object::preloadFrames`, with a look-ahead
+  below the 50-frame unload distance.
 - Opt-in fast mode: `SETTING::FAST_RENDER_LAYERS_ABOVE`, key
   `"FastRenderLayersAbove"`, default off.
 - Project thumbnails (welcome screen): app side, written after a successful
