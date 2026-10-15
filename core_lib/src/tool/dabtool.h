@@ -61,6 +61,8 @@ protected:
     /// Dab width and opacity at this pen pressure, through the pressure curve; both ignore pressure when it is off.
     qreal dabWidth(qreal pressure) const;
     qreal dabOpacity(qreal pressure) const;
+    /// Alpha of one dab in a spaced line, so the line reaches dabOpacity at any spacing.
+    qreal spacedDabOpacity(qreal pressure, qreal brushWidth) const;
 
     QPointF mLastBrushPoint{ 0, 0 };
     qreal mLastBrushPressure = 1.0;

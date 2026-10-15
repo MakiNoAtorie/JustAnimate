@@ -409,6 +409,9 @@ struct StrokeToolProperties: public ToolPropertiesBase
         FILLCONTOUR_ENABLED      = 107,
         SMOOTHING_STRENGTH       = 108,
         SPACING_VALUE            = 109,
+        FLOW_VALUE               = 110,
+        OPACITY_VALUE            = 111,
+        WASH_ENABLED             = 112,
 
         END                 = 199,
     };
@@ -426,7 +429,10 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { INVISIBILITY_ENABLED,  "InvisibilityEnabled" },
             { ANTI_ALIASING_ENABLED, "AntiAliasingEnabled"},
             { FILLCONTOUR_ENABLED,   "FillContourEnabled" },
-            { SPACING_VALUE,         "Spacing" }
+            { SPACING_VALUE,         "Spacing" },
+            { FLOW_VALUE,            "Flow" },
+            { OPACITY_VALUE,         "Opacity" },
+            { WASH_ENABLED,          "WashEnabled" }
         });
     }
 
@@ -445,6 +451,9 @@ struct StrokeToolProperties: public ToolPropertiesBase
     SmoothingMode smoothingMode() const { return static_cast<SmoothingMode>(getInfo(SMOOTHING_MODE).intValue()); }
     int smoothingStrength() const { return getInfo(SMOOTHING_STRENGTH).intValue(); }
     qreal spacing() const { return getInfo(SPACING_VALUE).realValue(); }
+    qreal flow() const { return getInfo(FLOW_VALUE).realValue(); }
+    qreal opacity() const { return getInfo(OPACITY_VALUE).realValue(); }
+    bool washEnabled() const { return getInfo(WASH_ENABLED).boolValue(); }
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }

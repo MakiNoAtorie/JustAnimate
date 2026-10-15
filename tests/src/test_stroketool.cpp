@@ -451,3 +451,96 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
     CHECK(firm.first > 15);
     CHECK(firm.second > linear.second);
 }
+
+TEST_CASE("DabTool - flow builds up and opacity caps the stroke")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 1; f <= 4; ++f) layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeather(1); // Brush dabs always fade over the feather.
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    // Peak alpha of a stroke that runs right, then back over itself.
+    auto peakAlpha = [&](int frame) {
+        editor->scrubTo(frame);
+        tablet(area, QEvent::TabletPress, QPointF(100, 300), 1.0);
+        tablet(area, QEvent::TabletMove, QPointF(500, 300), 1.0);
+        tablet(area, QEvent::TabletMove, QPointF(100, 302), 1.0);
+        tablet(area, QEvent::TabletRelease, QPointF(100, 302), 1.0);
+        const QImage* img = layer->getBitmapImageAtFrame(frame)->image();
+        int alpha = 0;
+        for (int y = 0; y < img->height(); ++y)
+            for (int x = 0; x < img->width(); ++x)
+                alpha = qMax(alpha, qAlpha(img->pixel(x, y)));
+        return alpha;
+    };
+
+    brush->setStrokeOpacity(50);
+    brush->setWashEnabled(false);
+    const int buildUp = peakAlpha(1);
+    brush->setWashEnabled(true);
+    const int wash = peakAlpha(2);
+    brush->setFlow(30);
+    const int washLowFlow = peakAlpha(3);
+    INFO("build-up " << buildUp << " wash " << wash << " wash at 30% flow " << washLowFlow);
+    CHECK(buildUp > 160); // 1 - 0.5 * 0.5 where the passes overlap
+    CHECK(wash == Approx(127).margin(3));
+    CHECK(washLowFlow <= wash);
+    CHECK(washLowFlow > 40);
+}
+
+TEST_CASE("DabTool - spacing does not change how dark a low-flow stroke is")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+    layer->addNewKeyFrameAt(2);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(20);
+    brush->setFeather(1); // Brush dabs always fade over the feather.
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->setFlow(30);
+
+    // Alpha on the stroke's centre line at x = 300.
+    auto centreAlpha = [&](int frame) {
+        editor->scrubTo(frame);
+        tablet(area, QEvent::TabletPress, QPointF(100, 300), 1.0);
+        tablet(area, QEvent::TabletMove, QPointF(500, 300), 1.0);
+        tablet(area, QEvent::TabletRelease, QPointF(500, 300), 1.0);
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(frame);
+        const QPoint p = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint() - bitmap->topLeft();
+        return qAlpha(bitmap->image()->pixel(p));
+    };
+
+    brush->setSpacing(12.5);
+    const int dense = centreAlpha(1);
+    brush->setSpacing(50);
+    const int sparse = centreAlpha(2);
+    INFO("12.5% " << dense << " 50% " << sparse);
+    CHECK(dense == Approx(76).margin(8));
+    CHECK(sparse == Approx(dense).margin(8));
+}

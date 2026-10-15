@@ -15,6 +15,8 @@ GNU General Public License for more details.
 */
 #include "dabtool.h"
 
+#include <cmath>
+
 #include <QPainter>
 #include <QPainterPath>
 
@@ -46,6 +48,7 @@ void DabTool::pointerPressEvent(PointerEvent* event)
 
     startStroke(event->inputType());
     mPressureCurve = PressureCurve::fromString(mEditor->preference()->getString(SETTING::PRESSURE_CURVE));
+    mScribbleArea->setWashOpacity(strokeToolProperties().washEnabled() ? strokeToolProperties().opacity() / 100 : 1.0);
     mLastBrushPressure = mCurrentPressure;
     mDistanceToNextDab = dabSpacing(dabWidth(mCurrentPressure));
     strokeStarted();
@@ -150,7 +153,16 @@ qreal DabTool::dabWidth(qreal pressure) const
 
 qreal DabTool::dabOpacity(qreal pressure) const
 {
-    return strokeToolProperties().pressureEnabled() ? mPressureCurve.value(pressure) * 0.5 : 1.0;
+    const StrokeToolProperties& p = strokeToolProperties();
+    const qreal flow = p.flow() / 100 * (p.pressureEnabled() ? mPressureCurve.value(pressure) : 1.0);
+    return p.washEnabled() ? flow : flow * p.opacity() / 100;
+}
+
+qreal DabTool::spacedDabOpacity(qreal pressure, qreal brushWidth) const
+{
+    // About width / spacing dabs cover each pixel; this alpha makes them add up to dabOpacity.
+    const qreal overlap = brushWidth > 0 ? qMin(1.0, dabSpacing(brushWidth) / brushWidth) : 1.0;
+    return 1 - std::pow(1 - dabOpacity(pressure), overlap);
 }
 
 void DabTool::paintAt(QPointF point)
@@ -186,7 +198,7 @@ void DabTool::drawStroke()
             const qreal pressure = startPressure + (endPressure - startPressure) * f;
             const qreal brushWidth = dabWidth(pressure);
             mCurrentWidth = brushWidth;
-            drawDab(a + (b - a) * f, brushWidth, dabOpacity(pressure));
+            drawDab(a + (b - a) * f, brushWidth, spacedDabOpacity(pressure, brushWidth));
             t += dabSpacing(brushWidth);
         }
         mDistanceToNextDab = t - length;

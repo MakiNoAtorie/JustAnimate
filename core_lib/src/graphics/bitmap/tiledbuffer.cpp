@@ -172,6 +172,20 @@ void TiledBuffer::blendDab(Tile* tile, const QueuedDab& dab) const
     {
         // Same alpha as the image path below: byteMul's alpha lane is mul255.
         tile->coverageDirty = true;
+        if (dab.washWeight)
+        {
+            for (int y = area.top(); y <= area.bottom(); ++y)
+            {
+                quint8* d = tile->coverage().data() + (y - tilePos.y()) * UNIFORM_TILE_SIZE + (area.left() - tilePos.x());
+                const quint8* m = mask + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+                for (int k = 0, w = area.width(); k < w; ++k)
+                {
+                    const quint32 c = d[k];
+                    d[k] = static_cast<quint8>(c + mul255(qMax(dab.srcAlpha, c) - c, mul255(dab.washWeight, m[k])));
+                }
+            }
+            return;
+        }
         for (int y = area.top(); y <= area.bottom(); ++y)
         {
             quint8* d = tile->coverage().data() + (y - tilePos.y()) * UNIFORM_TILE_SIZE + (area.left() - tilePos.x());
@@ -180,6 +194,28 @@ void TiledBuffer::blendDab(Tile* tile, const QueuedDab& dab) const
             {
                 const quint32 s = mul255(dab.srcAlpha, m[k]);
                 d[k] = static_cast<quint8>(s + mul255(d[k], 255 - s));
+            }
+        }
+    }
+    else if (dab.washWeight)
+    {
+        QImage& image = tile->image();
+        for (int y = area.top(); y <= area.bottom(); ++y)
+        {
+            QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
+            const quint8* m = mask + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+            for (int k = 0, w = area.width(); k < w; ++k)
+            {
+                // Each channel moves toward src and stops there, so no pixel goes past the wash alpha.
+                const quint32 a = mul255(dab.washWeight, m[k]);
+                quint32 out = 0;
+                for (int shift = 0; shift < 32; shift += 8)
+                {
+                    const quint32 dc = (d[k] >> shift) & 0xff;
+                    const quint32 sc = (dab.src >> shift) & 0xff;
+                    out |= (dc + mul255(qMax(sc, dc) - dc, a)) << shift;
+                }
+                d[k] = out;
             }
         }
     }
@@ -349,7 +385,10 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
     StageScope stage(StageProfiler::DabMask);
     feather = qBound(0.0, feather, 100.0);
     // Same centre alpha as ScribbleArea::setGaussianGradient.
-    const int mainAlpha = qRound(color.alphaF() * 255 * opacity);
+    const bool wash = mWashOpacity < 1;
+    const quint32 washWeight = wash ? quint32(qBound(0, qRound(255 * opacity), 255)) : 0;
+    if (wash && washWeight == 0) return;
+    const int mainAlpha = qRound(color.alphaF() * 255 * (wash ? mWashOpacity : opacity));
     const int alpha = mainAlpha - qRound(mainAlpha * feather / 100);
     if (alpha <= 0) return;
     const quint32 srcAlpha = qMin(alpha, 255);
@@ -371,7 +410,7 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
 
     // Small dabs blend here; larger ones queue for flushDabs. Once one is queued, the rest queue
     // behind it to keep dab order.
-    const QueuedDab dab{ &mask, rect, src, srcAlpha };
+    const QueuedDab dab{ &mask, rect, src, srcAlpha, washWeight };
     const double pixels = double(rect.width()) * rect.height();
     const double predictedNs = mDabNsPerPixel * pixels;
     const bool inlineDab = mQueuedDabs.empty() && predictedNs < 5000;

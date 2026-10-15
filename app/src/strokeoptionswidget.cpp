@@ -44,6 +44,8 @@ void StrokeOptionsWidget::initUI()
 
     auto spacingInfo = p.getInfo(StrokeToolProperties::SPACING_VALUE);
     ui->spacingSlider->init(tr("Spacing %"), SpinSlider::LOG, spacingInfo.minReal(), spacingInfo.maxReal());
+    ui->flowSlider->init(tr("Flow %"), SpinSlider::LINEAR, 1, 100);
+    ui->opacitySlider->init(tr("Opacity %"), SpinSlider::LINEAR, 1, 100);
 
     mCurrentTool = strokeTool;
 
@@ -95,6 +97,12 @@ void StrokeOptionsWidget::updateUI()
         setSpacingValue(info.realValue());
     }
 
+    if (strokeTool->isPropertyEnabled(StrokeToolProperties::FLOW_VALUE)) {
+        setFlowValue(p.flow());
+        setStrokeOpacityValue(p.opacity());
+        setWashEnabled(p.washEnabled());
+    }
+
     if (strokeTool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED)) {
         setFeatherEnabled(p.featherEnabled());
     }
@@ -144,6 +152,9 @@ void StrokeOptionsWidget::makeConnectionFromModelToUI(StrokeTool* strokeTool)
     connect(strokeTool, &StrokeTool::widthChanged, this, &StrokeOptionsWidget::setWidthValue);
     connect(strokeTool, &StrokeTool::featherChanged, this, &StrokeOptionsWidget::setFeatherValue);
     connect(strokeTool, &StrokeTool::spacingChanged, this, &StrokeOptionsWidget::setSpacingValue);
+    connect(strokeTool, &StrokeTool::flowChanged, this, &StrokeOptionsWidget::setFlowValue);
+    connect(strokeTool, &StrokeTool::strokeOpacityChanged, this, &StrokeOptionsWidget::setStrokeOpacityValue);
+    connect(strokeTool, &StrokeTool::washEnabledChanged, this, &StrokeOptionsWidget::setWashEnabled);
     connect(strokeTool, &StrokeTool::featherEnabledChanged, this, &StrokeOptionsWidget::setFeatherEnabled);
     connect(strokeTool, &StrokeTool::pressureEnabledChanged, this, &StrokeOptionsWidget::setPressureEnabled);
     connect(strokeTool, &StrokeTool::smoothingModeChanged, this, &StrokeOptionsWidget::setSmoothingMode);
@@ -216,6 +227,18 @@ void StrokeOptionsWidget::makeConnectionFromUIToModel()
         mCurrentTool->setSpacing(value);
     });
 
+    connect(ui->flowSlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setFlow(value);
+    });
+
+    connect(ui->opacitySlider, &SpinSlider::valueChanged, [=](qreal value) {
+        mCurrentTool->setStrokeOpacity(value);
+    });
+
+    connect(ui->washBox, &QCheckBox::clicked, [=](bool enabled) {
+        mCurrentTool->setWashEnabled(enabled);
+    });
+
     clearFocusOnFinished(ui->spacingSpinBox);
     clearFocusOnFinished(ui->sizeSpinBox);
     clearFocusOnFinished(ui->featherSpinBox);
@@ -237,6 +260,9 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->featherSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_VALUE));
     ui->spacingSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
     ui->spacingSpinBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SPACING_VALUE));
+    ui->flowSlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FLOW_VALUE));
+    ui->opacitySlider->setVisible(tool->isPropertyEnabled(StrokeToolProperties::OPACITY_VALUE));
+    ui->washBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::WASH_ENABLED));
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));
@@ -274,6 +300,24 @@ void StrokeOptionsWidget::setSpacingValue(qreal spacing)
 
     QSignalBlocker b2(ui->spacingSpinBox);
     ui->spacingSpinBox->setValue(spacing);
+}
+
+void StrokeOptionsWidget::setFlowValue(qreal flow)
+{
+    QSignalBlocker b(ui->flowSlider);
+    ui->flowSlider->setValue(flow);
+}
+
+void StrokeOptionsWidget::setStrokeOpacityValue(qreal opacity)
+{
+    QSignalBlocker b(ui->opacitySlider);
+    ui->opacitySlider->setValue(opacity);
+}
+
+void StrokeOptionsWidget::setWashEnabled(bool enabled)
+{
+    QSignalBlocker b(ui->washBox);
+    ui->washBox->setChecked(enabled);
 }
 
 void StrokeOptionsWidget::setFeatherEnabled(bool enabled)

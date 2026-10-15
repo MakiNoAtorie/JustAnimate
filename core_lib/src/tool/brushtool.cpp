@@ -54,6 +54,9 @@ void BrushTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::INVISIBILITY_ENABLED] = { Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
     mPropertyUsed[StrokeToolProperties::SPACING_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::FLOW_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::OPACITY_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::WASH_ENABLED] = { Layer::BITMAP };
 
     QSettings pencilSettings(PENCIL2D, PENCIL2D);
 

@@ -62,6 +62,8 @@ public:
     /** Draws a round dab with SourceOver: full alpha inside 1 - feather/100 of the radius, then a linear fade.
      *  feather is 0..100 and also lowers the centre alpha, like ScribbleArea::setGaussianGradient. */
     void drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing);
+    /** Below 1, drawDab moves pixels toward this alpha by its opacity and never past it (wash). */
+    void setWashOpacity(qreal opacity) { mWashOpacity = opacity; }
     /** Draws a path with the specified parameters to the tiled buffer */
     void drawPath(QPainterPath path, QPen pen, QBrush brush,
                   QPainter::CompositionMode cm, bool antialiasing);
@@ -127,6 +129,7 @@ private:
         QRect rect;
         quint32 src;
         quint32 srcAlpha;
+        quint32 washWeight; // 0: SourceOver; else moves pixels toward src by this / 255
     };
     void blendDab(Tile* tile, const QueuedDab& dab) const;
     /** Renders queued dabs on the thread pool, one tile per task, each tile in dab order. */
@@ -138,6 +141,7 @@ private:
     QSemaphore mDabsDone;
     int mLastDabWorkers = 0;
     double mDabNsPerPixel = 1.0; // rolling mean of inline dab time
+    qreal mWashOpacity = 1.0;
 };
 
 #endif // TILEDBUFFER_H

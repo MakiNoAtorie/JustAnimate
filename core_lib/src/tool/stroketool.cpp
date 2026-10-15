@@ -68,6 +68,9 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
     info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
     info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
+    info[StrokeToolProperties::FLOW_VALUE] = { 1.0, 100.0, 100.0 };
+    info[StrokeToolProperties::OPACITY_VALUE] = { 1.0, 100.0, 100.0 };
+    info[StrokeToolProperties::WASH_ENABLED] = false;
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;
@@ -435,6 +438,24 @@ void StrokeTool::setSpacing(qreal percent)
 {
     toolProperties().setBaseValue(StrokeToolProperties::SPACING_VALUE, percent);
     emit spacingChanged(strokeToolProperties().spacing());
+}
+
+void StrokeTool::setFlow(qreal percent)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::FLOW_VALUE, percent);
+    emit flowChanged(strokeToolProperties().flow());
+}
+
+void StrokeTool::setStrokeOpacity(qreal percent)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::OPACITY_VALUE, percent);
+    emit strokeOpacityChanged(strokeToolProperties().opacity());
+}
+
+void StrokeTool::setWashEnabled(bool enabled)
+{
+    toolProperties().setBaseValue(StrokeToolProperties::WASH_ENABLED, enabled);
+    emit washEnabledChanged(enabled);
 }
 
 void StrokeTool::setFeather(qreal feather)

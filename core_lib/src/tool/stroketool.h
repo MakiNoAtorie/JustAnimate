@@ -69,6 +69,11 @@ public:
     virtual void setWidth(qreal width);
     virtual void setFeather(qreal feather);
     virtual void setSpacing(qreal percent);
+    /// Per-dab alpha in percent; overlapping dabs build up.
+    void setFlow(qreal percent);
+    /// Stroke alpha in percent; in wash mode no overlap goes past it.
+    void setStrokeOpacity(qreal percent);
+    void setWashEnabled(bool enabled);
     virtual void setPressureEnabled(bool enabled);
     virtual void setFeatherEnabled(bool enabled);
     virtual void setAntiAliasingEnabled(bool enabled);
@@ -79,6 +84,9 @@ signals:
     void widthChanged(qreal value);
     void featherChanged(qreal value);
     void spacingChanged(qreal value);
+    void flowChanged(qreal value);
+    void strokeOpacityChanged(qreal value);
+    void washEnabledChanged(bool enabled);
     void pressureEnabledChanged(bool enabled);
     void featherEnabledChanged(bool enabled);
     void antiAliasingEnabledChanged(bool enabled);

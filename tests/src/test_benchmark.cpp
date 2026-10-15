@@ -412,44 +412,20 @@ struct Golden
 // The look of Pencil, Brush and Eraser; B0 hashes are in git history.
 // Change these only in a commit that means to change brush output, and say so.
 const Golden kGolden[] = {
-    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1), 1-euro smoothing (B4), cached dab masks and coverage-only strokes (B2), 1-euro catch-up on pen lift.
-    // linux and darwin: same as winnt, confirmed on CI.
-    { "winnt x86_64", "pencil", 4, "70e0944a3098804b8acead5d0d6cfb3c8099cad2", "c9660a81966d70e76615ef094ad6a48078e4c1c0" },
-    { "winnt x86_64", "pencil", 24, "4c2cee44f4d356e5d9625b0ca68c10c213156dc1", "5866b97d3919072dafaea551411b48dfd7d36df8" },
-    { "winnt x86_64", "pencil", 96, "c9e416bc6d2810adb19b98ff9bfbb99ae7032ea9", "a797264ccade2bb6503b11b8149c6a958e6c8860" },
-    { "winnt x86_64", "pencil", 200, "b1d8db552adac8a0e58a0e288c500aba848b1868", "e082b6fe6f36108b89b93171a5afea5f654249be" },
-    { "winnt x86_64", "brush", 4, "f3b5888ffdf1700367ed51862bb23d54ea87fc15", "2fa829005dd1999bc697278016beb56e84589224" },
-    { "winnt x86_64", "brush", 24, "d568cb5847668c80f99e20e05c01da6eb50d2f5e", "6bbab1562be890b1037577d093afc966d4b07f3c" },
-    { "winnt x86_64", "brush", 96, "3fbe9bcae98fc4ed0e2084599a27b78354aeed37", "c632ee22c20ced7de612ed941bde749b7c568028" },
-    { "winnt x86_64", "brush", 200, "e75f6cde6bcca74a7383b00284225ebd67957a4a", "198bddb5c44b3eca0b9ae91a8fec5c5b7b80777e" },
-    { "winnt x86_64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
-    { "winnt x86_64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
-    { "winnt x86_64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
-    { "winnt x86_64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
-    { "linux x86_64", "pencil", 4, "70e0944a3098804b8acead5d0d6cfb3c8099cad2", "c9660a81966d70e76615ef094ad6a48078e4c1c0" },
-    { "linux x86_64", "pencil", 24, "4c2cee44f4d356e5d9625b0ca68c10c213156dc1", "5866b97d3919072dafaea551411b48dfd7d36df8" },
-    { "linux x86_64", "pencil", 96, "c9e416bc6d2810adb19b98ff9bfbb99ae7032ea9", "a797264ccade2bb6503b11b8149c6a958e6c8860" },
-    { "linux x86_64", "pencil", 200, "b1d8db552adac8a0e58a0e288c500aba848b1868", "e082b6fe6f36108b89b93171a5afea5f654249be" },
-    { "linux x86_64", "brush", 4, "f3b5888ffdf1700367ed51862bb23d54ea87fc15", "2fa829005dd1999bc697278016beb56e84589224" },
-    { "linux x86_64", "brush", 24, "d568cb5847668c80f99e20e05c01da6eb50d2f5e", "6bbab1562be890b1037577d093afc966d4b07f3c" },
-    { "linux x86_64", "brush", 96, "3fbe9bcae98fc4ed0e2084599a27b78354aeed37", "c632ee22c20ced7de612ed941bde749b7c568028" },
-    { "linux x86_64", "brush", 200, "e75f6cde6bcca74a7383b00284225ebd67957a4a", "198bddb5c44b3eca0b9ae91a8fec5c5b7b80777e" },
-    { "linux x86_64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
-    { "linux x86_64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
-    { "linux x86_64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
-    { "linux x86_64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
-    { "darwin arm64", "pencil", 4, "70e0944a3098804b8acead5d0d6cfb3c8099cad2", "c9660a81966d70e76615ef094ad6a48078e4c1c0" },
-    { "darwin arm64", "pencil", 24, "4c2cee44f4d356e5d9625b0ca68c10c213156dc1", "5866b97d3919072dafaea551411b48dfd7d36df8" },
-    { "darwin arm64", "pencil", 96, "c9e416bc6d2810adb19b98ff9bfbb99ae7032ea9", "a797264ccade2bb6503b11b8149c6a958e6c8860" },
-    { "darwin arm64", "pencil", 200, "b1d8db552adac8a0e58a0e288c500aba848b1868", "e082b6fe6f36108b89b93171a5afea5f654249be" },
-    { "darwin arm64", "brush", 4, "f3b5888ffdf1700367ed51862bb23d54ea87fc15", "2fa829005dd1999bc697278016beb56e84589224" },
-    { "darwin arm64", "brush", 24, "d568cb5847668c80f99e20e05c01da6eb50d2f5e", "6bbab1562be890b1037577d093afc966d4b07f3c" },
-    { "darwin arm64", "brush", 96, "3fbe9bcae98fc4ed0e2084599a27b78354aeed37", "c632ee22c20ced7de612ed941bde749b7c568028" },
-    { "darwin arm64", "brush", 200, "e75f6cde6bcca74a7383b00284225ebd67957a4a", "198bddb5c44b3eca0b9ae91a8fec5c5b7b80777e" },
-    { "darwin arm64", "eraser", 4, "cfd6c0efae85efd99c789b25db505567c29b76c7", "3acba7710c67ce85e9f8864f441979b186e3ccd5" },
-    { "darwin arm64", "eraser", 24, "6c0492b047714ddd69a8345a3789b91aca77795b", "702c29f563e46162a07a1521ac1885a998438cd5" },
-    { "darwin arm64", "eraser", 96, "5d979832b8865cb689329bc4df90273b23be0a61", "0d26739015c54c352be1a52bf493964e217edb46" },
-    { "darwin arm64", "eraser", 200, "abb0f5275ea5b65d82c6be40ce10fb713ca3e547", "8de24c2284f4e574eafcc25ca871b353e038e696" },
+    // winnt: MSVC, Qt 6.8.3, after even dab spacing (B1), 1-euro smoothing (B4), cached dab masks and coverage-only strokes (B2), 1-euro catch-up on pen lift, flow and opacity (B3).
+    // linux and darwin: CI prints the rows to add.
+    { "winnt x86_64", "pencil", 4, "713fdc3434ba9484f246d80b89702eb1c2634322", "b25a85edd25798658b8a7dc4c065fe84dd5a2525" },
+    { "winnt x86_64", "pencil", 24, "9659fc79338e00e3ce9d24b3a192d69e521beb7f", "6dfafbb19e2fca40e27765f6de9e8405f15870cc" },
+    { "winnt x86_64", "pencil", 96, "dd3c52d9adac7516444c7e2fb0adc7ec6ac7618a", "1dabe840fc3c19c4f1ab0b70aafd9626fb5ebd33" },
+    { "winnt x86_64", "pencil", 200, "47f58eeb57648e798323ce792d9f066f63656c8c", "7e2552d7087ba8dccc35dad7e0abdde13f3c2ae9" },
+    { "winnt x86_64", "brush", 4, "628936218a10f642d977063d9bf3d44f9a5df567", "d002196d458ebe9e96f90df3ff876ba1086c7c5d" },
+    { "winnt x86_64", "brush", 24, "89b011c71012f4c90ccfbf53a560f2ca5ca4cf38", "428759e78c0d74c04aea6440704cdd0b3cfbe2f2" },
+    { "winnt x86_64", "brush", 96, "335d45b13e2cf20961323bf240c9e8cf601dcfb4", "8f68afbad6cd227d4d5eb48ba49a511f52a339c4" },
+    { "winnt x86_64", "brush", 200, "bdcf96926b2d1add49ef36a73de1df3b6effc7e1", "817c30c2efe4f05906e590a3e7a6bd6a3815a487" },
+    { "winnt x86_64", "eraser", 4, "825f29b9d899ec6be9c742d5b20ab705d4411e7a", "e6c0bdb403bcc6d69a69c0ff040f79bfbfb6eeab" },
+    { "winnt x86_64", "eraser", 24, "2eb5d32d53bdd057fc48c586ca109325b1223e41", "d6189f4b7d07d74532235c06742a2e509420faf7" },
+    { "winnt x86_64", "eraser", 96, "7a7f3c09b90828603a4cfcdfaa1f3b00aa8e9a44", "678910db446768ae1dcf7a2c28365b483df35928" },
+    { "winnt x86_64", "eraser", 200, "578233e5f4786b044186df2f7b1f0347018c5db2", "75dbd2674f0b43f1a46f9b83c3a75d2610059678" },
 };
 
 } // namespace
