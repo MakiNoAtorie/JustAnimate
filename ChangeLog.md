@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Pencil, Brush and Eraser dabs are written from cached masks instead of a gradient painter per tile: up to 9x faster on small brushes; edges and feather differ slightly (B2).
 - Brush stroke tiles are premultiplied images instead of pixmaps, so later dab work can write pixels directly; strokes look the same (B2).
 - Light, Dark or System theme in Preferences, General; applies at once, persists, and icons follow it (4.1).
 - Onion skin: choose the opacity falloff (linear, gentle, steep) and the previous/next tint colours, and turn onion skin off per layer from the layer's right-click menu (3.1).

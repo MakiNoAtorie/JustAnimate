@@ -100,7 +100,6 @@ void BrushTool::drawDab(QPointF point, qreal width, qreal opacity)
                              width,
                              mSettings.feather(),
                              mEditor->color()->frontColor(),
-                             QPainter::CompositionMode_SourceOver,
                              opacity,
                              true);
 }

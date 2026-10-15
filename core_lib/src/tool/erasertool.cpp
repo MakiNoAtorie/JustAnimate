@@ -96,7 +96,6 @@ void EraserTool::drawDab(QPointF point, qreal width, qreal opacity)
                              width,
                              mSettings.feather(),
                              Qt::white,
-                             QPainter::CompositionMode_SourceOver,
                              opacity,
                              mSettings.featherEnabled(),
                              mSettings.AntiAliasingEnabled() == ON);

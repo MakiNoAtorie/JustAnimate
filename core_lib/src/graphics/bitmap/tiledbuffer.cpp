@@ -18,6 +18,8 @@ GNU General Public License for more details.
 
 #include <QPainterPath>
 #include <QtMath>
+#include <algorithm>
+#include <cmath>
 
 #include "tile.h"
 #include "stageprofiler.h"
@@ -93,6 +95,144 @@ void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush br
             }
             painter.end();
 
+            mTileBounds.extend(tile->bounds());
+        }
+    }
+}
+
+namespace
+{
+// Profile entries over u = r^2 / R^2, so a mask build needs no sqrt per pixel.
+constexpr int kProfileSize = 1024;
+
+// x * a / 255 on each premultiplied channel, rounded like Qt's BYTE_MUL.
+inline quint32 byteMul(quint32 x, quint32 a)
+{
+    quint32 t = (x & 0xff00ff) * a;
+    t = ((t + ((t >> 8) & 0xff00ff) + 0x800080) >> 8) & 0xff00ff;
+    x = ((x >> 8) & 0xff00ff) * a;
+    x = (x + ((x >> 8) & 0xff00ff) + 0x800080) & 0xff00ff00;
+    return x | t;
+}
+}
+
+const TiledBuffer::DabMask& TiledBuffer::dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing)
+{
+    // Key: diameter in 1/4 px, feather in 1/16 %, sub-pixel phase in 1/4 px.
+    const int dq = qMax(0, qRound(diameter * 4));
+    const int fq = qBound(0, qRound(feather * 16), 1600);
+    const quint64 key = (quint64(dq) << 32) | (quint64(fq) << 8) | (phaseX << 4) | (phaseY << 1) | (antialiasing ? 1 : 0);
+    auto it = mDabMasks.constFind(key);
+    if (it != mDabMasks.constEnd()) return *it;
+
+    // ponytail: drops the whole cache past 16 MB; use LRU if pressure strokes thrash it.
+    if (mDabMaskBytes > 16 * 1024 * 1024)
+    {
+        mDabMasks.clear();
+        mDabMaskBytes = 0;
+    }
+
+    const float r = dq / 8.0f;
+    const float r2 = r * r;
+    const float f = fq / 1600.0f;
+    const float cx = phaseX / 4.0f;
+    const float cy = phaseY / 4.0f;
+
+    if (mProfileFeather != fq)
+    {
+        mProfile.resize(kProfileSize + 1);
+        for (int i = 0; i <= kProfileSize; ++i)
+        {
+            const float t = std::sqrt(float(i) / kProfileSize);
+            mProfile[i] = (t <= 1 - f) ? 1.0f : (1 - t) / f;
+        }
+        mProfileFeather = fq;
+    }
+
+    // Coverage is 0 at d >= reach and 1 at d <= inner; the profile is 1 at d^2 <= solid2.
+    const float reach = antialiasing ? r + 0.5f : r;
+    const float reach2 = reach * reach;
+    const float inner = antialiasing ? qMax(0.0f, r - 0.5f) : r;
+    const float inner2 = inner * inner;
+    const float solid2 = (1 - f) * (1 - f) * r2;
+
+    // Pixel x is inside when |x + 0.5 - cx| < reach.
+    const int x0 = qFloor(cx - reach - 0.5f) + 1;
+    const int x1 = qCeil(cx + reach - 0.5f) - 1;
+    const int y0 = qFloor(cy - reach - 0.5f) + 1;
+    const int y1 = qCeil(cy + reach - 0.5f) - 1;
+    DabMask mask;
+    if (x1 >= x0 && y1 >= y0)
+    {
+        mask.rect = QRect(QPoint(x0, y0), QPoint(x1, y1));
+        const int w = mask.rect.width();
+        mask.alpha.assign(w * mask.rect.height(), 0);
+        const float toIndex = r2 > 0 ? kProfileSize / r2 : 0.0f;
+        for (int y = y0; y <= y1; ++y)
+        {
+            const float dy = y + 0.5f - cy;
+            const float dy2 = dy * dy;
+            const float half = std::sqrt(qMax(0.0f, reach2 - dy2));
+            quint8* row = mask.alpha.data() + (y - y0) * w - x0;
+            const int rowLo = qMax(x0, qFloor(cx - half - 0.5f));
+            const int rowHi = qMin(x1, qCeil(cx + half - 0.5f));
+            for (int x = rowLo; x <= rowHi; ++x)
+            {
+                const float dx = x + 0.5f - cx;
+                const float d2 = dx * dx + dy2;
+                if (d2 >= reach2) continue;
+                float a = 255.0f;
+                if (d2 > solid2) a *= mProfile[qMin(int(d2 * toIndex + 0.5f), kProfileSize)];
+                if (d2 > inner2) a *= qBound(0.0f, r - std::sqrt(d2) + 0.5f, 1.0f);
+                row[x] = static_cast<quint8>(a + 0.5f);
+            }
+        }
+    }
+    // A solid aliased dab that misses every pixel centre still marks the pixel under it.
+    if (!antialiasing && fq == 0 && std::all_of(mask.alpha.begin(), mask.alpha.end(), [](quint8 a) { return a == 0; }))
+    {
+        mask.rect = QRect(0, 0, 1, 1);
+        mask.alpha.assign(1, 255);
+    }
+    mDabMaskBytes += qsizetype(mask.alpha.size());
+    return *mDabMasks.insert(key, std::move(mask));
+}
+
+void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing)
+{
+    StageScope stage(StageProfiler::DabMask);
+    feather = qBound(0.0, feather, 100.0);
+    // Same centre alpha as ScribbleArea::setGaussianGradient.
+    const int mainAlpha = qRound(color.alphaF() * 255 * opacity);
+    const int alpha = mainAlpha - qRound(mainAlpha * feather / 100);
+    if (alpha <= 0) return;
+    const quint32 src = qPremultiply(qRgba(color.red(), color.green(), color.blue(), qMin(alpha, 255)));
+
+    const int qx = qRound(center.x() * 4);
+    const int qy = qRound(center.y() * 4);
+    const QPoint origin(qFloor(qx / 4.0), qFloor(qy / 4.0));
+    const DabMask& mask = dabMask(diameter, feather, qx - origin.x() * 4, qy - origin.y() * 4, antialiasing);
+    const QRect rect = mask.rect.translated(origin);
+    if (rect.isEmpty()) return;
+
+    const qreal tileSize = UNIFORM_TILE_SIZE;
+    for (int tileY = qFloor(rect.top() / tileSize); tileY <= qFloor(rect.bottom() / tileSize); tileY++) {
+        for (int tileX = qFloor(rect.left() / tileSize); tileX <= qFloor(rect.right() / tileSize); tileX++) {
+            Tile* tile = getTileFromIndex({tileX, tileY});
+            const QRect area = rect & tile->bounds();
+            const QPoint tilePos = tile->pos();
+            QImage& image = tile->image();
+            for (int y = area.top(); y <= area.bottom(); ++y)
+            {
+                QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
+                const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+                // Branchless: a zero mask gives s = 0, and byteMul(d, 255) == d.
+                for (int k = 0, w = area.width(); k < w; ++k)
+                {
+                    const quint32 s = byteMul(src, m[k]);
+                    d[k] = s + byteMul(d[k], 255 - (s >> 24));
+                }
+            }
             mTileBounds.extend(tile->bounds());
         }
     }
