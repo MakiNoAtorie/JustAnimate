@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Playback loads the next 12 frames ahead of the playhead on worker threads, so playing a large project is faster; edits made during playback show on the next loop (1.2).
 - Timeline Selection: Exposure 1s/2s/3s sets the hold of each selected drawing in one step, Clean Exposure removes drawings that repeat the one before, and exposure on long selections is fast (3.5).
 - Timeline: Insert Frame (Ripple) and Delete Frame (Ripple) shift every later frame of the layer, as one undo step (3.4).
 - The welcome screen offers project templates (HD, 4K, vertical, square, GIF) that set the canvas size and frame rate (4.3).

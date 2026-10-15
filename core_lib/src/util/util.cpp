@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QSemaphore>
 #include <QStandardPaths>
 #include <QThread>
 #include <QThreadPool>
@@ -120,12 +121,13 @@ void parallelFor(int count, const std::function<void(int)>& fn)
         fn(0); // no thread hop for serial callers
         return;
     }
-    // Shared so threads are reused between calls; concurrent callers also wait for each other's tasks.
+    // Shared so threads are reused between calls. Do not use waitForDone: in Qt 6 it joins and deletes every thread.
     static QThreadPool pool;
     pool.setMaxThreadCount(parallelWorkerCount());
+    QSemaphore done;
     for (int i = 0; i < count; ++i)
-        pool.start([&fn, i] { fn(i); });
-    pool.waitForDone();
+        pool.start([&fn, &done, i] { fn(i); done.release(); });
+    done.acquire(count);
 }
 
 quint64 imageSize(const QImage& img)

@@ -33,6 +33,8 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 #include "layersound.h"
 #include "soundclip.h"
+#include "playbackmanager.h"
+#include "testfixture.h"
 
 #include <memory>
 
@@ -983,4 +985,47 @@ TEST_CASE("Frame pool unloads far-away keyframes and keeps their pixels", "[File
     REQUIRE(pixelAt(1, 10, 16) == red);
     for (int f = 2; f <= frames; ++f)
         REQUIRE(pixelAt(f, 10, 16) == red);
+}
+
+TEST_CASE("Playback loads frames ahead of the playhead and keeps edits on the next loop", "[PlaybackCache]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString path = testDir.path() + "/a.pclx";
+    const int frames = 80;
+    FileManager fm;
+    {
+        std::unique_ptr<Object> o(new Object);
+        o->init();
+        o->addNewCameraLayer();
+        LayerBitmap* layer = o->addNewBitmapLayer();
+        for (int f = 1; f <= frames; ++f)
+        {
+            layer->addNewKeyFrameAt(f);
+            layer->getBitmapImageAtFrame(f)->drawRect(QRectF(0, 0, 20, 20), QPen(Qt::red), QBrush(Qt::red),
+                                                      QPainter::CompositionMode_SourceOver, false);
+        }
+        REQUIRE(fm.save(o.get(), path).ok());
+    }
+
+    TestSession s(fm.load(path));
+    REQUIRE(s.object);
+    REQUIRE(s.start());
+    auto layer = static_cast<LayerBitmap*>(s.object->getLayer(1));
+    s.editor->playback()->play();
+    s.editor->scrubTo(1);
+    REQUIRE(layer->getBitmapImageAtFrame(12)->isLoaded()); // past the pool's own window of frame + 3
+    REQUIRE_FALSE(layer->getBitmapImageAtFrame(40)->isLoaded());
+
+    // Edit a preloaded frame while playing: the next loop shows the edit, not the file on disk.
+    BitmapImage* edited = layer->getBitmapImageAtFrame(8);
+    edited->drawRect(QRectF(4, 4, 4, 4), QPen(Qt::blue), QBrush(Qt::blue), QPainter::CompositionMode_SourceOver, false);
+    for (int f = 2; f <= frames; ++f)
+        s.editor->scrubTo(f);
+    REQUIRE_FALSE(layer->getBitmapImageAtFrame(9)->isLoaded()); // unloaded, far from the playhead
+    s.editor->scrubTo(1);
+    REQUIRE(edited->pixel(5, 5) == qRgb(0, 0, 255));
+    REQUIRE(layer->getBitmapImageAtFrame(9)->isLoaded());
+    REQUIRE(layer->getBitmapImageAtFrame(9)->pixel(5, 5) == qRgb(255, 0, 0));
+    s.editor->playback()->stop();
 }
