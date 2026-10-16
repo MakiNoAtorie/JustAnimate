@@ -485,8 +485,23 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
         action->setData(i);
     }
     QAction* transform = menu.addAction(tr("Key Transform..."));
+    menu.addSeparator();
+    const std::pair<QString, Mark> marks[] = { { tr("Mark Key"), Mark::Key }, { tr("Mark Breakdown"), Mark::Breakdown },
+                                               { tr("Mark Inbetween"), Mark::Inbetween }, { tr("Clear Mark"), Mark::None } };
+    QActionGroup markGroup(&menu);
+    for (const auto& [text, mark] : marks)
+    {
+        QAction* action = markGroup.addAction(menu.addAction(text));
+        action->setCheckable(mark != Mark::None);
+        action->setChecked(mark != Mark::None && key->mark() == mark);
+    }
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) { return; }
+    if (chosen->actionGroup() == &markGroup)
+    {
+        mEditor->layers()->setKeyMark(frame, marks[markGroup.actions().indexOf(chosen)].second);
+        return;
+    }
 
     if (chosen == toggle)
     {
@@ -620,6 +635,7 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
         }
 
         painter.drawRect(recLeft, recTop, recWidth, recHeight);
+        paintMark(painter, key->mark(), QRect(recLeft, recTop, standardWidth, recHeight), QColor(40, 40, 40));
 
         if (layer->type() == Layer::SOUND)
         {
@@ -740,7 +756,32 @@ void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, c
         } else {
             int currentFrameX = frameX - standardWidth;
             painter.drawRect(currentFrameX, recTop, recWidth, recHeight);
+            paintMark(painter, key->mark(), QRect(currentFrameX, recTop, standardWidth, recHeight), Qt::white);
         }
+    }
+    painter.restore();
+}
+
+void TimeLineCells::paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour) const
+{
+    if (mark == Mark::None) { return; }
+    const qreal r = std::min(cell.width(), cell.height()) * 0.3;
+    const QPointF c = QRectF(cell).center();
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(colour);
+    switch (mark)
+    {
+    case Mark::Key:
+        painter.drawPolygon(QPolygonF({ c + QPointF(0, -r), c + QPointF(r, 0), c + QPointF(0, r), c + QPointF(-r, 0) }));
+        break;
+    case Mark::Breakdown:
+        painter.drawPolygon(QPolygonF({ c + QPointF(0, -r), c + QPointF(r, r * 0.8), c + QPointF(-r, r * 0.8) }));
+        break;
+    default:
+        painter.drawEllipse(c, r * 0.5, r * 0.5);
+        break;
     }
     painter.restore();
 }

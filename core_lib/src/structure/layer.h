@@ -192,7 +192,7 @@ public:
 
 protected:
     virtual KeyFrame* createKeyFrame(int position) = 0;
-    /** Optional tween attributes of an <image> key element. */
+    /** Optional tween and mark attributes of an <image> key element. */
     static void writeKeyTween(QDomElement& image, const KeyFrame* key);
     static void readKeyTween(const QDomElement& image, KeyFrame* key);
     bool loadKey(KeyFrame*);

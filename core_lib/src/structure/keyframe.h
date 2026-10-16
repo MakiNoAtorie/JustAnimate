@@ -42,6 +42,9 @@ struct TweenState
 };
 
 
+/// A Drawing's role in the motion (GLOSSARY.md, Mark).
+enum class Mark { None, Key, Breakdown, Inbetween };
+
 class KeyFrame
 {
 public:
@@ -72,6 +75,9 @@ public:
     qreal getOpacity() const { return mTweenState.opacity; }
     void setOpacity(qreal opacity) { mTweenState.opacity = opacity; }
 
+    Mark mark() const { return mMark; }
+    void setMark(Mark mark) { mMark = mark; }
+
     QString fileName() const { return mAttachedFileName; }
     void    setFileName(QString strFileName) { mAttachedFileName = strFileName; }
 
@@ -99,9 +105,24 @@ private:
     bool mTween = false;
     CameraEasingType mTweenEasing = CameraEasingType::LINEAR;
     TweenState mTweenState;
+    Mark mMark = Mark::None;
     QString mAttachedFileName;
 
     std::vector<KeyFrameEventListener*> mEventListeners;
+};
+
+/// A set of Marks that onion skin and Flip follow. An empty filter passes every Drawing.
+class MarkFilter
+{
+public:
+    void set(Mark mark, bool on) { mBits = on ? (mBits | bit(mark)) : (mBits & ~bit(mark)); }
+    bool contains(Mark mark) const { return mBits & bit(mark); }
+    bool isEmpty() const { return mBits == 0; }
+    bool passes(const KeyFrame* key) const { return isEmpty() || contains(key->mark()); }
+
+private:
+    static unsigned bit(Mark mark) { return 1u << static_cast<unsigned>(mark); }
+    unsigned mBits = 0;
 };
 
 class KeyFrameEventListener

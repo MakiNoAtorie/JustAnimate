@@ -25,6 +25,7 @@ GNU General Public License for more details.
 class Layer;
 class SoundClip;
 enum class LayerVisibility;
+enum class Mark;
 class TimeLine;
 class QPaintEvent;
 class QMouseEvent;
@@ -114,6 +115,8 @@ private:
     void paintCurrentFrameBorder(QPainter& painter, int recLeft, int recTop, int recWidth, int recHeight) const;
     void paintFrameCursorOnCurrentLayer(QPainter& painter, int recTop, int recWidth, int recHeight) const;
     void paintSelectedFrames(QPainter& painter, const Layer* layer, const int layerIndex) const;
+    /** Draws a Drawing's Mark shape centred in its cell: Key diamond, Breakdown triangle, Inbetween dot. */
+    void paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour) const;
     void paintLabel(QPainter& painter, const Layer* layer, int x, int y, int height, int width, bool selected, LayerVisibility layerVisibility) const;
     void paintSelection(QPainter& painter, int x, int y, int width, int height) const;
     void paintHighlightedFrame(QPainter& painter, int framePos, int recTop, int recWidth, int recHeight) const;

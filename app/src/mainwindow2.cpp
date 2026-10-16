@@ -460,6 +460,13 @@ void MainWindow2::createMenus()
     connect(pPlaybackManager, &PlaybackManager::playStateChanged, ui->scribbleArea, &ScribbleArea::onPlayStateChanged);
     connect(ui->actionFlip_inbetween, &QAction::triggered, pPlaybackManager, &PlaybackManager::playFlipInBetween);
     connect(ui->actionFlip_rolling, &QAction::triggered, pPlaybackManager, &PlaybackManager::playFlipRoll);
+    const std::pair<QAction*, Mark> markActions[] = { { ui->actionMark_Key, Mark::Key },
+        { ui->actionMark_Breakdown, Mark::Breakdown }, { ui->actionMark_Inbetween, Mark::Inbetween },
+        { ui->actionClear_Mark, Mark::None } };
+    for (const auto& [action, mark] : markActions)
+    {
+        connect(action, &QAction::triggered, this, [this, mark = mark] { mEditor->layers()->setKeyMark(mEditor->currentFrame(), mark); });
+    }
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
@@ -1472,6 +1479,10 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionMove_Frame_Forward->setShortcut(cmdKeySeq(CMD_MOVE_FRAME_FORWARD));
     ui->actionFlip_inbetween->setShortcut(cmdKeySeq(CMD_FLIP_INBETWEEN));
     ui->actionFlip_rolling->setShortcut(cmdKeySeq(CMD_FLIP_ROLLING));
+    ui->actionMark_Key->setShortcut(cmdKeySeq(CMD_MARK_KEY));
+    ui->actionMark_Breakdown->setShortcut(cmdKeySeq(CMD_MARK_BREAKDOWN));
+    ui->actionMark_Inbetween->setShortcut(cmdKeySeq(CMD_MARK_INBETWEEN));
+    ui->actionClear_Mark->setShortcut(cmdKeySeq(CMD_MARK_CLEAR));
     ui->actionReposition_Selected_Frames->setShortcut(cmdKeySeq(CMD_SELECTION_REPOSITION_FRAMES));
 
     ui->actionMove->setShortcut(cmdKeySeq(CMD_TOOL_MOVE));

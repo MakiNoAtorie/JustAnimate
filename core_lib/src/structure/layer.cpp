@@ -735,9 +735,13 @@ TweenState Layer::tweenStateAt(int frame) const
     return TweenState{ lerp(a.tx, b.tx), lerp(a.ty, b.ty), lerp(a.rot, b.rot), lerp(a.scale, b.scale), lerp(a.opacity, b.opacity) };
 }
 
+// XML values of the mark attribute, indexed by Mark.
+static const char* const kMarkNames[] = { "", "key", "breakdown", "inbetween" };
+
 void Layer::writeKeyTween(QDomElement& image, const KeyFrame* key)
 {
     // Optional: only written when set, so older versions still read the file.
+    if (key->mark() != Mark::None) { image.setAttribute("mark", kMarkNames[static_cast<int>(key->mark())]); }
     if (key->tween())
     {
         image.setAttribute("tween", 1);
@@ -759,6 +763,11 @@ void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
         const qreal v = image.attribute(name).toDouble(&ok);
         return ok && qIsFinite(v) ? v : fallback;
     };
+    const QString mark = image.attribute("mark");
+    for (int m = 1; m <= static_cast<int>(Mark::Inbetween); ++m)
+    {
+        if (mark == QLatin1String(kMarkNames[m])) { key->setMark(static_cast<Mark>(m)); }
+    }
     key->setTween(image.attribute("tween", "0").toInt() == 1);
     const int easing = image.attribute("easing", "0").toInt();
     const bool validEasing = easing >= 0 && easing <= static_cast<int>(CameraEasingType::OUTINBOUNCE);

@@ -28,6 +28,7 @@ class LayerSound;
 struct TweenState;
 struct LayerArrangement;
 enum class CameraEasingType;
+enum class Mark;
 
 
 class LayerManager : public BaseManager
@@ -66,6 +67,8 @@ public:
     void setBlendMode(Layer* layer, BlendMode mode);
     /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */
     void setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state);
+    /** Sets the Mark of the current layer's Drawing shown at frame as one undo step. */
+    void setKeyMark(int frame, Mark mark);
 
     /** Makes a new group that holds the layer. Returns its id, or 0 when the layer is already in a group. One undo step. */
     int createLayerGroup(Layer* layer);

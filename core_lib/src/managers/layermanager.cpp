@@ -594,6 +594,21 @@ void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, c
     notifyLayerChanged(layer);
 }
 
+void LayerManager::setKeyMark(int frame, Mark mark)
+{
+    Layer* layer = currentLayer();
+    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { return; }
+    KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    if (key == nullptr || key->mark() == mark) { return; }
+    // The keyframe undo state captures the Drawing shown at the current frame.
+    if (layer->getLastKeyFrameAtPosition(editor()->currentFrame()) != key) { editor()->scrubTo(key->pos()); }
+
+    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    key->setMark(mark);
+    editor()->undoRedo()->record(saveStateId, mark == Mark::None ? tr("Clear Mark") : tr("Mark"));
+    notifyLayerChanged(layer);
+}
+
 /**
  * @brief Get the length of current project
  * @return int: the position of the last key frame in the timeline + its length

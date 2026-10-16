@@ -221,6 +221,15 @@
     <property name="title">
      <string>Animation</string>
     </property>
+    <widget class="QMenu" name="menuMark">
+     <property name="title">
+      <string>Mark</string>
+     </property>
+     <addaction name="actionMark_Key"/>
+     <addaction name="actionMark_Breakdown"/>
+     <addaction name="actionMark_Inbetween"/>
+     <addaction name="actionClear_Mark"/>
+    </widget>
     <widget class="QMenu" name="menuTimeline_Selection">
      <property name="title">
       <string>Timeline Selection</string>
@@ -256,6 +265,7 @@
     <addaction name="actionFlip_inbetween"/>
     <addaction name="actionFlip_rolling"/>
     <addaction name="separator"/>
+    <addaction name="menuMark"/>
     <addaction name="actionReposition_Selected_Frames"/>
     <addaction name="menuTimeline_Selection"/>
    </widget>
@@ -1017,6 +1027,26 @@
   <action name="actionFlip_rolling">
    <property name="text">
     <string>Flip Rolling</string>
+   </property>
+  </action>
+  <action name="actionMark_Key">
+   <property name="text">
+    <string>Key</string>
+   </property>
+  </action>
+  <action name="actionMark_Breakdown">
+   <property name="text">
+    <string>Breakdown</string>
+   </property>
+  </action>
+  <action name="actionMark_Inbetween">
+   <property name="text">
+    <string>Inbetween</string>
+   </property>
+  </action>
+  <action name="actionClear_Mark">
+   <property name="text">
+    <string>Clear Mark</string>
    </property>
   </action>
   <action name="actionPegbarAlignment">

@@ -155,3 +155,16 @@ TEST_CASE("ShortcutConflict names the action that already uses a key sequence")
     REQUIRE(findShortcutConflict(settings, "CmdA", QKeySequence("Ctrl+L")).isEmpty());
     REQUIRE(findShortcutConflict(settings, "CmdA", QKeySequence()).isEmpty());
 }
+
+TEST_CASE("The default shortcut preset has no duplicate keys")
+{
+    QSettings preset(":resources/kb.ini", QSettings::IniFormat);
+    preset.beginGroup("shortcuts");
+    const QStringList cmds = preset.allKeys();
+    REQUIRE(cmds.contains("CmdMarkKey"));
+    for (const QString& cmd : cmds)
+    {
+        CAPTURE(cmd);
+        CHECK(findShortcutConflict(preset, cmd, QKeySequence(preset.value(cmd).toString())).isEmpty());
+    }
+}

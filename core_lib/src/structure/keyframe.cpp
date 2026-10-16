@@ -30,6 +30,7 @@ KeyFrame::KeyFrame(const KeyFrame& k2)
     mTween = k2.mTween;
     mTweenEasing = k2.mTweenEasing;
     mTweenState = k2.mTweenState;
+    mMark = k2.mMark;
     mAttachedFileName = k2.mAttachedFileName;
     // intentionally not copying event listeners
 }
@@ -55,6 +56,7 @@ KeyFrame& KeyFrame::operator=(const KeyFrame& k2)
 	mTween = k2.mTween;
 	mTweenEasing = k2.mTweenEasing;
 	mTweenState = k2.mTweenState;
+	mMark = k2.mMark;
 	mAttachedFileName = k2.mAttachedFileName;
     // intentionally not copying event listeners
     return *this;
