@@ -58,6 +58,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_util.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_importlayersdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_checkupdatesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_prefsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_accessibility.cpp
 )
