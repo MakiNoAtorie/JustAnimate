@@ -23,6 +23,11 @@ GNU General Public License for more details.
 #include "filemanager.h"
 
 #include <QTemporaryDir>
+#include "editor.h"
+#include "layermanager.h"
+#include "testfixture.h"
+#include "toolmanager.h"
+#include "cameratool.h"
 
 SCENARIO("Create camera keyframe with linear easing")
 {
@@ -301,4 +306,29 @@ SCENARIO("Loading a project and see that control points are not moved")
     }
 
     delete object;
+}
+
+TEST_CASE("CameraTool Reset Scale sets scale to 1 and keeps rotation")
+{
+    TestSession session;
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    layer->addNewKeyFrameAt(1);
+    Camera* cam = layer->getCameraAtFrame(1);
+    cam->scale(2.0);
+    cam->rotate(30.0);
+
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    CameraTool* tool = static_cast<CameraTool*>(editor->tools()->getTool(CAMERA));
+
+    tool->performAction(CameraTool::RESET_SCALING);
+    CHECK(cam->scaling() == Approx(1.0));
+    CHECK(cam->rotation() == Approx(30.0));
+
+    cam->scale(2.0);
+    tool->performAction(CameraTool::RESET_ROTATION);
+    CHECK(cam->scaling() == Approx(2.0));
+    CHECK(cam->rotation() == Approx(0.0));
 }
