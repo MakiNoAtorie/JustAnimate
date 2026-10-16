@@ -83,8 +83,10 @@ void LassoFillTool::fill()
         QPainterPath path;
         path.addPolygon(mLoop);
         path.closeSubpath();
+        const QPainter::CompositionMode mode = static_cast<LayerBitmap*>(layer)->lockAlpha()
+            ? QPainter::CompositionMode_SourceAtop : QPainter::CompositionMode_SourceOver;
         if (image != nullptr)
-            image->drawPath(path, Qt::NoPen, mEditor->color()->frontColor(), QPainter::CompositionMode_SourceOver, true);
+            image->drawPath(path, Qt::NoPen, mEditor->color()->frontColor(), mode, true);
     }
     else if (layer->type() == Layer::VECTOR)
     {

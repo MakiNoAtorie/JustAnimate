@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include "layerbitmap.h"
 #include "bitmapimage.h"
+#include "buckettool.h"
 #include "util.h"
 #include "colormanager.h"
 #include "editor.h"
@@ -145,17 +146,19 @@ TEST_CASE("LayerBitmap - lock transparency round-trips through XML")
 
 namespace
 {
+void sendTablet(ScribbleArea* area, QEvent::Type type, QPointF pos)
+{
+    const Qt::MouseButtons buttons = type == QEvent::TabletRelease ? Qt::NoButton : Qt::LeftButton;
+    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                   1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+    QApplication::sendEvent(area, &e);
+}
+
 void lockStroke(ScribbleArea* area, QPointF from, QPointF to)
 {
-    auto send = [area](QEvent::Type type, QPointF pos) {
-        const Qt::MouseButtons buttons = type == QEvent::TabletRelease ? Qt::NoButton : Qt::LeftButton;
-        QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
-                       1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
-        QApplication::sendEvent(area, &e);
-    };
-    send(QEvent::TabletPress, from);
-    for (int i = 1; i <= 10; ++i) send(QEvent::TabletMove, from + (to - from) * i / 10.0);
-    send(QEvent::TabletRelease, to);
+    sendTablet(area, QEvent::TabletPress, from);
+    for (int i = 1; i <= 10; ++i) sendTablet(area, QEvent::TabletMove, from + (to - from) * i / 10.0);
+    sendTablet(area, QEvent::TabletRelease, to);
 }
 }
 
@@ -191,4 +194,28 @@ TEST_CASE("LayerBitmap - painting with lock transparency never changes alpha")
         CHECK(qAlpha(image->pixel(QPoint(15, 0))) == 0);
     }
     CHECK(qBlue(image->pixel(QPoint(-15, 0))) > 0);
+
+    editor->tools()->setCurrentTool(BUCKET);
+    {
+        const ToolSettingsGuard guard(editor->tools()->currentTool());
+        auto* bucket = static_cast<BucketTool*>(editor->tools()->currentTool());
+        for (int mode : { 0, 1, 2 })
+        {
+            INFO("bucket fill mode " << mode);
+            bucket->setFillMode(mode);
+            const QPointF at = editor->view()->mapCanvasToScreen(QPointF(15, 0));
+            sendTablet(area, QEvent::TabletPress, at);
+            sendTablet(area, QEvent::TabletRelease, at);
+            CHECK(qAlpha(image->pixel(QPoint(15, 0))) == 0);
+            CHECK(qAlpha(image->pixel(QPoint(-15, 0))) == 255);
+        }
+    }
+
+    editor->tools()->setCurrentTool(LASSOFILL);
+    const QPolygonF loop({ QPointF(-30, -20), QPointF(30, -20), QPointF(30, 20), QPointF(-30, 20) });
+    sendTablet(area, QEvent::TabletPress, editor->view()->mapCanvasToScreen(loop[0]));
+    for (QPointF p : loop) sendTablet(area, QEvent::TabletMove, editor->view()->mapCanvasToScreen(p));
+    sendTablet(area, QEvent::TabletRelease, editor->view()->mapCanvasToScreen(loop[0]));
+    CHECK(qAlpha(image->pixel(QPoint(15, 0))) == 0);
+    CHECK(qAlpha(image->pixel(QPoint(-15, 0))) == 255);
 }
