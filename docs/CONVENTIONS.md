@@ -78,7 +78,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   hold joins `layersKey` and skips the `ScribbleArea` frame cache.
 - Layer order and group edits record through
   `LayerManager::commitLayerArrangement`; timeline rows map through
-  `getLayerNumber`/`getLayerY` (folded group rows are skipped).
+  `getLayerNumber`/`getLayerY` (folded group rows are skipped). Rendering
+  asks `Object::isLayerVisible(layer)` so group visibility applies; group
+  opacity applies to the group composite, never to member opacity.
 - Code that runs in a crash handler uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
