@@ -410,6 +410,14 @@ void StrokeTool::updateCanvasCursor()
 
     CanvasCursorPainterOptions widthOptions;
     widthOptions.shape = brushOutline(point);
+    // The centre cross, 10 px on screen: quick-sizing moves the outline away from the hardware cross.
+    const QPointF centre = mEditor->view()->getView().map(point);
+    QPainterPath cross;
+    cross.moveTo(centre - QPointF(5, 0));
+    cross.lineTo(centre + QPointF(5, 0));
+    cross.moveTo(centre - QPointF(0, 5));
+    cross.lineTo(centre + QPointF(0, 5));
+    widthOptions.shape.addPath(mEditor->view()->getViewInverse().map(cross));
     widthOptions.showCursor = show;
 
     CanvasCursorPainterOptions featherOptions;

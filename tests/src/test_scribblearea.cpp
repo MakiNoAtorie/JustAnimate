@@ -358,6 +358,34 @@ TEST_CASE("ScribbleArea - Brush outline follows size zoom and View rotation")
     CHECK(b.height() == Approx(41).margin(2));
 }
 
+TEST_CASE("ScribbleArea - the Brush outline paints its centre cross")
+{
+    const SettingsGuard settings({ SETTING_CURSOR_STYLE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+
+    // The hardware cursor is not in a grab, so a cross in the grab is painted.
+    const QPoint centre = editor->view()->mapCanvasToScreen(QPointF(0, 0)).toPoint();
+    const QRect b = outlineBounds(editor, area);
+    REQUIRE(b.contains(centre));
+    const QImage outline = area->grab().toImage();
+    editor->preference()->set(SETTING::CURSOR_STYLE, CURSOR_CROSS_ONLY);
+    const QImage cross = area->grab().toImage();
+    CHECK(outline.pixel(centre + QPoint(3, 0)) != cross.pixel(centre + QPoint(3, 0)));
+    CHECK(outline.pixel(centre + QPoint(0, 3)) != cross.pixel(centre + QPoint(0, 3)));
+}
+
 TEST_CASE("ScribbleArea - below 6 px on screen only the cross shows")
 {
     const SettingsGuard settings({ SETTING_CURSOR_STYLE });
