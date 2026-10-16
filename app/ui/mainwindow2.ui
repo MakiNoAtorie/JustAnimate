@@ -250,6 +250,8 @@
     <addaction name="actionRemove_Frame"/>
     <addaction name="actionRipple_Insert_Frame"/>
     <addaction name="actionRipple_Delete_Frame"/>
+    <addaction name="actionExposure_Add"/>
+    <addaction name="actionExposure_Subtract"/>
     <addaction name="separator"/>
     <addaction name="actionMove_Frame_Forward"/>
     <addaction name="actionMove_Frame_Backward"/>
@@ -602,6 +604,22 @@
    </property>
    <property name="toolTip">
     <string>Delete the current drawing and its hold and pull every later frame of the layer</string>
+   </property>
+  </action>
+  <action name="actionExposure_Add">
+   <property name="text">
+    <string>Exposure +</string>
+   </property>
+   <property name="toolTip">
+    <string>Lengthen the current drawing by one frame and push every later frame of the layer</string>
+   </property>
+  </action>
+  <action name="actionExposure_Subtract">
+   <property name="text">
+    <string>Exposure −</string>
+   </property>
+   <property name="toolTip">
+    <string>Shorten the current drawing by one frame and pull every later frame of the layer</string>
    </property>
   </action>
   <action name="actionMove">

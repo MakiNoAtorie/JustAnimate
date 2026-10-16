@@ -374,6 +374,8 @@ static QString getHumanReadableShortcutName(const QString& cmdName)
         {CMD_REMOVE_FRAME, ShortcutsPage::tr("Remove drawing", "Shortcut")},
         {CMD_RIPPLE_INSERT_FRAME, ShortcutsPage::tr("Insert Frame (Ripple)", "Shortcut")},
         {CMD_RIPPLE_DELETE_FRAME, ShortcutsPage::tr("Delete Frame (Ripple)", "Shortcut")},
+        {CMD_EXPOSURE_ADD, ShortcutsPage::tr("Exposure +", "Shortcut")},
+        {CMD_EXPOSURE_SUBTRACT, ShortcutsPage::tr("Exposure -", "Shortcut")},
         {CMD_RESET_WINDOWS, ShortcutsPage::tr("Reset Windows", "Shortcut")},
         {CMD_LOCK_WINDOWS, ShortcutsPage::tr("Lock Windows", "Shortcut")},
         {CMD_RESET_ZOOM_ROTATE, ShortcutsPage::tr("Reset View", "Shortcut")},

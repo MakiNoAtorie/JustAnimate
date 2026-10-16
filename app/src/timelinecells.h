@@ -99,6 +99,8 @@ private:
     int getLayerY(int layerNumber) const;
     int getFrameX(int frameNumber) const;
     int getFrameNumber(int x) const;
+    /** The frame whose right edge is under pos and ends a Drawing's Exposure, or 0. */
+    int exposureEdgeAt(const QPoint& pos) const;
     void showMarkerMenu(int frame, int layerId, const QPoint& globalPos);
     void showTweenMenu(int frame, const QPoint& globalPos);
 
@@ -170,6 +172,7 @@ private:
     bool mBoxSelecting   = false;
 
     bool mClickSelecting = false;
+    int mExposureEdge = 0; // the frame whose right edge is being dragged, or 0
 
     int mFramePosMoveX = 0;
     int mLayerPosMoveY = 0;

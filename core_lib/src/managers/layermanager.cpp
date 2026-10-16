@@ -796,6 +796,26 @@ bool LayerManager::rippleRemoveFrame()
     return true;
 }
 
+bool LayerManager::changeExposure(int frame, int delta)
+{
+    Layer* layer = currentLayer();
+    if (!layer->visible()) { return false; }
+    const KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    if (key == nullptr) { return false; }
+    const int position = key->pos();
+    const int next = layer->getNextKeyFramePosition(position);
+    if (next <= position) { return false; }
+    const int length = next - position;
+    const int shift = qMax(1, length + delta) - length;
+    if (shift == 0) { return false; }
+
+    const QString description = shift > 0 ? tr("Add exposure") : tr("Subtract exposure");
+    shiftFramesAfter(this, editor()->undoRedo(), layer, position, shift, description);
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+    return true;
+}
+
 void LayerManager::moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo)
 {
     if (layer->type() != Layer::SOUND || fromTo.isEmpty()) { return; }

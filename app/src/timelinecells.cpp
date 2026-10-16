@@ -116,6 +116,18 @@ int TimeLineCells::getFrameX(int frameNumber) const
     return mOffsetX + (frameNumber - mFrameOffset) * mFrameSize;
 }
 
+int TimeLineCells::exposureEdgeAt(const QPoint& pos) const
+{
+    const int layerNumber = getLayerNumber(pos.y());
+    if (mType != TIMELINE_CELL_TYPE::Tracks || layerNumber < 0 || layerNumber >= mEditor->object()->getLayerCount()) { return 0; }
+    const Layer* layer = mEditor->object()->getLayer(layerNumber);
+    const int edge = mFrameOffset + qRound((pos.x() - mOffsetX) / double(mFrameSize));
+    // The handle is the last 3 px of an Exposure, which ends where the next Drawing starts.
+    if (edge < 1 || getFrameNumber(pos.x()) != edge || getFrameX(edge) - pos.x() > 3 || !layer->keyExists(edge + 1) ||
+        layer->getLastKeyFrameAtPosition(edge) == nullptr) { return 0; }
+    return edge;
+}
+
 void TimeLineCells::setFrameSize(int size)
 {
     mFrameSize = size;
@@ -1003,6 +1015,14 @@ void TimeLineCells::paintEvent(QPaintEvent*)
             }
         }
 
+        if (mExposureEdge > 0)
+        {
+            // The new end of the Exposure being dragged.
+            const KeyFrame* key = currentLayer->getLastKeyFrameAtPosition(mExposureEdge);
+            const int x = getFrameX(qMax(key ? key->pos() : 1, mFramePosMoveX));
+            painter.fillRect(x - 1, getLayerY(mEditor->currentLayerIndex()), 3, mLayerHeight, palette.color(QPalette::Highlight));
+        }
+
         // --- draw the position of the current frame
         if (currentFrame > mFrameOffset)
         {
@@ -1098,6 +1118,13 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     mClickSelecting = false;
 
     primaryButton = event->button();
+
+    mExposureEdge = event->button() == Qt::LeftButton && event->modifiers() == Qt::NoModifier ? exposureEdgeAt(event->pos()) : 0;
+    if (mExposureEdge > 0)
+    {
+        mEditor->layers()->setCurrentLayer(layerNumber);
+        return;
+    }
 
     switch (mType)
     {
@@ -1371,8 +1398,16 @@ void TimeLineCells::mouseMoveEvent(QMouseEvent* event)
             update();
             emit offsetChanged(mFrameOffset);
         }
+        else if (mExposureEdge > 0)
+        {
+            update();
+        }
         else
         {
+            if (event->buttons() == Qt::NoButton)
+            {
+                if (exposureEdgeAt(event->pos()) > 0) { setCursor(Qt::SizeHorCursor); } else { unsetCursor(); }
+            }
             if (mTimeLine->scrubbing)
             {
                 if (mEditor->playback()->getSoundScrubActive() && mLastScrubFrame != mFramePosMoveX)
@@ -1427,7 +1462,12 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
         Layer* currentLayer = mEditor->layers()->getLayer(mCurrentLayerNumber);
         Q_ASSERT(currentLayer);
 
-        if (mMovingFrames)
+        if (mExposureEdge > 0)
+        {
+            mEditor->layers()->changeExposure(mExposureEdge, frameNumber - mExposureEdge);
+            updateContent();
+        }
+        else if (mMovingFrames)
         {
             int posUnderCursor = getFrameNumber(mMousePressX);
             mEditor->layers()->moveSelectedFrames(frameNumber - posUnderCursor);
@@ -1464,6 +1504,7 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
     mEndY = mStartY;
     mTimeLine->scrubbing = false;
     mMovingFrames = false;
+    mExposureEdge = 0;
 }
 
 void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)

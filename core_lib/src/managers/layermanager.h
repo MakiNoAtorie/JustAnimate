@@ -130,6 +130,10 @@ public:
      *  keyframe one frame left, so a hold gets one frame shorter. One undo step. Returns false on a hidden layer,
      *  on the only keyframe or after the last keyframe. */
     bool rippleRemoveFrame();
+    /** Adds `delta` frames to the Exposure of the current layer's Drawing shown at `frame` (at least one frame)
+     *  and moves every later keyframe with it. One undo step. Returns false when nothing changes: a hidden
+     *  layer, no Drawing at `frame`, the last Drawing, or an Exposure already at one frame. */
+    bool changeExposure(int frame, int delta);
     /** After clips of a sound layer moved (`fromTo` keyframe positions), moves the layer's markers inside
      *  each clip's old span with it. Does nothing on other layer types. */
     void moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo);
