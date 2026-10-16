@@ -17,6 +17,8 @@ GNU General Public License for more details.
 
 #include "scribblearea.h"
 
+#include "mathutils.h"
+
 #include <cmath>
 #include <QGuiApplication>
 #include <QMessageBox>
@@ -1483,17 +1485,6 @@ constexpr ToolType kRadialTools[] = { PENCIL, ERASER, SELECT, MOVE, HAND, SMUDGE
 constexpr int kMaxRadialPresets = 16;
 }
 
-int radialSliceAt(QPointF offset, int count, qreal inner, qreal outer)
-{
-    const qreal r = std::hypot(offset.x(), offset.y());
-    if (count <= 0 || r < inner || r > outer) { return -1; }
-    // Degrees clockwise from up; screen y points down.
-    qreal angle = qRadiansToDegrees(std::atan2(offset.x(), -offset.y()));
-    const qreal step = 360.0 / count;
-    angle = std::fmod(angle + step / 2 + 360.0, 360.0);
-    return qMin(static_cast<int>(angle / step), count - 1);
-}
-
 void ScribbleArea::openToolMenu(QPointF center)
 {
     if (isPointerInUse()) { return; }
@@ -1522,7 +1513,7 @@ void ScribbleArea::openPresetPicker(QPointF center, const QString& presetFolder)
 
 void ScribbleArea::radialMenuEvent(QEvent::Type type, QPointF pos)
 {
-    mRadialMenu.hovered = radialSliceAt(pos - mRadialMenu.center, static_cast<int>(mRadialMenu.labels.size()),
+    mRadialMenu.hovered = MathUtils::radialSliceAt(pos - mRadialMenu.center, static_cast<int>(mRadialMenu.labels.size()),
                                         RadialMenu::kInner, RadialMenu::kOuter);
     update();
     if (type != QEvent::TabletRelease && type != QEvent::MouseButtonRelease) { return; }

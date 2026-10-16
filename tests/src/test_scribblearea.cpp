@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include <QTabletEvent>
 #include <QTemporaryDir>
 #include <QtMath>
+#include "mathutils.h"
 
 #include "brushpresets.h"
 #include "brushtool.h"
@@ -61,15 +62,15 @@ TEST_CASE("ScribbleArea - canvas HUD shows the brush ring and view values")
 
 TEST_CASE("radialSliceAt - slice 0 is at the top and slices go clockwise")
 {
-    CHECK(radialSliceAt(QPointF(0, -50), 4, 20, 100) == 0);
-    CHECK(radialSliceAt(QPointF(50, 0), 4, 20, 100) == 1);
-    CHECK(radialSliceAt(QPointF(0, 50), 4, 20, 100) == 2);
-    CHECK(radialSliceAt(QPointF(-50, 0), 4, 20, 100) == 3);
-    CHECK(radialSliceAt(QPointF(-30, -40), 4, 20, 100) == 0); // 37 degrees left of up: still the top slice
-    CHECK(radialSliceAt(QPointF(-40, -30), 4, 20, 100) == 3);
-    CHECK(radialSliceAt(QPointF(5, 5), 4, 20, 100) == -1);    // centre: no slice
-    CHECK(radialSliceAt(QPointF(0, -150), 4, 20, 100) == -1); // outside the ring
-    CHECK(radialSliceAt(QPointF(0, -50), 0, 20, 100) == -1);
+    CHECK(MathUtils::radialSliceAt(QPointF(0, -50), 4, 20, 100) == 0);
+    CHECK(MathUtils::radialSliceAt(QPointF(50, 0), 4, 20, 100) == 1);
+    CHECK(MathUtils::radialSliceAt(QPointF(0, 50), 4, 20, 100) == 2);
+    CHECK(MathUtils::radialSliceAt(QPointF(-50, 0), 4, 20, 100) == 3);
+    CHECK(MathUtils::radialSliceAt(QPointF(-30, -40), 4, 20, 100) == 0); // 37 degrees left of up: still the top slice
+    CHECK(MathUtils::radialSliceAt(QPointF(-40, -30), 4, 20, 100) == 3);
+    CHECK(MathUtils::radialSliceAt(QPointF(5, 5), 4, 20, 100) == -1);    // centre: no slice
+    CHECK(MathUtils::radialSliceAt(QPointF(0, -150), 4, 20, 100) == -1); // outside the ring
+    CHECK(MathUtils::radialSliceAt(QPointF(0, -50), 0, 20, 100) == -1);
 }
 
 namespace

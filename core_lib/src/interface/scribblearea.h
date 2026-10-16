@@ -69,10 +69,6 @@ struct RadialMenu
     int hovered = -1;
 };
 
-/// The slice under `offset` (px from the ring centre) in a ring of `count` slices,
-/// slice 0 at the top, then clockwise; -1 inside `inner` or outside `outer`.
-int radialSliceAt(QPointF offset, int count, qreal inner, qreal outer);
-
 
 class ScribbleArea : public QWidget
 {

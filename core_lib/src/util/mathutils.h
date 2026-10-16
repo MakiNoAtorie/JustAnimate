@@ -1,6 +1,7 @@
 #ifndef MATHUTILS_H
 #define MATHUTILS_H
 
+#include <cmath>
 #include <QtMath>
 #include <QPoint>
 
@@ -40,6 +41,19 @@ namespace MathUtils
     inline qreal normalize(qreal x, qreal min, qreal max)
     {
         return qAbs((x - max) / (min - max));
+    }
+
+    /// The slice under `offset` (px from the ring centre) in a ring of `count` slices,
+    /// slice 0 at the top, then clockwise; -1 inside `inner` or outside `outer`.
+    inline int radialSliceAt(QPointF offset, int count, qreal inner, qreal outer)
+    {
+        const qreal r = std::hypot(offset.x(), offset.y());
+        if (count <= 0 || r < inner || r > outer) { return -1; }
+        // Degrees clockwise from up; screen y points down.
+        qreal angle = qRadiansToDegrees(std::atan2(offset.x(), -offset.y()));
+        const qreal step = 360.0 / count;
+        angle = std::fmod(angle + step / 2 + 360.0, 360.0);
+        return qMin(static_cast<int>(angle / step), count - 1);
     }
 }
 
