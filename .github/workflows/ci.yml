@@ -202,6 +202,8 @@ jobs:
       # handler; ASan must let it run, not replace it.
       ASAN_OPTIONS: allow_user_segv_handler=1:detect_leaks=1
       UBSAN_OPTIONS: print_stacktrace=1
+      # QMediaPlayer's GStreamer device monitor leaks inside libpulse.
+      LSAN_OPTIONS: suppressions=${{ github.workspace }}/tools/lsan.supp
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
