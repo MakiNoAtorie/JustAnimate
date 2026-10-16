@@ -24,7 +24,6 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "strokeinterpolator.h"
 #include "viewmanager.h"
-#include "rotateviewtool.h"
 #include "scribblearea.h"
 
 
@@ -109,7 +108,7 @@ void HandTool::transformView(Qt::KeyboardModifiers keyMod, const QPointF& pos, Q
     else if (isRotate)
     {
         const QPointF centre(mScribbleArea->width() / 2, mScribbleArea->height() / 2);
-        RotateViewTool::rotateView(viewMgr, centre, mLastPixel, pos);
+        viewMgr->rotateByDrag(centre, mLastPixel, pos);
     }
     else if (isScale)
     {

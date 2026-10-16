@@ -545,6 +545,7 @@ void MainWindow2::createMenus()
     {
         connect(action, &QAction::triggered, this, [this, mark = mark] { mEditor->layers()->setKeyMark(mEditor->currentFrame(), mark); });
     }
+    mTimeLine->setMarkActions({ ui->actionMark_Key, ui->actionMark_Breakdown, ui->actionMark_Inbetween, ui->actionClear_Mark });
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);

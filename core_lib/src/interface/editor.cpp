@@ -263,7 +263,7 @@ void Editor::pasteFromPreviousFrame()
         VectorImage* vectorImage = static_cast<VectorImage*>(currentLayer->getKeyFrameAt(prevFrame));
         pasteToCanvas(vectorImage, mFrame);
     }
-    undoRedo()->record(saveStateId, tr("Paste from Previous Drawing"));
+    undoRedo()->record(saveStateId, tr("Paste from previous drawing"));
 }
 
 void Editor::pasteToCanvas(BitmapImage* bitmapImage, int frameNumber)

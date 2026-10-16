@@ -507,20 +507,20 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
     }
     QAction* transform = menu.addAction(tr("Key Transform..."));
     menu.addSeparator();
-    const std::pair<QString, Mark> marks[] = { { tr("Mark Key"), Mark::Key }, { tr("Mark Breakdown"), Mark::Breakdown },
-                                               { tr("Mark Inbetween"), Mark::Inbetween }, { tr("Clear Mark"), Mark::None } };
+    // Same labels as the Mark actions; these act on the clicked Drawing, not the playhead.
+    const Mark marks[] = { Mark::Key, Mark::Breakdown, Mark::Inbetween, Mark::None };
     QActionGroup markGroup(&menu);
-    for (const auto& [text, mark] : marks)
+    for (int i = 0; i < mMarkActions.size() && i < 4; ++i)
     {
-        QAction* action = markGroup.addAction(menu.addAction(text));
-        action->setCheckable(mark != Mark::None);
-        action->setChecked(mark != Mark::None && key->mark() == mark);
+        QAction* action = markGroup.addAction(menu.addAction(mMarkActions[i]->text()));
+        action->setCheckable(marks[i] != Mark::None);
+        action->setChecked(marks[i] != Mark::None && key->mark() == marks[i]);
     }
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) { return; }
     if (chosen->actionGroup() == &markGroup)
     {
-        mEditor->layers()->setKeyMark(frame, marks[markGroup.actions().indexOf(chosen)].second);
+        mEditor->layers()->setKeyMark(frame, marks[markGroup.actions().indexOf(chosen)]);
         return;
     }
 
@@ -656,7 +656,7 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
         }
 
         painter.drawRect(recLeft, recTop, recWidth, recHeight);
-        paintMark(painter, key->mark(), QRect(recLeft, recTop, standardWidth, recHeight), QColor(40, 40, 40));
+        paintMark(painter, key->mark(), QRect(recLeft, recTop, standardWidth, recHeight), palette().color(QPalette::Shadow));
 
         if (layer->type() == Layer::SOUND)
         {
@@ -777,7 +777,8 @@ void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, c
         } else {
             int currentFrameX = frameX - standardWidth;
             painter.drawRect(currentFrameX, recTop, recWidth, recHeight);
-            paintMark(painter, key->mark(), QRect(currentFrameX, recTop, standardWidth, recHeight), Qt::white);
+            paintMark(painter, key->mark(), QRect(currentFrameX, recTop, standardWidth, recHeight),
+                      palette().color(QPalette::HighlightedText));
         }
     }
     painter.restore();
@@ -945,7 +946,7 @@ void TimeLineCells::paintOnionSkin(QPainter& painter) const
     int prevOnionSkinCount = mEditor->preference()->getInt(SETTING::ONION_PREV_FRAMES_NUM);
     int nextOnionSkinCount = mEditor->preference()->getInt(SETTING::ONION_NEXT_FRAMES_NUM);
 
-    const bool isAbsolute = (mEditor->preference()->getString(SETTING::ONION_TYPE) != "relative");
+    const bool isAbsolute = mEditor->preference()->isOnionAbsolute();
     const MarkFilter filter = mEditor->preference()->markFilter();
 
     if (mEditor->preference()->isOn(SETTING::PREV_ONION) && prevOnionSkinCount > 0)

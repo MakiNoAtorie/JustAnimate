@@ -53,6 +53,8 @@ public:
 
     /// The Mark filter onion skin and Flip share: the saved Marks in Marked drawings mode, else one that passes every Drawing.
     MarkFilter markFilter();
+    /// True when onion skin and Flip step by Drawing (absolute or Marked drawings mode), false when by frame.
+    bool isOnionAbsolute();
 
 signals:
     void optionChanged(SETTING e);

@@ -58,6 +58,8 @@ public:
     int getFrameSize() const { return mFrameSize; }
 
     void setFrameLength(int n) { mFrameLength = n; }
+    /// Key, Breakdown, Inbetween, Clear Mark: the cell menu shows their text for the clicked Drawing.
+    void setMarkActions(const QList<QAction*>& actions) { mMarkActions = actions; }
     void setFrameSize(int size);
     void clearCache() { delete mCache; mCache = nullptr; }
 
@@ -128,6 +130,7 @@ private:
     void editLayerName(Layer* layer) const;
 
     TimeLine* mTimeLine;
+    QList<QAction*> mMarkActions;
     Editor* mEditor; // the editor for which this timeLine operates
     PreferenceManager* mPrefs;
 

@@ -229,10 +229,8 @@ BitmapImage BitmapBucket::flattenBitmapLayersToImage()
         {
             BitmapImage* image = static_cast<LayerBitmap*>(layer)->getLastBitmapImageAtFrame(currentFrame);
             const QTransform toImage = layer->tweenStateAt(currentFrame).transform() * toTarget;
-            if (image && (toImage.isIdentity() || image->bounds().isEmpty())) {
-                flattenImage.paste(image);
-            } else if (image) {
-                BitmapImage moved = image->transformed(image->bounds(), toImage, true);
+            if (image) {
+                BitmapImage moved = image->mapped(toImage);
                 flattenImage.paste(&moved);
             }
         }

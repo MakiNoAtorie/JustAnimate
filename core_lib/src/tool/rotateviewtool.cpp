@@ -15,9 +15,7 @@ GNU General Public License for more details.
 
 #include "rotateviewtool.h"
 
-#include <cmath>
 #include <QPixmap>
-#include <QtMath>
 
 #include "editor.h"
 #include "pointerevent.h"
@@ -43,16 +41,6 @@ void RotateViewTool::pointerMoveEvent(PointerEvent* event)
     if (event->buttons() == Qt::NoButton) { return; }
 
     const QPointF centre(mScribbleArea->width() / 2, mScribbleArea->height() / 2);
-    rotateView(mEditor->view(), centre, mLastPixel, event->viewportPos());
+    mEditor->view()->rotateByDrag(centre, mLastPixel, event->viewportPos());
     mLastPixel = event->viewportPos();
-}
-
-void RotateViewTool::rotateView(ViewManager* view, QPointF centre, QPointF from, QPointF to)
-{
-    const QPointF a = from - centre;
-    const QPointF b = to - centre;
-    const qreal degrees = qRadiansToDegrees(std::atan2(b.y(), b.x()) - std::atan2(a.y(), a.x()));
-    // One flip mirrors the View: the same drag turns it the other way.
-    const bool mirrored = view->isFlipHorizontal() != view->isFlipVertical();
-    view->rotateRelative(static_cast<float>(mirrored ? -degrees : degrees));
 }

@@ -236,7 +236,7 @@ void ScribbleArea::invalidateOnionSkinsCacheAround(int frameNumber)
 {
     if (frameNumber < 0) { return; }
 
-    const bool isOnionAbsolute = mPrefs->getString(SETTING::ONION_TYPE) != "relative";
+    const bool isOnionAbsolute = mPrefs->isOnionAbsolute();
     const MarkFilter filter = mPrefs->markFilter();
     Layer *layer = mEditor->layers()->currentLayer(0);
 
@@ -1195,7 +1195,7 @@ OnionSkinPainterOptions ScribbleArea::onionSkinOptions() const
     OnionSkinPainterOptions o;
     o.enabledWhilePlaying = mPrefs->getInt(SETTING::ONION_WHILE_PLAYBACK);
     o.isPlaying = mEditor->playback()->isPlaying();
-    o.isAbsolute = (mPrefs->getString(SETTING::ONION_TYPE) != "relative");
+    o.isAbsolute = mPrefs->isOnionAbsolute();
     o.markFilter = mPrefs->markFilter();
     o.skinPrevFrames = mPrefs->isOn(SETTING::PREV_ONION);
     o.skinNextFrames = mPrefs->isOn(SETTING::NEXT_ONION);
@@ -1294,16 +1294,8 @@ void ScribbleArea::smudgeDab(QPointF point, qreal width, qreal feather, QColor c
         BitmapImage* image = currentBitmapImage(layer);
         if (image == nullptr) return; // the first frame can be deleted while drawing
         // Dabs land in canvas space, so the source is the key as drawn there.
-        const QTransform toCanvas = layer->tweenStateAt(mEditor->currentFrame()).transform();
-        if (toCanvas.isIdentity() || image->bounds().isEmpty())
-        {
-            mTiledBuffer.setSmudgeSource(*image->image(), image->topLeft());
-        }
-        else
-        {
-            BitmapImage source = image->transformed(image->bounds(), toCanvas, true);
-            mTiledBuffer.setSmudgeSource(*source.image(), source.topLeft());
-        }
+        BitmapImage source = image->mapped(layer->tweenStateAt(mEditor->currentFrame()).transform());
+        mTiledBuffer.setSmudgeSource(*source.image(), source.topLeft());
     }
     mTiledBuffer.smudgeDab(point, width, feather, color, opacity, false, tip, smudge);
 }

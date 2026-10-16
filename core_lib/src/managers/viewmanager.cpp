@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include <cmath>
 #include <QPainterPath>
+#include <QtMath>
 #include "viewmanager.h"
 #include "editor.h"
 #include "object.h"
@@ -177,6 +178,16 @@ void ViewManager::rotate(float degree)
 void ViewManager::rotateRelative(float delta)
 {
     rotate(static_cast<float>(mRotation + delta));
+}
+
+void ViewManager::rotateByDrag(QPointF centre, QPointF from, QPointF to)
+{
+    const QPointF a = from - centre;
+    const QPointF b = to - centre;
+    const qreal degrees = qRadiansToDegrees(std::atan2(b.y(), b.x()) - std::atan2(a.y(), a.x()));
+    // One flip mirrors the View: the same drag turns it the other way.
+    const bool mirrored = isFlipHorizontal() != isFlipVertical();
+    rotateRelative(static_cast<float>(mirrored ? -degrees : degrees));
 }
 
 void ViewManager::resetRotation()

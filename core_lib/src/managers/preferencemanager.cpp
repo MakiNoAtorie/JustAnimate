@@ -194,6 +194,11 @@ MarkFilter PreferenceManager::markFilter()
     return MarkFilter::fromInt(getInt(SETTING::ONION_MARKS));
 }
 
+bool PreferenceManager::isOnionAbsolute()
+{
+    return getString(SETTING::ONION_TYPE) != "relative";
+}
+
 QString PreferenceManager::getString(SETTING option)
 {
     int optionId = static_cast<int>(option);

@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "basetool.h"
 #include "toolproperties.h"
 
-class ViewManager;
 
 /// A View tool: a drag turns the View about the canvas area centre. It never edits a Drawing.
 class RotateViewTool : public BaseTool
@@ -36,9 +35,6 @@ public:
     void pointerPressEvent(PointerEvent*) override;
     void pointerMoveEvent(PointerEvent*) override;
     void pointerReleaseEvent(PointerEvent*) override {}
-
-    /// Turns the View by the pointer's angle change about centre. A flipped View turns the other way.
-    static void rotateView(ViewManager* view, QPointF centre, QPointF from, QPointF to);
 
 private:
     QPointF mLastPixel;

@@ -80,6 +80,11 @@ public:
     BitmapImage transformed(QRect selection, QTransform transform, bool smoothTransform);
     BitmapImage transformed(QRect rectangle, bool smoothTransform);
     BitmapImage transformed(QRectF rectangle, bool smoothTransform) { return transformed(rectangle.toRect(), smoothTransform); }
+    /// The image drawn through a key's tween transform: a plain copy when the transform is identity or the image is empty.
+    BitmapImage mapped(const QTransform& transform)
+    {
+        return (transform.isIdentity() || bounds().isEmpty()) ? *this : transformed(bounds(), transform, true);
+    }
 
     bool contains(QPoint P) { return mBounds.contains(P); }
     bool contains(QPointF P) { return contains(P.toPoint()); }

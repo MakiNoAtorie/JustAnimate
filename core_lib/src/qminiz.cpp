@@ -255,7 +255,8 @@ Status MiniZ::uncompressFolder(QString zipFilePath, QString destPath, const Prog
     for (int i = 0; i < num; ++i)
     {
         if (!mz_zip_reader_file_stat(mz, i, stat)) { return Status(Status::FAIL, dd); }
-        if (stat->m_is_directory || QString(stat->m_filename) == "mimetype") continue;        const QString sFullPath = baseDir.filePath(QString::fromUtf8(stat->m_filename));
+        if (stat->m_is_directory || QString(stat->m_filename) == "mimetype") continue;
+        const QString sFullPath = baseDir.filePath(QString::fromUtf8(stat->m_filename));
         folders.insert(QFileInfo(sFullPath).absolutePath());
         files.emplace_back(i, sFullPath.toUtf8());
     }

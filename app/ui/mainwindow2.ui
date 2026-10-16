@@ -1061,10 +1061,10 @@
   </action>
   <action name="actionPaste_Previous">
    <property name="text">
-    <string>Paste from Previous Drawing</string>
+    <string>Paste from previous drawing</string>
    </property>
    <property name="toolTip">
-    <string>Paste from Previous Drawing</string>
+    <string>Paste from previous drawing</string>
    </property>
   </action>
   <action name="actionShowInvisibleLines">
