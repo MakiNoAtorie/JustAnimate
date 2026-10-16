@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <QDesktopServices>
 #include <QStandardPaths>
 #include <QFileDialog>
+#include <QElapsedTimer>
 
 #include "pencildef.h"
 #include "editor.h"
@@ -665,13 +666,24 @@ void ActionCommands::PlayStop()
     }
 }
 
+// A held key repeats faster than the playback fps; drop the extra repeats so flipping keeps the project rate.
+static bool flipThrottled(Editor* editor)
+{
+    static QElapsedTimer sinceFlip;
+    const bool tooSoon = sinceFlip.isValid() && sinceFlip.elapsed() < 1000 / qMax(1, editor->playback()->fps());
+    if (!tooSoon) { sinceFlip.start(); }
+    return tooSoon;
+}
+
 void ActionCommands::GotoNextFrame()
 {
+    if (flipThrottled(mEditor)) { return; }
     mEditor->scrubForward();
 }
 
 void ActionCommands::GotoPrevFrame()
 {
+    if (flipThrottled(mEditor)) { return; }
     mEditor->scrubBackward();
 }
 

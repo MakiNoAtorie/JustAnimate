@@ -491,6 +491,20 @@ QDomElement FileManager::saveProjectData(const ObjectData* data, QDomDocument& x
     tagIsLoop.setAttribute("value", data->isLooping() ? "true" : "false");
     rootTag.appendChild(tagIsLoop);
 
+    if (data->isPingPong())
+    {
+        QDomElement tagPingPong = xmlDoc.createElement("pingPong");
+        tagPingPong.setAttribute("value", "true");
+        rootTag.appendChild(tagPingPong);
+    }
+
+    if (data->isPingPong())
+    {
+        QDomElement tagPingPong = xmlDoc.createElement("pingPong");
+        tagPingPong.setAttribute("value", "true");
+        rootTag.appendChild(tagPingPong);
+    }
+
     QDomElement tagRangedPlayback = xmlDoc.createElement("isRangedPlayback");
     tagRangedPlayback.setAttribute("value", data->isRangedPlayback() ? "true" : "false");
     rootTag.appendChild(tagRangedPlayback);
@@ -558,6 +572,10 @@ void FileManager::extractProjectData(const QDomElement& element, ObjectData& dat
     else if (strName == "isLoop")
     {
         data.setLooping(element.attribute("value", "false") == "true");
+    }
+    else if (strName == "pingPong")
+    {
+        data.setPingPong(element.attribute("value", "false") == "true");
     }
     else if (strName == "isRangedPlayback")
     {

@@ -104,6 +104,18 @@ void TimeControls::initUI()
     mPlaybackRangeCheckBox->setFixedHeight(24);
     mPlaybackRangeCheckBox->setToolTip(tr("Playback range"));
 
+    mPingPongCheckBox = new QCheckBox(tr("Ping-pong"));
+    mPingPongCheckBox->setFixedHeight(24);
+    mPingPongCheckBox->setToolTip(tr("Play forward, then backward, over the playback range"));
+
+    mSpeedBox = new QComboBox(this);
+    mSpeedBox->setToolTip(tr("Playback speed"));
+    for (double speed : { 0.5, 1.0, 2.0 })
+    {
+        mSpeedBox->addItem(QString::number(speed) + "x", speed);
+    }
+    mSpeedBox->setCurrentIndex(1);
+
     mPlayButton = new QPushButton(this);
     mPlayButton->setIconSize(QSize(22,22));
     mLoopButton = new QPushButton(this);
@@ -150,6 +162,8 @@ void TimeControls::initUI()
     addWidget(mJumpToEndButton);
     addWidget(mLoopButton);
     addWidget(mFpsBox);
+    addWidget(mSpeedBox);
+    addWidget(mPingPongCheckBox);
     addWidget(mPlaybackRangeCheckBox);
     addWidget(mLoopStartSpinBox);
     addWidget(mLoopEndSpinBox);
@@ -180,6 +194,9 @@ void TimeControls::updateUI()
 
     QSignalBlocker b4(mLoopButton);
     mLoopButton->setChecked(playback->isLooping());
+
+    QSignalBlocker b5(mPingPongCheckBox);
+    mPingPongCheckBox->setChecked(playback->isPingPong());
 }
 
 void TimeControls::setEditor(Editor* editor)
@@ -214,6 +231,10 @@ void TimeControls::makeConnections()
     connect(mJumpToStartButton, &QPushButton::clicked, this, &TimeControls::jumpToStartButtonClicked);
     connect(mLoopButton, &QPushButton::clicked, this, &TimeControls::loopButtonClicked);
     connect(mPlaybackRangeCheckBox, &QCheckBox::clicked, this, &TimeControls::playbackRangeClicked);
+    connect(mPingPongCheckBox, &QCheckBox::clicked, mEditor->playback(), &PlaybackManager::setPingPong);
+    connect(mSpeedBox, QOverload<int>::of(&QComboBox::activated), this, [this](int i) {
+        mEditor->playback()->setSpeed(mSpeedBox->itemData(i).toDouble());
+    });
 
     auto spinBoxValueChanged = static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged);
     connect(mLoopStartSpinBox, spinBoxValueChanged, this, &TimeControls::loopStartValueChanged);

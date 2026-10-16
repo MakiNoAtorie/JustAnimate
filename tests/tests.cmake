@@ -30,6 +30,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_object.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_onionskin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pegbaraligner.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_playbackmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pointerevent.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_filemanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_emergencysave.cpp

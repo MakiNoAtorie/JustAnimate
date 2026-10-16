@@ -67,6 +67,7 @@ Status PlaybackManager::load(Object* o)
     const ObjectData* data = o->data();
 
     mIsLooping = data->isLooping();
+    mIsPingPong = data->isPingPong();
     mIsRangedPlayback = data->isRangedPlayback();
     mMarkInFrame = data->getMarkInFrameNumber();
     mMarkOutFrame = data->getMarkOutFrameNumber();
@@ -82,6 +83,7 @@ Status PlaybackManager::save(Object* o)
 {
     ObjectData* data = o->data();
     data->setLooping(mIsLooping);
+    data->setPingPong(mIsPingPong);
     data->setRangedPlayback(mIsRangedPlayback);
     data->setMarkInFrameNumber(mMarkInFrame);
     data->setMarkOutFrameNumber(mMarkOutFrame);
@@ -112,7 +114,8 @@ void PlaybackManager::play()
     mCheckForSoundsHalfway = true;
     playSounds(frame);
 
-    mTimer->setInterval(static_cast<int>(1000.f / mFps));
+    mIsReversing = false;
+    mTimer->setInterval(frameIntervalMs());
     mTimer->start();
 
     // for error correction, please ref skipFrame()
@@ -342,7 +345,7 @@ bool PlaybackManager::skipFrame()
     //qDebug("Expected:  %.2f ms", expectedTime);
     //qDebug("Actual:    %d   ms", mElapsedTimer->elapsed());
 
-    int t = qRound((mPlayingFrameCounter - 1) * (1000.f / mFps));
+    int t = qRound((mPlayingFrameCounter - 1) * (1000.0 / (mFps * mSpeed)));
     if (mElapsedTimer->elapsed() < t)
     {
         qDebug() << "skip";
@@ -387,31 +390,54 @@ void PlaybackManager::stopScrubPlayback()
 
 void PlaybackManager::timerTick()
 {
-    int currentFrame = editor()->currentFrame();
+    if (skipFrame())
+        return;
 
-    // reach the end
-    if (currentFrame >= mEndFrame)
+    advance();
+}
+
+int PlaybackManager::frameIntervalMs() const
+{
+    return qRound(1000.0 / (mFps * mSpeed));
+}
+
+// One playback step: forward, or backward while ping-pong is reversing; at an end it reverses, loops or stops.
+void PlaybackManager::advance()
+{
+    const int currentFrame = editor()->currentFrame();
+
+    if (mIsReversing && currentFrame <= mStartFrame)
     {
-        if (mIsLooping)
+        mIsReversing = false;
+    }
+
+    if (!mIsReversing && currentFrame >= mEndFrame)
+    {
+        if (mIsPingPong && mEndFrame > mStartFrame)
+        {
+            mIsReversing = true;
+        }
+        else if (mIsLooping)
         {
             editor()->scrubTo(mStartFrame);
             mCheckForSoundsHalfway = true;
+            return;
         }
         else
         {
             stop();
+            return;
         }
+    }
+
+    if (mIsReversing)
+    {
+        editor()->scrubBackward();
         return;
     }
 
-    if (skipFrame())
-        return;
-
-    // keep going
     editor()->scrubForward();
-
-    int newFrame = editor()->currentFrame();
-    playSounds(newFrame);
+    playSounds(editor()->currentFrame());
 }
 
 void PlaybackManager::flipTimerTick()
@@ -436,6 +462,30 @@ void PlaybackManager::setLooping(bool isLoop)
         mIsLooping = isLoop;
         emit loopStateChanged(mIsLooping);
     }
+}
+
+void PlaybackManager::setPingPong(bool b)
+{
+    if (mIsPingPong != b)
+    {
+        mIsPingPong = b;
+        mIsReversing = false;
+        emit pingPongChanged(mIsPingPong);
+    }
+}
+
+void PlaybackManager::setSpeed(double speed)
+{
+    if (speed <= 0 || mSpeed == speed) { return; }
+    mSpeed = speed;
+    if (mTimer->isActive())
+    {
+        // restart the drift correction so the new rate starts from now
+        mTimer->setInterval(frameIntervalMs());
+        mPlayingFrameCounter = 1;
+        mElapsedTimer->restart();
+    }
+    emit speedChanged(mSpeed);
 }
 
 void PlaybackManager::enableRangedPlayback(bool b)

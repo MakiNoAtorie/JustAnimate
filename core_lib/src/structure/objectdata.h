@@ -55,6 +55,9 @@ public:
     void setLooping(bool b) { mIsLoop = b; }
     bool isLooping() const { return mIsLoop; }
 
+    void setPingPong(bool b) { mIsPingPong = b; }
+    bool isPingPong() const { return mIsPingPong; }
+
     void setRangedPlayback(bool b) { mIsRangedPlayback = b; }
     bool isRangedPlayback() const { return mIsRangedPlayback; }
 
@@ -79,6 +82,7 @@ private:
     // playback manager
     int  mFps = 12;
     bool mIsLoop = false;
+    bool mIsPingPong = false;
     bool mIsRangedPlayback = false;
     int  mMarkInFrame = 1;
     int  mMarkOutFrame = 10;
