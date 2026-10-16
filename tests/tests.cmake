@@ -49,6 +49,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_lassofilltool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_scribblearea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shapetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_stroketool.cpp

@@ -48,6 +48,14 @@ class BitmapImage;
 class VectorImage;
 struct OnionSkinPainterOptions;
 
+/// What the canvas HUD shows, in screen units.
+struct CanvasHud
+{
+    qreal ringRadius = 0; ///< brush radius on screen in px; 0 when the tool has no brush size
+    int zoomPercent = 100;
+    qreal rotation = 0; ///< view rotation in degrees
+};
+
 
 class ScribbleArea : public QWidget
 {
@@ -117,6 +125,8 @@ public:
     void flipSelection(bool flipVertical);
 
     BaseTool* currentTool() const;
+
+    CanvasHud canvasHud() const;
 
     bool isMouseInUse() const { return mMouseInUse; }
     bool isTabletInUse() const { return mTabletInUse; }
@@ -216,6 +226,7 @@ private:
     void drawCanvas(int frame, QRect rect);
     void settingUpdated(SETTING setting);
     void paintSelectionVisuals(QPainter &painter);
+    void paintCanvasHud(QPainter& painter) const;
 
     BitmapImage* currentBitmapImage(Layer* layer) const;
     VectorImage* currentVectorImage(Layer* layer) const;
