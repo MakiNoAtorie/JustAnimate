@@ -39,6 +39,9 @@ public:
     Status save(Object*) override;
 
     Status loadSound(SoundClip* soundClip, QString strSoundFile);
+    /** Adds the sound file as a clip named clipName at the current frame of the current sound layer,
+     *  replacing an empty clip there. One undo step. */
+    Status importSoundClip(const QString& soundFile, const QString& clipName);
     Status processSound(SoundClip* soundClip);
 
     int soundClipCount() const;

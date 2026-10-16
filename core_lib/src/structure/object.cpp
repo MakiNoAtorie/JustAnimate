@@ -421,18 +421,6 @@ void Object::insertLayer(int index, Layer* layer)
     mLayers.insert(qBound(0, index, static_cast<int>(mLayers.size())), layer);
 }
 
-bool Object::swapLayers(int i, int j)
-{
-    bool canSwap = canSwapLayers(i, j);
-    if (!canSwap) { return false; }
-
-    if (i != j)
-    {
-        mLayers.swapItemsAt(i, j);
-    }
-    return true;
-}
-
 bool Object::canSwapLayers(int layerIndexLeft, int layerIndexRight) const
 {
     if (layerIndexLeft < 0 || layerIndexLeft >= mLayers.size())

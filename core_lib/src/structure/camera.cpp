@@ -35,6 +35,7 @@ Camera::Camera(const Camera& c2) : KeyFrame(c2)
     mRotate = c2.mRotate;
     mScale = c2.mScale;
     mPathControlPoint = c2.mPathControlPoint;
+    mPathControlPointMoved = c2.mPathControlPointMoved;
     mEasingType = c2.mEasingType;
     mNeedUpdateView = true;
 }

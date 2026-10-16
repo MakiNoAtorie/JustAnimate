@@ -54,6 +54,7 @@ enum class UndoRedoRecordType {
     BITMAPS_MOVE, // Moving bitmap keyframes on the canvas, e.g. peg bar alignment
     KEYFRAMES_REMOVE, // Removing the selected keyframes
     KEYFRAMES_PASTE, // Pasting keyframes, which can push later keyframes back
+    CAMERA_MODIFY, // Changing the camera keys of a camera layer: transform, path, reset
     // SCRUB_LAYER, // Scrubbing layer
     // SCRUB_KEYFRAME, // Scrubbing keyframe
     INVALID
@@ -121,7 +122,7 @@ struct UndoSaveState {
     // KEYFRAME_MOVE: the position of each keyframe of the layer before the change.
     // The keys can dangle: compare them, do not dereference them.
     QHash<const KeyFrame*, int> keyframePositions;
-    // KEYFRAMES_REMOVE: copies of the selected keyframes
+    // KEYFRAMES_REMOVE: copies of the selected keyframes. CAMERA_MODIFY: copies of every camera key
     std::vector<std::unique_ptr<KeyFrame>> selectedKeyframes;
 
     UserSaveState userState = {};
@@ -214,6 +215,7 @@ private:
     void moveBitmaps(const UndoSaveState& undoState, const QString& description);
     void removeKeyFrames(const UndoSaveState& undoState, const QString& description);
     void pasteKeyFrames(const UndoSaveState& undoState, const QString& description);
+    void modifyCameras(const UndoSaveState& undoState, const QString& description);
 
     void initCommonKeyFrameState(UndoSaveState* undoSaveState, const Layer* layer) const;
 

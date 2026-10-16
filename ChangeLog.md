@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Fixes: the polyline, bucket and other drawing tools apply a pending selection transform before they paint, so a debug build no longer asserts (#165).
+- Fixes: swap layers, Import Layers, camera drags and resets, and sound import are each one undo step (#150).
 - Save: a sound clip whose file is missing is saved without audio and named in a warning (`<layer> frame <n>`) instead of failing the save (#166).
 - Export: a sound clip whose file is missing is left out of the movie and named in a warning (`<layer> frame <n>`) instead of failing the export (#167).
 - Fixes: Import Layers keeps each vector curve and area on its source colour instead of remapping colours one after another (#134).
