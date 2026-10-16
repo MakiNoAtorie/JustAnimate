@@ -117,34 +117,18 @@ void TimeLineCells::setFrameSize(int size)
 
 int TimeLineCells::getLayerNumber(int y) const
 {
-    int layerNumber = mLayerOffset + (y - mOffsetY) / mLayerHeight;
+    if (y < mOffsetY) { return -1; }
 
-    int totalLayerCount = mEditor->object()->getLayerCount();
-
-    // Layers numbers are displayed in descending order
-    // The last row is layer 0
-    if (layerNumber <= totalLayerCount)
-        layerNumber = (totalLayerCount - 1) - layerNumber;
-    else
-        layerNumber = 0;
-
-    if (y < mOffsetY)
+    // Rows show layers in descending order and skip folded group members
+    const Object* object = mEditor->object();
+    int row = mLayerOffset + (y - mOffsetY) / mLayerHeight;
+    for (int i = object->getLayerCount() - 1; i >= 0; --i)
     {
-        layerNumber = -1;
+        if (object->isLayerFolded(i)) { continue; }
+        if (row-- == 0) { return i; }
     }
-
-    if (layerNumber >= totalLayerCount)
-    {
-        layerNumber = totalLayerCount;
-    }
-
-    //If the mouse release event if fired with mouse off the frame of the application
-    // mEditor->object()->getLayerCount() doesn't return the correct value.
-    if (layerNumber < -1)
-    {
-        layerNumber = -1;
-    }
-    return layerNumber;
+    // The row just below the last layer is -1, rows further down are layer 0
+    return row == 0 ? -1 : 0;
 }
 
 int TimeLineCells::getInbetweenLayerNumber(int y) const {
@@ -163,7 +147,13 @@ int TimeLineCells::getInbetweenLayerNumber(int y) const {
 
 int TimeLineCells::getLayerY(int layerNumber) const
 {
-    return mOffsetY + (mEditor->object()->getLayerCount() - 1 - layerNumber - mLayerOffset)*mLayerHeight;
+    const Object* object = mEditor->object();
+    int row = std::min(0, object->getLayerCount() - 1 - layerNumber);
+    for (int i = object->getLayerCount() - 1; i > layerNumber; --i)
+    {
+        if (!object->isLayerFolded(i)) { ++row; }
+    }
+    return mOffsetY + (row - mLayerOffset) * mLayerHeight;
 }
 
 void TimeLineCells::updateFrame(int frameNumber)
@@ -250,7 +240,7 @@ void TimeLineCells::drawContent()
     Q_ASSERT(object != nullptr);
     for (int i = 0; i < object->getLayerCount(); i++)
     {
-        if (i == mEditor->layers()->currentLayerIndex())
+        if (i == mEditor->layers()->currentLayerIndex() || object->isLayerFolded(i))
         {
             continue;
         }
@@ -733,7 +723,15 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
     {
         painter.setPen(palette.color(QPalette::Text));
     }
-    painter.drawText(QPoint(45, y + (2 * height) / 3), layer->name());
+    QString name = layer->name();
+    const Object* object = mEditor->object();
+    if (const LayerGroup* group = object->findLayerGroup(layer->groupId()))
+    {
+        if (object->getLayer(object->layerGroupRange(group->id).second) != layer) { name = "    " + name; }
+        else if (group->collapsed) { name = QChar(0x25B8) + QString(" ") + group->name; }
+        else { name = QChar(0x25BE) + QString(" ") + group->name + " / " + name; }
+    }
+    painter.drawText(QPoint(45, y + (2 * height) / 3), name);
 }
 
 void TimeLineCells::paintSelection(QPainter& painter, int x, int y, int width, int height) const
@@ -955,9 +953,17 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     case TIMELINE_CELL_TYPE::Layers:
         if (layerNumber != -1 && layerNumber < mEditor->object()->getLayerCount())
         {
+            const Layer* clicked = mEditor->object()->getLayer(layerNumber);
+            const LayerGroup* clickedGroup = mEditor->object()->findLayerGroup(clicked->groupId());
             if (event->pos().x() < 15)
             {
                 mEditor->switchVisibilityOfLayer(layerNumber);
+            }
+            else if (clickedGroup && event->button() == Qt::LeftButton && event->pos().x() < 57 && event->pos().x() >= 45 &&
+                     mEditor->object()->layerGroupRange(clickedGroup->id).second == layerNumber)
+            {
+                // The arrow in front of the group name
+                mEditor->layers()->setLayerGroupCollapsed(clickedGroup->id, !clickedGroup->collapsed);
             }
             else if (mEditor->currentLayerIndex() != layerNumber)
             {
@@ -985,10 +991,45 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                         group->addAction(action);
                     }
                 }
+                menu.addSeparator();
+                QAction* newGroup = nullptr;
+                QAction* ungroup = nullptr;
+                QAction* collapse = nullptr;
+                if (clickedGroup == nullptr) { newGroup = menu.addAction(tr("New Group")); }
+                QMenu* addTo = menu.addMenu(tr("Add to Group"));
+                for (const LayerGroup& g : mEditor->object()->layerGroups())
+                {
+                    if (g.id != layer->groupId() && mEditor->object()->layerGroupRange(g.id).first >= 0)
+                    {
+                        addTo->addAction(g.name)->setData(g.id);
+                    }
+                }
+                addTo->setEnabled(!addTo->isEmpty());
+                if (clickedGroup)
+                {
+                    ungroup = menu.addAction(tr("Remove from Group"));
+                    collapse = menu.addAction(clickedGroup->collapsed ? tr("Expand Group") : tr("Collapse Group"));
+                }
                 QAction* chosen = menu.exec(event->globalPosition().toPoint());
                 if (chosen == onion)
                 {
                     mEditor->switchOnionSkinOfLayer(layerNumber);
+                }
+                else if (chosen && chosen == newGroup)
+                {
+                    mEditor->layers()->createLayerGroup(layer);
+                }
+                else if (chosen && chosen == ungroup)
+                {
+                    mEditor->layers()->removeLayerFromGroup(layer);
+                }
+                else if (chosen && chosen == collapse)
+                {
+                    mEditor->layers()->setLayerGroupCollapsed(clickedGroup->id, !clickedGroup->collapsed);
+                }
+                else if (chosen && chosen->parent() == addTo)
+                {
+                    mEditor->layers()->addLayerToGroup(layer, chosen->data().toInt());
                 }
                 else if (chosen && chosen->data().isValid())
                 {
@@ -1231,17 +1272,7 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
         mToLayer = getInbetweenLayerNumber(event->pos().y());
         if (mToLayer != mFromLayer && mToLayer > -1 && mToLayer < mEditor->layers()->count())
         {
-            // Bubble the from layer up or down to the to layer
-            if (mToLayer < mFromLayer) // bubble up
-            {
-                for (int i = mFromLayer - 1; i >= mToLayer; i--)
-                    mEditor->swapLayers(i, i + 1);
-            }
-            else // bubble down
-            {
-                for (int i = mFromLayer + 1; i <= mToLayer; i++)
-                    mEditor->swapLayers(i, i - 1);
-            }
+            mEditor->layers()->moveLayer(mFromLayer, mToLayer);
         }
     }
 

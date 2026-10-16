@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "camera.h"
 #include "layer.h"
+#include "object.h"
 #include "undoredomanager.h"
 
 class Editor;
@@ -283,6 +284,22 @@ private:
     int layerId = 0;
     BlendMode oldMode = BlendMode::Normal;
     BlendMode newMode = BlendMode::Normal;
+};
+
+/// Undo and redo of a layer reorder or a layer group edit.
+class LayerArrangementCommand : public UndoRedoCommand
+{
+public:
+    LayerArrangementCommand(const LayerArrangement& before, const LayerArrangement& after, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(const LayerArrangement& arrangement);
+
+    LayerArrangement before;
+    LayerArrangement after;
 };
 
 #endif // UNDOREDOCOMMAND_H

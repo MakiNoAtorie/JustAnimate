@@ -25,6 +25,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerbitmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layercamera.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layergroup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layermanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layersound.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layervector.cpp

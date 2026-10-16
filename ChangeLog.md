@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Layer groups: right-click a layer to make, join or leave a group; click the arrow to collapse it; a collapsed group drags as a block. Files still open in Pencil2D (3.7).
 - Tween to Next Key also fades the key's opacity to the next key's on the frames it holds, on the canvas and in export (3.3).
 - Export: image sequences keep alpha with the Transparency option, and a new Sprite sheet option writes all frames into one PNG grid (row-major, columns choosable, default ceil(sqrt(n))) (3.12).
 - Layer blend modes use SSE2 on x86-64, with the same pixels as before (3.8).

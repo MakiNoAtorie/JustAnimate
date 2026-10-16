@@ -27,6 +27,9 @@ GNU General Public License for more details.
 #include "undoredomanager.h"
 #include "bitmapimage.h"
 #include "vectorimage.h"
+#include "scribblearea.h"
+
+#include <algorithm>
 
 #include <QXmlStreamWriter>
 
@@ -403,6 +406,127 @@ void LayerManager::setBlendMode(Layer* layer, BlendMode mode)
     layer->setBlendMode(mode);
     editor()->undoRedo()->recordLayerBlendMode(layer->id(), oldMode, mode, tr("Blend Mode"));
     notifyLayerChanged(layer);
+}
+
+// Moves layers [lo, hi] so the first lands at index t of the list without them.
+static void moveLayerBlock(LayerArrangement& a, int lo, int hi, int t)
+{
+    for (QList<int>* list : { &a.layerIds, &a.groupIds })
+    {
+        const QList<int> block = list->mid(lo, hi - lo + 1);
+        list->erase(list->begin() + lo, list->begin() + hi + 1);
+        for (int i = 0; i < block.size(); ++i) { list->insert(t + i, block[i]); }
+    }
+}
+
+bool LayerManager::commitLayerArrangement(const LayerArrangement& after, const QString& description)
+{
+    const LayerArrangement before = object()->layerArrangement();
+    if (after == before) { return false; }
+    applyLayerArrangement(after);
+    editor()->undoRedo()->recordLayerArrangement(before, description);
+    return true;
+}
+
+void LayerManager::applyLayerArrangement(const LayerArrangement& arrangement)
+{
+    LayerArrangement a = arrangement;
+    for (LayerGroup& group : a.groups)
+    {
+        if (const LayerGroup* now = object()->findLayerGroup(group.id)) { group.collapsed = now->collapsed; }
+    }
+    Layer* current = currentLayer();
+    object()->setLayerArrangement(a);
+    int index = getIndex(current);
+    if (object()->isLayerFolded(index)) { index = object()->layerGroupRange(current->groupId()).second; }
+    setCurrentLayer(index);
+    emit editor()->updateTimeLine();
+    editor()->getScribbleArea()->onLayerChanged();
+}
+
+int LayerManager::createLayerGroup(Layer* layer)
+{
+    const int index = getIndex(layer);
+    if (index < 0 || layer->groupId() != 0) { return 0; }
+    LayerArrangement a = object()->layerArrangement();
+    const int id = object()->getUniqueLayerGroupID();
+    a.groups.append(LayerGroup{ id, tr("Group %1").arg(id) });
+    a.groupIds[index] = id;
+    commitLayerArrangement(a, tr("New Layer Group"));
+    return id;
+}
+
+void LayerManager::addLayerToGroup(Layer* layer, int groupId)
+{
+    if (getIndex(layer) < 0 || layer->groupId() == groupId || object()->layerGroupRange(groupId).first < 0) { return; }
+    if (layer->type() == Layer::CAMERA && getIndex(layer) == 0) { return; } // the bottom camera layer does not move
+
+    UndoMacro macro(editor()->undoRedo(), tr("Add Layer to Group"));
+    if (layer->groupId() != 0) { removeLayerFromGroup(layer); }
+    const int from = getIndex(layer);
+    const int top = object()->layerGroupRange(groupId).second;
+    LayerArrangement a = object()->layerArrangement();
+    a.groupIds[from] = groupId;
+    moveLayerBlock(a, from, from, from > top ? top + 1 : top);
+    commitLayerArrangement(a, tr("Add Layer to Group"));
+}
+
+void LayerManager::removeLayerFromGroup(Layer* layer)
+{
+    const int from = getIndex(layer);
+    if (from < 0 || layer->groupId() == 0) { return; }
+    const QPair<int, int> range = object()->layerGroupRange(layer->groupId());
+    LayerArrangement a = object()->layerArrangement();
+    a.groupIds[from] = 0;
+    if (from != range.first && from != range.second) { moveLayerBlock(a, from, from, range.second); }
+    if (range.first == range.second)
+    {
+        a.groups.erase(std::remove_if(a.groups.begin(), a.groups.end(), [layer](const LayerGroup& g) { return g.id == layer->groupId(); }),
+                       a.groups.end());
+    }
+    commitLayerArrangement(a, tr("Remove Layer from Group"));
+}
+
+void LayerManager::setLayerGroupCollapsed(int groupId, bool collapsed)
+{
+    LayerGroup* group = object()->findLayerGroup(groupId);
+    if (group == nullptr || group->collapsed == collapsed) { return; }
+    group->collapsed = collapsed;
+    object()->modification();
+    if (object()->isLayerFolded(currentLayerIndex())) { setCurrentLayer(object()->layerGroupRange(groupId).second); }
+    emit editor()->updateTimeLine();
+}
+
+bool LayerManager::moveLayer(int from, int to)
+{
+    const int count = object()->getLayerCount();
+    if (from < 0 || from >= count || to < 0 || to >= count || from == to) { return false; }
+    const bool cameraAtBottom = object()->getLayer(0)->type() == Layer::CAMERA;
+    const int floor = cameraAtBottom ? 1 : 0;
+    const int groupId = object()->getLayer(from)->groupId();
+    const LayerGroup* group = object()->findLayerGroup(groupId);
+    const QPair<int, int> range = object()->layerGroupRange(groupId);
+    const int lo = group ? range.first : from;
+    const int hi = group ? range.second : from;
+    if (from < floor || (group && group->collapsed && lo < floor)) { return false; }
+
+    LayerArrangement a = object()->layerArrangement();
+    if (group && !group->collapsed)
+    {
+        moveLayerBlock(a, from, from, qBound(std::max(lo, floor), to, hi));
+    }
+    else
+    {
+        if (to >= lo && to <= hi) { return false; }
+        const bool up = to > from;
+        QList<int> rest = a.groupIds;
+        rest.erase(rest.begin() + lo, rest.begin() + hi + 1);
+        int t = (to > hi ? to - (hi - lo + 1) : to) + (up ? 1 : 0);
+        // Step past a group instead of splitting it
+        while (t > 0 && t < rest.size() && rest[t - 1] != 0 && rest[t - 1] == rest[t]) { t += up ? 1 : -1; }
+        moveLayerBlock(a, lo, hi, std::max(t, floor));
+    }
+    return commitLayerArrangement(a, tr("Move Layer"));
 }
 
 void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state)

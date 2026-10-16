@@ -65,6 +65,9 @@ public:
     void setOnionSkin(bool b) { mOnionSkin = b; }
     BlendMode blendMode() const { return mBlendMode; }
     void setBlendMode(BlendMode mode) { mBlendMode = mode; }
+    /** Id of the LayerGroup in Object that holds this layer, 0 for none */
+    int groupId() const { return mGroupId; }
+    void setGroupId(int groupId) { mGroupId = groupId; }
 
     /** Get selected keyframe positions sorted by position */
     QList<int> selectedKeyFramesPositions() const { return mSelectedFrames_byPosition; }
@@ -202,6 +205,7 @@ private:
     bool       mVisible = true;
     bool       mOnionSkin = true;
     BlendMode  mBlendMode = BlendMode::Normal;
+    int mGroupId = 0;
     QString    mName;
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;

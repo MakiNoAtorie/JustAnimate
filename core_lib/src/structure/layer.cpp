@@ -700,6 +700,7 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     // Optional: only written when off, so older versions still read the file.
     if (!onionSkin()) { layerTag.setAttribute("onion", 0); }
     if (blendMode() != BlendMode::Normal) { layerTag.setAttribute("blend", static_cast<int>(blendMode())); }
+    if (groupId() != 0) { layerTag.setAttribute("group", groupId()); }
     return layerTag;
 }
 
@@ -715,6 +716,7 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     setOnionSkin(elem.attribute("onion", "1").toInt());
     const int blend = elem.attribute("blend", "0").toInt();
     setBlendMode(blend >= 0 && blend <= static_cast<int>(BlendMode::Add) ? static_cast<BlendMode>(blend) : BlendMode::Normal);
+    setGroupId(elem.attribute("group", "0").toInt());
 }
 
 TweenState Layer::tweenStateAt(int frame) const

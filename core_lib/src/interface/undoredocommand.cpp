@@ -574,3 +574,31 @@ void LayerBlendModeCommand::apply(BlendMode mode)
     layer->setBlendMode(mode);
     editor()->layers()->notifyLayerChanged(layer);
 }
+
+LayerArrangementCommand::LayerArrangementCommand(const LayerArrangement& before, const LayerArrangement& after,
+                                                 const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), before(before), after(after)
+{
+    setText(description);
+}
+
+void LayerArrangementCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void LayerArrangementCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void LayerArrangementCommand::apply(const LayerArrangement& arrangement)
+{
+    editor()->layers()->applyLayerArrangement(arrangement);
+}

@@ -78,6 +78,18 @@ QDomElement Object::saveXML(QDomDocument& doc) const
         QDomElement layerTag = layer->createDomElement(doc);
         objectTag.appendChild(layerTag);
     }
+    // Pencil2D reads only <layer> children and skips these.
+    for (const LayerGroup& group : mLayerGroups)
+    {
+        if (layerGroupRange(group.id).first < 0) { continue; } // emptied by a layer delete
+        QDomElement groupTag = doc.createElement("layerGroup");
+        groupTag.setAttribute("id", group.id);
+        groupTag.setAttribute("name", group.name);
+        if (group.collapsed) { groupTag.setAttribute("collapsed", 1); }
+        if (!group.visible) { groupTag.setAttribute("visibility", 0); }
+        if (group.opacity != 1.0) { groupTag.setAttribute("opacity", group.opacity); }
+        objectTag.appendChild(groupTag);
+    }
     return objectTag;
 }
 
@@ -93,6 +105,17 @@ bool Object::loadXML(const QDomElement& docElem, ProgressCallback progressForwar
     for (QDomNode node = docElem.firstChild(); !node.isNull(); node = node.nextSibling())
     {
         QDomElement element = node.toElement(); // try to convert the node to an element.
+        if (element.tagName() == "layerGroup")
+        {
+            LayerGroup group;
+            group.id = element.attribute("id").toInt();
+            group.name = element.attribute("name");
+            group.collapsed = element.attribute("collapsed", "0").toInt();
+            group.visible = element.attribute("visibility", "1").toInt();
+            group.opacity = qBound(0.0, element.attribute("opacity", "1").toDouble(), 1.0);
+            if (group.id > 0 && findLayerGroup(group.id) == nullptr) { mLayerGroups.append(group); }
+            continue;
+        }
         if (element.tagName() != "layer")
         {
             continue;
@@ -120,7 +143,82 @@ bool Object::loadXML(const QDomElement& docElem, ProgressCallback progressForwar
         mLayers.append(newLayer);
         newLayer->loadDomElement(element, dataDirPath, progressForward);
     }
+    for (Layer* layer : mLayers)
+    {
+        if (findLayerGroup(layer->groupId()) == nullptr) { layer->setGroupId(0); }
+    }
     return true;
+}
+
+LayerGroup* Object::findLayerGroup(int groupId)
+{
+    return const_cast<LayerGroup*>(static_cast<const Object*>(this)->findLayerGroup(groupId));
+}
+
+const LayerGroup* Object::findLayerGroup(int groupId) const
+{
+    for (const LayerGroup& group : mLayerGroups)
+    {
+        if (group.id == groupId) { return &group; }
+    }
+    return nullptr;
+}
+
+int Object::getUniqueLayerGroupID() const
+{
+    int id = 1;
+    for (const LayerGroup& group : mLayerGroups) { id = std::max(id, group.id + 1); }
+    return id;
+}
+
+QPair<int, int> Object::layerGroupRange(int groupId) const
+{
+    QPair<int, int> range(-1, -1);
+    for (int i = 0; groupId != 0 && i < mLayers.size(); ++i)
+    {
+        if (mLayers[i]->groupId() != groupId) { continue; }
+        if (range.first < 0) { range.first = i; }
+        range.second = i;
+    }
+    return range;
+}
+
+bool Object::isLayerFolded(int index) const
+{
+    const Layer* layer = getLayer(index);
+    if (layer == nullptr) { return false; }
+    const LayerGroup* group = findLayerGroup(layer->groupId());
+    return group && group->collapsed && layerGroupRange(group->id).second != index;
+}
+
+LayerArrangement Object::layerArrangement() const
+{
+    LayerArrangement a;
+    for (const Layer* layer : mLayers)
+    {
+        a.layerIds << layer->id();
+        a.groupIds << layer->groupId();
+    }
+    a.groups = mLayerGroups;
+    return a;
+}
+
+void Object::setLayerArrangement(const LayerArrangement& a)
+{
+    QList<Layer*> ordered;
+    for (int i = 0; i < a.layerIds.size(); ++i)
+    {
+        Layer* layer = findLayerById(a.layerIds[i]);
+        if (layer == nullptr) { continue; }
+        layer->setGroupId(a.groupIds[i]);
+        ordered << layer;
+    }
+    for (Layer* layer : mLayers)
+    {
+        if (!ordered.contains(layer)) { ordered << layer; }
+    }
+    mLayers = ordered;
+    mLayerGroups = a.groups;
 }
 
 LayerBitmap* Object::addNewBitmapLayer()
@@ -388,6 +486,7 @@ bool Object::addLayer(Layer* layer)
         return false;
     }
     layer->setId(getUniqueLayerID());
+    layer->setGroupId(0); // the group belongs to the object the layer came from
     mLayers.append(layer);
     return true;
 }

@@ -365,6 +365,13 @@ void UndoRedoManager::recordLayerBlendMode(int layerId, BlendMode oldMode, Blend
     pushCommand(new LayerBlendModeCommand(layerId, oldMode, newMode, description, editor()));
 }
 
+void UndoRedoManager::recordLayerArrangement(const LayerArrangement& before, const QString& description)
+{
+    const LayerArrangement after = object()->layerArrangement();
+    if (after == before) { return; }
+    pushCommand(new LayerArrangementCommand(before, after, description, editor()));
+}
+
 void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState, const Layer* layer) const
 {
     undoSaveState->layerType = layer->type();
