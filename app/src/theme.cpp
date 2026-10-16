@@ -173,7 +173,11 @@ QPalette palette(Mode mode, Accent accent)
     {
     case Dark: p = darkPalette(); break;
     case Light: p = QPalette(QColor(240, 240, 240)); break;
-    default: p = original().palette; break;
+    default:
+        p = original().palette;
+        // Every role set: setPalette fills unset roles from the current palette, so Dark would stay.
+        p.setResolveMask(~QPalette::ResolveMask(0));
+        break;
     }
     setAccent(p, accent);
     return p;
@@ -181,7 +185,9 @@ QPalette palette(Mode mode, Accent accent)
 
 void apply(Mode mode)
 {
-    const QString style = (mode == System) ? original().style : QStringLiteral("Fusion");
+    // Capture the platform look before the first change, whatever mode comes first.
+    const Original& platform = original();
+    const QString style = (mode == System) ? platform.style : QStringLiteral("Fusion");
     // Palette first: setStyle repolishes, so style sheets resolve palette(highlight) to the new accent.
     QApplication::setPalette(palette(mode));
     if (QStyleFactory::keys().contains(style, Qt::CaseInsensitive))

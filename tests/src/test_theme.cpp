@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QDirIterator>
 #include <QSet>
+#include <QStyle>
 #include <QSvgRenderer>
 
 #include "editor.h"
@@ -14,6 +15,16 @@
 #include "pencilsettings.h"
 #include "testfixture.h"
 #include "theme.h"
+
+TEST_CASE("System after Dark restores the platform palette and style", "[Theme]")
+{
+    const QRgb window = QApplication::palette().color(QPalette::Window).rgb();
+    const QString style = QApplication::style()->objectName();
+    Theme::apply(Theme::Dark);
+    Theme::apply(Theme::System);
+    CHECK(QApplication::palette().color(QPalette::Window).rgb() == window);
+    CHECK(QApplication::style()->objectName() == style);
+}
 
 TEST_CASE("Theme choice applies and persists", "[Theme]")
 {
