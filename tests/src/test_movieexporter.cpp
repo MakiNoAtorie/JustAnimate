@@ -22,7 +22,12 @@ GNU General Public License for more details.
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
+#include <memory>
+
+#include "layersound.h"
 #include "movieexporter.h"
+#include "object.h"
+#include "soundclip.h"
 #include "pencilerror.h"
 
 static QString makeFile(const QTemporaryDir& dir)
@@ -82,6 +87,58 @@ TEST_CASE("MovieExporter::writeThenReplace")
         REQUIRE(MovieExporter::writeThenReplace(target, encode).ok());
         REQUIRE(readAll(target).mid(4, 4) == "ftyp");
         REQUIRE(QDir(dir.path()).entryList(QDir::Files) == QStringList("out.mp4"));
+    }
+}
+
+static void touch(const QString& path)
+{
+    QFile f(path);
+    REQUIRE(f.open(QIODevice::WriteOnly));
+}
+
+TEST_CASE("MovieExporter::audioMix skips clips whose file is missing")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString present = dir.filePath("present.wav");
+    const QString gone = dir.filePath("gone.wav");
+    touch(present);
+
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    LayerSound* sound = obj->addNewSoundLayer();
+    sound->setName("Voice");
+    auto addClip = [sound](int frame, const QString& path) {
+        SoundClip* clip = new SoundClip;
+        clip->setFileName(path);
+        REQUIRE(sound->addKeyFrame(frame, clip));
+    };
+    addClip(1, present);
+    addClip(5, gone);
+
+    SECTION("one missing file leaves one input and names the skipped clip")
+    {
+        const MovieExporter::AudioMix mix = MovieExporter::audioMix(obj.get(), 1, 10, 12, "out.wav");
+        REQUIRE(mix.args.count("-i") == 1);
+        REQUIRE(mix.skipped == QStringList{ "Voice frame 5" });
+    }
+
+    SECTION("no missing files gives no warning")
+    {
+        touch(gone);
+        const MovieExporter::AudioMix mix = MovieExporter::audioMix(obj.get(), 1, 10, 12, "out.wav");
+        REQUIRE(mix.args.count("-i") == 2);
+        REQUIRE(mix.skipped.isEmpty());
+    }
+
+    SECTION("all files missing gives no audio command")
+    {
+        QFile::remove(present);
+        const MovieExporter::AudioMix mix = MovieExporter::audioMix(obj.get(), 1, 10, 12, "out.wav");
+        REQUIRE(mix.args.isEmpty());
+        REQUIRE(mix.skipped.size() == 2);
+        REQUIRE(mix.skipped.contains("Voice frame 1"));
+        REQUIRE(mix.skipped.contains("Voice frame 5"));
     }
 }
 

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Export: a sound clip whose file is missing is left out of the movie and named in a warning (`<layer> frame <n>`) instead of failing the export (#167).
 - Fixes: Import Layers keeps each vector curve and area on its source colour instead of remapping colours one after another (#134).
 - Export: a failed or cancelled movie export no longer deletes the movie it was to overwrite; export writes a temporary file and replaces the target only on success (#154).
 - Speed: hovering with the camera tool no longer clears the canvas caches on every mouse move (#132).

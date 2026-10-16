@@ -58,6 +58,12 @@ public:
                std::function<void(float)> minorProgress,
                std::function<void(QString)> progressMessage);
     QString error();
+    // "<layer> frame <n>" of each sound clip the last run left out because its file is missing.
+    QStringList skippedClips() const { return mSkippedClips; }
+
+    struct AudioMix { QStringList args; QStringList skipped; };
+    // ffmpeg args that mix the visible sound clips into outPath; args is empty when no clip has a file.
+    static AudioMix audioMix(const Object* obj, int startFrame, int endFrame, int fps, const QString& outPath);
 
     void cancel() { mCanceled = true; }
 
@@ -94,6 +100,7 @@ private:
     QTemporaryDir mTempDir;
     QString mTempWorkDir;
     ExportMovieDesc mDesc;
+    QStringList mSkippedClips;
     bool mCanceled = false;
     qint64 mPeakQueuedBytes = 0;
 };
