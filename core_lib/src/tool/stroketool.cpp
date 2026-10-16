@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include "tiledbuffer.h"
 
 #include "canvascursorpainter.h"
+#include "pencilsettings.h"
 
 #ifdef Q_OS_MAC
 extern "C" {
@@ -67,7 +68,7 @@ void StrokeTool::loadSettings()
     mQuickSizingEnabled = mEditor->preference()->isOn(SETTING::QUICK_SIZING);
     mCanvasCursorEnabled = mEditor->preference()->isOn(SETTING::CANVAS_CURSOR);
 
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     QHash<int, PropertyInfo> info;
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
     info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
@@ -106,7 +107,7 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::FILLCONTOUR_ENABLED] = false;
 
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
 
     /// Given the way that we update preferences currently, this connection should not be removed
     /// when the tool is not active.
@@ -205,7 +206,9 @@ void StrokeTool::startStroke(PointerEvent::InputType inputType)
     mStrokePressures << mCurrentPressure;
 
     mCurrentInputType = inputType;
-    mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    // A stroke whose release went unhandled (other device) never recorded its state.
+    mEditor->undoRedo()->discardState(mUndoSaveStateId);
+    mUndoSaveStateId =mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
     disableCoalescing();
 }

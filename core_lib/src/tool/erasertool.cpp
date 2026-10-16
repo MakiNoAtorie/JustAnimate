@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "vectorimage.h"
 #include "pointerevent.h"
+#include "pencilsettings.h"
 
 
 EraserTool::EraserTool(QObject* parent) : DabTool(parent)
@@ -44,7 +45,7 @@ void EraserTool::loadSettings()
 {
     StrokeTool::loadSettings();
 
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     QHash<int, PropertyInfo> info;
 
@@ -82,23 +83,23 @@ void EraserTool::loadSettings()
     info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = true;
 
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
-    migrateLineStabilization(pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
+    migrateLineStabilization(settings);
 
-    if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("eraserWidth", 24.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, pencilSettings.value("eraserFeather", 48.0).toReal());
-        setLegacySmoothing(pencilSettings.value("stabilizerLevel", StabilizationLevel::NONE).toInt());
-        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_ENABLED, pencilSettings.value("eraserUseFeather", true).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, pencilSettings.value("eraserPressure", true).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::ANTI_ALIASING_ENABLED, pencilSettings.value("eraserAA", true).toBool());
+    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
+        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("eraserWidth", 24.0).toReal());
+        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, settings.value("eraserFeather", 48.0).toReal());
+        setLegacySmoothing(settings.value("stabilizerLevel", StabilizationLevel::NONE).toInt());
+        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_ENABLED, settings.value("eraserUseFeather", true).toBool());
+        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, settings.value("eraserPressure", true).toBool());
+        toolProperties().setBaseValue(StrokeToolProperties::ANTI_ALIASING_ENABLED, settings.value("eraserAA", true).toBool());
 
-        pencilSettings.remove("eraserWidth");
-        pencilSettings.remove("eraserFeather");
-        pencilSettings.remove("stabilizerLevel");
-        pencilSettings.remove("eraserUseFeather");
-        pencilSettings.remove("eraserPressure");
-        pencilSettings.remove("eraserAA");
+        settings.remove("eraserWidth");
+        settings.remove("eraserFeather");
+        settings.remove("stabilizerLevel");
+        settings.remove("eraserUseFeather");
+        settings.remove("eraserPressure");
+        settings.remove("eraserAA");
     }
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);

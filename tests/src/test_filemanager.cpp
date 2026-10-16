@@ -629,6 +629,25 @@ TEST_CASE("FileManager File-saving")
     }
 }
 
+// Adds a sound clip whose copy in the data folder is deleted after the layers
+// are saved, so MiniZ::compressFolder fails on a listed file on every OS.
+static void addClipDeletedBeforeZip(FileManager& fm, Object* obj, const QString& srcDir)
+{
+    const QString src = QDir(srcDir).filePath("beep.wav");
+    QFile f(src);
+    REQUIRE(f.open(QFile::WriteOnly));
+    f.write(QByteArray(64, '\0'));
+    f.close();
+
+    SoundClip* clip = new SoundClip;
+    clip->setFileName(src);
+    REQUIRE(obj->addNewSoundLayer()->addKeyFrame(1, clip));
+    // Progress is emitted on the main thread between the layer saves and the zip job.
+    QObject::connect(&fm, &FileManager::progressChanged, [clip, src] {
+        if (clip->fileName() != src) QFile::remove(clip->fileName());
+    });
+}
+
 TEST_CASE("FileManager atomic save", "[FileManager]")
 {
     QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
@@ -665,12 +684,10 @@ TEST_CASE("FileManager atomic save", "[FileManager]")
     {
         const QByteArray original = readAll(projectPath);
 
-        // A sound clip pointing at a missing file in the data folder makes
-        // the zip writer fail after it has started writing the archive.
-        LayerSound* sound = obj->addNewSoundLayer();
-        SoundClip* clip = new SoundClip;
-        clip->setFileName(QDir(obj->dataDir()).filePath("missing.wav"));
-        REQUIRE(sound->addKeyFrame(1, clip));
+        // The zip writer fails after it has started writing the archive.
+        QTemporaryDir srcDir;
+        REQUIRE(srcDir.isValid());
+        addClipDeletedBeforeZip(fm, obj.get(), srcDir.path());
 
         REQUIRE_FALSE(fm.save(obj.get(), projectPath).ok());
         const bool unchanged = (readAll(projectPath) == original);
@@ -731,10 +748,9 @@ TEST_CASE("FileManager reports progress while it zips and unzips", "[FileManager
         const QByteArray original = file.readAll();
         file.close();
 
-        // A sound clip that points at a missing file fails inside MiniZ::compressFolder.
-        SoundClip* clip = new SoundClip;
-        clip->setFileName(QDir(obj->dataDir()).filePath("missing.wav"));
-        REQUIRE(obj->addNewSoundLayer()->addKeyFrame(1, clip));
+        QTemporaryDir srcDir;
+        REQUIRE(srcDir.isValid());
+        addClipDeletedBeforeZip(fm, obj.get(), srcDir.path());
 
         const Status st = fm.save(obj.get(), projectPath);
         REQUIRE(st.code() == Status::ERROR_MINIZ_FAIL);
@@ -758,6 +774,61 @@ TEST_CASE("FileManager reports progress while it zips and unzips", "[FileManager
     // One step per archive entry while unzipping, then one per frame loaded; the range covers both.
     REQUIRE(loadLast >= 2 * 20);
     REQUIRE(loadLast <= loadMax);
+}
+
+TEST_CASE("FileManager saves a project whose sound clip file is missing", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString projectPath = testDir.filePath("shot.pclx");
+
+    auto addClip = [&](LayerSound* layer, int frame, const QString& wavName) {
+        QFile wav(testDir.filePath(wavName));
+        REQUIRE(wav.open(QFile::WriteOnly));
+        wav.write("RIFF");
+        wav.close();
+        SoundClip* clip = new SoundClip;
+        clip->setFileName(wav.fileName());
+        REQUIRE(layer->addKeyFrame(frame, clip));
+        return clip;
+    };
+
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+    obj->addNewBitmapLayer();
+    LayerSound* sound = obj->addNewSoundLayer();
+    sound->setName("Voice");
+    SoundClip* lost = addClip(sound, 1, "lost.wav");
+    addClip(sound, 10, "kept.wav");
+
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+    REQUIRE(fm.skippedSoundClips().isEmpty());
+
+    REQUIRE(QFile::remove(lost->fileName()));
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+    REQUIRE(fm.skippedSoundClips() == QStringList{ "Voice frame 1" });
+
+    std::unique_ptr<Object> loaded(fm.load(projectPath));
+    REQUIRE(loaded != nullptr);
+    REQUIRE(loaded->getLayerCount() == obj->getLayerCount());
+    LayerSound* loadedSound = loaded->getLayersByType<LayerSound>().front();
+    REQUIRE(loadedSound->getKeyFrameAt(1) == nullptr);
+    KeyFrame* kept = loadedSound->getKeyFrameAt(10);
+    REQUIRE(kept != nullptr);
+    REQUIRE(QFile::exists(kept->fileName()));
+
+    // The file comes back: the next save finds it again.
+    QFile back(lost->fileName());
+    REQUIRE(back.open(QFile::WriteOnly));
+    back.write("RIFF");
+    back.close();
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+    REQUIRE(fm.skippedSoundClips().isEmpty());
+    std::unique_ptr<Object> reloaded(fm.load(projectPath));
+    REQUIRE(reloaded != nullptr);
+    REQUIRE(reloaded->getLayersByType<LayerSound>().front()->getKeyFrameAt(1) != nullptr);
 }
 
 TEST_CASE("FileManager saves bitmap frames byte-identical to serial PNG encoding", "[FileManager][ParallelSave]")
@@ -1278,4 +1349,19 @@ TEST_CASE("Fuzzed project files load without crashing", "[FileManager][Fuzz]")
         writeBytes(pclxPath, mutate(seedZip, rng));
         loadEverything(pclxPath);
     }
+}
+
+TEST_CASE("FileManager saves after its temp working folder was removed", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewBitmapLayer();
+    REQUIRE(QDir(obj->workingDir()).removeRecursively());
+    REQUIRE_FALSE(removePFFTmpDirectory(obj->workingDir()));
+
+    REQUIRE(fm.save(obj.get(), testDir.filePath("shot.pclx")).ok());
 }

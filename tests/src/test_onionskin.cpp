@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "onionskinsubpainter.h"
 #include "preferencemanager.h"
 #include "testfixture.h"
+#include "pencilsettings.h"
 
 namespace
 {
@@ -147,7 +148,7 @@ TEST_CASE("Onion skin colours and falloff are remembered across restarts", "[Oni
 TEST_CASE("Onion skin colours default to red and blue", "[OnionSkin]")
 {
     const SettingsGuard guard({ SETTING_ONION_PREV_COLOR, SETTING_ONION_NEXT_COLOR, SETTING_ONION_FALLOFF });
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.remove(SETTING_ONION_PREV_COLOR);
     settings.remove(SETTING_ONION_NEXT_COLOR);
     settings.remove(SETTING_ONION_FALLOFF);

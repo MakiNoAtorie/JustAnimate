@@ -62,16 +62,20 @@ void LayerVector::moveColor(int start, int end)
     });
 }
 
+void LayerVector::remapColors(const QMap<int, int>& mapping)
+{
+    foreachKeyFrame([&mapping](KeyFrame* pKeyFrame)
+    {
+        static_cast<VectorImage*>(pKeyFrame)->remapColors(mapping);
+    });
+}
+
 void LayerVector::loadImageAtFrame(QString path, int frameNumber)
 {
-    if (keyExists(frameNumber))
-    {
-        removeKeyFrame(frameNumber);
-    }
     VectorImage* vecImg = new VectorImage;
     vecImg->setPos(frameNumber);
     vecImg->read(path);
-    addKeyFrame(frameNumber, vecImg);
+    loadKey(vecImg);
 }
 
 Status LayerVector::saveKeyFrameFile(KeyFrame* keyFrame, QString path)

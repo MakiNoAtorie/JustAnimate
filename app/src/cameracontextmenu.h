@@ -23,13 +23,14 @@ GNU General Public License for more details.
 
 #include <QMenu>
 
+class Editor;
 class LayerCamera;
 
 class CameraContextMenu : public QMenu
 {
     Q_OBJECT
 public:
-    CameraContextMenu(int frameNumber, const LayerCamera* layer);
+    CameraContextMenu(Editor* editor, int frameNumber, const LayerCamera* layer);
 
 private:
     int mFrameNumber;

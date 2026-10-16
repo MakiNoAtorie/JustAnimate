@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include "mathutils.h"
 
+#include <algorithm>
 #include <cmath>
 #include <QGuiApplication>
 #include <QMessageBox>
@@ -73,7 +74,6 @@ ScribbleArea::~ScribbleArea()
 bool ScribbleArea::init()
 {
     mPrefs = mEditor->preference();
-    mDoubleClickTimer = new QTimer(this);
     mMouseFilterTimer = new QTimer(this);
 
     connect(mPrefs, &PreferenceManager::optionChanged, this, &ScribbleArea::settingUpdated);
@@ -87,7 +87,6 @@ bool ScribbleArea::init()
         }
     }
 
-    connect(mDoubleClickTimer, &QTimer::timeout, this, &ScribbleArea::handleDoubleClick);
     connect(mMouseFilterTimer, &QTimer::timeout, this, &ScribbleArea::tabletReleaseEventFired);
 
     connect(mEditor->select(), &SelectionManager::selectionChanged, this, &ScribbleArea::onSelectionChanged);
@@ -96,7 +95,6 @@ bool ScribbleArea::init()
     connect(&mTiledBuffer, &TiledBuffer::tileUpdated, this, &ScribbleArea::onTileUpdated);
     connect(&mTiledBuffer, &TiledBuffer::tileCreated, this, &ScribbleArea::onTileCreated);
 
-    mDoubleClickTimer->setInterval(50);
     mMouseFilterTimer->setInterval(50);
 
     const int curveSmoothingLevel = mPrefs->getInt(SETTING::CURVE_SMOOTHING);
@@ -290,12 +288,42 @@ void ScribbleArea::invalidateAllCache()
 
 void ScribbleArea::invalidateCacheForFrame(int frameNumber)
 {
-    auto cacheKeyIter = mPixmapCacheKeys.find(static_cast<unsigned int>(frameNumber));
-    if (cacheKeyIter != mPixmapCacheKeys.end())
+    if (frameNumber < 0) { return; }
+
+    // The frame cache is keyed by frame and the edit does not name its layer:
+    // drop every cached frame that any layer's key at frameNumber holds.
+    std::vector<std::pair<const Layer*, const KeyFrame*>> holds;
+    int start = frameNumber;
+    const Object* object = mEditor->object();
+    for (int i = 0; object && i < object->getLayerCount(); ++i)
     {
-        QPixmapCache::remove(cacheKeyIter.value());
-        unsigned int key = cacheKeyIter.key();
-        mPixmapCacheKeys.remove(key);
+        const Layer* layer = object->getLayer(i);
+        if (const KeyFrame* key = layer->getLastKeyFrameAtPosition(frameNumber))
+        {
+            holds.emplace_back(layer, key);
+            start = std::min(start, key->pos());
+        }
+    }
+    auto it = mPixmapCacheKeys.lowerBound(static_cast<unsigned int>(start));
+    while (it != mPixmapCacheKeys.end())
+    {
+        const int frame = static_cast<int>(it.key());
+        const bool held = frame == frameNumber || std::any_of(holds.begin(), holds.end(), [frame](const auto& h) {
+            return h.first->getLastKeyFrameAtPosition(frame) == h.second;
+        });
+        if (held)
+        {
+            QPixmapCache::remove(it.value());
+            it = mPixmapCacheKeys.erase(it);
+        }
+        else if (frame > frameNumber)
+        {
+            break; // holds are contiguous: none reaches past this frame
+        }
+        else
+        {
+            ++it;
+        }
     }
 }
 
@@ -450,27 +478,27 @@ void ScribbleArea::keyPressEvent(QKeyEvent *event)
 void ScribbleArea::keyEventForSelection(QKeyEvent* event)
 {
     auto selectMan = mEditor->select();
+    auto nudge = [&](QPointF offset)
+    {
+        const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        selectMan->translate(offset);
+        selectMan->calculateSelectionTransformation();
+        mEditor->undoRedo()->record(saveStateId, tr("Nudge selection", "Undo step: arrow key moves the selection"));
+        emit mEditor->frameModified(mEditor->currentFrame());
+    };
     switch (event->key())
     {
     case Qt::Key_Right:
-        selectMan->translate(QPointF(1, 0));
-        selectMan->calculateSelectionTransformation();
-        emit mEditor->frameModified(mEditor->currentFrame());
+        nudge(QPointF(1, 0));
         return;
     case Qt::Key_Left:
-        selectMan->translate(QPointF(-1, 0));
-        selectMan->calculateSelectionTransformation();
-        emit mEditor->frameModified(mEditor->currentFrame());
+        nudge(QPointF(-1, 0));
         return;
     case Qt::Key_Up:
-        selectMan->translate(QPointF(0, -1));
-        selectMan->calculateSelectionTransformation();
-        emit mEditor->frameModified(mEditor->currentFrame());
+        nudge(QPointF(0, -1));
         return;
     case Qt::Key_Down:
-        selectMan->translate(QPointF(0, 1));
-        selectMan->calculateSelectionTransformation();
-        emit mEditor->frameModified(mEditor->currentFrame());
+        nudge(QPointF(0, 1));
         return;
     case Qt::Key_Return:
         applyTransformedSelection();
@@ -616,25 +644,21 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
             setFocus();
         }
 
-        if (mIsFirstClick)
+        // Event timestamps give the elapsed time; a double click consumes both presses.
+        const bool isDoubleClick = mHasTabletPress
+            && e->timestamp() - mTabletPressTime <= DOUBLE_CLICK_THRESHOLD
+            && QLineF(e->position(), mTabletPressPos).length() < 5.0;
+        mHasTabletPress = !isDoubleClick;
+        mTabletPressPos = e->position();
+        mTabletPressTime = e->timestamp();
+
+        if (isDoubleClick)
         {
-            mIsFirstClick = false;
-            mDoubleClickTimer->start();
-            pointerPressEvent(&event);
+            currentTool()->pointerDoubleClickEvent(&event);
         }
         else
         {
-            qreal distance = QLineF(e->position(), mTabletPressPos).length();
-            mTabletPressPos = e->position();
-
-            if (mDoubleClickMillis <= DOUBLE_CLICK_THRESHOLD && distance < 5.0) {
-                currentTool()->pointerDoubleClickEvent(&event);
-            }
-            else
-            {
-                // in case we handled the event as double click but really should have handled it as single click.
-                pointerPressEvent(&event);
-            }
+            pointerPressEvent(&event);
         }
         mTabletInUse = event.isAccepted();
     }
@@ -700,6 +724,11 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
         currentTool()->pointerPressEvent(event);
     } else if (event->button() == Qt::LeftButton)
     {
+        // A drawing tool cannot paint over a pending selection transform.
+        if (currentTool()->isDrawingTool() && !mEditor->select()->selectionTransform().isIdentity())
+        {
+            applyTransformedSelection();
+        }
         currentTool()->pointerPressEvent(event);
     }
 }
@@ -716,18 +745,6 @@ void ScribbleArea::pointerReleaseEvent(PointerEvent* event)
     currentTool()->pointerReleaseEvent(event);
 
     editor()->tools()->tryClearTemporaryTool(event->button());
-}
-
-void ScribbleArea::handleDoubleClick()
-{
-    mDoubleClickMillis += 100;
-
-    if (mDoubleClickMillis >= DOUBLE_CLICK_THRESHOLD)
-    {
-        mDoubleClickMillis = 0;
-        mIsFirstClick = true;
-        mDoubleClickTimer->stop();
-    }
 }
 
 void ScribbleArea::tabletReleaseEventFired()
@@ -798,7 +815,9 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
     mCanvas.setDevicePixelRatio(mDevicePixelRatio);
     mEditor->view()->setCanvasSize(size());
 
-    invalidateCacheForFrame(mEditor->currentFrame());
+    // Every cached frame has the old size.
+    QPixmapCache::clear();
+    mPixmapCacheKeys.clear();
     invalidatePainterCaches();
     mCanvasPainter.reset();
     mCameraPainter.reset();
@@ -928,7 +947,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         // --- we retrieve the canvas from the cache; we create it if it doesn't exist
         const int frameNumber = mEditor->layers()->lastFrameAtFrame(currentFrame);
 
-        // The frame cache is keyed by key position: a transformed or in-between frame skips it (CanvasPainter caches by content).
+        // The frame cache is keyed by frame: onion skins and the camera differ inside a hold. A transformed or in-between frame skips it (CanvasPainter caches by content).
         bool transformed = false;
         for (int i = 0; i < mEditor->object()->getLayerCount() && !transformed; ++i)
         {
@@ -943,7 +962,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         }
         else
         {
-            auto cacheKeyIter = mPixmapCacheKeys.find(static_cast<unsigned>(frameNumber));
+            auto cacheKeyIter = mPixmapCacheKeys.find(static_cast<unsigned>(currentFrame));
 
             if (cacheKeyIter == mPixmapCacheKeys.end() || !QPixmapCache::find(cacheKeyIter.value(), &mCanvas))
             {
@@ -1348,6 +1367,8 @@ void ScribbleArea::applyTransformedSelection()
             vectorImage->applySelectionTransformation(selectMan->selectionTransform());
         }
 
+        // The pixels now hold the transform: keep the selection on them with an identity transform.
+        selectMan->setSelection(selectMan->mapToSelection(QPolygonF(selectMan->mySelectionRect())).boundingRect());
         mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
     }
 

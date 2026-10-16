@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 
 #include <cmath>
+#include <limits>
 #include <QImage>
 #include <QFile>
 #include <QFileInfo>
@@ -1183,6 +1184,18 @@ void VectorImage::moveColor(int start, int end)
      }
 }
 
+void VectorImage::remapColors(const QMap<int, int>& mapping)
+{
+    for (BezierArea& area : mArea)
+    {
+        area.setColorNumber(mapping.value(area.getColorNumber(), area.getColorNumber()));
+    }
+    for (BezierCurve& curve : mCurves)
+    {
+        curve.setColorNumber(mapping.value(curve.getColorNumber(), curve.getColorNumber()));
+    }
+}
+
 /**
  * @brief VectorImage::paintImage
  * @param painter: QPainter&
@@ -1435,8 +1448,8 @@ VertexRef VectorImage::getClosestVertexTo(const BezierCurve& curve, int curveNum
     result = VertexRef(-1, -1);  // result = [-1, -1]
 
     // distance of the closest point
-    QPointF P2 = getVertex(0, 0);
-    qreal minDistance = thePoint.dotProduct(QPointF(thePoint - P2), QPointF(thePoint - P2));
+    QPointF P2;
+    qreal minDistance = std::numeric_limits<qreal>::infinity();
 
     for (int vertexPoint = -1; vertexPoint < curve.getVertexSize(); vertexPoint++)
     {

@@ -18,17 +18,28 @@ GNU General Public License for more details.
 #include <functional>
 
 #include <QAction>
+#include <QApplication>
+#include <QDataStream>
 #include <QFile>
 #include <QIcon>
+#include <QMouseEvent>
+#include <QPointingDevice>
 #include <QSettings>
+#include <QTabletEvent>
 #include <QTemporaryDir>
 
 #include "beziercurve.h"
+#include "camera.h"
+#include "cameracontextmenu.h"
+#include "cameraeasingtype.h"
+#include "cameratool.h"
+#include "colormanager.h"
 #include "bitmapimage.h"
 #include "editor.h"
 #include "filemanager.h"
 #include "layer.h"
 #include "layerbitmap.h"
+#include "layercamera.h"
 #include "layervector.h"
 #include "layersound.h"
 #include "layermanager.h"
@@ -39,9 +50,13 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "selectionmanager.h"
 #include "soundclip.h"
+#include "soundmanager.h"
 #include "testfixture.h"
+#include "toolmanager.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
+#include "viewmanager.h"
+#include "pencilsettings.h"
 
 TEST_CASE("UndoRedoManager: undo/redo of Remove frame")
 {
@@ -168,6 +183,38 @@ TEST_CASE("UndoRedoManager: frame and layer edits flag the project as unsaved")
         editor->layers()->deleteLayer(editor->layers()->currentLayerIndex());
         REQUIRE(undoRedo->hasUnsavedChanges());
     }
+}
+
+TEST_CASE("UndoRedoManager: undo and redo refresh the modified state")
+{
+    TestSession session;
+    session.object->addNewBitmapLayer();
+    session.start();
+    UndoRedoManager* undoRedo = session.editor->undoRedo();
+
+    QObject parent;
+    QAction* undoAction = undoRedo->createUndoAction(&parent, QIcon());
+    QAction* redoAction = undoRedo->createRedoAction(&parent, QIcon());
+
+    undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
+    undoRedo->markSaved();
+    undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
+    REQUIRE(undoRedo->hasUnsavedChanges());
+
+    int updated = 0;
+    int recorded = 0;
+    QObject::connect(undoRedo, &UndoRedoManager::didUpdateUndoStack, &parent, [&] { updated++; });
+    QObject::connect(undoRedo, &UndoRedoManager::didRecordEdit, &parent, [&] { recorded++; });
+
+    undoAction->trigger();
+    REQUIRE(updated > 0);
+    REQUIRE_FALSE(undoRedo->hasUnsavedChanges());
+
+    updated = 0;
+    redoAction->trigger();
+    REQUIRE(updated > 0);
+    REQUIRE(undoRedo->hasUnsavedChanges());
+    REQUIRE(recorded == 0);
 }
 
 TEST_CASE("Editor: each edit counts once toward autosave")
@@ -988,7 +1035,7 @@ TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
     // A settings file written before the legacy undo system was removed can hold this key.
     const char* oldKey = "NewUndoRedoOn";
     const SettingsGuard guard({ oldKey });
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(oldKey, false);
     settings.sync();
 
@@ -1143,4 +1190,441 @@ TEST_CASE("UndoRedoManager - moving a sound clip moves the lip-sync markers insi
     CHECK(markers() == before);
     redoAction->trigger();
     CHECK(markers() == after);
+}
+
+namespace
+{
+
+void sendTablet(ScribbleArea* area, QEvent::Type type, QPointF pos)
+{
+    const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
+    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                   1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+    QApplication::sendEvent(area, &e);
+}
+
+void tabletClick(ScribbleArea* area, QPointF pos)
+{
+    sendTablet(area, QEvent::TabletPress, pos);
+    sendTablet(area, QEvent::TabletRelease, pos);
+}
+
+} // namespace
+
+TEST_CASE("UndoRedoManager: a bucket click that fills nothing leaves no pending save state")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(3);
+    layer->removeKeyFrame(1); // frame 1 is before the first key: a click there fills nothing
+    layer->getBitmapImageAtFrame(3)->drawRect(QRectF(0, 0, 100, 100), Qt::NoPen, QBrush(Qt::red),
+                                              QPainter::CompositionMode_Source, false);
+
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BUCKET);
+    editor->color()->setFrontColor(Qt::blue);
+
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&edits] { ++edits; });
+    const QPointF pos = editor->view()->mapCanvasToScreen(QPointF(50, 50));
+
+    editor->scrubTo(1);
+    for (int i = 0; i < 5; ++i)
+        tabletClick(area, pos);
+    CHECK(edits == 0);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+
+    editor->scrubTo(3);
+    tabletClick(area, pos);
+    CHECK(edits == 1);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+    CHECK(QColor(layer->getBitmapImageAtFrame(3)->pixel(50, 50)) == QColor(Qt::blue));
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK(QColor(layer->getBitmapImageAtFrame(3)->pixel(50, 50)) == QColor(Qt::red));
+}
+
+TEST_CASE("UndoRedoManager: a bucket drag that fills three regions is one undo step")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(3);
+    layer->removeKeyFrame(1);
+    BitmapImage* image = layer->getBitmapImageAtFrame(3);
+    for (int x : { 10, 60, 110 })
+        image->drawRect(QRectF(x, 10, 30, 30), Qt::NoPen, QBrush(Qt::red), QPainter::CompositionMode_Source, false);
+
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BUCKET);
+    editor->color()->setFrontColor(Qt::blue);
+
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&edits] { ++edits; });
+    auto drag = [&] {
+        const QPointF start = editor->view()->mapCanvasToScreen(QPointF(25, 25));
+        sendTablet(area, QEvent::TabletPress, start);
+        for (int x : { 25, 75, 125 })
+            sendTablet(area, QEvent::TabletMove, editor->view()->mapCanvasToScreen(QPointF(x, 25)));
+        sendTablet(area, QEvent::TabletRelease, editor->view()->mapCanvasToScreen(QPointF(125, 25)));
+    };
+    auto filled = [&](QColor color) {
+        BitmapImage* img = layer->getBitmapImageAtFrame(3);
+        return QColor(img->pixel(25, 25)) == color && QColor(img->pixel(75, 25)) == color
+            && QColor(img->pixel(125, 25)) == color;
+    };
+
+    editor->scrubTo(1); // before the first key: the drag fills nothing
+    drag();
+    CHECK(edits == 0);
+
+    editor->scrubTo(3);
+    drag();
+    CHECK(edits == 1);
+    CHECK(filled(Qt::blue));
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK(filled(Qt::red));
+    editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
+    CHECK(filled(Qt::blue));
+}
+
+TEST_CASE("UndoRedoManager: a smudge click on a vector layer before its first key leaves no pending save state")
+{
+    TestSession session;
+    LayerVector* layer = session.object->addNewVectorLayer();
+    layer->addNewKeyFrameAt(3);
+    layer->removeKeyFrame(1);
+
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(SMUDGE);
+    editor->scrubTo(1);
+
+    tabletClick(area, editor->view()->mapCanvasToScreen(QPointF(50, 50)));
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+}
+
+TEST_CASE("UndoRedoManager: a stroke whose release came from another device leaves no pending save state")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    editor->scrubTo(1);
+    const QPointF pos = editor->view()->mapCanvasToScreen(QPointF(50, 50));
+
+    // A tablet press, then a mouse release: the tool ignores the release.
+    sendTablet(area, QEvent::TabletPress, pos);
+    QMouseEvent release(QEvent::MouseButtonRelease, pos, area->mapToGlobal(pos), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(area, &release);
+    tabletClick(area, pos);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+}
+
+TEST_CASE("UndoRedoManager: undo/redo of layer swap")
+{
+    TestSession session;
+    Object* object = session.object;
+    object->addNewCameraLayer();
+    object->addNewBitmapLayer();
+    object->addNewVectorLayer();
+    object->addNewBitmapLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto order = [&]
+    {
+        QList<int> ids;
+        for (int i = 0; i < object->getLayerCount(); ++i) { ids.append(object->getLayer(i)->id()); }
+        return ids;
+    };
+
+    const QList<int> before = order();
+    editor->swapLayers(1, 2);
+    const QList<int> after = order();
+    REQUIRE(after == QList<int>{ before[0], before[2], before[1], before[3] });
+
+    SECTION("Undo and redo the swap")
+    {
+        undoAction->trigger();
+        CHECK(order() == before);
+        redoAction->trigger();
+        CHECK(order() == after);
+    }
+
+    SECTION("Undo a layer delete after the swap, then the swap")
+    {
+        REQUIRE(editor->layers()->deleteLayer(1) == Status::OK);
+        undoAction->trigger();
+        CHECK(order() == after);
+        undoAction->trigger();
+        CHECK(order() == before);
+    }
+}
+
+TEST_CASE("UndoRedoManager: a camera drag is one undo step")
+{
+    TestSession session;
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(CAMERA);
+    Camera* cam = layer->getCameraAtFrame(1);
+    const QPointF before = cam->translation();
+
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&edits] { ++edits; });
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+    // The hover picks the move mode; a press keeps it.
+    QTabletEvent hover(QEvent::TabletMove, QPointingDevice::primaryPointingDevice(), screen(QPointF(0, 0)),
+                       area->mapToGlobal(screen(QPointF(0, 0))), 0.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+    QApplication::sendEvent(area, &hover);
+    sendTablet(area, QEvent::TabletPress, screen(QPointF(0, 0)));
+    for (int i = 1; i <= 4; ++i) { sendTablet(area, QEvent::TabletMove, screen(QPointF(i * 5, i * 2))); }
+    sendTablet(area, QEvent::TabletRelease, screen(QPointF(20, 8)));
+
+    const QPointF after = cam->translation();
+    REQUIRE(after != before);
+    CHECK(edits == 1);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK(layer->getCameraAtFrame(1)->translation() == before);
+    editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
+    CHECK(layer->getCameraAtFrame(1)->translation() == after);
+
+    SECTION("A click without a drag records nothing")
+    {
+        tabletClick(area, screen(QPointF(200, 200)));
+        CHECK(edits == 1);
+        CHECK(editor->undoRedo()->pendingStateCount() == 0);
+    }
+}
+
+TEST_CASE("UndoRedoManager: undo/redo of camera reset actions")
+{
+    TestSession session;
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    layer->addNewKeyFrameAt(5);
+    layer->getCameraAtFrame(1)->scale(2.0);
+    layer->getCameraAtFrame(5)->translate(QPointF(100, 0));
+    layer->updatePathControlPointAtFrame(QPointF(50, 50), 1);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    CameraTool* tool = static_cast<CameraTool*>(editor->tools()->getTool(CAMERA));
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    Camera* cam = layer->getCameraAtFrame(1);
+
+    SECTION("Reset scale")
+    {
+        tool->performAction(CameraTool::RESET_SCALING);
+        REQUIRE(cam->scaling() == Approx(1.0));
+        undoAction->trigger();
+        CHECK(cam->scaling() == Approx(2.0));
+        redoAction->trigger();
+        CHECK(cam->scaling() == Approx(1.0));
+    }
+
+    SECTION("Reset path")
+    {
+        tool->performAction(CameraTool::RESET_PATH);
+        REQUIRE_FALSE(cam->pathControlPointMoved());
+        undoAction->trigger();
+        CHECK(cam->pathControlPointMoved());
+        CHECK(cam->getPathControlPoint() == QPointF(50, 50));
+        redoAction->trigger();
+        CHECK_FALSE(cam->pathControlPointMoved());
+    }
+}
+
+TEST_CASE("UndoRedoManager: camera context menu edits are one undo step each")
+{
+    TestSession session;
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    layer->addNewKeyFrameAt(5);
+    Camera* cam = layer->getCameraAtFrame(1);
+    cam->scale(2.0);
+    cam->rotate(15);
+    cam->translate(QPointF(30, 0));
+    cam->setEasingType(CameraEasingType::INSINE);
+    layer->getCameraAtFrame(5)->translate(QPointF(100, 40));
+    layer->getCameraAtFrame(5)->scale(0.5);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+
+    const QString text = GENERATE(as<QString>{}, "Linear", "Reset all", "Reset position", "Reset scale", "Reset rotation",
+                                  "Align horizontally to frame 5", "Align vertically to frame 5", "Hold to keyframe 5");
+    INFO(text.toStdString());
+    CameraContextMenu menu(editor, 1, layer);
+    QAction* action = nullptr;
+    for (QAction* a : menu.findChildren<QAction*>())
+        if (a->text() == text) { action = a; }
+    REQUIRE(action != nullptr);
+
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&edits] { ++edits; });
+    // Some edits change the next key: compare both.
+    auto keysEqual = [layer](const std::vector<std::unique_ptr<Camera>>& saved) {
+        return *layer->getCameraAtFrame(1) == *saved[0] && *layer->getCameraAtFrame(5) == *saved[1];
+    };
+    auto snapshot = [layer] {
+        std::vector<std::unique_ptr<Camera>> keys;
+        keys.emplace_back(layer->getCameraAtFrame(1)->clone());
+        keys.emplace_back(layer->getCameraAtFrame(5)->clone());
+        return keys;
+    };
+    const auto before = snapshot();
+    action->trigger();
+    const auto after = snapshot();
+    REQUIRE_FALSE(keysEqual(before));
+    CHECK(edits == 1);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK(keysEqual(before));
+    editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
+    CHECK(keysEqual(after));
+}
+
+namespace
+{
+// A valid 16-bit mono PCM WAV of silence, so a media player can open it.
+QString writeSilentWav(const QTemporaryDir& dir)
+{
+    const QString path = dir.filePath("silence.wav");
+    const quint32 sampleRate = 8000;
+    const QByteArray data(sampleRate * 2, '\0');
+    QByteArray wav;
+    QDataStream s(&wav, QIODevice::WriteOnly);
+    s.setByteOrder(QDataStream::LittleEndian);
+    s.writeRawData("RIFF", 4);
+    s << quint32(36 + data.size());
+    s.writeRawData("WAVEfmt ", 8);
+    s << quint32(16) << quint16(1) << quint16(1) << sampleRate << quint32(sampleRate * 2) << quint16(2) << quint16(16);
+    s.writeRawData("data", 4);
+    s << quint32(data.size());
+    s.writeRawData(data.constData(), data.size());
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) { return {}; }
+    file.write(wav);
+    return path;
+}
+}
+
+TEST_CASE("UndoRedoManager: undo/redo of sound import")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString wav = writeSilentWav(dir);
+    REQUIRE_FALSE(wav.isEmpty());
+
+    TestSession session;
+    LayerSound* sound = session.object->addNewSoundLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(sound);
+    editor->scrubTo(3);
+
+    REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
+    REQUIRE(sound->keyExists(3));
+    const QString copied = sound->getKeyFrameAt(3)->fileName();
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK_FALSE(sound->keyExists(3));
+    editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
+    REQUIRE(sound->keyExists(3));
+    SoundClip* clip = static_cast<SoundClip*>(sound->getKeyFrameAt(3));
+    CHECK(clip->soundClipName() == "Beep");
+    CHECK(clip->fileName() == copied);
+    CHECK(clip->player() != nullptr);
+}
+
+TEST_CASE("UndoRedoManager: undo of a removed sound frame restores a playable clip")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString wav = writeSilentWav(dir);
+    REQUIRE_FALSE(wav.isEmpty());
+
+    TestSession session;
+    LayerSound* sound = session.object->addNewSoundLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(sound);
+    editor->scrubTo(3);
+    REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
+    const QString file = sound->getKeyFrameAt(3)->fileName();
+
+    editor->removeKey();
+    REQUIRE_FALSE(sound->keyExists(3));
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    REQUIRE(sound->keyExists(3));
+    SoundClip* clip = static_cast<SoundClip*>(sound->getKeyFrameAt(3));
+    CHECK(clip->fileName() == file);
+    CHECK(clip->player() != nullptr);
+}
+
+TEST_CASE("UndoRedoManager: deleting a sound layer stops its playing clip")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString wav = writeSilentWav(dir);
+    REQUIRE_FALSE(wav.isEmpty());
+
+    TestSession session;
+    session.object->addNewCameraLayer();
+    LayerSound* sound = session.object->addNewSoundLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(sound);
+    editor->scrubTo(1);
+    REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
+    SoundClip* clip = static_cast<SoundClip*>(sound->getKeyFrameAt(1));
+
+    clip->play();
+    REQUIRE(clip->isPlaying());
+    REQUIRE(editor->layers()->deleteLayer(editor->layers()->currentLayerIndex()) == Status::OK);
+    CHECK_FALSE(clip->isPlaying()); // the undo stack keeps the layer and its clip alive
 }

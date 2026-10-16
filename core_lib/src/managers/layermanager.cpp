@@ -375,6 +375,11 @@ Layer* LayerManager::takeLayer(int index)
     {
         setCurrentLayer(current - 1);
     }
+    // The undo stack keeps a taken layer alive: stop its clips.
+    if (layer->type() == Layer::SOUND)
+    {
+        layer->foreachKeyFrame([](KeyFrame* key) { static_cast<SoundClip*>(key)->stop(); });
+    }
     object()->takeLayer(layer->id());
     if (index < current)
     {

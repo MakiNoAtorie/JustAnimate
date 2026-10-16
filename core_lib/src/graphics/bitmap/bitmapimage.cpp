@@ -242,6 +242,13 @@ void BitmapImage::paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm, 
     painter.end();
 
     modification();
+
+    // Erase and smudge can clear pixels: shrink the bounds once per stroke.
+    if (cm == QPainter::CompositionMode_DestinationOut || cm == QPainter::CompositionMode_Source)
+    {
+        mMinBound = false;
+        autoCrop();
+    }
 }
 
 void BitmapImage::moveTopLeft(QPoint point)

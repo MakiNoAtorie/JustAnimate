@@ -19,7 +19,10 @@ GNU General Public License for more details.
 
 #include <QApplication>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <cstring>
+
+#include "pencilsettings.h"
 
 int crashAfterAutosave(bool thenSave); // test_emergencysave.cpp
 
@@ -42,6 +45,9 @@ int main(int argc, char* argv[])
     QApplication a(argc, argv);
     QStandardPaths::setTestModeEnabled(true); // keep crash-recovery files out of the user's folders
 
+    QTemporaryDir settingsDir; // empty settings, like CI; keeps the user's real settings untouched
+    usePencilSettingsIniFile(settingsDir.filePath("settings.ini"));
+
     if (argc == 2 && std::strcmp(argv[1], "--crash-after-autosave") == 0)
         return crashAfterAutosave(false);
     if (argc == 2 && std::strcmp(argv[1], "--crash-after-save") == 0)
@@ -49,5 +55,6 @@ int main(int argc, char* argv[])
 
     int result = Catch::Session().run(argc, argv);
 
+    pencilSettings().sync(); // flush before the temp folder goes
     return result;
 }

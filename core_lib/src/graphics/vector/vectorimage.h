@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #define VECTORIMAGE_H
 
 #include <QTransform>
+#include <QMap>
 
 #include "bezierarea.h"
 #include "beziercurve.h"
@@ -89,6 +90,7 @@ public:
     int getCurvesColor(int curve);
     bool isCurveVisible(int curve);
     void moveColor(int start, int end);
+    void remapColors(const QMap<int, int>& mapping);
 
     void paintImage(QPainter& painter, const Object& object, bool simplified, bool showThinCurves, bool antialiasing);
 

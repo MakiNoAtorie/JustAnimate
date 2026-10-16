@@ -147,7 +147,12 @@ Status CommandLineExporter::exportMovie(const QString &outputPath,
     desc.strCameraName = cameraLayer->name();
 
     MovieExporter ex;
-    return ex.run(mEditor->object(), desc, [](float, float){}, [](float){}, [](const QString &){});
+    const Status st = ex.run(mEditor->object(), desc, [](float, float){}, [](float){}, [](const QString &){});
+    for (const QString& clip : ex.skippedClips())
+    {
+        mErr << tr("Warning: sound clip left out, file is missing: %1", "Command line warning").arg(clip) << qEndl;
+    }
+    return st;
 }
 
 Status CommandLineExporter::exportImageSequence(const QString &outputPath,

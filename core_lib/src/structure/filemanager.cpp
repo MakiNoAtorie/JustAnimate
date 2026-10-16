@@ -31,6 +31,8 @@ GNU General Public License for more details.
 #include "fileformat.h"
 #include "object.h"
 #include "layercamera.h"
+#include "layersound.h"
+#include "soundclip.h"
 #include "util.h"
 
 FileManager::FileManager(QObject* parent) : QObject(parent)
@@ -319,7 +321,6 @@ Status FileManager::save(const Object* object, const QString& sFileName)
 
     const QString sTempWorkingFolder = object->workingDir();
     dd << QString("Working dir: %1").arg(sTempWorkingFolder);
-    Q_ASSERT(QDir(sTempWorkingFolder).exists());
 
     const QString sMainXMLFile = QDir(sTempWorkingFolder).filePath(PFF_XML_FILE_NAME);
     const QString sDataFolder = QDir(sTempWorkingFolder).filePath(PFF_OLD_DATA_DIR);
@@ -709,6 +710,15 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
             dd << QString("\nError: Failed to move frames of Layer[%1] %2").arg(i).arg(layer->name());
             return Status(Status::FAIL, dd);
         }
+    }
+
+    mSkippedSoundClips.clear();
+    for (LayerSound* sound : object->getLayersByType<LayerSound>())
+    {
+        sound->foreachKeyFrame([&](KeyFrame* clip) {
+            if (static_cast<SoundClip*>(clip)->isFileMissing())
+                mSkippedSoundClips << sound->clipLabel(clip);
+        });
     }
 
     bool saveLayersOK = true;

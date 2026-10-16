@@ -35,10 +35,14 @@ GNU General Public License for more details.
 
 
 #include "bitmapimage.h"
+#include "camera.h"
 #include "vectorimage.h"
 
 UndoRedoManager::UndoRedoManager(Editor* editor) : BaseManager(editor, "UndoRedoManager")
 {
+    // Undo and redo only move the stack index; the window listens to this signal.
+    connect(&mUndoStack, &QUndoStack::indexChanged, this, &UndoRedoManager::didUpdateUndoStack);
+    connect(&mUndoStack, &QUndoStack::cleanChanged, this, &UndoRedoManager::didUpdateUndoStack);
     qDebug() << "UndoRedoManager: created";
 }
 
@@ -124,6 +128,10 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
             pasteKeyFrames(*saveState, description);
             break;
         }
+        case UndoRedoRecordType::CAMERA_MODIFY: {
+            modifyCameras(*saveState, description);
+            break;
+        }
         default: {
             QString reason("Unhandled case for: ");
             reason.append(description);
@@ -134,6 +142,11 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
 
     // The save state has now been used and should be invalidated so we can't use it again.
     clearState(saveState);
+}
+
+void UndoRedoManager::discardState(SAVESTATE_ID saveStateId)
+{
+    delete mSaveStates.take(saveStateId);
 }
 
 void UndoRedoManager::clearState(UndoSaveState*& state)
@@ -288,6 +301,24 @@ void UndoRedoManager::pasteKeyFrames(const UndoSaveState& undoState, const QStri
     pushCommand(element);
 }
 
+void UndoRedoManager::modifyCameras(const UndoSaveState& undoState, const QString& description)
+{
+    const Layer* layer = editor()->layers()->findLayerById(undoState.layerId);
+    if (layer == nullptr || layer->type() != Layer::CAMERA) { return; }
+
+    std::vector<std::unique_ptr<Camera>> after;
+    layer->foreachKeyFrame([&after](KeyFrame* key) { after.emplace_back(static_cast<Camera*>(key->clone())); });
+    const std::vector<std::unique_ptr<KeyFrame>>& before = undoState.selectedKeyframes;
+    bool changed = before.size() != after.size();
+    for (size_t i = 0; !changed && i < after.size(); ++i)
+    {
+        changed = !(*static_cast<const Camera*>(before[i].get()) == *after[i]);
+    }
+    if (!changed) { return; }
+
+    pushCommand(new CameraModifyCommand(before, after, undoState.layerId, description, editor()));
+}
+
 void UndoRedoManager::replaceBitmap(const UndoSaveState& undoState, const QString& description)
 {
     if (undoState.keyframe == nullptr || undoState.layerType != Layer::BITMAP) { return; }
@@ -410,6 +441,10 @@ void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState, cons
         undoSaveState->recordType == UndoRedoRecordType::KEYFRAMES_PASTE) {
         layer->foreachKeyFrame([undoSaveState](KeyFrame* key) {
             undoSaveState->keyframePositions.insert(key, key->pos());
+        });
+    } else if (undoSaveState->recordType == UndoRedoRecordType::CAMERA_MODIFY && layer->type() == Layer::CAMERA) {
+        layer->foreachKeyFrame([undoSaveState](KeyFrame* key) {
+            undoSaveState->selectedKeyframes.emplace_back(key->clone());
         });
     } else if (undoSaveState->recordType == UndoRedoRecordType::KEYFRAMES_REMOVE) {
         const QList<int> positions = layer->selectedKeyFramesPositions();

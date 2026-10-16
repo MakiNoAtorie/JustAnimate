@@ -29,6 +29,8 @@ GNU General Public License for more details.
 
 #include <QProgressDialog>
 #include <QMessageBox>
+#include <algorithm>
+#include <QCollator>
 #include <QDir>
 #include <QtDebug>
 #include <QDialogButtonBox>
@@ -215,6 +217,16 @@ void ImportImageSeqDialog::importArbitrarySequence(const ImportImageConfig impor
     progress.close();
 }
 
+QStringList naturalSortedFileNames(const QDir& dir)
+{
+    QStringList names = dir.entryList(QDir::Files);
+    // The C locale (CI, LANG unset) ignores numeric mode.
+    QCollator collator{QLocale(QLocale::English)};
+    collator.setNumericMode(true);
+    std::sort(names.begin(), names.end(), collator);
+    return names;
+}
+
 const PredefinedKeySetParams ImportImageSeqDialog::predefinedKeySetParams() const
 {
     QString strFilePath = getFilePath();
@@ -250,7 +262,7 @@ const PredefinedKeySetParams ImportImageSeqDialog::predefinedKeySetParams() cons
     QString suffix = strFilePath.mid(dot, strFilePath.length() - 1);
 
     QDir dir = strFilePath.left(strFilePath.lastIndexOf("/"));
-    QStringList sList = dir.entryList(QDir::Files, QDir::Name);
+    QStringList sList = naturalSortedFileNames(dir);
     if (sList.isEmpty()) { return setParams; }
 
     // List of files is not empty. Let's go find the relevant files

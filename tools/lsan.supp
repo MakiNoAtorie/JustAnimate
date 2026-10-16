@@ -1,0 +1,2 @@
+leak:libpulse.so
+leak:libpulsecommon

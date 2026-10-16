@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "fileformat.h"
 #include "layermanager.h"
 #include "soundmanager.h"
+#include "undoredomanager.h"
 #include "layer.h"
 #include "layersound.h"
 #include "layervector.h"
@@ -93,36 +94,36 @@ void ImportLayersDialog::listWidgetChanged()
 
 void ImportLayersDialog::importLayers()
 {
-    Object* object = mEditor->object();
-    int currentFrame = mEditor->currentFrame();
     Q_ASSERT(ui->lwLayers->count() == mImportObject->getLayerCount());
-
-    QMap<int, int> importedColors;
-
+    QList<int> layerIds;
     for (const QListWidgetItem* item : ui->lwLayers->selectedItems())
     {
-        mImportLayer = mImportObject->takeLayer(item->data(Qt::UserRole).toInt());
-        mImportLayer->setName(mEditor->layers()->nameSuggestLayer(item->text()));
+        layerIds.append(item->data(Qt::UserRole).toInt());
+    }
+    importLayersById(layerIds);
+}
+
+void ImportLayersDialog::importLayersById(const QList<int>& layerIds)
+{
+    Object* object = mEditor->object();
+    int currentFrame = mEditor->currentFrame();
+
+    QMap<int, int> importedColors;
+    const UndoMacro macro(mEditor->undoRedo(), tr("Import Layers"));
+
+    for (int layerId : layerIds)
+    {
+        mImportLayer = mImportObject->takeLayer(layerId);
+        if (mImportLayer == nullptr) { continue; }
+        mImportLayer->setName(mEditor->layers()->nameSuggestLayer(mImportLayer->name()));
         loadKeyFrames(mImportLayer); // all keyframes of this layer must be in memory
 
         object->addLayer(mImportLayer);
+        mEditor->undoRedo()->recordLayerAdd(mImportLayer->id(), tr("Import Layers"));
 
         if (mImportLayer->type() == Layer::VECTOR)
         {
-            LayerVector* layerVector = static_cast<LayerVector*>(mImportLayer);
-            for (int i = 0; i < mImportObject->getColorCount(); i++) {
-                if (!layerVector->usesColor(i)) {
-                    continue;
-                }
-
-                if (!importedColors.contains(i)) {
-                    const ColorRef color = mImportObject->getColor(i);
-                    object->addColor(color);
-                    importedColors[i] = object->getColorCount() - 1;
-                }
-
-                layerVector->moveColor(i, importedColors[i]);
-            }
+            object->importVectorColors(static_cast<LayerVector*>(mImportLayer), *mImportObject, importedColors);
         }
 
         if (mImportLayer->type() == Layer::SOUND)

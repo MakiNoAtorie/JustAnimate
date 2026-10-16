@@ -49,7 +49,8 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -yq --no-install-recommends \
             qt6-base-dev qt6-multimedia-dev qt6-svg-dev qt6-tools-dev \
-            qt6-tools-dev-tools qt6-l10n-tools libgl-dev ninja-build
+            qt6-tools-dev-tools qt6-l10n-tools libgl-dev ninja-build \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good  # QMediaPlayer crashes without them
 
       - name: Install Qt (macOS, Windows)
         if: runner.os != 'Linux'
@@ -82,6 +83,9 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest https://github.com/pencil2d/pencil2d-deps/releases/download/ffmpge-v4.1.1/ffmpeg-win64.zip -OutFile ffmpeg-win64.zip
+          $expected = '70FF7D439FF98EAF7055559E5E9D22E36892D3EB24D07E31C64307B875382178'
+          $actual = (Get-FileHash -Algorithm SHA256 ffmpeg-win64.zip).Hash
+          if ($actual -ne $expected) { throw "ffmpeg-win64.zip SHA-256 mismatch: expected $expected, got $actual" }
           Expand-Archive ffmpeg-win64.zip -DestinationPath ffmpeg
           "FFMPEG=$("$PWD\ffmpeg\ffmpeg.exe".Replace('\', '/'))" >> $env:GITHUB_ENV
 
@@ -201,6 +205,8 @@ jobs:
       # handler; ASan must let it run, not replace it.
       ASAN_OPTIONS: allow_user_segv_handler=1:detect_leaks=1
       UBSAN_OPTIONS: print_stacktrace=1
+      # QMediaPlayer's GStreamer device monitor leaks inside libpulse.
+      LSAN_OPTIONS: suppressions=${{ github.workspace }}/tools/lsan.supp
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -208,7 +214,10 @@ jobs:
       - name: Install Qt
         run: |
           sudo apt-get update -q
-          sudo apt-get install -yq --no-install-recommends             qt6-base-dev qt6-multimedia-dev qt6-svg-dev qt6-tools-dev             qt6-tools-dev-tools qt6-l10n-tools libgl-dev ninja-build
+          sudo apt-get install -yq --no-install-recommends \
+            qt6-base-dev qt6-multimedia-dev qt6-svg-dev qt6-tools-dev \
+            qt6-tools-dev-tools qt6-l10n-tools libgl-dev ninja-build \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good  # QMediaPlayer crashes without them
 
       - name: Configure
         run: cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_SANITIZE=ON

@@ -35,6 +35,8 @@ public:
 
     void setCore(Editor *editor);
     Status loadFile(const QString& fileName);
+    /** Imports the layers of the loaded file with the given ids as one undo step. */
+    void importLayersById(const QList<int>& layerIds);
 
 public slots:
     void getFileName();

@@ -286,20 +286,19 @@ void Object::createWorkingDir()
         QFileInfo fileInfo(mFilePath);
         projectName = fileInfo.completeBaseName();
     }
-    QDir dir(QDir::tempPath());
+    const QString tempRoot = QString("%1/%2/").arg(QDir::tempPath(), APP_TEMP_DIR_NAME);
+    QDir dir;
+    dir.mkpath(tempRoot);
 
+    // mkdir fails on an existing folder, so two processes never share one.
     QString strWorkingDir;
+    int attempts = 0;
     do
     {
-        strWorkingDir = QString("%1/%2/%3_%4_%5/").arg(QDir::tempPath(),
-                                                             APP_TEMP_DIR_NAME,
-                                                             projectName,
-                                                             PFF_TMP_DECOMPRESS_EXT,
-                                                             uniqueString(8));
+        strWorkingDir = QString("%1%2_%3_%4/").arg(tempRoot, projectName, PFF_TMP_DECOMPRESS_EXT, uniqueString(8));
     }
-    while(dir.exists(strWorkingDir));
+    while (!dir.mkdir(strWorkingDir) && ++attempts < 100);
 
-    dir.mkpath(strWorkingDir);
     mWorkingDirPath = strWorkingDir;
 
     QDir dataDir(strWorkingDir + PFF_DATA_DIR);
@@ -421,18 +420,6 @@ void Object::insertLayer(int index, Layer* layer)
     mLayers.insert(qBound(0, index, static_cast<int>(mLayers.size())), layer);
 }
 
-bool Object::swapLayers(int i, int j)
-{
-    bool canSwap = canSwapLayers(i, j);
-    if (!canSwap) { return false; }
-
-    if (i != j)
-    {
-        mLayers.swapItemsAt(i, j);
-    }
-    return true;
-}
-
 bool Object::canSwapLayers(int layerIndexLeft, int layerIndexRight) const
 {
     if (layerIndexLeft < 0 || layerIndexLeft >= mLayers.size())
@@ -540,6 +527,25 @@ void Object::moveVectorColor(int start, int end)
             static_cast<LayerVector*>(layer)->moveColor(start, end);
         }
     }
+}
+
+void Object::importVectorColors(LayerVector* layer, const Object& source, QMap<int, int>& importedColors)
+{
+    QMap<int, int> mapping;
+    for (int i = 0; i < source.getColorCount(); i++)
+    {
+        if (!layer->usesColor(i))
+        {
+            continue;
+        }
+        if (!importedColors.contains(i))
+        {
+            addColor(source.getColor(i));
+            importedColors[i] = getColorCount() - 1;
+        }
+        mapping[i] = importedColors[i];
+    }
+    layer->remapColors(mapping);
 }
 
 void Object::addColorAtIndex(int index, const ColorRef& newColor)

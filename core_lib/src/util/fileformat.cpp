@@ -31,7 +31,6 @@ bool removePFFTmpDirectory(const QString& dirName)
 
     if (!dir.exists())
     {
-        Q_ASSERT(false);
         return false;
     }
 

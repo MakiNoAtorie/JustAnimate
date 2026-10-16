@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "pencildef.h"
 #include "scribblearea.h"
+#include "pencilsettings.h"
 
 /// Puts the given QSettings keys back as they were (value or absent) at scope exit.
 class SettingsGuard
@@ -33,12 +34,12 @@ class SettingsGuard
 public:
     SettingsGuard(std::initializer_list<const char*> keys)
     {
-        QSettings settings(PENCIL2D, PENCIL2D);
+        QSettings& settings = pencilSettings();
         for (const char* key : keys) { mSaved.insert(key, settings.value(key)); }
     }
     ~SettingsGuard()
     {
-        QSettings settings(PENCIL2D, PENCIL2D);
+        QSettings& settings = pencilSettings();
         for (auto it = mSaved.cbegin(); it != mSaved.cend(); ++it)
         {
             if (it.value().isValid()) { settings.setValue(it.key(), it.value()); }

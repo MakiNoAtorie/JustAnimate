@@ -14,13 +14,20 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
-#include <QDateTime>
+#include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
+#include <memory>
+
+#include "layersound.h"
 #include "movieexporter.h"
+#include "object.h"
+#include "soundclip.h"
 #include "pencilerror.h"
 
 static QString makeFile(const QTemporaryDir& dir)
@@ -31,34 +38,107 @@ static QString makeFile(const QTemporaryDir& dir)
     return f.fileName();
 }
 
-TEST_CASE("MovieExporter::discardPartialOutput")
+static QByteArray readAll(const QString& path)
+{
+    QFile f(path);
+    REQUIRE(f.open(QIODevice::ReadOnly));
+    return f.readAll();
+}
+
+TEST_CASE("MovieExporter::writeThenReplace")
 {
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
-    const QString path = makeFile(dir);
+    const QString target = dir.filePath("out.mp4");
+    QString written;
+    auto partial = [&written](Status result) {
+        return [&written, result](const QString& path) {
+            written = path;
+            QFile f(path);
+            REQUIRE(f.open(QIODevice::WriteOnly));
+            f.write("cut");
+            return result;
+        };
+    };
 
-    const QFileInfo before(path);
+    SECTION("A cancelled export keeps the previous target and leaves no temporary file")
+    {
+        makeFile(dir);
+        REQUIRE((MovieExporter::writeThenReplace(target, partial(Status::CANCELED)) == Status::CANCELED));
+        REQUIRE(written != target);
+        REQUIRE(written.endsWith(".mp4"));
+        REQUIRE(readAll(target) == "partial");
+        REQUIRE(QDir(dir.path()).entryList(QDir::Files) == QStringList("out.mp4"));
+    }
+    SECTION("A failed export with no target leaves no file")
+    {
+        REQUIRE((MovieExporter::writeThenReplace(target, partial(Status::FAIL)) == Status::FAIL));
+        REQUIRE(QDir(dir.path()).entryList(QDir::Files).isEmpty());
+    }
+    SECTION("A successful export replaces the target with the new movie")
+    {
+        makeFile(dir);
+        const QString ffmpeg = QStandardPaths::findExecutable("ffmpeg");
+        if (ffmpeg.isEmpty()) { WARN("ffmpeg not installed: skipping encode check"); return; }
+        auto encode = [&ffmpeg](const QString& path) {
+            const QStringList args = { "-f", "lavfi", "-i", "testsrc=size=64x64:rate=6:duration=1", "-pix_fmt", "yuv420p", "-y", path };
+            return MovieExporter::executeFFmpeg(ffmpeg, args, [](int) { return true; });
+        };
+        REQUIRE(MovieExporter::writeThenReplace(target, encode).ok());
+        REQUIRE(readAll(target).mid(4, 4) == "ftyp");
+        REQUIRE(QDir(dir.path()).entryList(QDir::Files) == QStringList("out.mp4"));
+    }
+}
 
-    SECTION("A file the failed run created is removed")
+static void touch(const QString& path)
+{
+    QFile f(path);
+    REQUIRE(f.open(QIODevice::WriteOnly));
+}
+
+TEST_CASE("MovieExporter::audioMix skips clips whose file is missing")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString present = dir.filePath("present.wav");
+    const QString gone = dir.filePath("gone.wav");
+    touch(present);
+
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    LayerSound* sound = obj->addNewSoundLayer();
+    sound->setName("Voice");
+    auto addClip = [sound](int frame, const QString& path) {
+        SoundClip* clip = new SoundClip;
+        clip->setFileName(path);
+        REQUIRE(sound->addKeyFrame(frame, clip));
+    };
+    addClip(1, present);
+    addClip(5, gone);
+
+    SECTION("one missing file leaves one input and names the skipped clip")
     {
-        MovieExporter::discardPartialOutput(path, QDateTime(), 0);
-        REQUIRE_FALSE(QFile::exists(path));
+        const MovieExporter::AudioMix mix = MovieExporter::audioMix(obj.get(), 1, 10, 12, "out.wav");
+        REQUIRE(mix.args.count("-i") == 1);
+        REQUIRE(mix.skipped == QStringList{ "Voice frame 5" });
     }
-    SECTION("A file the failed run began to overwrite is removed")
+
+    SECTION("no missing files gives no warning")
     {
-        const QDateTime modifiedBefore = before.lastModified();
-        const qint64 sizeBefore = before.size();
-        QFile f(path);
-        REQUIRE(f.open(QIODevice::WriteOnly));
-        f.write("cut");
-        f.close();
-        MovieExporter::discardPartialOutput(path, modifiedBefore, sizeBefore);
-        REQUIRE_FALSE(QFile::exists(path));
+        touch(gone);
+        const MovieExporter::AudioMix mix = MovieExporter::audioMix(obj.get(), 1, 10, 12, "out.wav");
+        REQUIRE(mix.args.count("-i") == 2);
+        REQUIRE(mix.skipped.isEmpty());
     }
-    SECTION("A file the failed run never touched is kept")
+
+    SECTION("all files missing gives no audio command")
     {
-        MovieExporter::discardPartialOutput(path, before.lastModified(), before.size());
-        REQUIRE(QFile::exists(path));
+        QFile::remove(present);
+        const MovieExporter::AudioMix mix = MovieExporter::audioMix(obj.get(), 1, 10, 12, "out.wav");
+        REQUIRE(mix.args.isEmpty());
+        REQUIRE(mix.skipped.size() == 2);
+        REQUIRE(mix.skipped.contains("Voice frame 1"));
+        REQUIRE(mix.skipped.contains("Voice frame 5"));
     }
 }
 
@@ -127,5 +207,41 @@ TEST_CASE("MovieExporter export presets")
             return run(QString("c%1%2.gif").arg(colors).arg(dither), { "-filter_complex", MovieExporter::gifFilter(colors, dither) });
         };
         REQUIRE(gif(4, false) != gif(256, true));
+    }
+}
+
+TEST_CASE("MovieExporter pipe holds few unwritten frames")
+{
+    const QString ffmpeg = QStandardPaths::findExecutable("ffmpeg");
+    if (ffmpeg.isEmpty()) { WARN("ffmpeg not installed: skipping pipe check"); return; }
+
+    QImage frame(1920, 1080, QImage::Format_ARGB32_Premultiplied);
+    frame.fill(Qt::white);
+    const qint64 frameBytes = frame.sizeInBytes();
+    const QStringList input = { "-f", "rawvideo", "-pixel_format", "bgra", "-video_size", "1920x1080", "-framerate", "12" };
+    const QStringList output = { "-i", "-", "-f", "null", "-" };
+    MovieExporter ex;
+    int written = 0;
+
+    SECTION("a 100-frame 1080p export stays under the bound")
+    {
+        auto next = [&](QImage& img) { img = frame; return written++ < 100; };
+        REQUIRE(ex.executeFFMpegPipe(ffmpeg, input + output, [](float) {}, next).ok());
+        REQUIRE(written == 101);
+        REQUIRE(ex.peakQueuedBytes() > 0);
+        REQUIRE(ex.peakQueuedBytes() <= MovieExporter::MAX_QUEUED_FRAMES * frameBytes);
+    }
+
+    SECTION("cancel ends a waiting export within a second")
+    {
+        // -re makes ffmpeg read at 12 fps, so the renderer waits on the pipe.
+        auto next = [&](QImage& img) { img = frame; ++written; return true; };
+        QElapsedTimer sinceCancel;
+        auto progress = [&](float) {
+            if (written == 20 && !sinceCancel.isValid()) { sinceCancel.start(); ex.cancel(); }
+        };
+        const Status st = ex.executeFFMpegPipe(ffmpeg, input + QStringList("-re") + output, progress, next);
+        REQUIRE((st == Status::CANCELED));
+        REQUIRE(sinceCancel.elapsed() < 1000);
     }
 }

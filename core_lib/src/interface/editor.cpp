@@ -305,7 +305,7 @@ void Editor::pasteToCanvas(VectorImage* vectorImage, int frameNumber)
     mScribbleArea->handleDrawingOnEmptyFrame();
     VectorImage* canvasImage = static_cast<VectorImage*>(currentLayer->getLastKeyFrameAtPosition(frameNumber));
     canvasImage->paste(*vectorImage);
-    select()->setSelection(vectorImage->getSelectionRect());
+    select()->setSelection(canvasImage->getSelectionRect());
     emit frameModified(frameNumber);
 }
 
@@ -1053,8 +1053,12 @@ void Editor::switchOnionSkinOfLayer(int layerNumber)
 
 void Editor::swapLayers(int i, int j)
 {
-    bool didSwapLayer = mObject->swapLayers(i, j);
-    if (!didSwapLayer) { return; }
+    if (!mObject->canSwapLayers(i, j)) { return; }
+
+    LayerArrangement a = mObject->layerArrangement();
+    a.layerIds.swapItemsAt(i, j);
+    a.groupIds.swapItemsAt(i, j);
+    layers()->commitLayerArrangement(a, tr("Swap Layers"));
 
     if (j < i)
     {
@@ -1065,7 +1069,6 @@ void Editor::swapLayers(int i, int j)
         layers()->setCurrentLayer(j - 1);
     }
     emit updateTimeLine();
-    mScribbleArea->onLayerChanged();
 }
 
 bool Editor::canSwapLayers(int layerIndexLeft, int layerIndexRight) const

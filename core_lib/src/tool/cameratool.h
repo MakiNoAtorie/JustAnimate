@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "basetool.h"
 #include "camerafieldoption.h"
 #include "preferencemanager.h"
+#include "undoredomanager.h"
 
 #include <QPen>
 
@@ -111,6 +112,7 @@ private:
     QPointF mTransformOffset;
     CameraMoveType mCamMoveMode = CameraMoveType::NONE;
     int mDragPathFrame = 1;
+    SAVESTATE_ID mUndoSaveStateId = 0; // the drag records once, at release
     int mRotationIncrement = 0;
 
     QRectF mCameraRect;

@@ -183,6 +183,7 @@ void ToolManager::resetAllTools()
 
 void ToolManager::tabletSwitchToEraser()
 {
+    if (mTabletEraserTool != nullptr) { return; }
     mTabletEraserTool = getTool(ERASER);
 
     // We should only notify a tool change if we're positive that the state has changed and it should only happen once

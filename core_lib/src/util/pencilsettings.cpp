@@ -16,27 +16,40 @@ GNU General Public License for more details.
 */
 #include "pencilsettings.h"
 
+#include <memory>
+
 #include <QStringList>
 #include <QDebug>
 
 
 // ==== Singleton ====
 
+static QString gIniPath;
+
+void usePencilSettingsIniFile(const QString& path)
+{
+    gIniPath = path;
+}
+
 QSettings& pencilSettings()
 {
-    static QSettings settings(PENCIL2D, PENCIL2D);
+    // MSVC with Qt 6.5 rejects a ternary of QSettings prvalues: copy constructor is deleted.
+    static const std::unique_ptr<QSettings> instance(gIniPath.isEmpty()
+        ? new QSettings(PENCIL2D, PENCIL2D)
+        : new QSettings(gIniPath, QSettings::IniFormat));
+    QSettings& settings = *instance;
 
     if ( !settings.contains("InitPencilSetting") )
     {
-        restoreToDefaultSetting();
         settings.setValue("InitPencilSetting", true);
+        restoreToDefaultSetting();
     }
     return settings;
 }
 
 void restoreToDefaultSetting() // TODO: finish reset list
 {
-    QSettings s(PENCIL2D, PENCIL2D);
+    QSettings& s = pencilSettings();
 
     s.setValue(SETTING_AUTO_SAVE_NUMBER, 15);
     s.setValue(SETTING_TOOL_CURSOR, true);
@@ -44,12 +57,11 @@ void restoreToDefaultSetting() // TODO: finish reset list
     s.sync();
     qDebug("restored default tools");
 }
-
 void checkExistingShortcuts()
 {
     QSettings defaultKey(":resources/kb.ini", QSettings::IniFormat);
 
-    QSettings curSetting( PENCIL2D, PENCIL2D );
+    QSettings& curSetting = pencilSettings();
     foreach (QString pShortcutsKey, defaultKey.allKeys())
     {
         if ( ! curSetting.contains( pShortcutsKey ) )
@@ -76,7 +88,7 @@ void restoreShortcutsToDefault()
 {
     QSettings defaultKey(":resources/kb.ini", QSettings::IniFormat);
 
-    QSettings curSetting( PENCIL2D, PENCIL2D );
+    QSettings& curSetting = pencilSettings();
     curSetting.remove("shortcuts");
 
     foreach (QString pShortcutsKey, defaultKey.allKeys())
