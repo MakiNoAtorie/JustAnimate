@@ -47,6 +47,7 @@ public:
     void playFromPosition(int frameNumber, int fps);
     void pause();
     void stop();
+    bool isPlaying() const;
 
     int64_t duration() const;
     void setDuration(const int64_t& duration);

@@ -41,6 +41,7 @@ public:
     void play();
     void pause();
     void stop();
+    bool isPlaying() const;
 
     int64_t duration();
     SoundClip* clip() { return mSoundClip; }
@@ -57,6 +58,8 @@ private:
 
     SoundClip* mSoundClip = nullptr;
     QMediaPlayer* mMediaPlayer = nullptr;
+    // Set on play() at once: the media player stays stopped until it loads the file.
+    bool mPlaying = false;
     QBuffer mBuffer;
     QVector<float> mDecoded;
     int mChannels = 1;

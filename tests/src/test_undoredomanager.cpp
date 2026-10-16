@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include <QAction>
 #include <QApplication>
+#include <QDataStream>
 #include <QFile>
 #include <QIcon>
 #include <QMouseEvent>
@@ -1490,11 +1491,89 @@ TEST_CASE("UndoRedoManager: undo/redo of sound import")
 
     REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
     REQUIRE(sound->keyExists(3));
+    const QString copied = sound->getKeyFrameAt(3)->fileName();
 
     QObject parent;
     editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
     CHECK_FALSE(sound->keyExists(3));
     editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
     REQUIRE(sound->keyExists(3));
-    CHECK(static_cast<SoundClip*>(sound->getKeyFrameAt(3))->soundClipName() == "Beep");
+    SoundClip* clip = static_cast<SoundClip*>(sound->getKeyFrameAt(3));
+    CHECK(clip->soundClipName() == "Beep");
+    CHECK(clip->fileName() == copied);
+    CHECK(clip->player() != nullptr);
+}
+
+namespace
+{
+// A valid 16-bit mono PCM WAV of silence, so a media player can open it.
+QString writeSilentWav(const QTemporaryDir& dir)
+{
+    const QString path = dir.filePath("silence.wav");
+    const quint32 sampleRate = 8000;
+    const QByteArray data(sampleRate * 2, '\0');
+    QByteArray wav;
+    QDataStream s(&wav, QIODevice::WriteOnly);
+    s.setByteOrder(QDataStream::LittleEndian);
+    s.writeRawData("RIFF", 4);
+    s << quint32(36 + data.size());
+    s.writeRawData("WAVEfmt ", 8);
+    s << quint32(16) << quint16(1) << quint16(1) << sampleRate << quint32(sampleRate * 2) << quint16(2) << quint16(16);
+    s.writeRawData("data", 4);
+    s << quint32(data.size());
+    s.writeRawData(data.constData(), data.size());
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) { return {}; }
+    file.write(wav);
+    return path;
+}
+}
+
+TEST_CASE("UndoRedoManager: undo of a removed sound frame restores a playable clip")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString wav = writeSilentWav(dir);
+    REQUIRE_FALSE(wav.isEmpty());
+
+    TestSession session;
+    LayerSound* sound = session.object->addNewSoundLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(sound);
+    editor->scrubTo(3);
+    REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
+    const QString file = sound->getKeyFrameAt(3)->fileName();
+
+    editor->removeKey();
+    REQUIRE_FALSE(sound->keyExists(3));
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    REQUIRE(sound->keyExists(3));
+    SoundClip* clip = static_cast<SoundClip*>(sound->getKeyFrameAt(3));
+    CHECK(clip->fileName() == file);
+    CHECK(clip->player() != nullptr);
+}
+
+TEST_CASE("UndoRedoManager: deleting a sound layer stops its playing clip")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString wav = writeSilentWav(dir);
+    REQUIRE_FALSE(wav.isEmpty());
+
+    TestSession session;
+    session.object->addNewCameraLayer();
+    LayerSound* sound = session.object->addNewSoundLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(sound);
+    editor->scrubTo(1);
+    REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
+    SoundClip* clip = static_cast<SoundClip*>(sound->getKeyFrameAt(1));
+
+    clip->play();
+    REQUIRE(clip->isPlaying());
+    REQUIRE(editor->layers()->deleteLayer(editor->layers()->currentLayerIndex()) == Status::OK);
+    CHECK_FALSE(clip->isPlaying()); // the undo stack keeps the layer and its clip alive
 }
