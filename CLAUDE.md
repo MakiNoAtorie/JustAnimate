@@ -15,6 +15,7 @@ by native "blocked by" edges:
 | v0.5 Paint & animate | #143 | `integration/v0.5` |
 | v1.0 | #144 | `integration/v1.0` |
 | After 1.0 | #145 | `integration/after-1.0` |
+| v1.1 Fixes | #169 | `integration/v1.1` |
 
 To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
 
