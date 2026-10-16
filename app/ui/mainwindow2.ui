@@ -987,7 +987,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Lock Windows</string>
+    <string>Lock Panels</string>
    </property>
   </action>
   <action name="actionCenter_View">

@@ -316,6 +316,7 @@ TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayo
         if (a->text() == "Reset layout") { reset = a; }
     }
     CHECK(entries == QStringList{"Draw", "Animate", "Ink", "Reset layout"});
+    CHECK(window.findChild<QAction*>("actionLockWindows")->text().toStdString() == "Lock Panels");
     REQUIRE(reset);
     reset->trigger();
     QApplication::processEvents();

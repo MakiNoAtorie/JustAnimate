@@ -2,6 +2,7 @@
 
 #include "prefsearch.h"
 #include "preferencesdialog.h"
+#include "shortcutspage.h"
 #include "pencilsettings.h"
 
 #include <QLabel>
@@ -49,4 +50,14 @@ TEST_CASE("PreferencesDialog search highlights unnamed labels and filters shortc
 
     dialog.search("");
     CHECK_FALSE(tree->isRowHidden(other, QModelIndex()));
+}
+
+TEST_CASE("Shortcuts page names the Layout commands with Glossary terms", "[PrefSearch]")
+{
+    checkExistingShortcuts();
+    ShortcutsPage page;
+    CHECK(page.filter("Reset layout"));
+    CHECK(page.filter("Lock Panels"));
+    CHECK_FALSE(page.filter("Reset Windows"));
+    CHECK_FALSE(page.filter("Lock Windows"));
 }

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Shortcuts page and Window menu say "Reset layout" and "Lock Panels" instead of "Reset Windows" and "Lock Windows" (#181).
 - Marking a cell away from the playhead no longer moves the playhead (#186).
 - Marked drawings onion skin and Flip with no Mark ticked show no Drawing instead of every Drawing (#187).
 - Command search opens once per click on the Command bar field, and no longer reopens when focus returns to the field (#183).
