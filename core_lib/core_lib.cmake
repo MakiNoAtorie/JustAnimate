@@ -79,6 +79,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/inputsmoother.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokesnapper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.h
@@ -185,6 +186,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/smudgetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/inputsmoother.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokesnapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.cpp

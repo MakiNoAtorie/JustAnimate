@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "toolmanager.h"
 #include "mathutils.h"
+#include "overlaymanager.h"
 #include "tiledbuffer.h"
 
 #include "canvascursorpainter.h"
@@ -434,9 +435,20 @@ void StrokeTool::migrateLineStabilization(const QSettings& settings)
     }
 }
 
-void StrokeTool::applySmoothing()
+void StrokeTool::prepareInput()
 {
     mInterpolator.setSmoothing(strokeToolProperties().smoothingMode(), strokeToolProperties().smoothingStrength());
+
+    // Snap in viewport px, so the reach stays the same at any zoom.
+    constexpr qreal kSnapTolerancePx = 16;
+    QList<QLineF> guides;
+    const OverlayManager* overlays = mEditor->overlays();
+    if (overlays->isRulerEnabled())
+    {
+        const QLineF ruler = overlays->ruler();
+        guides << QLineF(mEditor->view()->mapCanvasToScreen(ruler.p1()), mEditor->view()->mapCanvasToScreen(ruler.p2()));
+    }
+    mInterpolator.setSnapGuides(guides, kSnapTolerancePx);
 }
 
 void StrokeTool::setSmoothingMode(int mode)

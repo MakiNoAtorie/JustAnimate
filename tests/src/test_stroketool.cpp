@@ -35,6 +35,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "layervector.h"
 #include "object.h"
+#include "overlaymanager.h"
 #include "preferencemanager.h"
 #include "pressurecurve.h"
 #include "scribblearea.h"
@@ -1155,4 +1156,85 @@ TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
     CHECK(qAlpha(painted) > 250);
     CHECK(qBlue(painted) == qAlpha(painted));
     CHECK(qRed(painted) + qGreen(painted) == 0);
+}
+
+TEST_CASE("StrokeTool - a stroke that starts near the ruler snaps to it")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(4);
+    brush->setPressureEnabled(false);
+    brush->setFeatherEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    // Canvas rows that hold ink after a stroke on a new key, as [top, bottom].
+    auto draw = [&](int frame, QPointF a, QPointF b) {
+        layer->addNewKeyFrameAt(frame);
+        editor->scrubTo(frame);
+        stroke(area, a, b, 1.0);
+        BitmapImage* image = layer->getBitmapImageAtFrame(frame);
+        const QImage* img = image->image();
+        int top = INT_MAX, bottom = INT_MIN;
+        for (int y = 0; y < img->height(); ++y)
+            for (int x = 0; x < img->width(); ++x)
+                if (qAlpha(img->pixel(x, y)) != 0)
+                {
+                    top = std::min(top, image->top() + y);
+                    bottom = std::max(bottom, image->top() + y);
+                }
+        return std::make_pair(top, bottom);
+    };
+
+    // A horizontal ruler on canvas row 0; the pen starts 6 px below it and drifts down.
+    editor->overlays()->setRuler(QLineF(-200, 0, 200, 0));
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+    const QPointF from = origin + QPointF(-150, 6), to = origin + QPointF(150, 30);
+
+    auto rows = draw(2, from, to);
+    CHECK(rows.second - rows.first > 20); // ruler off: the stroke keeps its slope
+
+    editor->overlays()->setRulerEnabled(true);
+    rows = draw(3, from, to);
+    CHECK(rows.first >= -3);
+    CHECK(rows.second <= 3);
+
+    // A stroke that starts far from the ruler is not snapped.
+    rows = draw(4, from + QPointF(0, 100), to + QPointF(0, 100));
+    CHECK(rows.second - rows.first > 20);
+}
+TEST_CASE("MoveTool - dragging a ruler end moves only that end")
+{
+    TestSession s;
+    s.object->addNewCameraLayer();
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(MOVE);
+
+    OverlayManager* overlays = editor->overlays();
+    overlays->setRuler(QLineF(-200, 0, 200, 0));
+    overlays->setRulerEnabled(true);
+    const QPointF end = editor->view()->mapCanvasToScreen(QPointF(200, 0));
+    tablet(area, QEvent::TabletPress, end, 1.0);
+    tablet(area, QEvent::TabletMove, end + QPointF(0, 50), 1.0);
+    tablet(area, QEvent::TabletRelease, end + QPointF(0, 50), 1.0);
+    overlays->setRulerEnabled(false);
+
+    const qreal scale = editor->view()->scaling();
+    CHECK(overlays->ruler().p1() == QPointF(-200, 0));
+    CHECK(overlays->ruler().p2().x() == Approx(200).margin(0.5));
+    CHECK(overlays->ruler().p2().y() == Approx(50 / scale).margin(0.5));
 }
