@@ -219,6 +219,8 @@ BitmapImage BitmapBucket::flattenBitmapLayersToImage()
     BitmapImage flattenImage = BitmapImage();
     int currentFrame = mEditor->currentFrame();
     auto layerMan = mEditor->layers();
+    // The fill works in the space of the target key; each layer's key has its own tween transform.
+    const QTransform toTarget = mTargetFillToLayer->tweenStateAt(currentFrame).transform().inverted();
     for (int i = 0; i < layerMan->count(); i++)
     {
         Layer* layer = layerMan->getLayer(i);
@@ -226,8 +228,12 @@ BitmapImage BitmapBucket::flattenBitmapLayersToImage()
         if (layer->type() == Layer::BITMAP && layer->visible())
         {
             BitmapImage* image = static_cast<LayerBitmap*>(layer)->getLastBitmapImageAtFrame(currentFrame);
-            if (image) {
+            const QTransform toImage = layer->tweenStateAt(currentFrame).transform() * toTarget;
+            if (image && (toImage.isIdentity() || image->bounds().isEmpty())) {
                 flattenImage.paste(image);
+            } else if (image) {
+                BitmapImage moved = image->transformed(image->bounds(), toImage, true);
+                flattenImage.paste(&moved);
             }
         }
     }

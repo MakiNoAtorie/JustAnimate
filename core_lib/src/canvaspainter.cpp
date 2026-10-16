@@ -317,10 +317,13 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     QColor tint = Qt::transparent;
     if (nFrame < mFrameNumber) { tint = mOnionSkinPainterOptions.prevColor; }
     else if (nFrame > mFrameNumber) { tint = mOnionSkinPainterOptions.nextColor; }
-    const qreal opacity = bitmapImage->getOpacity() - (1.0 - painter.opacity());
+    const TweenState tween = layer->tweenStateAt(nFrame);
+    const qreal opacity = tween.opacity - (1.0 - painter.opacity());
     const QPoint topLeft = bitmapImage->topLeft();
     const QVector<qint64> key{ bitmapImage->image()->cacheKey(), topLeft.x(), topLeft.y(), colorize,
-                               colorize ? qint64(tint.rgba64()) : 0, colorize ? qRound64(opacity * 1e6) : 0 };
+                               colorize ? qint64(tint.rgba64()) : 0, colorize ? qRound64(opacity * 1e6) : 0,
+                               qRound64(tween.tx * 1e6), qRound64(tween.ty * 1e6), qRound64(tween.rot * 1e6),
+                               qRound64(tween.scale * 1e6) };
 
     OnionFrame frame;
     if (const OnionFrame* cached = mOnionCache.object(key))
@@ -331,13 +334,15 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     {
         // Outside the image the onion pixmap stays transparent, so only its bounds are rendered.
         const QRect canvasRect(QPoint(), mOnionSkinPixmap.deviceIndependentSize().toSize());
-        const QRect r = mViewTransform.mapRect(QRectF(bitmapImage->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1) & canvasRect;
+        const QTransform world = tween.transform() * mViewTransform;
+        const QRect r = world.mapRect(QRectF(bitmapImage->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1) & canvasRect;
         if (!r.isEmpty())
         {
             QPainter onionSkinPainter;
             initializePainter(onionSkinPainter, mOnionSkinPixmap, r);
+            onionSkinPainter.setWorldTransform(world);
             onionSkinPainter.drawImage(topLeft, *bitmapImage->image());
-            tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, bitmapImage->getOpacity());
+            tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
             onionSkinPainter.end();
             const qreal dpr = mOnionSkinPixmap.devicePixelRatio();
             frame = { mOnionSkinPixmap.copy(QRectF(QPointF(r.topLeft()) * dpr, QSizeF(r.size()) * dpr).toAlignedRect()), r.topLeft() };
@@ -360,8 +365,10 @@ void CanvasPainter::paintVectorOnionSkinFrame(QPainter& painter, const QRect& bl
     QPainter onionSkinPainter;
     initializePainter(onionSkinPainter, mOnionSkinPixmap, blitRect);
 
+    const TweenState tween = layer->tweenStateAt(nFrame);
+    onionSkinPainter.setWorldTransform(tween.transform() * mViewTransform);
     vectorImage->paintImage(onionSkinPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
-    tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, vectorImage->getOpacity());
+    tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
     painter.drawPixmap(mPointZero, mOnionSkinPixmap);
 }
 
@@ -424,7 +431,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
     // We do not wish to draw selection transformations on anything but the current layer
     Q_ASSERT(!isDrawing || mSelectionTransform.isIdentity());
     if (isCurrentLayer && mRenderTransform && !isDrawing) {
-        paintTransformedSelection(currentBitmapPainter, paintedImage, mSelection);
+        paintTransformedSelection(currentBitmapPainter, paintedImage, mSelection, tween.transform() * mViewTransform);
     }
 
     drawLayerPixmap(painter, blitRect, layer->blendMode());
@@ -485,7 +492,7 @@ void CanvasPainter::drawLayerPixmap(QPainter& painter, const QRect& blitRect, Bl
     if (!rect.isEmpty()) { drawBlended(painter, mCurrentLayerPixmap.copy(rect).toImage(), rect.topLeft(), mode); }
 }
 
-void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection) const
+void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView) const
 {
     // Make sure there is something selected
     if (selection.width() == 0 && selection.height() == 0)
@@ -501,7 +508,7 @@ void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bi
 
     painter.save();
 
-    painter.setTransform(mViewTransform);
+    painter.setTransform(keyView);
 
     // Clear the painted area to make it look like the content has been erased
     painter.save();
@@ -511,7 +518,7 @@ void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bi
 
     // Multiply the selection and view matrix to get proper rotation and scale values
     // Now the image origin will be topleft
-    painter.setTransform(mSelectionTransform*mViewTransform);
+    painter.setTransform(mSelectionTransform * keyView);
 
     // Draw the selection image separately and on top
     painter.drawPixmap(selection, transformedPixmap);

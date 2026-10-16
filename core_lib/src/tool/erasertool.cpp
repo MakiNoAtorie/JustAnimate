@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 #include "erasertool.h"
 
+#include <cmath>
 #include <QSettings>
 #include <QPixmap>
 #include <QPainter>
@@ -164,7 +165,8 @@ void EraserTool::strokeMoved()
 
         VectorImage* currKey = static_cast<VectorImage*>(layer->getLastKeyFrameAtPosition(mEditor->currentFrame()));
         if (currKey == nullptr) { return; } // Before the layer's first keyframe: nothing to erase
-        QList<VertexRef> nearbyVertices = currKey->getVerticesCloseTo(getCurrentPoint(), radius);
+        const QTransform toKey = canvasToKey();
+        QList<VertexRef> nearbyVertices = currKey->getVerticesCloseTo(toKey.map(getCurrentPoint()), radius * std::sqrt(std::abs(toKey.determinant())));
         for (auto nearbyVertice : nearbyVertices)
         {
             currKey->setSelected(nearbyVertice, true);

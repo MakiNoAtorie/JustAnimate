@@ -29,7 +29,11 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "layervector.h"
 #include "object.h"
+#include "playbackmanager.h"
 #include "testfixture.h"
+#include "timeline.h"
+#include "timelinecells.h"
+#include "tiledbuffer.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
 
@@ -279,4 +283,68 @@ TEST_CASE("A key tween change undoes and redoes", "[Tween]")
     redo->trigger();
     REQUIRE(layer->getKeyFrameAt(1)->tweenEasing() == CameraEasingType::INQUAD);
     REQUIRE(layer->tweenStateAt(3).tx == Approx(5));
+}
+
+TEST_CASE("Onion skins draw each key with its tween state", "[Tween]")
+{
+    auto bitmap = tweenedSquare(true);
+    std::unique_ptr<Object> vector(new Object);
+    vector->init();
+    LayerVector* layer = vector->addNewVectorLayer();
+    for (int pos : { 1, 5 })
+    {
+        layer->addNewKeyFrameAt(pos);
+        BezierCurve curve({ QPointF(-4, 0), QPointF(4, 0) });
+        curve.setWidth(6);
+        layer->getVectorImageAtFrame(pos)->addCurve(curve, 1.0, false);
+    }
+    layer->getKeyFrameAt(1)->setTween(true);
+    layer->getKeyFrameAt(5)->setTweenState(TweenState{ 20, 0, 0, 1 });
+
+    for (const Object* object : { bitmap.get(), vector.get() })
+    {
+        QPixmap canvas(80, 40);
+        CanvasPainter painter(canvas);
+        const QTransform view = QTransform::fromTranslate(30, 20);
+        painter.setViewTransform(view, view.inverted());
+        CanvasPainterOptions options;
+        options.eLayerVisibility = LayerVisibility::ALL;
+        painter.setOptions(options);
+        OnionSkinPainterOptions onion;
+        onion.skinNextFrames = true;
+        onion.framesToSkinNext = 1;
+        onion.isAbsolute = true; // skins keys, not frames
+        onion.maxOpacity = onion.minOpacity = 50;
+        painter.setOnionSkinOptions(onion);
+        TiledBuffer buffer;
+        painter.setPaintSettings(object, 0, 3, &buffer);
+        painter.paint(QRect(0, 0, 80, 40));
+        const QImage image = canvas.toImage();
+        CHECK(qAlpha(image.pixel(30 + 20, 20)) > 0); // key 5's onion skin, 20 px right
+        CHECK(qAlpha(image.pixel(30 - 2, 20)) == 0);  // not at the canvas origin
+    }
+}
+
+TEST_CASE("The timeline marks a tweened key up to the next key", "[Tween]")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(5);
+    REQUIRE(session.start());
+    session.editor->playback()->setFps(12); // the ruler ticks divide by it
+    TimeLine timeline(nullptr);
+    timeline.setEditor(session.editor.get());
+    timeline.initUI();
+    timeline.resize(800, 300);
+    auto render = [&] {
+        for (TimeLineCells* cells : timeline.findChildren<TimeLineCells*>()) { cells->clearCache(); }
+        return timeline.grab().toImage();
+    };
+
+    render(); // the first grab lays out the timeline
+    const QImage plain = render();
+    layer->getKeyFrameAt(5)->setTween(true); // no next key: no marker
+    CHECK(render() == plain);
+    layer->getKeyFrameAt(1)->setTween(true);
+    CHECK(render() != plain);
 }

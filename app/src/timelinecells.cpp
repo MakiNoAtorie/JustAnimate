@@ -587,6 +587,17 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
         int recWidth = standardWidth;
         int recLeft = getFrameX(framePos) - recWidth;
 
+        const int nextPos = layer->getNextKeyFramePosition(framePos);
+        if (key->tween() && nextPos > framePos)
+        {
+            // Tween marker: a line from this key to the next key.
+            painter.save();
+            painter.setPen(QPen(palette().color(QPalette::Highlight), 2));
+            const int midY = recTop + recHeight / 2;
+            painter.drawLine(getFrameX(framePos), midY, getFrameX(nextPos) - standardWidth, midY);
+            painter.restore();
+        }
+
         // Selected frames are painted separately
         if (selectedFrames.contains(framePos)) {
             return;

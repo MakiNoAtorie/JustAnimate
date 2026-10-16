@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "bitmapimage.h"
 #include "brushpresets.h"
 #include "brushtool.h"
+#include "buckettool.h"
 #include "colormanager.h"
 #include "editor.h"
 #include "layerbitmap.h"
@@ -40,6 +41,7 @@ GNU General Public License for more details.
 #include "preferencemanager.h"
 #include "pressurecurve.h"
 #include "scribblearea.h"
+#include "selectionmanager.h"
 #include "selectionmanager.h"
 #include "stageprofiler.h"
 #include "testfixture.h"
@@ -483,6 +485,105 @@ TEST_CASE("Pencil - a stroke on a translated key lands where it was drawn")
     REQUIRE(curve >= 0);
     CHECK(vimage->getVertex(curve, -1).x() == Approx(-50).margin(3)); // the curve origin
     CHECK(vimage->getVertex(curve, vimage->getCurveSize(curve) - 1).x() < -30 + 3);
+}
+
+TEST_CASE("Tools on a translated key act where the key is drawn")
+{
+    TestSession s;
+    LayerBitmap* bitmap = s.object->addNewBitmapLayer();
+    LayerVector* vector = s.object->addNewVectorLayer();
+    LayerBitmap* lines = s.object->addNewBitmapLayer();
+    TweenState moved;
+    moved.tx = 40;
+    bitmap->getKeyFrameAt(1)->setTweenState(moved);
+    vector->getKeyFrameAt(1)->setTweenState(moved);
+    BezierCurve curve({ QPointF(0, -10), QPointF(0, 10) });
+    vector->getVectorImageAtFrame(1)->addCurve(curve, 1.0, false);
+
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->scrubTo(1);
+    // Key point (0, 0) is drawn at canvas (40, 0).
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+    auto alphaAt = [&](int x, int y) { return qAlpha(bitmap->getBitmapImageAtFrame(1)->pixel(QPoint(x, y))); };
+
+    SECTION("Vector eraser")
+    {
+        editor->layers()->setCurrentLayer(vector);
+        editor->tools()->setCurrentTool(ERASER);
+        const ToolSettingsGuard guard(editor->tools()->currentTool());
+        static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(10);
+        stroke(area, screen({ 40, -12 }), screen({ 40, 12 }), 1.0);
+        CHECK(vector->getVectorImageAtFrame(1)->getCurveSize(0) == -1); // no curve left
+    }
+    SECTION("Vector smudge")
+    {
+        editor->layers()->setCurrentLayer(vector);
+        editor->tools()->setCurrentTool(SMUDGE);
+        stroke(area, screen({ 40, -10 }), screen({ 50, -10 }), 0.5);
+        CHECK(vector->getVectorImageAtFrame(1)->getVertex(0, -1).x() == Approx(10).margin(2));
+    }
+    SECTION("Bitmap smudge")
+    {
+        bitmap->getBitmapImageAtFrame(1)->drawRect(QRectF(-20, -20, 20, 40), Qt::NoPen, QBrush(Qt::red),
+                                                   QPainter::CompositionMode_Source, false);
+        editor->layers()->setCurrentLayer(bitmap);
+        editor->tools()->setCurrentTool(SMUDGE);
+        StrokeTool* smudge = static_cast<StrokeTool*>(editor->tools()->currentTool());
+        const ToolSettingsGuard guard(smudge);
+        smudge->setWidth(20);
+        smudge->setFeather(48);
+        smudge->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+        smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+        stroke(area, screen({ 30, 0 }), screen({ 70, 0 }), 1.0);
+        CHECK(alphaAt(20, 0) > 0); // red carried right in key space
+    }
+    SECTION("Bitmap bucket")
+    {
+        bitmap->getBitmapImageAtFrame(1)->drawRect(QRectF(-10, -10, 20, 20), QPen(Qt::black, 2), Qt::NoBrush,
+                                                   QPainter::CompositionMode_SourceOver, false);
+        editor->layers()->setCurrentLayer(bitmap);
+        editor->tools()->setCurrentTool(BUCKET);
+        tap(area, screen({ 40, 0 }), 0.5);
+        CHECK(alphaAt(0, 0) == 255);
+    }
+    SECTION("Bitmap bucket with all layers as reference")
+    {
+        lines->getBitmapImageAtFrame(1)->drawRect(QRectF(30, -10, 20, 20), QPen(Qt::black, 2), Qt::NoBrush,
+                                                  QPainter::CompositionMode_SourceOver, false);
+        // A loaded target: the fill skips an empty key.
+        bitmap->getBitmapImageAtFrame(1)->drawRect(QRectF(60, 60, 2, 2), Qt::NoPen, QBrush(Qt::red),
+                                                   QPainter::CompositionMode_Source, false);
+        editor->layers()->setCurrentLayer(bitmap);
+        editor->tools()->setCurrentTool(BUCKET);
+        BucketTool* bucket = static_cast<BucketTool*>(editor->tools()->currentTool());
+        const ToolSettingsGuard guard(bucket);
+        bucket->setFillReferenceMode(1);
+        tap(area, screen({ 40, 0 }), 0.5);
+        CHECK(alphaAt(0, 0) == 255);
+        CHECK(alphaAt(15, 0) == 0); // outside the lines
+    }
+    SECTION("Select and move")
+    {
+        editor->layers()->setCurrentLayer(bitmap);
+        editor->tools()->setCurrentTool(SELECT);
+        stroke(area, screen({ 10, -30 }), screen({ 70, 30 }), 1.0);
+        auto selectionCenter = [&] {
+            auto select = editor->select();
+            return select->mapToSelection(QPolygonF(select->mySelectionRect())).boundingRect().center();
+        };
+        CHECK(selectionCenter().x() == Approx(0).margin(1));
+        editor->tools()->setCurrentTool(MOVE);
+        // A hover picks the move mode.
+        QTabletEvent hover(QEvent::TabletMove, QPointingDevice::primaryPointingDevice(), screen({ 40, 0 }),
+                           area->mapToGlobal(screen({ 40, 0 })), 0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+        QApplication::sendEvent(area, &hover);
+        stroke(area, screen({ 40, 0 }), screen({ 50, 0 }), 1.0);
+        CHECK(selectionCenter().x() == Approx(10).margin(1));
+    }
 }
 
 TEST_CASE("Pen - a stroke after an arrow-key nudge applies the nudge first")

@@ -111,7 +111,7 @@ private:
     /// Layers painted with the current layer: its whole group when the group is translucent.
     QPair<int, int> currentRange() const;
 
-    void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection) const;
+    void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView) const;
 
     void paintBitmapOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
     void paintVectorOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);

@@ -110,7 +110,7 @@ void BucketTool::pointerPressEvent(PointerEvent* event)
     mUndoSaveState = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     mBitmapBucket = BitmapBucket(mEditor,
                                  mEditor->color()->frontColor(),
-                                 layerCam ? layerCam->getViewAtFrame(mEditor->currentFrame()).inverted().mapRect(layerCam->getViewRect()) : QRect(),
+                                 layerCam ? canvasToKey().mapRect(layerCam->getViewAtFrame(mEditor->currentFrame()).inverted().mapRect(layerCam->getViewRect())) : QRect(),
                                  getCurrentPoint(),
                                  mSettings);
 
@@ -250,7 +250,7 @@ void BucketTool::setFillMode(int mode)
 
 QPointF BucketTool::getCurrentPoint() const
 {
-    return mEditor->view()->mapScreenToCanvas(getCurrentPixel());
+    return canvasToKey().map(mEditor->view()->mapScreenToCanvas(getCurrentPixel()));
 }
 
 QPointF BucketTool::getCurrentPixel() const

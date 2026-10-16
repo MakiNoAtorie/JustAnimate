@@ -47,6 +47,7 @@ the original Pencil2D history is kept below for reference.
 - Move tool: drag the round handle on a selection edge to skew it around its centre; undoable (2.10).
 - Lock Transparency: right-click a bitmap layer to paint only on its existing pixels; strokes never change alpha and the setting is saved (2.8).
 - Ruler: View > Overlays > Ruler shows a straight line; drag its ends with the Move tool, and strokes that start near it snap to it (2.9).
+- Tweened keys: onion skins draw them with their own move, rotation and scale; smudge, vector eraser, bucket fill, select and move act where they are drawn; the timeline marks a tween with a line to the next key.
 - Fixes: a stroke on a moved (tweened) key lands where it is drawn, Duplicate Layer keeps the blend mode, a single Next/Previous Frame tap always steps, and marker names show on the timeline ruler.
 - Layer groups: right-click a member to show or hide the group or set its opacity; the group fades as one image, on the canvas and in export (3.7).
 - Layer groups: right-click a layer to make, join or leave a group; click the arrow to collapse it; a collapsed group drags as a block. Files still open in Pencil2D (3.7).

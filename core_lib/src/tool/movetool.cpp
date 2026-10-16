@@ -112,7 +112,7 @@ void MoveTool::pointerPressEvent(PointerEvent* event)
 
     if (mEditor->select()->somethingSelected())
     {
-        beginInteraction(event->canvasPos(), event->modifiers(), currentLayer);
+        beginInteraction(canvasToKey().map(event->canvasPos()), event->modifiers(), currentLayer);
     }
     else if (mEditor->overlays()->anyOverlayEnabled())
     {
@@ -134,9 +134,11 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
     Layer* currentLayer = currentPaintableLayer();
     if (currentLayer == nullptr) return;
 
+    // The selection lives in the space of the current key.
+    const QPointF keyPos = canvasToKey().map(event->canvasPos());
     if (mScribbleArea->isPointerInUse())   // the user is also pressing the mouse (dragging)
     {
-        transformSelection(event->canvasPos(), event->modifiers());
+        transformSelection(keyPos, event->modifiers());
 
         if (mEditor->overlays()->anyOverlayEnabled())
         {
@@ -147,14 +149,14 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
         }
         if (mEditor->select()->somethingSelected())
         {
-            transformSelection(event->canvasPos(), event->modifiers());
+            transformSelection(keyPos, event->modifiers());
         }
     }
     else
     {
         // the user is moving the mouse without pressing it
         // update cursor to reflect selection corner interaction
-        mEditor->select()->setMoveModeForAnchorInRange(event->canvasPos(), true);
+        mEditor->select()->setMoveModeForAnchorInRange(keyPos, true);
         if (mEditor->overlays()->anyOverlayEnabled())
         {
             LayerCamera *layerCam = mEditor->layers()->getCameraLayerBelow(mEditor->currentLayerIndex());
@@ -165,7 +167,7 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
 
         if (currentLayer->type() == Layer::VECTOR)
         {
-            storeClosestVectorCurve(event->canvasPos(), currentLayer);
+            storeClosestVectorCurve(keyPos, currentLayer);
         }
     }
     mEditor->updateFrame();

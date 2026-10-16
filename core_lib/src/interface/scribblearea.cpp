@@ -1118,7 +1118,9 @@ void ScribbleArea::paintSelectionVisuals(QPainter &painter)
 
     QRectF currentSelectionRect = selectMan->mySelectionRect();
 
-    TransformParameters params = { currentSelectionRect, editor()->view()->getView(), selectMan->selectionTransform(),
+    // The selection lives in the space of the current key.
+    const QTransform keyView = mEditor->layers()->currentLayer()->tweenStateAt(mEditor->currentFrame()).transform() * editor()->view()->getView();
+    TransformParameters params = { currentSelectionRect, keyView, selectMan->selectionTransform(),
                                    currentTool()->type() == MOVE };
 
     mSelectionPainter.paint(painter,
@@ -1242,9 +1244,20 @@ void ScribbleArea::smudgeDab(QPointF point, qreal width, qreal feather, QColor c
 {
     if (!mTiledBuffer.isSmudging())
     {
-        BitmapImage* image = currentBitmapImage(mEditor->layers()->currentLayer());
+        Layer* layer = mEditor->layers()->currentLayer();
+        BitmapImage* image = currentBitmapImage(layer);
         if (image == nullptr) return; // the first frame can be deleted while drawing
-        mTiledBuffer.setSmudgeSource(*image->image(), image->topLeft());
+        // Dabs land in canvas space, so the source is the key as drawn there.
+        const QTransform toCanvas = layer->tweenStateAt(mEditor->currentFrame()).transform();
+        if (toCanvas.isIdentity() || image->bounds().isEmpty())
+        {
+            mTiledBuffer.setSmudgeSource(*image->image(), image->topLeft());
+        }
+        else
+        {
+            BitmapImage source = image->transformed(image->bounds(), toCanvas, true);
+            mTiledBuffer.setSmudgeSource(*source.image(), source.topLeft());
+        }
     }
     mTiledBuffer.smudgeDab(point, width, feather, color, opacity, false, tip, smudge);
 }

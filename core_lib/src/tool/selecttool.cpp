@@ -124,7 +124,7 @@ void SelectTool::pointerPressEvent(PointerEvent* event)
 
     mUndoStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
-    mPressPoint = event->canvasPos();
+    mPressPoint = canvasToKey().map(event->canvasPos());
 
     if (currentLayer->type() == Layer::BITMAP) {
         mPressPoint = mPressPoint.toPoint();
@@ -144,7 +144,7 @@ void SelectTool::pointerMoveEvent(PointerEvent* event)
     if (!currentLayer->isPaintable()) { return; }
     auto selectMan = mEditor->select();
 
-    QPointF canvasPos = event->canvasPos();
+    QPointF canvasPos = canvasToKey().map(event->canvasPos());
 
     if (currentLayer->type() == Layer::BITMAP) {
         canvasPos = canvasPos.toPoint();
@@ -176,7 +176,7 @@ void SelectTool::pointerReleaseEvent(PointerEvent* event)
     if (currentLayer == nullptr) return;
     if (event->button() != Qt::LeftButton) return;
 
-    QPointF canvasPos = event->canvasPos();
+    QPointF canvasPos = canvasToKey().map(event->canvasPos());
     if (currentLayer->type() == Layer::BITMAP) {
         canvasPos = canvasPos.toPoint();
     }

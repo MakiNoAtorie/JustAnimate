@@ -131,8 +131,9 @@ void SmudgeTool::pointerPressEvent(PointerEvent* event)
             const float distanceFrom = selectMan->selectionTolerance();
             VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(currentFrame);
             if (vectorImage == nullptr) { return; }
-            selectMan->setCurves(vectorImage->getCurvesCloseTo(getCurrentPoint(), distanceFrom));
-            selectMan->setVertices(vectorImage->getVerticesCloseTo(getCurrentPoint(), distanceFrom));
+            const QPointF point = canvasToKey().map(getCurrentPoint());
+            selectMan->setCurves(vectorImage->getCurvesCloseTo(point, distanceFrom));
+            selectMan->setVertices(vectorImage->getVerticesCloseTo(point, distanceFrom));
 
             if (selectMan->closestCurves().size() > 0 || selectMan->closestCurves().size() > 0)      // the user clicks near a vertex or a curve
             {
@@ -201,7 +202,7 @@ void SmudgeTool::pointerMoveEvent(PointerEvent* event)
         }
         else     // the user is moving the mouse without pressing it
         {
-            selectMan->setVertices(vectorImage->getVerticesCloseTo(getCurrentPoint(), selectMan->selectionTolerance()));
+            selectMan->setVertices(vectorImage->getVerticesCloseTo(canvasToKey().map(getCurrentPoint()), selectMan->selectionTolerance()));
             mScribbleArea->update();
         }
     }
@@ -252,5 +253,6 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
 
 QPointF SmudgeTool::offsetFromPressPos()
 {
-    return getCurrentPoint() - getCurrentPressPoint();
+    const QTransform toKey = canvasToKey();
+    return toKey.map(getCurrentPoint()) - toKey.map(getCurrentPressPoint());
 }
