@@ -18,6 +18,8 @@ enum class MoveMode {
     PERSP_RIGHT,
     PERSP_MIDDLE,
     CENTER,
+    SKEW_HORIZONTAL, // top or bottom edge handle
+    SKEW_VERTICAL,   // left or right edge handle
     NONE
 };
 

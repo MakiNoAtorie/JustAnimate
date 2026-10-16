@@ -74,8 +74,9 @@ public:
      *  @param state */
     void alignPositionToAxis(bool state) { mLockAxis = state; }
 
-    /** @brief Checks if the point is over a handle (corner) or body and sets the MoveMode accordingly. */
-    void setMoveModeForAnchorInRange(const QPointF& point);
+    /** @brief Checks if the point is over a handle (corner) or body and sets the MoveMode accordingly.
+     *  @param skewHandles Also check the edge midpoints, which skew the selection. */
+    void setMoveModeForAnchorInRange(const QPointF& point, bool skewHandles = false);
     MoveMode getMoveMode() const { return mMoveMode; }
     void setMoveMode(const MoveMode moveMode) { mMoveMode = moveMode; }
 
@@ -115,9 +116,13 @@ public:
     const qreal& myScaleX() const { return mScaleX; }
     const qreal& myScaleY() const { return mScaleY; }
     const QPointF& myTranslation() const { return mTranslation; }
+    /// Shear factors, as in QTransform::shear: x += skewX * y, y += skewY * x.
+    qreal mySkewX() const { return mSkewX; }
+    qreal mySkewY() const { return mSkewY; }
 
     void setRotation(const qreal& rotation) { mRotatedAngle = rotation; }
     void setScale(const qreal scaleX, const qreal scaleY) { mScaleX = scaleX; mScaleY = scaleY; }
+    void setSkew(const qreal skewX, const qreal skewY) { mSkewX = skewX; mSkewY = skewY; }
     void setTranslation(const QPointF& translation) { mTranslation = translation; }
 
     qreal angleFromPoint(const QPointF& point, const QPointF& anchorPoint) const;
@@ -167,6 +172,8 @@ private:
      */
     QPointF alignPositionToAxis(QPointF currentPoint) const;
     int constrainRotationToAngle(const qreal rotatedAngle, const int rotationIncrement) const;
+    /// The selection transform after scaling: skew, rotation, then translation.
+    QTransform rotationAndSkew(bool withSkew = true) const;
 
     bool mAspectRatioFixed = false;
     bool mLockAxis = false;
@@ -175,6 +182,8 @@ private:
 
     qreal mScaleX;
     qreal mScaleY;
+    qreal mSkewX = 0.0;
+    qreal mSkewY = 0.0;
     QPointF mTranslation;
     qreal mRotatedAngle = 0.0;
 

@@ -151,7 +151,7 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
     {
         // the user is moving the mouse without pressing it
         // update cursor to reflect selection corner interaction
-        mEditor->select()->setMoveModeForAnchorInRange(event->canvasPos());
+        mEditor->select()->setMoveModeForAnchorInRange(event->canvasPos(), true);
         if (mEditor->overlays()->anyOverlayEnabled())
         {
             LayerCamera *layerCam = mEditor->layers()->getCameraLayerBelow(mEditor->currentLayerIndex());
@@ -401,6 +401,16 @@ QCursor MoveTool::cursor(MoveMode mode) const
     case MoveMode::BOTTOMLEFT:
     {
         cursorPainter.drawImage(QPoint(6,6),QImage("://icons/general/cursor-diagonal-right.svg"));
+        break;
+    }
+    case MoveMode::SKEW_HORIZONTAL:
+    {
+        cursorPainter.drawImage(QPoint(6,6),QImage("://icons/general/cursor-horizontal.svg"));
+        break;
+    }
+    case MoveMode::SKEW_VERTICAL:
+    {
+        cursorPainter.drawImage(QPoint(6,6),QImage("://icons/general/cursor-vertical.svg"));
         break;
     }
     case MoveMode::ROTATIONLEFT:

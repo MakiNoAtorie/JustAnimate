@@ -32,6 +32,7 @@ struct TransformParameters
 
     QTransform viewTransform;
     QTransform selectionTransform;
+    bool skewHandles = false;
 };
 
 class SelectionPainter
