@@ -162,9 +162,22 @@ void BitmapBucket::paint(const QPointF& updatedPoint, std::function<void(BucketS
     }
     Q_ASSERT(replaceImage != nullptr);
 
+    const bool lockAlpha = static_cast<LayerBitmap*>(mTargetFillToLayer)->lockAlpha();
+    // Lock transparency: "behind" can only add alpha, so it has nothing to paint.
+    if (lockAlpha && mProperties.fillMode() == 2)
+    {
+        delete replaceImage;
+        return;
+    }
+
     state(BucketState::WillFillTarget, mTargetFillToLayerIndex, currentFrameIndex);
 
-    if (mProperties.fillMode() == 0)
+    if (lockAlpha)
+    {
+        // Replace mode fills opaque, so the colour is replaced and the alpha kept.
+        targetImage->paste(replaceImage, QPainter::CompositionMode_SourceAtop);
+    }
+    else if (mProperties.fillMode() == 0)
     {
         targetImage->paste(replaceImage);
     }

@@ -48,6 +48,7 @@ void SpinSlider::init(QString text, GROWTH_TYPE type, qreal min, qreal max)
     mSlider->setMinimum(0);
     mSlider->setMaximum(100);
     mSlider->setMaximumWidth(500);
+    mSlider->setToolTip(toolTip().isEmpty() ? text : toolTip());
 
     QGridLayout* layout = new QGridLayout();
     layout->setContentsMargins(2, 2, 2, 2);

@@ -134,6 +134,9 @@
        </item>
        <item row="0" column="2">
         <widget class="QSpinBox" name="hueSpinBox">
+         <property name="toolTip">
+          <string>Hue</string>
+         </property>
          <property name="suffix">
           <string>°</string>
          </property>
@@ -144,6 +147,9 @@
        </item>
        <item row="1" column="2">
         <widget class="QSpinBox" name="saturationSpinBox">
+         <property name="toolTip">
+          <string>Saturation</string>
+         </property>
          <property name="suffix">
           <string>%</string>
          </property>
@@ -154,6 +160,9 @@
        </item>
        <item row="2" column="2">
         <widget class="QSpinBox" name="valueSpinBox">
+         <property name="toolTip">
+          <string>Value</string>
+         </property>
          <property name="suffix">
           <string>%</string>
          </property>
@@ -164,6 +173,9 @@
        </item>
        <item row="3" column="2">
         <widget class="QSpinBox" name="hsvAlphaSpinBox">
+         <property name="toolTip">
+          <string>Alpha</string>
+         </property>
          <property name="suffix">
           <string>%</string>
          </property>
@@ -261,6 +273,9 @@
        </item>
        <item row="0" column="2">
         <widget class="QSpinBox" name="redSpinBox">
+         <property name="toolTip">
+          <string>Red</string>
+         </property>
          <property name="maximum">
           <number>255</number>
          </property>
@@ -268,6 +283,9 @@
        </item>
        <item row="1" column="2">
         <widget class="QSpinBox" name="greenSpinBox">
+         <property name="toolTip">
+          <string>Green</string>
+         </property>
          <property name="maximum">
           <number>255</number>
          </property>
@@ -275,6 +293,9 @@
        </item>
        <item row="2" column="2">
         <widget class="QSpinBox" name="blueSpinBox">
+         <property name="toolTip">
+          <string>Blue</string>
+         </property>
          <property name="maximum">
           <number>255</number>
          </property>
@@ -282,6 +303,9 @@
        </item>
        <item row="3" column="2">
         <widget class="QSpinBox" name="rgbAlphaSpinBox">
+         <property name="toolTip">
+          <string>Alpha</string>
+         </property>
          <property name="maximum">
           <number>255</number>
          </property>

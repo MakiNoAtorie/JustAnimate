@@ -67,12 +67,19 @@ public:
     void setMarkOutFrameNumber(int n) { mMarkOutFrame = n; }
     int  getMarkOutFrameNumber() const { return mMarkOutFrame; }
 
-    void setMarker(int frame, const FrameMarker& m) { mMarkers.insert(frame, m); }
-    void removeMarker(int frame) { mMarkers.remove(frame); }
-    const QMap<int, FrameMarker>& markers() const { return mMarkers; }
+    // layerId: the sound layer of a lip-sync marker; 0 for a global marker.
+    void setMarker(int frame, const FrameMarker& m, int layerId = 0) { mMarkers[layerId].insert(frame, m); }
+    void removeMarker(int frame, int layerId = 0) { mMarkers[layerId].remove(frame); }
+    QMap<int, FrameMarker> markers(int layerId = 0) const { return mMarkers.value(layerId); }
+    // Markers by layer id, then by frame. Key 0 holds the global markers.
+    const QMap<int, QMap<int, FrameMarker>>& allMarkers() const { return mMarkers; }
+    void setMarkers(int layerId, const QMap<int, FrameMarker>& m)
+    {
+        if (m.isEmpty()) { mMarkers.remove(layerId); } else { mMarkers.insert(layerId, m); }
+    }
 
 private:
-    QMap<int, FrameMarker> mMarkers;
+    QMap<int, QMap<int, FrameMarker>> mMarkers;
     int mCurrentFrame = 1;
     QColor mCurrentColor{ 0, 0, 0, 255 };
     int mCurrentLayer = 0;

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 #include "selectionmanager.h"
 #include "editor.h"
+#include "undoredomanager.h"
 
 #include "vectorimage.h"
 
@@ -58,6 +59,8 @@ void SelectionManager::resetSelectionTransformProperties()
     mTranslation = QPointF(0, 0);
     mScaleX = 1;
     mScaleY = 1;
+    mSkewX = 0;
+    mSkewY = 0;
     mAnchorPoint = QPoint();
     mSelectionTransform.reset();
 }
@@ -109,7 +112,7 @@ QPointF SelectionManager::getSelectionAnchorPoint() const
 }
 
 
-void SelectionManager::setMoveModeForAnchorInRange(const QPointF& point)
+void SelectionManager::setMoveModeForAnchorInRange(const QPointF& point, bool skewHandles)
 {
     if (mSelectionPolygon.count() < 4)
     {
@@ -120,6 +123,10 @@ void SelectionManager::setMoveModeForAnchorInRange(const QPointF& point)
     QPolygonF projectedPolygon = mapToSelection(mSelectionPolygon);
 
     const double calculatedSelectionTol = selectionTolerance();
+    auto nearEdge = [&](int a, int b)
+    {
+        return QLineF(point, (projectedPolygon[a] + projectedPolygon[b]) / 2).length() < calculatedSelectionTol;
+    };
 
     if (QLineF(point, projectedPolygon[0]).length() < calculatedSelectionTol)
     {
@@ -136,6 +143,14 @@ void SelectionManager::setMoveModeForAnchorInRange(const QPointF& point)
     else if (QLineF(point, projectedPolygon[3]).length() < calculatedSelectionTol)
     {
         mMoveMode = MoveMode::BOTTOMLEFT;
+    }
+    else if (skewHandles && (nearEdge(0, 1) || nearEdge(2, 3)))
+    {
+        mMoveMode = MoveMode::SKEW_HORIZONTAL;
+    }
+    else if (skewHandles && (nearEdge(1, 2) || nearEdge(3, 0)))
+    {
+        mMoveMode = MoveMode::SKEW_VERTICAL;
     }
     else if (projectedPolygon.containsPoint(point, Qt::WindingFill))
     {
@@ -165,49 +180,37 @@ void SelectionManager::adjustSelection(const QPointF& currentPoint, const QPoint
     case MoveMode::TOPRIGHT:
     case MoveMode::BOTTOMRIGHT:
     case MoveMode::BOTTOMLEFT: {
+        // The anchor is the opposite corner. Without translation, rotation and skew,
+        // the cursor is the scaled offset of the dragged corner from the anchor.
+        const QPointF local = transformAfterScale().inverted().map(currentPoint);
+        int corner = 3;
+        if (mMoveMode == MoveMode::TOPLEFT) { corner = 0; }
+        else if (mMoveMode == MoveMode::TOPRIGHT) { corner = 1; }
+        else if (mMoveMode == MoveMode::BOTTOMRIGHT) { corner = 2; }
+        const QPointF offset = mSelectionPolygon[corner] - mAnchorPoint;
 
-        QPolygonF projectedPolygon = mapToSelection(mSelectionPolygon);
-        QVector2D currentPVec = QVector2D(currentPoint);
-
-        qreal originWidth = mSelectionPolygon[1].x() - mSelectionPolygon[0].x();
-        qreal originHeight = mSelectionPolygon[3].y() - mSelectionPolygon[0].y();
-
-        QVector2D staticXAnchor;
-        QVector2D staticYAnchor;
-        QVector2D movingAnchor;
-        if (mMoveMode == MoveMode::TOPLEFT) {
-            movingAnchor = QVector2D(projectedPolygon[0]);
-            staticXAnchor = QVector2D(projectedPolygon[1]);
-            staticYAnchor = QVector2D(projectedPolygon[3]);
-        } else if (mMoveMode == MoveMode::TOPRIGHT) {
-            movingAnchor = QVector2D(projectedPolygon[1]);
-            staticXAnchor = QVector2D(projectedPolygon[0]);
-            staticYAnchor = QVector2D(projectedPolygon[2]);
-        } else if (mMoveMode == MoveMode::BOTTOMRIGHT) {
-            movingAnchor = QVector2D(projectedPolygon[2]);
-            staticXAnchor = QVector2D(projectedPolygon[3]);
-            staticYAnchor = QVector2D(projectedPolygon[1]);
-        } else {
-            movingAnchor = QVector2D(projectedPolygon[3]);
-            staticXAnchor = QVector2D(projectedPolygon[2]);
-            staticYAnchor = QVector2D(projectedPolygon[0]);
-        }
-
-        QVector2D directionVecX = staticXAnchor - currentPVec;
-        QVector2D directionVecY = staticYAnchor - currentPVec;
-
-        // Calculates the signed distance
-        qreal distanceX = QVector2D::dotProduct(directionVecX, (staticXAnchor - movingAnchor).normalized());
-        qreal distanceY = QVector2D::dotProduct(directionVecY, (staticYAnchor - movingAnchor).normalized());
-
-        qreal scaleX = distanceX / originWidth;
-        qreal scaleY = distanceY / originHeight;
+        qreal scaleX = local.x() / offset.x();
+        qreal scaleY = local.y() / offset.y();
         if (mAspectRatioFixed) {
-            scaleY = scaleX;
+            scaleY = (mScaleX < 0) == (mScaleY < 0) ? scaleX : -scaleX;
         }
 
         scale(scaleX, scaleY);
 
+        break;
+    }
+    case MoveMode::SKEW_HORIZONTAL:
+    case MoveMode::SKEW_VERTICAL: {
+        // The anchor is the centre. Without translation and rotation, the dragged
+        // edge midpoint sits at (skewX * y, y) or (x, skewY * x).
+        const QTransform toLocal = transformAfterScale(false).inverted();
+        const QPointF local = toLocal.map(currentPoint);
+        const QPointF origin = toLocal.map(mDragOrigin);
+        if (mMoveMode == MoveMode::SKEW_HORIZONTAL && !qFuzzyIsNull(origin.y())) {
+            mSkewX = local.x() / origin.y();
+        } else if (mMoveMode == MoveMode::SKEW_VERTICAL && !qFuzzyIsNull(origin.x())) {
+            mSkewY = local.y() / origin.x();
+        }
         break;
     }
     case MoveMode::ROTATION: {
@@ -236,20 +239,9 @@ void SelectionManager::rotate(qreal angle, qreal lockedAngle)
 
 void SelectionManager::scale(qreal sX, qreal sY)
 {
-    // Enforce negative scaling when
-    // deliberately trying to transform in negative space
-    if (mScaleX < 0) {
-        sX = -sX;
-    }
     if (qFuzzyIsNull(sX)) {
         // Scale must not become 0
         sX = 0.0001;
-    }
-
-    // Enforce negative scaling when
-    // deliberately trying to transform in negative space
-    if (mScaleY < 0) {
-        sY = -sY;
     }
     if (qFuzzyIsNull(sY)) {
         // Scale must not become 0
@@ -296,18 +288,43 @@ void SelectionManager::setTransformAnchor(const QPointF& point)
     mAnchorPoint = point;
 }
 
+void SelectionManager::setNumericTransform(const QPointF& centre, qreal rotation, qreal scaleX, qreal scaleY)
+{
+    if (!somethingSelected()) { return; }
+
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+
+    // With the anchor at the centre, the translation is the canvas position of the centre.
+    setTransformAnchor(mOriginalRect.center());
+    mTranslation = centre;
+    mRotatedAngle = rotation;
+    scale(scaleX, scaleY);
+    calculateSelectionTransformation();
+
+    undoRedo->record(saveStateId, tr("Transform", "Undo step: typed move, rotate or scale values"));
+    emit selectionChanged();
+    emit editor()->frameModified(editor()->currentFrame());
+}
+
+QTransform SelectionManager::transformAfterScale(bool withSkew) const
+{
+    QTransform k;
+    if (withSkew) { k.shear(mSkewX, mSkewY); }
+    QTransform r;
+    r.rotate(mRotatedAngle);
+    QTransform t2;
+    t2.translate(mTranslation.x(), mTranslation.y());
+    return k * r * t2;
+}
+
 void SelectionManager::calculateSelectionTransformation()
 {
     QTransform t;
     t.translate(-mAnchorPoint.x(), -mAnchorPoint.y());
-    QTransform t2;
-    t2.translate(mTranslation.x(), mTranslation.y());
-
-    QTransform r;
-    r.rotate(mRotatedAngle);
     QTransform s;
     s.scale(mScaleX, mScaleY);
-    mSelectionTransform = t * s * r * t2;
+    mSelectionTransform = t * s * transformAfterScale();
 }
 
 QPointF SelectionManager::alignPositionToAxis(QPointF currentPoint) const

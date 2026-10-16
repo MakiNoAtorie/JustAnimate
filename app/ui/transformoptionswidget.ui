@@ -43,10 +43,124 @@
      </item>
      <item>
       <widget class="QCheckBox" name="antiAliasingCheckBox">
+       <property name="toolTip">
+        <string>Smooth edges when transforming</string>
+       </property>
        <property name="text">
         <string>Anti-Aliasing</string>
        </property>
       </widget>
+     </item>
+     <item>
+      <layout class="QGridLayout" name="numericLayout">
+       <item row="0" column="0">
+        <widget class="QLabel" name="positionLabel">
+         <property name="text">
+          <string>Position</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QDoubleSpinBox" name="positionXBox">
+         <property name="toolTip">
+          <string>Horizontal position of the selection centre</string>
+         </property>
+         <property name="prefix">
+          <string>X: </string>
+         </property>
+         <property name="minimum">
+          <double>-100000.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>100000.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QDoubleSpinBox" name="positionYBox">
+         <property name="toolTip">
+          <string>Vertical position of the selection centre</string>
+         </property>
+         <property name="prefix">
+          <string>Y: </string>
+         </property>
+         <property name="minimum">
+          <double>-100000.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>100000.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="scaleLabel">
+         <property name="text">
+          <string>Scale</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QDoubleSpinBox" name="scaleXBox">
+         <property name="toolTip">
+          <string>Horizontal scale of the selection</string>
+         </property>
+         <property name="suffix">
+          <string>%</string>
+         </property>
+         <property name="minimum">
+          <double>-10000.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>10000.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>100.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QDoubleSpinBox" name="scaleYBox">
+         <property name="toolTip">
+          <string>Vertical scale of the selection</string>
+         </property>
+         <property name="suffix">
+          <string>%</string>
+         </property>
+         <property name="minimum">
+          <double>-10000.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>10000.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>100.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="rotationLabel">
+         <property name="text">
+          <string>Rotation</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QDoubleSpinBox" name="rotationBox">
+         <property name="toolTip">
+          <string>Rotation of the selection around its centre</string>
+         </property>
+         <property name="suffix">
+          <string>°</string>
+         </property>
+         <property name="minimum">
+          <double>-360.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>360.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>

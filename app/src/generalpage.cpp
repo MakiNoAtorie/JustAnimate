@@ -103,6 +103,7 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     ui->backgroundButtons->setId(ui->weaveBackgroundButton, 5);
 
     auto* themeCombo = new QComboBox(this);
+    themeCombo->setObjectName("themeCombo");
     themeCombo->addItem(tr("Theme: System"), Theme::System);
     themeCombo->addItem(tr("Theme: Light"), Theme::Light);
     themeCombo->addItem(tr("Theme: Dark"), Theme::Dark);

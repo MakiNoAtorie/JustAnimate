@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include <QFontMetrics>
 #include <QFormLayout>
 #include <QInputDialog>
+#include <QKeyEvent>
 #include <QMenu>
 #include <QPainter>
 #include <QRegularExpression>
@@ -36,11 +37,13 @@ GNU General Public License for more details.
 #include "camerapropertiesdialog.h"
 #include "editor.h"
 #include "keyframe.h"
+#include "layerbitmap.h"
 #include "layermanager.h"
 #include "viewmanager.h"
 #include "object.h"
 #include "playbackmanager.h"
 #include "preferencemanager.h"
+#include "soundclip.h"
 #include "timeline.h"
 
 #include "cameracontextmenu.h"
@@ -62,6 +65,8 @@ TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYP
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
     setAttribute(Qt::WA_OpaquePaintEvent, false);
     setMouseTracking(true);
+    // Tab focus only: a click must leave keyboard focus on the canvas.
+    setFocusPolicy(Qt::TabFocus);
 
     connect(mPrefs, &PreferenceManager::optionChanged, this, &TimeLineCells::loadSetting);
 }
@@ -173,7 +178,7 @@ bool TimeLineCells::didDetachLayer() const {
     return abs(mMouseMoveY) > mLayerDetachThreshold;
 }
 
-void TimeLineCells::showCameraMenu(QPoint pos)
+void TimeLineCells::showFrameMenu(QPoint pos)
 {
     int frameNumber = getFrameNumber(pos.x());
 
@@ -183,6 +188,12 @@ void TimeLineCells::showCameraMenu(QPoint pos)
     if ((curLayer->type() == Layer::BITMAP || curLayer->type() == Layer::VECTOR) && curLayer->keyExists(frameNumber))
     {
         showTweenMenu(frameNumber, mapToGlobal(pos));
+        return;
+    }
+
+    if (curLayer->type() == Layer::SOUND)
+    {
+        showMarkerMenu(frameNumber, curLayer->id(), mapToGlobal(pos));
         return;
     }
 
@@ -417,11 +428,10 @@ void TimeLineCells::paintTicks(QPainter& painter, const QPalette& palette) const
     painter.restore();
 }
 
-void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
+void TimeLineCells::showMarkerMenu(int frame, int layerId, const QPoint& globalPos)
 {
     ObjectData* data = mEditor->object()->data();
-    const int frame = mEditor->currentFrame();
-    const bool has = data->markers().contains(frame);
+    const bool has = data->markers(layerId).contains(frame);
 
     QMenu menu;
     QAction* add = menu.addAction(has ? tr("Rename Marker...") : tr("Add Marker..."));
@@ -430,25 +440,25 @@ void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) return;
 
-    FrameMarker m = data->markers().value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
+    FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
     if (chosen == add)
     {
         bool ok = false;
         const QString name = QInputDialog::getText(this, tr("Marker"), tr("Name:"), QLineEdit::Normal, m.name, &ok);
         if (!ok) return;
         m.name = name;
-        data->setMarker(frame, m);
+        data->setMarker(frame, m, layerId);
     }
     else if (chosen == color)
     {
         const QColor c = QColorDialog::getColor(m.color, this);
         if (!c.isValid()) return;
         m.color = c;
-        data->setMarker(frame, m);
+        data->setMarker(frame, m, layerId);
     }
     else if (chosen == remove)
     {
-        data->removeMarker(frame);
+        data->removeMarker(frame, layerId);
     }
     mEditor->object()->modification();
     updateContent();
@@ -598,7 +608,52 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
         }
 
         painter.drawRect(recLeft, recTop, recWidth, recHeight);
+
+        if (layer->type() == Layer::SOUND)
+        {
+            paintWaveform(painter, static_cast<const SoundClip*>(key), recTop, recHeight, frameSize);
+        }
     });
+
+    if (layer->type() != Layer::SOUND) { return; }
+
+    // Lip-sync markers: a colour bar at the left of the cell and the phoneme over the waveform.
+    painter.save();
+    QFont nameFont = painter.font();
+    nameFont.setPixelSize(9);
+    painter.setFont(nameFont);
+    const QMap<int, FrameMarker> markers = mEditor->object()->data()->markers(layer->id());
+    for (auto it = markers.constBegin(); it != markers.constEnd(); ++it)
+    {
+        const int left = getFrameX(it.key()) - frameSize + 1;
+        painter.fillRect(left, recTop, 2, recHeight, it.value().color);
+        painter.setPen(palette().color(QPalette::Text));
+        painter.drawText(QRect(left + 3, recTop, frameSize * 4, recHeight), Qt::AlignLeft | Qt::AlignTop, it.value().name);
+    }
+    painter.restore();
+}
+
+void TimeLineCells::paintWaveform(QPainter& painter, const SoundClip* clip, int recTop, int recHeight, int frameSize) const
+{
+    const QVector<SoundClip::Peak> peaks = clip->waveformPeaks(mEditor->fps());
+    if (peaks.isEmpty()) { return; }
+
+    painter.save();
+    painter.setPen(QColor(40, 40, 40, 160));
+    painter.setBrush(QColor(40, 40, 40, 110));
+    const qreal mid = recTop + recHeight / 2.0;
+    const qreal half = recHeight / 2.0 - 1;
+    const int firstVisible = qMax(0, getFrameNumber(0) - clip->pos());
+    const int lastVisible = qMin<int>(peaks.size() - 1, getFrameNumber(width()) - clip->pos());
+    for (int i = firstVisible; i <= lastVisible; i++)
+    {
+        // Peak i spans the cell of frame pos() + i.
+        const int left = getFrameX(clip->pos() + i) - frameSize + 1;
+        const qreal top = mid - peaks[i].max * half;
+        const qreal bottom = mid - peaks[i].min * half;
+        painter.drawRect(QRectF(left, top, frameSize - 2, qMax<qreal>(1, bottom - top)));
+    }
+    painter.restore();
 }
 
 void TimeLineCells::paintCurrentFrameBorder(QPainter &painter, int recLeft, int recTop, int recWidth, int recHeight) const
@@ -943,6 +998,20 @@ bool TimeLineCells::event(QEvent* event)
     return QWidget::event(event);
 }
 
+// Same keys as the canvas: Left/Right move the frame, Up/Down the layer.
+void TimeLineCells::keyPressEvent(QKeyEvent* event)
+{
+    switch (event->key())
+    {
+    case Qt::Key_Right: mEditor->scrubForward(); break;
+    case Qt::Key_Left: mEditor->scrubBackward(); break;
+    case Qt::Key_Up: mEditor->layers()->gotoNextLayer(); break;
+    case Qt::Key_Down: mEditor->layers()->gotoPreviouslayer(); break;
+    default: QWidget::keyPressEvent(event); return;
+    }
+    event->accept();
+}
+
 void TimeLineCells::mousePressEvent(QMouseEvent* event)
 {
     int frameNumber = getFrameNumber(event->pos().x());
@@ -998,6 +1067,13 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 QAction* onion = menu.addAction(tr("Onion Skin"));
                 onion->setCheckable(true);
                 onion->setChecked(layer->onionSkin());
+                QAction* lockAlpha = nullptr;
+                if (layer->type() == Layer::BITMAP)
+                {
+                    lockAlpha = menu.addAction(tr("Lock Transparency"));
+                    lockAlpha->setCheckable(true);
+                    lockAlpha->setChecked(static_cast<LayerBitmap*>(layer)->lockAlpha());
+                }
                 if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
                 {
                     QMenu* blend = menu.addMenu(tr("Blend Mode"));
@@ -1040,6 +1116,11 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 if (chosen == onion)
                 {
                     mEditor->switchOnionSkinOfLayer(layerNumber);
+                }
+                else if (chosen && chosen == lockAlpha)
+                {
+                    static_cast<LayerBitmap*>(layer)->setLockAlpha(lockAlpha->isChecked());
+                    mEditor->object()->modification();
                 }
                 else if (chosen && chosen == newGroup)
                 {
@@ -1089,7 +1170,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     case TIMELINE_CELL_TYPE::Tracks:
         if (event->button() == Qt::RightButton && mStartY < 20)
         {
-            showMarkerMenu(event->globalPosition().toPoint());
+            showMarkerMenu(mEditor->currentFrame(), 0, event->globalPosition().toPoint());
             return;
         }
         if (event->button() == Qt::MiddleButton)
@@ -1158,10 +1239,10 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                             }
                         }
 
-                        // ... or we show the camera context menu, if it is the right button
+                        // ... or we show the frame context menu, if it is the right button
                         if (event->button() == Qt::RightButton)
                         {
-                            showCameraMenu(event->pos());
+                            showFrameMenu(event->pos());
                         }
 
                     }
@@ -1170,7 +1251,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                         // If selected they can also be interpolated
                         if (event->button() == Qt::RightButton)
                         {
-                            showCameraMenu(event->pos());
+                            showFrameMenu(event->pos());
                         }
                         // We clicked on a selected frame, we can move it
                         mCanMoveFrame = true;

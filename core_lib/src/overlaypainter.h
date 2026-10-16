@@ -2,6 +2,7 @@
 #define OVERLAYPAINTER_H
 
 #include <QCoreApplication>
+#include <QLineF>
 #include <QPainter>
 #include <QPalette>
 
@@ -32,6 +33,8 @@ struct OverlayPainterOptions
     QPointF mLeftPerspPoint;
     QPointF mRightPerspPoint;
     QPointF mMiddlePerspPoint;
+    bool  bRuler = false;
+    QLineF mRuler; // canvas coordinates
 };
 
 class OverlayPainter
@@ -57,6 +60,8 @@ private:
     void paintOverlayPerspectiveOnePoint(QPainter& painter, const QRect& viewport, const QTransform& camTransform) const;
     void paintOverlayPerspectiveTwoPoints(QPainter& painter, const QRect& viewport, const Camera& camera, const QTransform& camTransform) const;
     void paintOverlayPerspectiveThreePoints(QPainter& painter, const QRect& viewport, const Camera& camera, const QTransform& camTransform) const;
+
+    void paintRuler(QPainter& painter) const;
 
     int round100(double f, int gridSize) const;
 

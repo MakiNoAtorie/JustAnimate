@@ -17,6 +17,8 @@ GNU General Public License for more details.
 #ifndef TRANSFORMOPTIONSWIDGET_H
 #define TRANSFORMOPTIONSWIDGET_H
 
+#include <array>
+
 #include "basewidget.h"
 
 #include "toolproperties.h"
@@ -24,6 +26,7 @@ GNU General Public License for more details.
 class TransformTool;
 class Editor;
 class BaseTool;
+class QDoubleSpinBox;
 
 namespace Ui {
 class TransformOptionsWidget;
@@ -50,11 +53,16 @@ private:
     void updateToolConnections(BaseTool* tool);
     void setShowSelectionInfo(bool enabled);
     void setAntiAliasingEnabled(bool enabled);
+    void updateNumericTransform();
+    void applyNumericTransform();
+    // Position X, position Y, scale X, scale Y, rotation: the order of mShownValues.
+    std::array<QDoubleSpinBox*, 5> numericBoxes() const;
 
     Ui::TransformOptionsWidget *ui;
 
     TransformTool* mTransformTool = nullptr;
     Editor* mEditor = nullptr;
+    qreal mShownValues[5] = {}; // Box values after the last update: an unchanged box keeps the exact value.
 };
 
 #endif // TRANSFORMOPTIONSWIDGET_H

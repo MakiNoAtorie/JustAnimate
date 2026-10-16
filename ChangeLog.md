@@ -5,6 +5,21 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Translations: all .ts files re-synced with the current strings (obsolete entries kept) and the fork translation workflow is documented in docs/translations.md.
+- Accessibility: arrow keys move the frame and layer when the timeline has keyboard focus (Tab to it), every dock and tool option control has a tooltip, and dark-theme link and placeholder text meet WCAG AA contrast (4.8).
+- Lip-sync markers: right-click a sound layer cell to add, rename or remove a phoneme marker against the waveform; markers are saved with the project (3.10).
+- Project loading is fuzz-tested: a camera key with zero or negative scale, or an unknown element under the document, no longer crashes a debug build (1.8).
+- Triage: swept open Pencil2D crash and data-loss issues; four still apply and are filed as #164-#167 (1.9).
+- Radial tool menu (Q) and quick brush-preset picker (W): a ring under the cursor; tap or release the pen on a slice to pick it (4.6).
+- Canvas HUD: the bottom-left corner of the canvas shows a brush-size ring, a rotation dial and the zoom and rotation values (4.6).
+- Preferences: a search box finds options by name, and every option has a tooltip (4.9).
+- Preferences: assigning a shortcut that another action uses warns and names that action (4.5).
+- Snap to Perspective: View > Overlays > Snap to Perspective makes strokes follow the line from their start toward the nearest vanishing point of the visible perspective overlay (2.9).
+- Sound layers show a waveform aligned to frames; sound scrubbing follows fast drags and no longer plays clips at frame 1 one frame late (3.10).
+- Move and select tools: type the position, scale and rotation of a selection in the tool options; values apply exactly and undo in one step (2.10).
+- Move tool: drag the round handle on a selection edge to skew it around its centre; undoable (2.10).
+- Lock Transparency: right-click a bitmap layer to paint only on its existing pixels; strokes never change alpha and the setting is saved (2.8).
+- Ruler: View > Overlays > Ruler shows a straight line; drag its ends with the Move tool, and strokes that start near it snap to it (2.9).
 - Fixes: a stroke on a moved (tweened) key lands where it is drawn, Duplicate Layer keeps the blend mode, a single Next/Previous Frame tap always steps, and marker names show on the timeline ruler.
 - Layer groups: right-click a member to show or hide the group or set its opacity; the group fades as one image, on the canvas and in export (3.7).
 - Layer groups: right-click a layer to make, join or leave a group; click the arrow to collapse it; a collapsed group drags as a block. Files still open in Pencil2D (3.7).

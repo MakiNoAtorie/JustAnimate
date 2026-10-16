@@ -4,8 +4,6 @@
 # Test sources
 set(TEST_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/catch.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineparser.h
 )
 
 set(TEST_SOURCES
@@ -16,9 +14,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_defaultlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_welcomehelper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineexporter.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineparser.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineparser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movieexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_spritesheet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_inputsmoother.cpp
@@ -47,7 +43,9 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_editorimport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_propertyinfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_lassofilltool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_scribblearea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shapetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_stroketool.cpp
@@ -58,25 +56,14 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_viewmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_util.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_theme.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_importlayersdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_prefsearch.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_accessibility.cpp
 )
 
-# App sources under test (the dialog and what it links against)
-set(TEST_APP_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/importlayersdialog.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/importlayersdialog.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/errordialog.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/errordialog.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/filedialog.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/filedialog.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/importlayersdialog.ui
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/errordialog.ui
-)
+# The whole app minus its entry point, so tests can build MainWindow2.
+set(TEST_ALL_APP_SOURCES ${APP_HEADERS} ${APP_SOURCES} ${APP_RESOURCES})
+list(REMOVE_ITEM TEST_ALL_APP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/app/src/main.cpp)
 
 set(TEST_RESOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/tests.qrc
@@ -90,26 +77,8 @@ add_executable(pencil2d_tests
     ${CORE_LIB_RESOURCES}
     ${TEST_HEADERS}
     ${TEST_SOURCES}
-    ${TEST_APP_SOURCES}
+    ${TEST_ALL_APP_SOURCES}
     ${TEST_RESOURCES}
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basedockwidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basedockwidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/buttonappearancewatcher.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/buttonappearancewatcher.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpresetdock.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpresetdock.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpreseteditor.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/brushpreseteditor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pressurecurvewidget.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pressurecurvewidget.cpp
 )
 
 # Include directories
@@ -117,6 +86,12 @@ target_include_directories(pencil2d_tests PRIVATE
     ${CORE_LIB_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src
+)
+
+# App headers rely on the precompiled header for their Qt includes.
+target_precompile_headers(pencil2d_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/corelib-pch.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app-pch.h
 )
 
 set_target_properties(pencil2d_tests PROPERTIES
@@ -131,6 +106,7 @@ target_link_libraries(pencil2d_tests PRIVATE
     Qt6::Xml
     Qt6::Multimedia
     Qt6::Svg
+    Qt6::Network
 )
 
 # Platform-specific libraries

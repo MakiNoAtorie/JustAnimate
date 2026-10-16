@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "movemode.h"
 #include "basemanager.h"
 
+#include <QLineF>
 #include <QPointF>
 
 #include "preferencesdef.h"
@@ -48,6 +49,8 @@ public:
     double selectionTolerance();
 
     void updatePerspective(const QPointF& point);
+    /// Moves the ruler end that the move mode names to a canvas point.
+    void updateRuler(const QPointF& point);
 
     MoveMode getMoveMode() const { return mMoveMode; }
     void setMoveMode(MoveMode mode) { mMoveMode = mode; }
@@ -56,7 +59,16 @@ public:
     QPointF getRightPerspectivePoint() const { return mRightPerspectivePoint; }
     QPointF getMiddlePerspectivePoint() const { return mMiddlePerspectivePoint; }
 
-    bool anyOverlayEnabled() const { return mSinglePerspectiveEnabled || mTwoPointPerspectiveEnabled || mThreePointPerspectiveEnabled; }
+    /// Canvas line that strokes starting near it snap to, when enabled.
+    QLineF ruler() const { return mRuler; }
+    void setRuler(const QLineF& line) { mRuler = line; }
+    bool isRulerEnabled() const { return mRulerEnabled; }
+    void setRulerEnabled(bool enabled) { mRulerEnabled = enabled; }
+    /// Strokes snap to lines toward the vanishing points of the visible perspective overlays.
+    bool isPerspectiveSnapEnabled() const { return mPerspectiveSnapEnabled; }
+    void setPerspectiveSnapEnabled(bool enabled) { mPerspectiveSnapEnabled = enabled; }
+
+    bool anyOverlayEnabled() const { return mRulerEnabled || mSinglePerspectiveEnabled || mTwoPointPerspectiveEnabled || mThreePointPerspectiveEnabled; }
 
 private:
     Editor* mEditor = nullptr;
@@ -67,6 +79,10 @@ private:
     QPointF mMiddlePerspectivePoint;   // two and three point perspective
 
     MoveMode mMoveMode = MoveMode::NONE;
+
+    QLineF mRuler { -300.0, 0.0, 300.0, 0.0 };
+    bool mRulerEnabled = false;
+    bool mPerspectiveSnapEnabled = false;
 
     bool mSinglePerspectiveEnabled = false;
     bool mTwoPointPerspectiveEnabled = false;

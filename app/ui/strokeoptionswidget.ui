@@ -40,6 +40,9 @@
      </item>
      <item>
       <widget class="QDoubleSpinBox" name="sizeSpinBox">
+       <property name="toolTip">
+        <string>Brush size</string>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -76,6 +79,9 @@
      </item>
      <item>
       <widget class="QDoubleSpinBox" name="featherSpinBox">
+       <property name="toolTip">
+        <string>Feather amount</string>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -112,6 +118,9 @@
      </item>
      <item>
       <widget class="QDoubleSpinBox" name="spacingSpinBox">
+       <property name="toolTip">
+        <string>Distance between dabs</string>
+       </property>
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>

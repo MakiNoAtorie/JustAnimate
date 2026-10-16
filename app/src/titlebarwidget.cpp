@@ -57,6 +57,7 @@ QWidget* TitleBarWidget::createCustomTitleBarWidget(QWidget* parent)
     mCloseButton = new QToolButton(parent);
 
     mCloseButton->setStyleSheet(flatButtonStylesheet());
+    mCloseButton->setToolTip(tr("Close"));
 
     QSize iconSize = QSize(14,14);
     QSize padding = QSize(2,2);
@@ -93,6 +94,7 @@ QWidget* TitleBarWidget::createCustomTitleBarWidget(QWidget* parent)
     QIcon dockIcon = dockButtonRes.iconForMode(isDarkmode);
     mDockButton->setIcon(dockIcon);
     mDockButton->setStyleSheet(flatButtonStylesheet());
+    mDockButton->setToolTip(tr("Dock or undock"));
 
     mDockButton->setIconSize(iconSize);
     mDockButton->setFixedSize(iconSize + padding);

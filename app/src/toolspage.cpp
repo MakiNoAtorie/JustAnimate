@@ -32,6 +32,7 @@ ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
 
     mPressureCurve = new PressureCurveWidget(this);
     auto* resetCurve = new QPushButton(tr("Reset Pressure Curve"), this);
+    resetCurve->setObjectName("resetCurveButton");
     ui->verticalLayout_2->addWidget(new QLabel(tr("Pressure curve (pen pressure to size and opacity):"), this));
     ui->verticalLayout_2->addWidget(mPressureCurve);
     ui->verticalLayout_2->addWidget(resetCurve, 0, Qt::AlignLeft);

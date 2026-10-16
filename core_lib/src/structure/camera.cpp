@@ -29,12 +29,6 @@ Camera::Camera(QPointF translation, qreal rotation, qreal scaling)
     updateViewTransform();
 }
 
-Camera::Camera(QPointF translation, qreal rotation, qreal scaling, CameraEasingType type)
-{
-    mEasingType = type;
-    Camera(translation, rotation, scaling);
-}
-
 Camera::Camera(const Camera& c2) : KeyFrame(c2)
 {
     mTranslate = c2.mTranslate;

@@ -239,6 +239,7 @@ void MoveKeyFramesCommand::apply(const QList<QPair<int, int>>& fromTo)
     if (!layer || !layer->moveKeyFrames(fromTo)) {
         return setObsolete(true);
     }
+    editor()->layers()->moveSoundMarkers(layer, fromTo);
 
     if (layer->type() == Layer::CAMERA) {
         editor()->view()->forceUpdateViewTransform();
@@ -388,6 +389,8 @@ TransformCommand::TransformCommand(const QRectF& undoSelectionRect,
                                    const qreal undoRotationAngle,
                                    const qreal undoScaleX,
                                    const qreal undoScaleY,
+                                   const qreal undoSkewX,
+                                   const qreal undoSkewY,
                                    const QPointF& undoTransformAnchor,
                                    const bool roundPixels,
                                    const QString& description,
@@ -402,6 +405,8 @@ TransformCommand::TransformCommand(const QRectF& undoSelectionRect,
     this->undoRotationAngle = undoRotationAngle;
     this->undoScaleX = undoScaleX;
     this->undoScaleY = undoScaleY;
+    this->undoSkewX = undoSkewX;
+    this->undoSkewY = undoSkewY;
 
     auto selectMan = editor->select();
     redoSelectionRect = selectMan->mySelectionRect();
@@ -410,6 +415,8 @@ TransformCommand::TransformCommand(const QRectF& undoSelectionRect,
     redoRotationAngle = selectMan->myRotation();
     redoScaleX = selectMan->myScaleX();
     redoScaleY = selectMan->myScaleY();
+    redoSkewX = selectMan->mySkewX();
+    redoSkewY = selectMan->mySkewY();
 
     setText(description);
 }
@@ -422,6 +429,8 @@ void TransformCommand::undo()
           undoRotationAngle,
           undoScaleX,
           undoScaleY,
+          undoSkewX,
+          undoSkewY,
           undoAnchor,
           roundPixels);
 }
@@ -438,6 +447,8 @@ void TransformCommand::redo()
           redoRotationAngle,
           redoScaleX,
           redoScaleY,
+          redoSkewX,
+          redoSkewY,
           redoAnchor,
           roundPixels);
 }
@@ -447,6 +458,8 @@ void TransformCommand::apply(const QRectF& selectionRect,
                              const qreal rotationAngle,
                              const qreal scaleX,
                              const qreal scaleY,
+                             const qreal skewX,
+                             const qreal skewY,
                              const QPointF& selectionAnchor,
                              const bool roundPixels)
 {
@@ -456,6 +469,7 @@ void TransformCommand::apply(const QRectF& selectionRect,
     selectMan->setTranslation(translation);
     selectMan->setRotation(rotationAngle);
     selectMan->setScale(scaleX, scaleY);
+    selectMan->setSkew(skewX, skewY);
 
     selectMan->calculateSelectionTransformation();
 }

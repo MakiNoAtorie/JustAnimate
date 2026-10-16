@@ -36,7 +36,8 @@ void StrokeInterpolator::pointerPressEvent(PointerEvent* event)
         mCurrentPressPixel = event->viewportPos();
     }
 
-    mLastPixel = mCurrentPixel = event->viewportPos();
+    mSnapper.begin(event->viewportPos());
+    mLastPixel = mCurrentPixel = mSnapper.snap(event->viewportPos());
     mSmoother.reset(mCurrentPixel, event->timestamp());
     mVelocity = QPointF();
     mSpeed = 0;
@@ -51,7 +52,7 @@ void StrokeInterpolator::pointerMoveEvent(PointerEvent* event)
 {
     mLastPixel = mCurrentPixel;
     // Hover is not smoothed, so the cursor stays on the pen.
-    mCurrentPixel = mStrokeStarted ? mSmoother.filter(event->viewportPos(), event->timestamp())
+    mCurrentPixel = mStrokeStarted ? mSmoother.filter(mSnapper.snap(event->viewportPos()), event->timestamp())
                                    : event->viewportPos();
     if (mStrokeStarted)
     {
@@ -77,7 +78,7 @@ void StrokeInterpolator::pointerReleaseEvent(PointerEvent* event)
     if (mStrokeStarted)
     {
         mLastPixel = mCurrentPixel;
-        mCurrentPixel = mSmoother.release(event->viewportPos(), event->timestamp());
+        mCurrentPixel = mSmoother.release(mSnapper.snap(event->viewportPos()), event->timestamp());
         if (event->isTabletEvent())
         {
             setPressure(event->pressure());

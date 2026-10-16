@@ -176,6 +176,8 @@ private:
     ColorInspector*       mColorInspector = nullptr;
     OnionSkinWidget*      mOnionSkinWidget = nullptr;
     BrushPresetDock*      mBrushPresets = nullptr;
+    QAction*              mRadialToolAction = nullptr;
+    QAction*              mPresetPickerAction = nullptr;
     QToolBar*             mMainToolbar = nullptr;
     QToolBar*             mViewToolbar = nullptr;
     QToolBar*             mOverlayToolbar = nullptr;

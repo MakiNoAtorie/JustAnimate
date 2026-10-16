@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "ui_transformoptionswidget.h"
 
 #include "editor.h"
+#include "selectionmanager.h"
 #include "toolmanager.h"
 #include "transformtool.h"
 
@@ -37,6 +38,12 @@ TransformOptionsWidget::~TransformOptionsWidget()
 void TransformOptionsWidget::initUI()
 {
     makeConnectionsFromUIToModel();
+    connect(mEditor->select(), &SelectionManager::selectionChanged, this, &TransformOptionsWidget::updateNumericTransform);
+    connect(mEditor, &Editor::frameModified, this, &TransformOptionsWidget::updateNumericTransform);
+    for (QDoubleSpinBox* box : { ui->positionXBox, ui->positionYBox, ui->scaleXBox, ui->scaleYBox, ui->rotationBox }) {
+        connect(box, &QDoubleSpinBox::editingFinished, this, &TransformOptionsWidget::applyNumericTransform);
+    }
+    updateNumericTransform();
 }
 
 void TransformOptionsWidget::updateUI()
@@ -91,6 +98,47 @@ void TransformOptionsWidget::makeConnectionFromModelToUI(TransformTool* transfor
 {
     connect(transformTool, &TransformTool::showSelectionInfoChanged, this, &TransformOptionsWidget::setShowSelectionInfo);
     connect(transformTool, &TransformTool::antiAliasingChanged, this, &TransformOptionsWidget::setAntiAliasingEnabled);
+}
+
+std::array<QDoubleSpinBox*, 5> TransformOptionsWidget::numericBoxes() const
+{
+    return { ui->positionXBox, ui->positionYBox, ui->scaleXBox, ui->scaleYBox, ui->rotationBox };
+}
+
+void TransformOptionsWidget::updateNumericTransform()
+{
+    const SelectionManager* select = mEditor->select();
+    const bool selected = select->somethingSelected();
+    const QPointF centre = selected ? select->selectionCentre() : QPointF();
+    const qreal values[] = { centre.x(), centre.y(), select->myScaleX() * 100, select->myScaleY() * 100, select->myRotation() };
+    const auto boxes = numericBoxes();
+    for (int i = 0; i < 5; ++i) {
+        QSignalBlocker b(boxes[i]);
+        boxes[i]->setEnabled(selected);
+        boxes[i]->setValue(selected ? values[i] : (i == 2 || i == 3 ? 100 : 0));
+        mShownValues[i] = boxes[i]->value();
+    }
+}
+
+void TransformOptionsWidget::applyNumericTransform()
+{
+    SelectionManager* select = mEditor->select();
+    if (!select->somethingSelected()) { return; }
+
+    const auto boxes = numericBoxes();
+    bool changed = false;
+    for (int i = 0; i < 5; ++i) { changed |= boxes[i]->value() != mShownValues[i]; }
+    if (!changed) { return; }
+
+    // A box the user did not change keeps the exact value, not the rounded one it shows.
+    auto pick = [&](int i, qreal current, qreal unit) {
+        return boxes[i]->value() == mShownValues[i] ? current : boxes[i]->value() / unit;
+    };
+    const QPointF centre = select->selectionCentre();
+    select->setNumericTransform(QPointF(pick(0, centre.x(), 1), pick(1, centre.y(), 1)),
+                                pick(4, select->myRotation(), 1),
+                                pick(2, select->myScaleX(), 100),
+                                pick(3, select->myScaleY(), 100));
 }
 
 void TransformOptionsWidget::setShowSelectionInfo(bool enabled)

@@ -48,6 +48,8 @@ bool PlaybackManager::init()
 
     mScrubTimer = new QTimer(this);
     mScrubTimer->setTimerType(Qt::PreciseTimer);
+    mScrubTimer->setSingleShot(true);
+    connect(mScrubTimer, &QTimer::timeout, this, &PlaybackManager::stopScrubPlayback);
     mSoundclipsToPLay.clear();
 
     QSettings settings (PENCIL2D, PENCIL2D);
@@ -200,8 +202,10 @@ void PlaybackManager::playFlipInBetween()
 
 void PlaybackManager::playScrub(int frame)
 {
-    if (!mSoundScrub || !mSoundclipsToPLay.isEmpty()) {return; }
+    if (!mSoundScrub) { return; }
 
+    // A new frame restarts the snippet there, so a fast drag does not skip audio.
+    QVector<SoundClip*> clips;
     auto layerMan = editor()->layers();
     for (int i = 0; i < layerMan->count(); i++)
     {
@@ -212,17 +216,22 @@ void PlaybackManager::playScrub(int frame)
             if (key != nullptr)
             {
                 SoundClip* clip = static_cast<SoundClip*>(key);
-                mSoundclipsToPLay.append(clip);
+                clips.append(clip);
             }
         }
     }
 
-    if (mSoundclipsToPLay.isEmpty()) { return; }
-
-    mScrubTimer->singleShot(mMsecSoundScrub, this, &PlaybackManager::stopScrubPlayback);
-    for (int i = 0; i < mSoundclipsToPLay.count(); i++)
+    for (SoundClip* clip : std::as_const(mSoundclipsToPLay))
     {
-        mSoundclipsToPLay.at(i)->playFromPosition(frame, mFps);
+        if (!clips.contains(clip)) { clip->pause(); }
+    }
+    mSoundclipsToPLay = clips;
+    if (clips.isEmpty()) { mScrubTimer->stop(); return; }
+
+    mScrubTimer->start(mMsecSoundScrub);
+    for (SoundClip* clip : clips)
+    {
+        clip->playFromPosition(frame, mFps);
     }
 }
 

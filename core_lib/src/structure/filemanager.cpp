@@ -219,9 +219,19 @@ bool FileManager::loadObject(Object* object, const QDomElement& root)
                 }
             }
         }
-        else
+    }
+
+    // A marker on an unknown or non-sound layer loads as a global marker; an existing global marker wins.
+    ObjectData* data = object->data();
+    for (int layerId : data->allMarkers().keys())
+    {
+        const Layer* layer = object->findLayerById(layerId);
+        if (layerId == 0 || (layer && layer->type() == Layer::SOUND)) continue;
+        const QMap<int, FrameMarker> orphans = data->markers(layerId);
+        data->setMarkers(layerId, {});
+        for (auto it = orphans.constBegin(); it != orphans.constEnd(); ++it)
         {
-            Q_ASSERT(false);
+            if (!data->markers().contains(it.key())) { data->setMarker(it.key(), it.value()); }
         }
     }
     return ok;
@@ -447,8 +457,9 @@ ObjectData FileManager::loadProjectData(const QDomElement& docElem)
     return data;
 }
 
-QDomElement FileManager::saveProjectData(const ObjectData* data, QDomDocument& xmlDoc)
+QDomElement FileManager::saveProjectData(const Object* object, QDomDocument& xmlDoc)
 {
+    const ObjectData* data = object->data();
     QDomElement rootTag = xmlDoc.createElement("projectdata");
 
     // Current Frame
@@ -510,19 +521,24 @@ QDomElement FileManager::saveProjectData(const ObjectData* data, QDomDocument& x
     tagMarkOutFrame.setAttribute("value", data->getMarkOutFrameNumber());
     rootTag.appendChild(tagMarkOutFrame);
 
-    if (!data->markers().isEmpty())
+    QDomElement markersTag = xmlDoc.createElement("markers");
+    for (auto layerIt = data->allMarkers().constBegin(); layerIt != data->allMarkers().constEnd(); ++layerIt)
     {
-        QDomElement markersTag = xmlDoc.createElement("markers");
-        for (auto it = data->markers().constBegin(); it != data->markers().constEnd(); ++it)
+        const int layerId = layerIt.key();
+        // A deleted layer keeps its markers in memory for undo; a new layer can reuse its id.
+        const Layer* layer = object->findLayerById(layerId);
+        if (layerId != 0 && (layer == nullptr || layer->type() != Layer::SOUND)) continue;
+        for (auto it = layerIt->constBegin(); it != layerIt->constEnd(); ++it)
         {
             QDomElement m = xmlDoc.createElement("marker");
             m.setAttribute("frame", it.key());
             m.setAttribute("name", it.value().name);
             m.setAttribute("color", it.value().color.name());
+            if (layerId != 0) m.setAttribute("layer", layerId);
             markersTag.appendChild(m);
         }
-        rootTag.appendChild(markersTag);
     }
+    if (markersTag.hasChildNodes()) rootTag.appendChild(markersTag);
 
     return rootTag;
 }
@@ -590,7 +606,8 @@ void FileManager::extractProjectData(const QDomElement& element, ObjectData& dat
             if (frame < 1) continue;
             QColor c(m.attribute("color"));
             if (!c.isValid()) c = QColor(255, 140, 0);
-            data.setMarker(frame, { m.attribute("name"), c });
+            // loadObject demotes a marker whose layer is not a sound layer once the layers are loaded.
+            data.setMarker(frame, { m.attribute("name"), c }, qMax(0, m.attribute("layer", "0").toInt()));
         }
     }
 }
@@ -747,7 +764,7 @@ Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPat
     progressForward();
 
     // save editor information
-    QDomElement projDataXml = saveProjectData(object->data(), xmlDoc);
+    QDomElement projDataXml = saveProjectData(object, xmlDoc);
     root.appendChild(projDataXml);
 
     // save object
@@ -1100,7 +1117,7 @@ Status FileManager::rebuildMainXML(Object* object)
     xmlDoc.appendChild(root);
 
     // save editor information
-    QDomElement projDataXml = saveProjectData(object->data(), xmlDoc);
+    QDomElement projDataXml = saveProjectData(object, xmlDoc);
     root.appendChild(projDataXml);
 
     // save object

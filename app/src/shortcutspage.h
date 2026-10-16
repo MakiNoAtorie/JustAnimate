@@ -42,6 +42,8 @@ public:
 
     void setManager( PreferenceManager* p ) { mManager = p; }
     ~ShortcutsPage() override;
+    // Shows only the actions whose name matches query (all for an empty query). Returns true when one matches.
+    bool filter(const QString& query);
 
 private slots:
     void tableItemClicked(const QModelIndex&);
@@ -52,7 +54,6 @@ private slots:
     void clearButtonClicked();
 
 private:
-    bool isKeySequenceExist(const QSettings&, QString, QKeySequence);
     void removeDuplicateKeySequence(QSettings*, QKeySequence);
     void treeModelLoadShortcutsSetting();
 

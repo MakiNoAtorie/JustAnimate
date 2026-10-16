@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include "layer.h"
 #include "layerbitmap.h"
 #include "layervector.h"
+#include "layersound.h"
 #include "layermanager.h"
 #include "object.h"
 #include "pencildef.h"
@@ -37,6 +38,7 @@ GNU General Public License for more details.
 #include "repositionframesdialog.h"
 #include "scribblearea.h"
 #include "selectionmanager.h"
+#include "soundclip.h"
 #include "testfixture.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
@@ -1101,4 +1103,44 @@ TEST_CASE("UndoRedoManager: one user action is one undo step")
         REQUIRE(edits == 0);
         REQUIRE_FALSE(undoAction->isEnabled());
     }
+}
+
+TEST_CASE("UndoRedoManager - moving a sound clip moves the lip-sync markers inside it")
+{
+    TestSession session;
+    LayerSound* sound = session.object->addNewSoundLayer();
+    SoundClip* clip = new SoundClip;
+    clip->setLength(3);
+    REQUIRE(sound->addKeyFrame(2, clip));
+    ObjectData* data = session.object->data();
+    const int id = sound->id();
+    for (int frame : { 1, 2, 4, 5 }) { data->setMarker(frame, { QString::number(frame), Qt::red }, id); }
+    data->setMarker(3, { "global", Qt::red });
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(sound);
+
+    // Lists "frame=name" for the sound layer's markers.
+    auto markers = [&]
+    {
+        QString list;
+        const auto m = data->markers(id);
+        for (auto it = m.constBegin(); it != m.constEnd(); ++it) { list += QString("%1=%2 ").arg(it.key()).arg(it.value().name); }
+        return list.trimmed().toStdString();
+    };
+    const std::string before = "1=1 2=2 4=4 5=5";
+    const std::string after = "1=1 5=5 7=2 9=4";
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    sound->setFrameSelected(2, true);
+    REQUIRE(editor->layers()->moveSelectedFrames(5));
+    CHECK(markers() == after);
+    CHECK(data->markers().keys() == QList<int>{ 3 });
+    undoAction->trigger();
+    CHECK(markers() == before);
+    redoAction->trigger();
+    CHECK(markers() == after);
 }

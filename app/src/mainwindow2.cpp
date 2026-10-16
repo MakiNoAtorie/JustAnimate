@@ -24,6 +24,7 @@ GNU General Public License for more details.
 
 // Qt headers
 #include <QActionGroup>
+#include <QCursor>
 #include <QDir>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -58,6 +59,7 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "soundmanager.h"
 #include "viewmanager.h"
+#include "overlaymanager.h"
 #include "selectionmanager.h"
 #include "undoredomanager.h"
 
@@ -384,6 +386,23 @@ void MainWindow2::createMenus()
     bindPreferenceSetting(ui->actionThirds, prefs, SETTING::OVERLAY_THIRDS);
     bindPreferenceSetting(ui->actionCenter, prefs, SETTING::OVERLAY_CENTER);
     bindPreferenceSetting(ui->actionGrid, prefs, SETTING::GRID);
+
+    QAction* rulerAction = new QAction(tr("Ruler"), this);
+    rulerAction->setCheckable(true);
+    rulerAction->setToolTip(tr("Strokes that start near the ruler snap to it. Drag its ends with the Move tool."));
+    ui->menuOverlays->insertAction(ui->menuPerspectiveLinesAngle->menuAction(), rulerAction);
+    connect(rulerAction, &QAction::toggled, this, [this](bool on) {
+        mEditor->overlays()->setRulerEnabled(on);
+        mEditor->updateFrame();
+    });
+
+    QAction* perspectiveSnapAction = new QAction(tr("Snap to Perspective"), this);
+    perspectiveSnapAction->setCheckable(true);
+    perspectiveSnapAction->setToolTip(tr("Strokes follow the line from their start point toward a vanishing point of the visible perspective overlay."));
+    ui->menuOverlays->insertAction(ui->menuPerspectiveLinesAngle->menuAction(), perspectiveSnapAction);
+    connect(perspectiveSnapAction, &QAction::toggled, this, [this](bool on) {
+        mEditor->overlays()->setPerspectiveSnapEnabled(on);
+    });
     bindPreferenceSetting(ui->actionShowOutlinesOnly, prefs, SETTING::OUTLINES);
     bindPreferenceSetting(ui->actionShowInvisibleLines, prefs, SETTING::INVISIBLE_LINES);
     bindPreferenceSetting(ui->actionOnionPrev, prefs, SETTING::PREV_ONION);
@@ -502,6 +521,25 @@ void MainWindow2::createMenus()
         else if (action == ui->actionEraser) mToolBox->setActiveTool(ERASER);
         else if (action == ui->actionResetToolsDefault) mCommands->resetAllTools();
         else Q_UNREACHABLE();
+    });
+
+    // Both open under the cursor, so a pen hovering the canvas can pick a slice right away.
+    auto cursorInCanvas = [this] {
+        ScribbleArea* area = ui->scribbleArea;
+        const QPoint p = area->mapFromGlobal(QCursor::pos());
+        return QPointF(area->rect().contains(p) ? p : area->rect().center());
+    };
+    mRadialToolAction = new QAction(tr("Radial Tool Menu"), this);
+    mRadialToolAction->setToolTip(tr("Opens a ring of tools under the cursor. Tap or release the pen on a tool to pick it."));
+    ui->menuTools->addAction(mRadialToolAction);
+    connect(mRadialToolAction, &QAction::triggered, this, [this, cursorInCanvas] {
+        ui->scribbleArea->openToolMenu(cursorInCanvas());
+    });
+    mPresetPickerAction = new QAction(tr("Quick Preset Picker"), this);
+    mPresetPickerAction->setToolTip(tr("Opens a ring of brush presets under the cursor. Tap or release the pen on a preset to apply it to the current tool."));
+    ui->menuTools->addAction(mPresetPickerAction);
+    connect(mPresetPickerAction, &QAction::triggered, this, [this, cursorInCanvas] {
+        ui->scribbleArea->openPresetPicker(cursorInCanvas());
     });
 
     //--- Window Menu ---
@@ -1444,6 +1482,8 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionEyedropper->setShortcut(cmdKeySeq(CMD_TOOL_EYEDROPPER));
     ui->actionEraser->setShortcut(cmdKeySeq(CMD_TOOL_ERASER));
     ui->actionResetToolsDefault->setShortcut(cmdKeySeq(CMD_RESET_ALL_TOOLS));
+    mRadialToolAction->setShortcut(cmdKeySeq(CMD_RADIAL_TOOL_MENU));
+    mPresetPickerAction->setShortcut(cmdKeySeq(CMD_QUICK_PRESET_PICKER));
 
 
     // Layer menu

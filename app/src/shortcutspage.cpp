@@ -24,6 +24,8 @@ GNU General Public License for more details.
 #include <QKeySequence>
 #include <QMessageBox>
 #include "pencilsettings.h"
+#include "prefsearch.h"
+#include "shortcutconflict.h"
 #include <QFile>
 #include <QFileDialog>
 
@@ -61,8 +63,21 @@ ShortcutsPage::~ShortcutsPage() {
     delete ui;
 }
 
+bool ShortcutsPage::filter(const QString& query)
+{
+    bool any = false;
+    for (int row = 0; row < m_treeModel->rowCount(); ++row)
+    {
+        const bool hit = prefLabelMatches(m_treeModel->item(row, ACT_NAME_COLUMN)->text(), query);
+        ui->treeView->setRowHidden(row, QModelIndex(), !hit);
+        any = any || hit;
+    }
+    return any;
+}
+
 void ShortcutsPage::tableItemClicked( const QModelIndex& modelIndex )
 {
+    if (!modelIndex.isValid()) { return; }
     int row = modelIndex.row();
 
     // extract action name
@@ -98,11 +113,12 @@ void ShortcutsPage::keyCapLineEditTextChanged()
     QSettings setting( PENCIL2D, PENCIL2D );
     setting.beginGroup("shortcuts");
 
-    if (isKeySequenceExist(setting, strCmdName, keySequence))
+    const QString conflictCmd = findShortcutConflict(setting, strCmdName, keySequence);
+    if (!conflictCmd.isEmpty())
     {
         QMessageBox msgBox(this);
         msgBox.setText( tr("Shortcut Conflict!"));
-        msgBox.setInformativeText( tr("%1 is already used, overwrite?").arg(keySequence.toString(QKeySequence::NativeText)) );
+        msgBox.setInformativeText( tr("%1 is already used by \"%2\", overwrite?").arg(keySequence.toString(QKeySequence::NativeText), getHumanReadableShortcutName(conflictCmd)) );
         msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
         msgBox.setDefaultButton(QMessageBox::No);
         msgBox.setIcon( QMessageBox::Warning );
@@ -193,24 +209,6 @@ void ShortcutsPage::restoreShortcutsButtonClicked()
 {
     restoreShortcutsToDefault();
     treeModelLoadShortcutsSetting();
-}
-
-bool ShortcutsPage::isKeySequenceExist(const QSettings& settings, QString strTargetCmdName, QKeySequence targetkeySeq)
-{
-    foreach (QString strCmdName, settings.allKeys())
-    {
-        if (strTargetCmdName == strCmdName)
-        {
-            continue;
-        }
-
-        QString strCmdKeySeq = settings.value(strCmdName).toString();
-        if (QKeySequence(strCmdKeySeq) == targetkeySeq)
-        {
-            return true;
-        }
-    }
-    return false;
 }
 
 void ShortcutsPage::removeDuplicateKeySequence(QSettings* settings, QKeySequence keySeq)
@@ -404,6 +402,8 @@ static QString getHumanReadableShortcutName(const QString& cmdName)
         {CMD_TOOL_LASSOFILL, ShortcutsPage::tr("Lasso Fill Tool", "Shortcut")},
         {CMD_TOOL_SMUDGE, ShortcutsPage::tr("Smudge Tool", "Shortcut")},
         {CMD_RESET_ALL_TOOLS, ShortcutsPage::tr("Reset all tools to default", "Shortcut")},
+        {CMD_RADIAL_TOOL_MENU, ShortcutsPage::tr("Radial Tool Menu", "Shortcut")},
+        {CMD_QUICK_PRESET_PICKER, ShortcutsPage::tr("Quick Preset Picker", "Shortcut")},
         {CMD_CHANGE_LINE_COLOR_KEYFRAME, ShortcutsPage::tr("Change Line Color (Current keyframe)", "Shortcut")},
         {CMD_CHANGE_LINE_COLOR_LAYER, ShortcutsPage::tr("Change Line Color (All keyframes on layer)", "Shortcut")},
         {CMD_CHANGE_LAYER_OPACITY, ShortcutsPage::tr("Change Layer / Keyframe Opacity", "Shortcut")},

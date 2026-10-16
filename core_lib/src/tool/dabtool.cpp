@@ -42,7 +42,7 @@ constexpr qreal kMinSizeFactor = 0.1;
 
 void DabTool::pointerPressEvent(PointerEvent* event)
 {
-    applySmoothing();
+    prepareInput(event->viewportPos());
     mInterpolator.pointerPressEvent(event);
     if (handleQuickSizing(event)) {
         return;
