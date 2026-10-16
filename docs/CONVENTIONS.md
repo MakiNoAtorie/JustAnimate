@@ -107,11 +107,12 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - New app files go in `app/app.cmake` only; `tests/tests.cmake` takes them
   from there.
 - New tools append to `ToolType` before `TOOL_TYPE_COUNT`.
-- Speed-ups: Release `benchmark`, before/after back to back, numbers in the
-  commit; an attempt inside noise goes to `docs/rejected-optimizations.md`.
-  Caches are checked pixel-identical against `CanvasPainter::paint`
-  (`LayerVisibility::ALL`), cleared from modification signals or keyed by
-  content (keyframe pointer, visibility, opacity, `QImage::cacheKey`).
+- Speed-ups: Release `benchmark`, before/after back to back on the same
+  machine, numbers in the commit; an attempt inside noise goes to
+  `docs/rejected-optimizations.md`. Caches are checked pixel-identical
+  against `CanvasPainter::paint` (`LayerVisibility::ALL`) and cleared from
+  modification signals; only what those can't scope to one layer is keyed
+  by content (keyframe pointer, visibility, opacity, `QImage::cacheKey`).
   Layer-range caches reuse `LayerCellCache`/`layersKey`; a setting that
   changes cached output joins `invalidateAllCache` in `ScribbleArea`.
 - Frame pool: frames over 50 from the playhead unload unless modified;
