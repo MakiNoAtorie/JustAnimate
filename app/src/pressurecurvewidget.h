@@ -42,12 +42,14 @@ protected:
     void mouseMoveEvent(QMouseEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
     void mouseDoubleClickEvent(QMouseEvent*) override;
+    void changeEvent(QEvent*) override;
 
 private:
     QRectF plotRect() const;
     QPointF toWidget(QPointF curvePoint) const;
     QPointF toCurve(QPointF widgetPoint) const;
     int pointAt(QPointF widgetPoint) const;
+    void updateToolTip();
     void setPoints(const QList<QPointF>& points);
 
     PressureCurve mCurve;

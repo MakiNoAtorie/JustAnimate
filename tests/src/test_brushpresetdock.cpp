@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <QJsonObject>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMouseEvent>
 #include <QTemporaryDir>
 
 #include "brushpresetdock.h"
@@ -267,4 +268,32 @@ TEST_CASE("The dock lists only the active tool's presets", "[BrushPresetDock]")
     BrushPresetEditor duplicate(presets, "Rub", "Rub copy");
     REQUIRE(duplicate.save());
     CHECK(presets.tool("Rub copy") == "eraser");
+}
+
+TEST_CASE("A locked pressure curve looks locked and ignores the mouse", "[BrushPresetDock]")
+{
+    PressureCurveWidget w;
+    w.resize(200, 200);
+    w.setCurve(PressureCurve::fromString("0,0 0.5,0.5 1,1"));
+    const QString enabledTip = w.toolTip();
+    const QImage on = w.grab().toImage();
+
+    w.setEnabled(false);
+    CHECK(w.grab().toImage() != on);
+    CHECK(w.toolTip().contains("Use the global pressure curve"));
+    CHECK(w.toolTip() != enabledTip);
+
+    const PressureCurve before = w.curve();
+    auto send = [&w](QEvent::Type type, QPoint p) {
+        QMouseEvent e(type, QPointF(p), QPointF(p), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(&w, &e);
+    };
+    send(QEvent::MouseButtonPress, QPoint(100, 100));
+    send(QEvent::MouseMove, QPoint(100, 20));
+    send(QEvent::MouseButtonRelease, QPoint(100, 20));
+    send(QEvent::MouseButtonDblClick, QPoint(50, 150));
+    CHECK(w.curve().points() == before.points());
+
+    w.setEnabled(true);
+    CHECK(w.toolTip() == enabledTip);
 }
