@@ -163,6 +163,38 @@ inline quint32 mul255(quint32 x, quint32 a)
     const quint32 t = x * a;
     return (t + (t >> 8) + 0x80) >> 8;
 }
+
+constexpr int kGrainSize = 256; // power of two, so wrapping is a bit mask
+
+// Tileable paper grain, 0..255: hashed white noise, blurred over a wrapped 3x3 box and
+// stretched back to full contrast. Integer math only, so every platform gets the same texture.
+const std::vector<quint8>& grainTexture()
+{
+    static const std::vector<quint8> texture = [] {
+        constexpr int n = kGrainSize;
+        std::vector<int> noise(n * n);
+        for (int i = 0; i < n * n; ++i)
+        {
+            quint32 h = quint32(i) * 2654435761u;
+            h ^= h >> 15;
+            h *= 2246822519u;
+            h ^= h >> 13;
+            noise[i] = int(h & 255);
+        }
+        std::vector<quint8> out(n * n);
+        for (int y = 0; y < n; ++y)
+            for (int x = 0; x < n; ++x)
+            {
+                int sum = 0;
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dx = -1; dx <= 1; ++dx)
+                        sum += noise[((y + dy) & (n - 1)) * n + ((x + dx) & (n - 1))];
+                out[y * n + x] = quint8(qBound(0, (sum - 9 * 128) / 3 + 128, 255));
+            }
+        return out;
+    }();
+    return texture;
+}
 }
 
 void TiledBuffer::blendDab(Tile* tile, const QueuedDab& dab) const
@@ -356,6 +388,43 @@ Status loadBrushTipImage(const QString& fileName, QImage& mask)
     }
     mask = out;
     return Status::OK;
+}
+
+TiledBuffer::DabMask TiledBuffer::grainMask(const DabMask& mask, QPoint origin, const BrushTip& tip)
+{
+    const std::vector<quint8>& texture = grainTexture();
+    constexpr int wrap = kGrainSize - 1;
+    // Paper grain samples canvas pixels; moving grain samples pixels relative to the dab.
+    const QPoint anchor = (tip.grainMode == 1) ? origin : QPoint();
+    const float step = 1.0f / qMax(tip.grainScale, 0.01f);
+    // Level = ((t - 0.5) * contrast + 0.5 + brightness), clamped to 0..1, as a factor on alpha.
+    const float gain = tip.grainContrast / 255.0f;
+    const float offset = 0.5f - 0.5f * tip.grainContrast + tip.grainBrightness;
+    DabMask out = mask;
+    const QRect& r = mask.rect;
+    quint8* a = out.alpha.data();
+    for (int y = r.top(); y <= r.bottom(); ++y)
+    {
+        const float fy = (y + anchor.y() + 0.5f) * step - 0.5f;
+        const int py = qFloor(fy);
+        const float ty = fy - py;
+        const quint8* ra = texture.data() + (py & wrap) * kGrainSize;
+        const quint8* rb = texture.data() + ((py + 1) & wrap) * kGrainSize;
+        for (int x = r.left(); x <= r.right(); ++x, ++a)
+        {
+            if (*a == 0) continue;
+            // Bilinear between texel centres, wrapped at the texture edge.
+            const float fx = (x + anchor.x() + 0.5f) * step - 0.5f;
+            const int px = qFloor(fx);
+            const float tx = fx - px;
+            const int xa = px & wrap, xb = (px + 1) & wrap;
+            const float top = ra[xa] + (ra[xb] - ra[xa]) * tx;
+            const float bottom = rb[xa] + (rb[xb] - rb[xa]) * tx;
+            const float level = qBound(0.0f, (top + (bottom - top) * ty) * gain + offset, 1.0f);
+            *a = static_cast<quint8>(*a * level + 0.5f);
+        }
+    }
+    return out;
 }
 
 TiledBuffer::DabMask TiledBuffer::imageDabMask(const QImage& image, float width, float aspect, int angle, float cx, float cy)
@@ -585,13 +654,20 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
     const int qx = qRound(center.x() * 4);
     const int qy = qRound(center.y() * 4);
     const QPoint origin(qFloor(qx / 4.0), qFloor(qy / 4.0));
-    const DabMask& mask = dabMask(diameter, feather, qx - origin.x() * 4, qy - origin.y() * 4, antialiasing, tip);
-    const QRect rect = mask.rect.translated(origin);
+    const DabMask* mask = &dabMask(diameter, feather, qx - origin.x() * 4, qy - origin.y() * 4, antialiasing, tip);
+    const QRect rect = mask->rect.translated(origin);
     if (rect.isEmpty()) return;
+    if (tip.grainMode != 0)
+    {
+        // Masks of blended dabs are no longer needed; queued ones stay until the next flush.
+        if (mQueuedDabs.empty()) mGrainMasks.clear();
+        mGrainMasks.push_back(grainMask(*mask, origin, tip));
+        mask = &mGrainMasks.back();
+    }
 
     // Small dabs blend here; larger ones queue for flushDabs. Once one is queued, the rest queue
     // behind it to keep dab order.
-    const QueuedDab dab{ &mask, rect, src, srcAlpha, washWeight };
+    const QueuedDab dab{ mask, rect, src, srcAlpha, washWeight };
     const double pixels = double(rect.width()) * rect.height();
     const double predictedNs = mDabNsPerPixel * pixels;
     const bool inlineDab = mQueuedDabs.empty() && predictedNs < 5000;

@@ -15,6 +15,8 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <algorithm>
+
 #include <QAction>
 #include <QApplication>
 #include <QIcon>
@@ -950,4 +952,88 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
         CHECK(flat < 6);
         CHECK(turned > 8);
     }
+}
+
+TEST_CASE("DabTool - grain is fixed to the paper or moves with each dab and replays the same")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 1; f <= 9; ++f) layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setFeather(1); // solid to 99% of the radius
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    const QPoint p = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint();
+    const QPoint shift(3, 5);
+    auto tapAt = [&](int frame, QPoint offset) {
+        editor->scrubTo(frame);
+        tap(area, editor->view()->mapCanvasToScreen(QPointF(p + offset)), 1.0);
+    };
+    auto alphaAt = [&](int frame, QPoint canvas) {
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(frame);
+        return qAlpha(bitmap->image()->pixel(canvas - bitmap->topLeft()));
+    };
+    // Alpha values on a 10x10 block inside both dabs, from canvas point p + offset.
+    auto block = [&](int frame, QPoint offset) {
+        std::vector<int> v;
+        for (int y = -5; y < 5; ++y)
+            for (int x = -5; x < 5; ++x)
+                v.push_back(alphaAt(frame, p + offset + QPoint(x, y)));
+        return v;
+    };
+    auto distinct = [](std::vector<int> v) {
+        std::sort(v.begin(), v.end());
+        return int(std::unique(v.begin(), v.end()) - v.begin());
+    };
+
+    tapAt(1, QPoint());
+    CHECK(distinct(block(1, QPoint())) == 1);
+    const int plain = alphaAt(1, p);
+
+    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 1);
+    tapAt(2, QPoint());
+    tapAt(3, shift);
+    INFO("paper grain levels " << distinct(block(2, QPoint())));
+    CHECK(distinct(block(2, QPoint())) > 10);
+    CHECK(block(2, QPoint()) == block(3, QPoint())); // fixed to the canvas
+
+    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 2);
+    tapAt(4, QPoint());
+    tapAt(5, shift);
+    CHECK(distinct(block(4, QPoint())) > 10);
+    CHECK(block(4, QPoint()) == block(5, shift)); // moves with the dab
+    CHECK(block(4, QPoint()) != block(5, QPoint()));
+
+    // Contrast 0 flattens the grain to its mid level; brightness lifts it.
+    brush->setDynamic(StrokeToolProperties::GRAIN_CONTRAST_VALUE, 0);
+    tapAt(6, QPoint());
+    CHECK(distinct(block(6, QPoint())) == 1);
+    CHECK(alphaAt(6, p) == Approx(plain / 2.0).margin(2));
+    brush->setDynamic(StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, 100);
+    tapAt(7, QPoint());
+    CHECK(alphaAt(7, p) == plain);
+
+    // A seeded jittered stroke with grain replays the same.
+    brush->setDynamic(StrokeToolProperties::GRAIN_CONTRAST_VALUE, 100);
+    brush->setDynamic(StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, 0);
+    brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 50);
+    for (int frame : { 8, 9 })
+    {
+        editor->scrubTo(frame);
+        brush->seedRandom(7);
+        stroke(area, QPointF(100, 300), QPointF(500, 300), 1.0);
+    }
+    CHECK(*layer->getBitmapImageAtFrame(8)->image() == *layer->getBitmapImageAtFrame(9)->image());
 }
