@@ -77,6 +77,7 @@ private:
     VectorImage* vectorImage = nullptr;
 
     bool mFilledOnMove = false;
+    bool mDidFill = false;
 
     BucketToolProperties mSettings;
     StrokeInterpolator mInterpolator;

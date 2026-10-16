@@ -153,9 +153,13 @@ void BucketTool::pointerReleaseEvent(PointerEvent* event)
             paintBitmap();
         }
     }
-    // A gesture that filled nothing never recorded its state.
-    mEditor->undoRedo()->discardState(mUndoSaveState);
+    // A drag can fill many times: record once, after the last fill.
+    if (mDidFill)
+        mEditor->undoRedo()->record(mUndoSaveState, typeName());
+    else
+        mEditor->undoRedo()->discardState(mUndoSaveState);
     mFilledOnMove = false;
+    mDidFill = false;
 }
 
 void BucketTool::paintBitmap()
@@ -164,7 +168,7 @@ void BucketTool::paintBitmap()
     {
         if (progress == BucketState::DidFillTarget)
         {
-            mEditor->undoRedo()->record(mUndoSaveState, typeName());
+            mDidFill = true;
             mEditor->setModified(layerIndex, frameIndex);
         }
     });

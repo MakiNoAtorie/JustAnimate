@@ -1243,6 +1243,57 @@ TEST_CASE("UndoRedoManager: a bucket click that fills nothing leaves no pending 
     CHECK(QColor(layer->getBitmapImageAtFrame(3)->pixel(50, 50)) == QColor(Qt::red));
 }
 
+TEST_CASE("UndoRedoManager: a bucket drag that fills three regions is one undo step")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(3);
+    layer->removeKeyFrame(1);
+    BitmapImage* image = layer->getBitmapImageAtFrame(3);
+    for (int x : { 10, 60, 110 })
+        image->drawRect(QRectF(x, 10, 30, 30), Qt::NoPen, QBrush(Qt::red), QPainter::CompositionMode_Source, false);
+
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BUCKET);
+    editor->color()->setFrontColor(Qt::blue);
+
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&edits] { ++edits; });
+    auto drag = [&] {
+        const QPointF start = editor->view()->mapCanvasToScreen(QPointF(25, 25));
+        sendTablet(area, QEvent::TabletPress, start);
+        for (int x : { 25, 75, 125 })
+            sendTablet(area, QEvent::TabletMove, editor->view()->mapCanvasToScreen(QPointF(x, 25)));
+        sendTablet(area, QEvent::TabletRelease, editor->view()->mapCanvasToScreen(QPointF(125, 25)));
+    };
+    auto filled = [&](QColor color) {
+        BitmapImage* img = layer->getBitmapImageAtFrame(3);
+        return QColor(img->pixel(25, 25)) == color && QColor(img->pixel(75, 25)) == color
+            && QColor(img->pixel(125, 25)) == color;
+    };
+
+    editor->scrubTo(1); // before the first key: the drag fills nothing
+    drag();
+    CHECK(edits == 0);
+
+    editor->scrubTo(3);
+    drag();
+    CHECK(edits == 1);
+    CHECK(filled(Qt::blue));
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK(filled(Qt::red));
+    editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
+    CHECK(filled(Qt::blue));
+}
+
 TEST_CASE("UndoRedoManager: a smudge click on a vector layer before its first key leaves no pending save state")
 {
     TestSession session;
