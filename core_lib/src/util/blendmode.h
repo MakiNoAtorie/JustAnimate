@@ -47,4 +47,9 @@ void drawBlended(QPainter& painter, const QImage& layer, const QPoint& pos, Blen
  *  onto the painter's device with drawBlended. */
 void drawBlendedLayer(QPainter& painter, BlendMode mode, const std::function<void(QPainter&)>& paint);
 
+/** Paints with `paint` onto a copy of the painter's device, with the painter's transform, then draws the copy back
+ *  as backdrop + opacity * (copy - backdrop). Group opacity: overlapping members do not blend twice, and member
+ *  blend modes still blend with the layers below the group. */
+void drawWithOpacity(QPainter& painter, qreal opacity, const std::function<void(QPainter&)>& paint);
+
 #endif // BLENDMODE_H

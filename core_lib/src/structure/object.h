@@ -167,6 +167,8 @@ public:
     QPair<int, int> layerGroupRange(int groupId) const;
     /** True for a member of a collapsed group other than its top member: the timeline shows no row for it */
     bool isLayerFolded(int index) const;
+    /** True when the layer and its group, if any, are visible */
+    bool isLayerVisible(const Layer* layer) const;
     LayerArrangement layerArrangement() const;
     /** Reorders the listed layers and sets their groups. Unlisted layers keep their order above them. */
     void setLayerArrangement(const LayerArrangement& arrangement);

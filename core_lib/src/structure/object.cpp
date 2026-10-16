@@ -191,6 +191,12 @@ bool Object::isLayerFolded(int index) const
     return group && group->collapsed && layerGroupRange(group->id).second != index;
 }
 
+bool Object::isLayerVisible(const Layer* layer) const
+{
+    const LayerGroup* group = findLayerGroup(layer->groupId());
+    return layer->visible() && (group == nullptr || group->visible);
+}
+
 LayerArrangement Object::layerArrangement() const
 {
     LayerArrangement a;
@@ -828,12 +834,9 @@ void Object::paintImage(QPainter& painter,int frameNumber,
         painter.setWorldMatrixEnabled(true);
     }
 
-    for (Layer* layer : mLayers)
+    auto paintLayer = [&](QPainter& target, Layer* layer)
     {
-        if (!layer->visible())
-        {
-            continue;
-        }
+        if (!isLayerVisible(layer)) { return; }
 
         std::function<void(QPainter&)> paint;
         if (layer->type() == Layer::BITMAP)
@@ -852,14 +855,30 @@ void Object::paintImage(QPainter& painter,int frameNumber,
                 paint = [this, vec, antialiasing](QPainter& p) { vec->paintImage(p, *this, false, false, antialiasing); };
             }
         }
-        if (!paint) { continue; }
+        if (!paint) { return; }
         const TweenState tween = layer->tweenStateAt(frameNumber);
-        painter.save();
-        painter.setOpacity(tween.opacity);
-        painter.setTransform(tween.transform(), true);
-        if (layer->blendMode() == BlendMode::Normal) { paint(painter); }
-        else { drawBlendedLayer(painter, layer->blendMode(), paint); }
-        painter.restore();
+        target.save();
+        target.setOpacity(tween.opacity);
+        target.setTransform(tween.transform(), true);
+        if (layer->blendMode() == BlendMode::Normal) { paint(target); }
+        else { drawBlendedLayer(target, layer->blendMode(), paint); }
+        target.restore();
+    };
+
+    for (int i = 0; i < mLayers.size(); ++i)
+    {
+        const LayerGroup* group = findLayerGroup(mLayers[i]->groupId());
+        if (group == nullptr || group->opacity >= 1.0)
+        {
+            paintLayer(painter, mLayers[i]);
+            continue;
+        }
+        const int first = i;
+        i = layerGroupRange(group->id).second;
+        if (!group->visible || group->opacity <= 0.0) { continue; }
+        drawWithOpacity(painter, group->opacity, [&](QPainter& p) {
+            for (int j = first; j <= i; ++j) { paintLayer(p, mLayers[j]); }
+        });
     }
 }
 

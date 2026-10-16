@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Layer groups: right-click a member to show or hide the group or set its opacity; the group fades as one image, on the canvas and in export (3.7).
 - Layer groups: right-click a layer to make, join or leave a group; click the arrow to collapse it; a collapsed group drags as a block. Files still open in Pencil2D (3.7).
 - Smudge: Pigment mixing option blends colours like paint (blue and yellow make green), via a port of spectral.js (B7).
 - Tween to Next Key also fades the key's opacity to the next key's on the frames it holds, on the canvas and in export (3.3).

@@ -75,6 +75,10 @@ public:
     void removeLayerFromGroup(Layer* layer);
     /** Hides or shows the rows of the group's members in the timeline. View state: not recorded for undo. */
     void setLayerGroupCollapsed(int groupId, bool collapsed);
+    /** Shows or hides all members of the group. One undo step. */
+    void setLayerGroupVisible(int groupId, bool visible);
+    /** Sets the opacity (0 to 1) the group's composite draws with. One undo step. */
+    void setLayerGroupOpacity(int groupId, qreal opacity);
     /** Moves the layer at `from` to just above the layer at `to` (below it when `to` is lower). A member of an expanded
      *  group stays in its group; a collapsed group moves as a block; nothing moves into a group or below the bottom
      *  camera layer. One undo step. Returns false when nothing moves. */
