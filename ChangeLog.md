@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Fixes: a bucket click outside the image fills the empty area around the drawing instead of the shape at the top-left corner; it does nothing when the whole border is drawn (#125).
 - Save: a sound clip whose file is missing is saved without audio and named in a warning (`<layer> frame <n>`) instead of failing the save (#166).
 - Export: a sound clip whose file is missing is left out of the movie and named in a warning (`<layer> frame <n>`) instead of failing the export (#167).
 - Fixes: Import Layers keeps each vector curve and area on its source colour instead of remapping colours one after another (#134).
