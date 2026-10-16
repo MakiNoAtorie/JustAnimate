@@ -426,8 +426,12 @@ struct StrokeToolProperties: public ToolPropertiesBase
         FLOW_PER_DAB_ENABLED     = 124,
         TAPER_START_VALUE        = 125,
         TAPER_END_VALUE          = 126,
+        GRAIN_MODE_VALUE         = 127,
+        GRAIN_SCALE_VALUE        = 128,
+        GRAIN_CONTRAST_VALUE     = 129,
+        GRAIN_BRIGHTNESS_VALUE   = 130,
 
-        END                 = 199,
+        END                = 199,
     };
 
     StrokeToolProperties() {
@@ -460,7 +464,11 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { DAB_COUNT_VALUE,       "DabCount" },
             { FLOW_PER_DAB_ENABLED,  "FlowPerDab" },
             { TAPER_START_VALUE,     "TaperStart" },
-            { TAPER_END_VALUE,       "TaperEnd" }
+            { TAPER_END_VALUE,       "TaperEnd" },
+            { GRAIN_MODE_VALUE,      "GrainMode" },
+            { GRAIN_SCALE_VALUE,     "GrainScale" },
+            { GRAIN_CONTRAST_VALUE,  "GrainContrast" },
+            { GRAIN_BRIGHTNESS_VALUE, "GrainBrightness" }
         });
     }
 
@@ -496,6 +504,10 @@ struct StrokeToolProperties: public ToolPropertiesBase
     bool flowPerDab() const { return getInfo(FLOW_PER_DAB_ENABLED).boolValue(); }
     int taperStart() const { return getInfo(TAPER_START_VALUE).intValue(); } // canvas px, 0 = off
     int taperEnd() const { return getInfo(TAPER_END_VALUE).intValue(); } // canvas px, 0 = off
+    int grainMode() const { return getInfo(GRAIN_MODE_VALUE).intValue(); } // 0 off, 1 fixed to the canvas, 2 moves with each dab
+    int grainScale() const { return getInfo(GRAIN_SCALE_VALUE).intValue(); } // percent
+    int grainContrast() const { return getInfo(GRAIN_CONTRAST_VALUE).intValue(); } // percent
+    int grainBrightness() const { return getInfo(GRAIN_BRIGHTNESS_VALUE).intValue(); } // -100..100
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }

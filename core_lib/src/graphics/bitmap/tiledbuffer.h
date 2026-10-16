@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QHash>
 #include <QImage>
 #include <QSemaphore>
+#include <deque>
 #include <vector>
 
 #include "blitrect.h"
@@ -52,6 +53,11 @@ struct BrushTip
     qreal aspect = 1.0; // height / width, 0.01..1
     qreal angle = 0.0;  // degrees, counter-clockwise on screen
     QImage image;       // Format_Alpha8 coverage; when set, it replaces the generated shape and square
+    // Grain multiplies the built-in paper texture into each dab after the mask cache.
+    int grainMode = 0;          // 0 off, 1 fixed to the canvas (paper), 2 moves with each dab
+    float grainScale = 1.0f;    // texture size factor
+    float grainContrast = 1.0f; // 0 flattens the grain to its mid level
+    float grainBrightness = 0;  // -1..1, added to the grain level
 };
 
 /** Loads a brush tip mask from a GIMP .gbr file or an image file such as PNG.
@@ -135,6 +141,8 @@ private:
         std::vector<quint8> alpha;
     };
     const DabMask& dabMask(qreal diameter, qreal feather, int phaseX, int phaseY, bool antialiasing, const BrushTip& tip);
+    /** The mask times the grain; origin is the dab's integer canvas origin. */
+    static DabMask grainMask(const DabMask& mask, QPoint origin, const BrushTip& tip);
     static DabMask imageDabMask(const QImage& image, float width, float aspect, int angle, float cx, float cy);
 
     QHash<quint64, DabMask> mDabMasks;
@@ -155,6 +163,7 @@ private:
     /** Renders queued dabs on the thread pool, one tile per task, each tile in dab order. */
     void flushDabs();
     std::vector<QueuedDab> mQueuedDabs;
+    std::deque<DabMask> mGrainMasks; // per-dab masks that queued dabs point into
     std::vector<Tile*> mQueuedTiles;
     double mQueuedNs = 0; // predicted inline time of the queued dabs
     // A member, not a local: a helper may still be inside release() when acquire() returns.
