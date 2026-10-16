@@ -290,12 +290,18 @@ void ScribbleArea::invalidateAllCache()
 
 void ScribbleArea::invalidateCacheForFrame(int frameNumber)
 {
-    auto cacheKeyIter = mPixmapCacheKeys.find(static_cast<unsigned int>(frameNumber));
-    if (cacheKeyIter != mPixmapCacheKeys.end())
+    if (frameNumber < 0) { return; }
+
+    // The frame cache is keyed by frame: drop every cached frame that the current layer's key at frameNumber holds.
+    const Layer* layer = mEditor->layers()->currentLayer();
+    const KeyFrame* key = layer ? layer->getLastKeyFrameAtPosition(frameNumber) : nullptr;
+    auto it = mPixmapCacheKeys.lowerBound(static_cast<unsigned int>(key ? key->pos() : frameNumber));
+    while (it != mPixmapCacheKeys.end()
+           && (key ? layer->getLastKeyFrameAtPosition(static_cast<int>(it.key())) == key
+                   : it.key() == static_cast<unsigned int>(frameNumber)))
     {
-        QPixmapCache::remove(cacheKeyIter.value());
-        unsigned int key = cacheKeyIter.key();
-        mPixmapCacheKeys.remove(key);
+        QPixmapCache::remove(it.value());
+        it = mPixmapCacheKeys.erase(it);
     }
 }
 
@@ -803,7 +809,9 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
     mCanvas.setDevicePixelRatio(mDevicePixelRatio);
     mEditor->view()->setCanvasSize(size());
 
-    invalidateCacheForFrame(mEditor->currentFrame());
+    // Every cached frame has the old size.
+    QPixmapCache::clear();
+    mPixmapCacheKeys.clear();
     invalidatePainterCaches();
     mCanvasPainter.reset();
     mCameraPainter.reset();
@@ -933,7 +941,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         // --- we retrieve the canvas from the cache; we create it if it doesn't exist
         const int frameNumber = mEditor->layers()->lastFrameAtFrame(currentFrame);
 
-        // The frame cache is keyed by key position: a transformed or in-between frame skips it (CanvasPainter caches by content).
+        // The frame cache is keyed by frame: onion skins and the camera differ inside a hold. A transformed or in-between frame skips it (CanvasPainter caches by content).
         bool transformed = false;
         for (int i = 0; i < mEditor->object()->getLayerCount() && !transformed; ++i)
         {
@@ -948,7 +956,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         }
         else
         {
-            auto cacheKeyIter = mPixmapCacheKeys.find(static_cast<unsigned>(frameNumber));
+            auto cacheKeyIter = mPixmapCacheKeys.find(static_cast<unsigned>(currentFrame));
 
             if (cacheKeyIter == mPixmapCacheKeys.end() || !QPixmapCache::find(cacheKeyIter.value(), &mCanvas))
             {

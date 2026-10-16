@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Fixes: a held frame repaints the canvas from the cache instead of redrawing it on every repaint; an edit on its key still shows at once (#129).
 - Fixes: a bucket click outside the image fills the empty area around the drawing instead of the shape at the top-left corner; it does nothing when the whole border is drawn (#125).
 - Fixes: the polyline, bucket and other drawing tools apply a pending selection transform before they paint, so a debug build no longer asserts (#165).
 - Fixes: swap layers, Import Layers, camera drags and resets, and sound import are each one undo step (#150).
