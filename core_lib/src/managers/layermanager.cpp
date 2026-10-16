@@ -716,7 +716,7 @@ void LayerManager::selectFrames(int fromLayer, int toLayer, int fromFrame, int t
 }
 
 // Moves every keyframe after `position` by `offset` in one pass and records the move. Keeps the frame selection.
-static void shiftFramesAfter(UndoRedoManager* undoRedo, Layer* layer, int position, int offset, const QString& description)
+static void shiftFramesAfter(LayerManager* layers, UndoRedoManager* undoRedo, Layer* layer, int position, int offset, const QString& description)
 {
     if (layer->getMaxKeyFramePosition() <= position) { return; }
     QList<QPair<int, int>> fromTo;
@@ -726,6 +726,7 @@ static void shiftFramesAfter(UndoRedoManager* undoRedo, Layer* layer, int positi
     const QList<int> selected = layer->selectedKeyFramesByLast();
     const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
     layer->moveKeyFrames(fromTo);
+    layers->moveSoundMarkers(layer, fromTo);
     undoRedo->record(saveStateId, description);
     // setFrameSelected puts each frame first in the by-last list, so restore from the oldest.
     for (auto it = selected.crbegin(); it != selected.crend(); ++it)
@@ -744,7 +745,7 @@ bool LayerManager::rippleInsertFrame()
     UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = tr("Insert Frame");
     const UndoMacro macro(undoRedo, description);
-    shiftFramesAfter(undoRedo, layer, position, 1, description);
+    shiftFramesAfter(this, undoRedo, layer, position, 1, description);
     const bool added = editor()->addKeyFrame(currentLayerIndex(), position + 1) != nullptr;
     emit editor()->framesModified();
     return added;
@@ -768,11 +769,32 @@ bool LayerManager::rippleRemoveFrame()
         layer->removeKeyFrame(position);
         undoRedo->record(saveStateId, description);
     }
-    shiftFramesAfter(undoRedo, layer, position, -1, description);
+    shiftFramesAfter(this, undoRedo, layer, position, -1, description);
 
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
     return true;
+}
+
+void LayerManager::moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo)
+{
+    if (layer->type() != Layer::SOUND || fromTo.isEmpty()) { return; }
+    ObjectData* data = object()->data();
+    QMap<int, FrameMarker> markers = data->markers(layer->id());
+    // Take every moving marker out first, so a marker moved into another clip's old span moves only once.
+    QMap<int, FrameMarker> moved;
+    for (const QPair<int, int>& move : fromTo)
+    {
+        const KeyFrame* clip = layer->getKeyFrameAt(move.second);
+        const int end = move.first + (clip ? clip->length() : 1);
+        for (auto it = markers.lowerBound(move.first); it != markers.end() && it.key() < end;)
+        {
+            moved.insert(it.key() + move.second - move.first, it.value());
+            it = markers.erase(it);
+        }
+    }
+    markers.insert(moved);
+    data->setMarkers(layer->id(), markers);
 }
 
 bool LayerManager::moveSelectedFrames(int offset)
@@ -800,8 +822,11 @@ bool LayerManager::moveSelectedFrames(int offset)
     const UndoMacro macro(undoRedo, description);
     for (Layer* layer : selected)
     {
+        QList<QPair<int, int>> fromTo;
+        for (int pos : layer->selectedKeyFramesPositions()) { fromTo.append(qMakePair(pos, pos + offset)); }
         const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
         layer->moveSelectedFrames(offset);
+        moveSoundMarkers(layer, fromTo);
         undoRedo->record(saveStateId, description);
     }
     notifyAnimationLengthChanged();

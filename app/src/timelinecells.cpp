@@ -178,7 +178,7 @@ bool TimeLineCells::didDetachLayer() const {
     return abs(mMouseMoveY) > mLayerDetachThreshold;
 }
 
-void TimeLineCells::showCameraMenu(QPoint pos)
+void TimeLineCells::showFrameMenu(QPoint pos)
 {
     int frameNumber = getFrameNumber(pos.x());
 
@@ -440,21 +440,21 @@ void TimeLineCells::showMarkerMenu(int frame, int layerId, const QPoint& globalP
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) return;
 
-    FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0), layerId });
+    FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
     if (chosen == add)
     {
         bool ok = false;
         const QString name = QInputDialog::getText(this, tr("Marker"), tr("Name:"), QLineEdit::Normal, m.name, &ok);
         if (!ok) return;
         m.name = name;
-        data->setMarker(frame, m);
+        data->setMarker(frame, m, layerId);
     }
     else if (chosen == color)
     {
         const QColor c = QColorDialog::getColor(m.color, this);
         if (!c.isValid()) return;
         m.color = c;
-        data->setMarker(frame, m);
+        data->setMarker(frame, m, layerId);
     }
     else if (chosen == remove)
     {
@@ -1239,10 +1239,10 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                             }
                         }
 
-                        // ... or we show the camera context menu, if it is the right button
+                        // ... or we show the frame context menu, if it is the right button
                         if (event->button() == Qt::RightButton)
                         {
-                            showCameraMenu(event->pos());
+                            showFrameMenu(event->pos());
                         }
 
                     }
@@ -1251,7 +1251,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                         // If selected they can also be interpolated
                         if (event->button() == Qt::RightButton)
                         {
-                            showCameraMenu(event->pos());
+                            showFrameMenu(event->pos());
                         }
                         // We clicked on a selected frame, we can move it
                         mCanMoveFrame = true;

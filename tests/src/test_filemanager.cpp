@@ -275,8 +275,8 @@ TEST_CASE("FileManager frame markers round-trip and are optional")
     {
         const int soundId = obj->addNewSoundLayer()->id();
         obj->data()->setMarker(3, { "key", QColor("#ff0000") });
-        obj->data()->setMarker(3, { "AI", QColor("#0000ff"), soundId });
-        obj->data()->setMarker(5, { "O", QColor("#00ff00"), soundId });
+        obj->data()->setMarker(3, { "AI", QColor("#0000ff") }, soundId);
+        obj->data()->setMarker(5, { "O", QColor("#00ff00") }, soundId);
         REQUIRE(fm.save(obj.get(), path).ok());
         std::unique_ptr<Object> loaded(fm.load(path));
         REQUIRE(loaded != nullptr);
@@ -285,8 +285,21 @@ TEST_CASE("FileManager frame markers round-trip and are optional")
         const auto lip = loaded->data()->markers(soundId);
         REQUIRE(lip.size() == 2);
         REQUIRE(lip.value(3).name == "AI");
-        REQUIRE(lip.value(3).layerId == soundId);
         REQUIRE(lip.value(5).color == QColor("#00ff00"));
+    }
+
+    SECTION("Markers of a deleted sound layer are not saved")
+    {
+        LayerSound* sound = obj->addNewSoundLayer();
+        const int soundId = sound->id();
+        obj->data()->setMarker(3, { "key", QColor("#ff0000") });
+        obj->data()->setMarker(5, { "AI", QColor("#0000ff") }, soundId);
+        obj->deleteLayer(sound);
+        REQUIRE(fm.save(obj.get(), path).ok());
+        std::unique_ptr<Object> loaded(fm.load(path));
+        REQUIRE(loaded != nullptr);
+        REQUIRE(loaded->data()->markers().keys() == QList<int>{ 3 });
+        REQUIRE(loaded->data()->allMarkers().size() == 1);
     }
 }
 
@@ -306,7 +319,6 @@ TEST_CASE("FileManager loads markers with an unknown or non-sound layer as globa
     const auto m = obj->data()->markers();
     REQUIRE(m.size() == 3);
     REQUIRE(m.value(2).name == "unknown");
-    REQUIRE(m.value(2).layerId == 0);
     REQUIRE(m.value(6).name == "bitmap");
     REQUIRE(m.value(8).name == "bad");
     REQUIRE(obj->data()->markers(4).isEmpty());

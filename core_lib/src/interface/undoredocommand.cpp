@@ -239,6 +239,7 @@ void MoveKeyFramesCommand::apply(const QList<QPair<int, int>>& fromTo)
     if (!layer || !layer->moveKeyFrames(fromTo)) {
         return setObsolete(true);
     }
+    editor()->layers()->moveSoundMarkers(layer, fromTo);
 
     if (layer->type() == Layer::CAMERA) {
         editor()->view()->forceUpdateViewTransform();

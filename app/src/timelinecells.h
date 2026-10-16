@@ -62,7 +62,7 @@ public:
 
     bool didDetachLayer() const;
 
-    void showCameraMenu(QPoint pos);
+    void showFrameMenu(QPoint pos);
 
 signals:
     void mouseMovedY(int);

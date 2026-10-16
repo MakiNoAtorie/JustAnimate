@@ -68,7 +68,7 @@ private:
     Status writePalette(const Object* obj, const QString& dataFolder, QStringList& filesWritten);
 
     ObjectData loadProjectData(const QDomElement& element);
-    QDomElement saveProjectData(const ObjectData*, QDomDocument& xmlDoc);
+    QDomElement saveProjectData(const Object*, QDomDocument& xmlDoc);
 
     void extractProjectData(const QDomElement& element, ObjectData& data);
     void handleOpenProjectError(Status::ErrorCode, const DebugDetails&);

@@ -125,6 +125,9 @@ public:
      *  keyframe one frame left, so a hold gets one frame shorter. One undo step. Returns false on a hidden layer,
      *  on the only keyframe or after the last keyframe. */
     bool rippleRemoveFrame();
+    /** After clips of a sound layer moved (`fromTo` keyframe positions), moves the layer's markers inside
+     *  each clip's old span with it. Does nothing on other layer types. */
+    void moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo);
 
     /** This should be emitted whenever the animation length frames, eg. adding, removing, duplicating */
     void notifyAnimationLengthChanged();
