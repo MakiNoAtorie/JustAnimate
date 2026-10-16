@@ -272,6 +272,8 @@ private:
        The following will filter mouse events created after a tablet release event.
     */
     void tabletReleaseEventFired();
+    /// True while mouse events come from the pen: during a tablet stroke and just after its release.
+    bool isMouseFromTablet() const;
     bool mMouseInUse = false;
     bool mTabletInUse = false;
     bool mPenFlipDrag = false; // this pen stroke drives a Pen-drag Flip, not the tool

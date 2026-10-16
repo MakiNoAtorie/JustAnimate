@@ -1709,6 +1709,37 @@ TEST_CASE("Polyline lasso fill and Delete selection on a held frame undo their n
     CHECK_FALSE(undoAction->isEnabled());
 }
 
+TEST_CASE("A double click that Windows makes from a pen tap starts no mouse stroke")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    BaseTool* pencil = editor->tools()->currentTool();
+    const ToolSettingsGuard guard(pencil);
+
+    const QPointF at(300, 300);
+    auto pen = [&](QEvent::Type type, quint64 t) {
+        QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), at, area->mapToGlobal(at), 0.2, 0, 0, 0, 0, 0,
+                       Qt::NoModifier, Qt::LeftButton, type == QEvent::TabletPress ? Qt::LeftButton : Qt::NoButton);
+        e.setTimestamp(t);
+        QApplication::sendEvent(area, &e);
+    };
+    pen(QEvent::TabletPress, 1000);
+    pen(QEvent::TabletRelease, 1010);
+    REQUIRE_FALSE(pencil->isActive());
+
+    QMouseEvent dbl(QEvent::MouseButtonDblClick, at, area->mapToGlobal(at), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    dbl.setTimestamp(1020);
+    QApplication::sendEvent(area, &dbl);
+    CHECK_FALSE(pencil->isActive());
+}
+
 TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure width")
 {
     const SettingsGuard settingsGuard({ SETTING_PRESSURE_CURVE });

@@ -807,13 +807,14 @@ void ScribbleArea::tabletReleaseEventFired()
     }
 }
 
+bool ScribbleArea::isMouseFromTablet() const
+{
+    return mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD);
+}
+
 void ScribbleArea::mousePressEvent(QMouseEvent* e)
 {
-    if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD))
-    {
-        e->ignore();
-        return;
-    }
+    if (isMouseFromTablet()) { e->ignore(); return; }
 
     if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
 
@@ -824,7 +825,7 @@ void ScribbleArea::mousePressEvent(QMouseEvent* e)
 
 void ScribbleArea::mouseMoveEvent(QMouseEvent* e)
 {
-    if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
+    if (isMouseFromTablet()) { e->ignore(); return; }
 
     if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
 
@@ -834,7 +835,7 @@ void ScribbleArea::mouseMoveEvent(QMouseEvent* e)
 
 void ScribbleArea::mouseReleaseEvent(QMouseEvent* e)
 {
-    if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
+    if (isMouseFromTablet()) { e->ignore(); return; }
 
     if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
 
@@ -845,7 +846,7 @@ void ScribbleArea::mouseReleaseEvent(QMouseEvent* e)
 
 void ScribbleArea::mouseDoubleClickEvent(QMouseEvent* e)
 {
-    if (mTabletInUse) { e->ignore(); return; }
+    if (isMouseFromTablet()) { e->ignore(); return; }
 
     PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     currentTool()->pointerDoubleClickEvent(&event);

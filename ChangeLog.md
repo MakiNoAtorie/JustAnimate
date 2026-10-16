@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- A double click that Windows makes from a pen tap no longer starts a full-pressure mouse stroke (#175).
 - Saved "Hard Eraser" and "Soft Eraser" presets from an earlier version now show under the eraser, not the brushes (#172).
 - Polyline, lasso fill and Delete selection on a held frame undo their new Drawing in the same step (#189).
 - Rough layers draw under the other layers on the canvas, wherever they sit in the layer list (#192).
