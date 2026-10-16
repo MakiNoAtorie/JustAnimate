@@ -16,6 +16,8 @@ by native "blocked by" edges:
 | v1.0 | #144 | `integration/v1.0` |
 | After 1.0 | #145 | `integration/after-1.0` |
 | v1.1 Fixes | #169 | `integration/v1.1` |
+| v1.2 UI refresh | #176 | `integration/v1.2` |
+| v1.3 Animation tools | #177 | `integration/v1.3` |
 
 To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
 
