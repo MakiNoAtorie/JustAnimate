@@ -26,7 +26,7 @@ GNU General Public License for more details.
 class QListWidget;
 struct PresetSampler;
 
-/// Lists the brush presets with a sample stroke painted by the real dab engine.
+/// Lists the current tool's brush presets with a sample stroke painted by the real dab engine.
 /// Selecting a row applies the preset to the current stroke tool; New, Edit and
 /// Duplicate open the preset editor.
 class BrushPresetDock : public BaseDockWidget
@@ -46,6 +46,8 @@ public:
 private:
     void applyRow(int row);
     QString currentName() const;
+    /// The `BrushPresets::toolKey` of the current tool; the dock lists only its presets.
+    QString currentTool() const;
     void openEditor(const QString& source, const QString& name, const QString& original);
     QIcon sample(const QString& name);
 

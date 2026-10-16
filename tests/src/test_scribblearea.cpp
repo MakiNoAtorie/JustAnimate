@@ -155,6 +155,7 @@ TEST_CASE("ScribbleArea - quick preset picker applies a preset with the pen")
     REQUIRE(presets.save("Fine", *brush));
     brush->setWidth(60);
     REQUIRE(presets.save("Wide", *brush));
+    REQUIRE(presets.save("Rub", *brush, QString(), "eraser")); // not listed for the brush
     brush->setWidth(10);
 
     area->openPresetPicker(QPointF(400, 300), dir.path());

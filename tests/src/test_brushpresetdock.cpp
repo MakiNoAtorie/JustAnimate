@@ -233,3 +233,38 @@ TEST_CASE("The preset editor never overwrites another preset", "[BrushPresetDock
     REQUIRE(presets.apply("Fine copy", *d.brush));
     CHECK(d.brush->strokeToolProperties().width() == 30);
 }
+
+TEST_CASE("The dock lists only the active tool's presets", "[BrushPresetDock]")
+{
+    DockSession d;
+    StrokeTool* eraser = static_cast<StrokeTool*>(d.s.editor->tools()->getTool(ERASER));
+    ToolSettingsGuard eraserGuard(eraser);
+    const BrushPresets presets(d.dir.path());
+    d.brush->setWidth(9);
+    REQUIRE(presets.save("Ink", *d.brush));
+    eraser->setWidth(70);
+    REQUIRE(presets.save("Rub", *eraser));
+    eraser->setWidth(20);
+
+    d.openDock();
+    REQUIRE(d.list()->count() == 1);
+    CHECK(d.list()->item(0)->data(Qt::UserRole).toString() == "Ink");
+
+    d.s.editor->tools()->setCurrentTool(ERASER);
+    REQUIRE(d.list()->count() == 1);
+    CHECK(d.list()->item(0)->data(Qt::UserRole).toString() == "Rub");
+
+    d.brush->setWidth(30);
+    d.list()->setCurrentRow(0);
+    CHECK(eraser->strokeToolProperties().width() == 70);
+    CHECK(d.brush->strokeToolProperties().width() == 30); // the brush is untouched
+
+    // A new preset made while the eraser is active is an eraser preset.
+    BrushPresetEditor editor(presets, QString(), "Wipe", QString(), "eraser");
+    REQUIRE(editor.save());
+    CHECK(presets.tool("Wipe") == "eraser");
+    // Duplicate keeps the source's tool.
+    BrushPresetEditor duplicate(presets, "Rub", "Rub copy");
+    REQUIRE(duplicate.save());
+    CHECK(presets.tool("Rub copy") == "eraser");
+}

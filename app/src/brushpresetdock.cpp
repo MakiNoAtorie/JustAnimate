@@ -68,7 +68,14 @@ void BrushPresetDock::initUI()
 {
     QDir().mkpath(mPresets.folder());
     mWatcher.addPath(mPresets.folder());
+    connect(editor()->tools(), &ToolManager::toolChanged, this, &BrushPresetDock::updateUI);
     updateUI();
+}
+
+QString BrushPresetDock::currentTool() const
+{
+    const BaseTool* tool = editor()->tools()->currentTool();
+    return BrushPresets::toolKey(tool ? tool->type() : BRUSH);
 }
 
 void BrushPresetDock::updateUI()
@@ -79,7 +86,7 @@ void BrushPresetDock::updateUI()
     const QString current = currentName();
     const QSignalBlocker blocker(mList);
     mList->clear();
-    const QStringList names = mPresets.names();
+    const QStringList names = mPresets.names(currentTool());
     for (const QString& name : names)
     {
         const QString description = mPresets.description(name);
@@ -101,10 +108,11 @@ void BrushPresetDock::applyRow(int row)
     QListWidgetItem* item = mList->item(row);
     if (!item)
         return;
+    const QString name = item->data(Qt::UserRole).toString(); // a tool change rebuilds the list
     ToolManager* tools = editor()->tools();
     if (!tools->currentStrokeTool())
         tools->setCurrentTool(BRUSH);
-    if (mPresets.apply(item->data(Qt::UserRole).toString(), *tools->currentStrokeTool()))
+    if (mPresets.apply(name, *tools->currentStrokeTool()))
         emit tools->toolsReset(); // the tool options show the new values
 }
 
@@ -120,7 +128,7 @@ QString BrushPresetDock::currentName() const
 
 void BrushPresetDock::openEditor(const QString& source, const QString& name, const QString& original)
 {
-    auto dialog = new BrushPresetEditor(mPresets, source, name, original, this);
+    auto dialog = new BrushPresetEditor(mPresets, source, name, original, currentTool(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &QDialog::accepted, this, [this, dialog] {
         // Select the saved preset, which applies it to the current tool.

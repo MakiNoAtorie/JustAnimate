@@ -1580,7 +1580,8 @@ void ScribbleArea::openToolMenu(QPointF center)
 void ScribbleArea::openPresetPicker(QPointF center, const QString& presetFolder)
 {
     if (isPointerInUse() || !mEditor->tools()->currentStrokeTool()) { return; }
-    const QStringList names = BrushPresets(presetFolder).names().mid(0, kMaxRadialPresets);
+    const QString tool = BrushPresets::toolKey(mEditor->tools()->currentStrokeTool()->type());
+    const QStringList names = BrushPresets(presetFolder).names(tool).mid(0, kMaxRadialPresets);
     if (names.isEmpty()) { return; }
     mPresetFolder = presetFolder;
     mRadialMenu = RadialMenu();

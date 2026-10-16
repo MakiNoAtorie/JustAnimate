@@ -96,6 +96,9 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
   setting a preset may override is the optional `pressureCurve` (empty =
   global curve). Per-preset state outside `ToolProperties` (tip path, curve)
   lives on `StrokeTool`, never in QSettings; tests reset it at scope exit.
+- A preset's optional `tool` (`BrushPresets::toolKey`: "eraser" or "brush";
+  missing = "brush") picks the tool group it lists and applies for. The dock
+  and the radial picker list only `names(toolKey(current tool))`.
 - Preset JSON is untrusted: wrong type or missing gives the default, numbers
   are clamped, unknown keys are ignored, a corrupt file is skipped with
   `qWarning`. New keys are optional. Saving never overwrites another preset.

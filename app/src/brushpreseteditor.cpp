@@ -112,8 +112,8 @@ QImage PresetSampler::paint(QSize size)
 }
 
 BrushPresetEditor::BrushPresetEditor(const BrushPresets& presets, const QString& source, const QString& name,
-                                     const QString& original, QWidget* parent)
-    : QDialog(parent), mPresets(presets), mOriginal(original)
+                                     const QString& original, const QString& tool, QWidget* parent)
+    : QDialog(parent), mPresets(presets), mOriginal(original), mTool(source.isEmpty() ? tool : presets.tool(source))
 {
     setWindowTitle(tr("Brush Preset"));
     mSampler = std::make_unique<PresetSampler>(palette().color(QPalette::Text));
@@ -328,7 +328,7 @@ bool BrushPresetEditor::save()
         return false;
     }
     applyCurve();
-    if (!mPresets.save(newName, *mSampler->brush, mDescription->text().trimmed()))
+    if (!mPresets.save(newName, *mSampler->brush, mDescription->text().trimmed(), mTool))
     {
         mMessage->setText(tr("Cannot write the brush preset %1.").arg(newName));
         return false;

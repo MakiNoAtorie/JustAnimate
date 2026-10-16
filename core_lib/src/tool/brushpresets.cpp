@@ -72,6 +72,12 @@ std::optional<QJsonObject> readPreset(const QString& path)
     return doc.object();
 }
 
+QString toolOf(const QJsonObject& preset)
+{
+    const QString tool = preset.value("tool").toString();
+    return tool.isEmpty() ? QStringLiteral("brush") : tool;
+}
+
 }
 
 BrushPresets::BrushPresets(const QString& folder) : mFolder(folder)
@@ -80,20 +86,32 @@ BrushPresets::BrushPresets(const QString& folder) : mFolder(folder)
         mFolder = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("brushpresets");
 }
 
-QStringList BrushPresets::names() const
+QStringList BrushPresets::names(const QString& tool) const
 {
     QStringList result;
     const QFileInfoList files = QDir(mFolder).entryInfoList({ "*.json" }, QDir::Files, QDir::Name);
     for (const QFileInfo& info : files)
     {
         const QString name = info.completeBaseName();
-        if (isValidName(name) && readPreset(info.filePath()))
+        const std::optional<QJsonObject> preset = isValidName(name) ? readPreset(info.filePath()) : std::nullopt;
+        if (preset && (tool.isEmpty() || toolOf(*preset) == tool))
             result << name;
     }
     return result;
 }
 
-bool BrushPresets::save(const QString& name, StrokeTool& tool, const QString& description) const
+QString BrushPresets::toolKey(ToolType type)
+{
+    return type == ERASER ? QStringLiteral("eraser") : QStringLiteral("brush");
+}
+
+QString BrushPresets::tool(const QString& name) const
+{
+    const std::optional<QJsonObject> preset = isValidName(name) ? readPreset(filePath(name)) : std::nullopt;
+    return preset ? toolOf(*preset) : QString();
+}
+
+bool BrushPresets::save(const QString& name, StrokeTool& tool, const QString& description, const QString& presetTool) const
 {
     if (!isValidName(name) || !QDir().mkpath(mFolder))
         return false;
@@ -110,7 +128,8 @@ bool BrushPresets::save(const QString& name, StrokeTool& tool, const QString& de
         }
     }
 
-    QJsonObject preset{ { "settings", settings }, { "tipImage", tool.tipImagePath() } };
+    QJsonObject preset{ { "settings", settings }, { "tipImage", tool.tipImagePath() },
+                        { "tool", presetTool.isEmpty() ? toolKey(tool.type()) : presetTool } };
     if (!tool.pressureCurve().isEmpty())
         preset.insert("pressureCurve", tool.pressureCurve());
     if (!description.isEmpty())
@@ -254,7 +273,7 @@ Status BrushPresets::exportPreset(const QString& name, const QString& fileName) 
 
     QJsonObject out{ { "name", name }, { "settings", preset->value("settings") }, { "tipImage", QString() },
                      { "pressureCurve", preset->value("pressureCurve").toString() },
-                     { "description", preset->value("description").toString() } };
+                     { "description", preset->value("description").toString() }, { "tool", toolOf(*preset) } };
     QByteArray tipEntry, tipData;
     const QString tipPath = preset->value("tipImage").toString();
     if (!tipPath.isEmpty())
@@ -354,7 +373,7 @@ Status BrushPresets::importPreset(const QString& fileName) const
 
     const QJsonObject stored{ { "settings", preset.value("settings").toObject() }, { "tipImage", tipPath },
                               { "pressureCurve", preset.value("pressureCurve").toString() },
-                              { "description", preset.value("description").toString() } };
+                              { "description", preset.value("description").toString() }, { "tool", toolOf(preset) } };
     if (!QDir().mkpath(QDir(mFolder).filePath("tips")) ||
         (!tipPath.isEmpty() && !writeFile(tipPath, tipData)) ||
         !writeFile(filePath(name), QJsonDocument(stored).toJson()))
