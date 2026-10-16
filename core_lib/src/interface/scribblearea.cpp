@@ -73,7 +73,6 @@ ScribbleArea::~ScribbleArea()
 bool ScribbleArea::init()
 {
     mPrefs = mEditor->preference();
-    mDoubleClickTimer = new QTimer(this);
     mMouseFilterTimer = new QTimer(this);
 
     connect(mPrefs, &PreferenceManager::optionChanged, this, &ScribbleArea::settingUpdated);
@@ -87,7 +86,6 @@ bool ScribbleArea::init()
         }
     }
 
-    connect(mDoubleClickTimer, &QTimer::timeout, this, &ScribbleArea::handleDoubleClick);
     connect(mMouseFilterTimer, &QTimer::timeout, this, &ScribbleArea::tabletReleaseEventFired);
 
     connect(mEditor->select(), &SelectionManager::selectionChanged, this, &ScribbleArea::onSelectionChanged);
@@ -96,7 +94,6 @@ bool ScribbleArea::init()
     connect(&mTiledBuffer, &TiledBuffer::tileUpdated, this, &ScribbleArea::onTileUpdated);
     connect(&mTiledBuffer, &TiledBuffer::tileCreated, this, &ScribbleArea::onTileCreated);
 
-    mDoubleClickTimer->setInterval(50);
     mMouseFilterTimer->setInterval(50);
 
     const int curveSmoothingLevel = mPrefs->getInt(SETTING::CURVE_SMOOTHING);
@@ -616,25 +613,21 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
             setFocus();
         }
 
-        if (mIsFirstClick)
+        // Event timestamps give the elapsed time; a double click consumes both presses.
+        const bool isDoubleClick = mHasTabletPress
+            && e->timestamp() - mTabletPressTime <= DOUBLE_CLICK_THRESHOLD
+            && QLineF(e->position(), mTabletPressPos).length() < 5.0;
+        mHasTabletPress = !isDoubleClick;
+        mTabletPressPos = e->position();
+        mTabletPressTime = e->timestamp();
+
+        if (isDoubleClick)
         {
-            mIsFirstClick = false;
-            mDoubleClickTimer->start();
-            pointerPressEvent(&event);
+            currentTool()->pointerDoubleClickEvent(&event);
         }
         else
         {
-            qreal distance = QLineF(e->position(), mTabletPressPos).length();
-            mTabletPressPos = e->position();
-
-            if (mDoubleClickMillis <= DOUBLE_CLICK_THRESHOLD && distance < 5.0) {
-                currentTool()->pointerDoubleClickEvent(&event);
-            }
-            else
-            {
-                // in case we handled the event as double click but really should have handled it as single click.
-                pointerPressEvent(&event);
-            }
+            pointerPressEvent(&event);
         }
         mTabletInUse = event.isAccepted();
     }
@@ -716,18 +709,6 @@ void ScribbleArea::pointerReleaseEvent(PointerEvent* event)
     currentTool()->pointerReleaseEvent(event);
 
     editor()->tools()->tryClearTemporaryTool(event->button());
-}
-
-void ScribbleArea::handleDoubleClick()
-{
-    mDoubleClickMillis += 100;
-
-    if (mDoubleClickMillis >= DOUBLE_CLICK_THRESHOLD)
-    {
-        mDoubleClickMillis = 0;
-        mIsFirstClick = true;
-        mDoubleClickTimer->stop();
-    }
 }
 
 void ScribbleArea::tabletReleaseEventFired()
