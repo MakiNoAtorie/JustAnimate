@@ -136,8 +136,6 @@ public:
      */
     bool isMinimallyBounded() const { return mMinBound; }
     void enableAutoCrop(bool b) { mEnableAutoCrop = b; }
-    void setOpacity(qreal opacity) { mOpacity = opacity; }
-    qreal getOpacity() const { return mOpacity; }
 
     Status writeFile(const QString& filename);
 
@@ -204,7 +202,6 @@ private:
     const int COLORDIFF = 5;      // difference in color values to decide color
     const int GRAYSCALEDIFF = 15; // difference in grasycale values to decide color
 
-    qreal mOpacity = 1.0;
 };
 
 #endif

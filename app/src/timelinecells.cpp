@@ -495,7 +495,7 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
         connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
         form->addRow(buttons);
         if (dialog.exec() != QDialog::Accepted) { return; }
-        state = TweenState{ tx->value(), ty->value(), rot->value(), scale->value() };
+        state = TweenState{ tx->value(), ty->value(), rot->value(), scale->value(), state.opacity };
     }
     else if (chosen->data().isValid())
     {

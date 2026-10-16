@@ -27,15 +27,17 @@ GNU General Public License for more details.
 #include "cameraeasingtype.h"
 class KeyFrameEventListener;
 
-/// A key's drawing transform: translate, rotate (degrees) and uniform scale about the canvas origin.
+/// A key's drawing state: translate, rotate (degrees) and uniform scale about the canvas origin, and opacity.
 struct TweenState
 {
     qreal tx = 0;
     qreal ty = 0;
     qreal rot = 0;
     qreal scale = 1;
+    qreal opacity = 1;
 
     QTransform transform() const { return QTransform().translate(tx, ty).rotate(rot).scale(scale, scale); }
+    /// True when the transform is identity; opacity is not part of it.
     bool isIdentity() const { return tx == 0 && ty == 0 && rot == 0 && scale == 1; }
 };
 
@@ -66,6 +68,9 @@ public:
     void setTweenEasing(CameraEasingType easing) { mTweenEasing = easing; }
     TweenState tweenState() const { return mTweenState; }
     void setTweenState(const TweenState& state) { mTweenState = state; }
+    /** The key's image opacity, saved as the <image> opacity attribute. */
+    qreal getOpacity() const { return mTweenState.opacity; }
+    void setOpacity(qreal opacity) { mTweenState.opacity = opacity; }
 
     QString fileName() const { return mAttachedFileName; }
     void    setFileName(QString strFileName) { mAttachedFileName = strFileName; }
