@@ -442,6 +442,24 @@ TEST_CASE("A preset records the tool it is for", "[BrushPresets]")
     CHECK_FALSE(defaults.names("brush").contains("Hard Eraser"));
 }
 
+TEST_CASE("Saved default eraser presets from before the tool field move to the eraser", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    const BrushPresets presets(dir.path());
+    presets.addDefaults();
+    writeFile(presets.filePath("Hard Eraser"), R"({"settings":{"Width":31}})");
+    writeFile(presets.filePath("Soft Eraser"), R"({"settings":{"Width":32}})");
+    writeFile(presets.filePath("Mine"), R"({"settings":{"Width":5}})");
+    REQUIRE(presets.tool("Hard Eraser") == "brush");
+
+    BrushPresets(dir.path()).addDefaults(); // the next start
+    CHECK(presets.names("eraser") == QStringList{ "Hard Eraser", "Soft Eraser" });
+    CHECK(presets.tool("Mine") == "brush");
+    QFile hard(presets.filePath("Hard Eraser"));
+    REQUIRE(hard.open(QIODevice::ReadOnly));
+    CHECK(hard.readAll().contains("31")); // the user's settings stay
+}
+
 TEST_CASE("Malformed jabrush files are rejected before writing", "[BrushPresets]")
 {
     QTemporaryDir dir;

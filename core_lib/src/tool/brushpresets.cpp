@@ -213,6 +213,16 @@ void BrushPresets::addDefaults() const
         if (file.open(QIODevice::ReadOnly))
             seed(info.completeBaseName(), file.readAll());
     }
+
+    // The default erasers were seeded before presets had a tool field; a saved copy without one is an eraser.
+    for (const QString name : { QStringLiteral("Hard Eraser"), QStringLiteral("Soft Eraser") })
+    {
+        std::optional<QJsonObject> preset = readPreset(filePath(name));
+        if (!preset || preset->contains("tool"))
+            continue;
+        preset->insert("tool", toolKey(ERASER));
+        writeFile(filePath(name), QJsonDocument(*preset).toJson());
+    }
 }
 
 QString BrushPresets::description(const QString& name) const
