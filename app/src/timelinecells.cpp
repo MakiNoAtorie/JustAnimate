@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include <QApplication>
 #include <QResizeEvent>
+#include <QColorDialog>
 #include <QInputDialog>
 #include <QMenu>
 #include <QPainter>
@@ -388,6 +389,50 @@ void TimeLineCells::paintTicks(QPainter& painter, const QPalette& palette) const
             painter.drawText(QPoint(lineX + incr, 15), QString::number(i + 1));
         }
     }
+
+    // Markers: colour bar under the ruler
+    const auto& markers = mEditor->object()->data()->markers();
+    for (auto it = markers.constBegin(); it != markers.constEnd(); ++it)
+    {
+        painter.fillRect(getFrameX(it.key() - 1), 16, mFrameSize, 4, it.value().color);
+    }
+}
+
+void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
+{
+    ObjectData* data = mEditor->object()->data();
+    const int frame = mEditor->currentFrame();
+    const bool has = data->markers().contains(frame);
+
+    QMenu menu;
+    QAction* add = menu.addAction(has ? tr("Rename Marker...") : tr("Add Marker..."));
+    QAction* color = has ? menu.addAction(tr("Change Marker Color...")) : nullptr;
+    QAction* remove = has ? menu.addAction(tr("Remove Marker")) : nullptr;
+    QAction* chosen = menu.exec(globalPos);
+    if (chosen == nullptr) return;
+
+    FrameMarker m = data->markers().value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
+    if (chosen == add)
+    {
+        bool ok = false;
+        const QString name = QInputDialog::getText(this, tr("Marker"), tr("Name:"), QLineEdit::Normal, m.name, &ok);
+        if (!ok) return;
+        m.name = name;
+        data->setMarker(frame, m);
+    }
+    else if (chosen == color)
+    {
+        const QColor c = QColorDialog::getColor(m.color, this);
+        if (!c.isValid()) return;
+        m.color = c;
+        data->setMarker(frame, m);
+    }
+    else if (chosen == remove)
+    {
+        data->removeMarker(frame);
+    }
+    mEditor->object()->modification();
+    updateContent();
 }
 
 void TimeLineCells::paintTrack(QPainter& painter, const Layer* layer,
@@ -874,6 +919,11 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
         }
         break;
     case TIMELINE_CELL_TYPE::Tracks:
+        if (event->button() == Qt::RightButton && mStartY < 20)
+        {
+            showMarkerMenu(event->globalPosition().toPoint());
+            return;
+        }
         if (event->button() == Qt::MiddleButton)
         {
             mLastFrameNumber = getFrameNumber(event->pos().x());

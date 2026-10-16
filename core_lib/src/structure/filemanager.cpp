@@ -503,6 +503,20 @@ QDomElement FileManager::saveProjectData(const ObjectData* data, QDomDocument& x
     tagMarkOutFrame.setAttribute("value", data->getMarkOutFrameNumber());
     rootTag.appendChild(tagMarkOutFrame);
 
+    if (!data->markers().isEmpty())
+    {
+        QDomElement markersTag = xmlDoc.createElement("markers");
+        for (auto it = data->markers().constBegin(); it != data->markers().constEnd(); ++it)
+        {
+            QDomElement m = xmlDoc.createElement("marker");
+            m.setAttribute("frame", it.key());
+            m.setAttribute("name", it.value().name);
+            m.setAttribute("color", it.value().color.name());
+            markersTag.appendChild(m);
+        }
+        rootTag.appendChild(markersTag);
+    }
+
     return rootTag;
 }
 
@@ -556,6 +570,17 @@ void FileManager::extractProjectData(const QDomElement& element, ObjectData& dat
     else if (strName == "markOutFrame")
     {
         data.setMarkOutFrameNumber(element.attribute("value", "15").toInt());
+    }
+    else if (strName == "markers")
+    {
+        for (QDomElement m = element.firstChildElement("marker"); !m.isNull(); m = m.nextSiblingElement("marker"))
+        {
+            const int frame = m.attribute("frame", "0").toInt();
+            if (frame < 1) continue;
+            QColor c(m.attribute("color"));
+            if (!c.isValid()) c = QColor(255, 140, 0);
+            data.setMarker(frame, { m.attribute("name"), c });
+        }
     }
 }
 

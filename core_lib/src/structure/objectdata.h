@@ -19,9 +19,17 @@ GNU General Public License for more details.
 #define EDITORSTATE_H
 
 #include <QColor>
+#include <QMap>
+#include <QString>
 #include <QTransform>
 #include "pencildef.h"
 
+
+struct FrameMarker
+{
+    QString name;
+    QColor color;
+};
 
 class ObjectData
 {
@@ -56,7 +64,12 @@ public:
     void setMarkOutFrameNumber(int n) { mMarkOutFrame = n; }
     int  getMarkOutFrameNumber() const { return mMarkOutFrame; }
 
+    void setMarker(int frame, const FrameMarker& m) { mMarkers.insert(frame, m); }
+    void removeMarker(int frame) { mMarkers.remove(frame); }
+    const QMap<int, FrameMarker>& markers() const { return mMarkers; }
+
 private:
+    QMap<int, FrameMarker> mMarkers;
     int mCurrentFrame = 1;
     QColor mCurrentColor{ 0, 0, 0, 255 };
     int mCurrentLayer = 0;
