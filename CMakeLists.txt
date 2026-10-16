@@ -86,6 +86,21 @@ set(CPACK_PACKAGE_EXECUTABLES justanimate JustAnimate)
 set(CPACK_NSIS_EXECUTABLES_DIRECTORY .)
 set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
 set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+# .pclx/.pcl open in JustAnimate with the exe's embedded icon (version.rc); removed again on uninstall
+set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+  WriteRegStr HKCR 'JustAnimate.Project' '' 'JustAnimate project'
+  WriteRegStr HKCR 'JustAnimate.Project\\\\DefaultIcon' '' '$INSTDIR\\\\justanimate.exe,0'
+  WriteRegStr HKCR 'JustAnimate.Project\\\\shell\\\\open\\\\command' '' `\\\"$INSTDIR\\\\justanimate.exe\\\" \\\"%1\\\"`
+  WriteRegStr HKCR '.pclx' '' 'JustAnimate.Project'
+  WriteRegStr HKCR '.pcl' '' 'JustAnimate.Project'
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+")
+set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+  DeleteRegKey HKCR 'JustAnimate.Project'
+  DeleteRegKey HKCR '.pclx'
+  DeleteRegKey HKCR '.pcl'
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+")
 set(CPACK_DMG_VOLUME_NAME "JustAnimate")
 if(WIN32)
     set(CPACK_GENERATOR NSIS ZIP)

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Windows installer registers .pclx and .pcl so a double-click opens them in JustAnimate with its file icon; uninstall removes it (#152).
 - Windows package built with Qt 6.8 keeps the Qt DLLs next to justanimate.exe instead of in bin/ (#155).
 - Sound preview matches export: a looped range restarts its sound on the first frame, a sound always starts from its beginning at its key even after scrubbing, and a loop no longer starts a later sound early (#136).
 - Brush grain: pick one of five bundled CC0 paper textures (ambientCG) next to the generated one, in the tool options and in presets (#86).
