@@ -46,3 +46,34 @@ TEST_CASE("EraserTool - Erasing on a vector layer before its first keyframe does
     REQUIRE(layer->keyFrameCount() == 1);
     REQUIRE_FALSE(layer->keyExists(1));
 }
+
+TEST_CASE("ToolManager - Tablet eraser end emits toolChanged once per flip")
+{
+    TestSession session;
+    session.start();
+    ToolManager* tools = session.editor->tools();
+    int changes = 0;
+    QObject::connect(tools, &ToolManager::toolChanged, [&changes](ToolType) { ++changes; });
+
+    tools->tabletSwitchToEraser();
+    tools->tabletSwitchToEraser();
+    REQUIRE(changes == 1);
+
+    tools->tabletRestorePrevTool();
+    tools->tabletRestorePrevTool();
+    REQUIRE(changes == 2);
+}
+
+TEST_CASE("ToolManager - A temporary tool beats the tablet eraser end")
+{
+    TestSession session;
+    session.start();
+    ToolManager* tools = session.editor->tools();
+    int changes = 0;
+    QObject::connect(tools, &ToolManager::toolChanged, [&changes](ToolType) { ++changes; });
+
+    tools->setTemporaryTool(HAND, Qt::MiddleButton);
+    const int afterTemporary = changes;
+    tools->tabletSwitchToEraser();
+    REQUIRE(changes == afterTemporary);
+}
