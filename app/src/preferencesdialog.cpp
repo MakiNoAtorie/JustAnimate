@@ -164,7 +164,7 @@ void PreferencesDialog::addTooltips()
 
 void PreferencesDialog::search(const QString& query)
 {
-    const QString style = QStringLiteral("#%1 { background: palette(highlight); color: palette(highlighted-text); }");
+    const bool hasQuery = !query.trimmed().isEmpty();
     int firstPage = -1;
     for (int page = 0; page < ui->pagesWidget->count(); ++page) {
         QWidget* pageWidget = ui->pagesWidget->widget(page);
@@ -179,15 +179,27 @@ void PreferencesDialog::search(const QString& query)
             } else {
                 continue;
             }
-            const bool hit = !query.trimmed().isEmpty() && !label.isEmpty() && prefLabelMatches(label, query);
-            const QString sheet = hit ? style.arg(w->objectName()) : QString();
-            if (w->styleSheet() != sheet) {
-                w->setStyleSheet(sheet);
+            const bool hit = hasQuery && !label.isEmpty() && prefLabelMatches(label, query);
+            // A palette, not a style sheet: a style sheet selector needs an objectName.
+            if (hit != w->property("prefSearchHit").toBool()) {
+                w->setProperty("prefSearchHit", hit);
+                QPalette pal; // Empty: the widget inherits its parent's palette again.
+                if (hit) {
+                    pal = w->palette();
+                    pal.setColor(QPalette::Window, pal.color(QPalette::Highlight));
+                    pal.setColor(QPalette::WindowText, pal.color(QPalette::HighlightedText));
+                    pal.setColor(QPalette::ButtonText, pal.color(QPalette::HighlightedText));
+                }
+                w->setPalette(pal);
+                w->setAutoFillBackground(hit);
             }
             if (hit && firstPage < 0) {
                 firstPage = page;
             }
         }
+    }
+    if (ui->shortcuts->filter(query) && hasQuery && firstPage < 0) {
+        firstPage = ui->pagesWidget->indexOf(ui->shortcuts);
     }
     if (firstPage >= 0) {
         ui->contentsWidget->setCurrentRow(firstPage);

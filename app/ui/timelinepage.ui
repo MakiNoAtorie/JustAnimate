@@ -96,6 +96,9 @@
           </item>
           <item>
            <widget class="QRadioButton" name="radioButtonAddNewKey">
+            <property name="toolTip">
+             <string>Create a new (blank) key-frame and start drawing on it.</string>
+            </property>
             <property name="statusTip">
              <string>Create a new (blank) key-frame and start drawing on it.</string>
             </property>
@@ -109,6 +112,9 @@
           </item>
           <item>
            <widget class="QRadioButton" name="radioButtonDuplicate">
+            <property name="toolTip">
+             <string>Duplicate the previous key-frame and start drawing on the duplicate.</string>
+            </property>
             <property name="statusTip">
              <string>Duplicate the previous key-frame and start drawing on the duplicate.</string>
             </property>
@@ -119,6 +125,9 @@
           </item>
           <item>
            <widget class="QRadioButton" name="radioButtonDrawOnPrev">
+            <property name="toolTip">
+             <string>Keep drawing on the previous key-frame, so the empty frame stays empty.</string>
+            </property>
             <property name="text">
              <string>Keep drawing on the previous key-frame</string>
             </property>

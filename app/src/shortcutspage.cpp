@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <QKeySequence>
 #include <QMessageBox>
 #include "pencilsettings.h"
+#include "prefsearch.h"
 #include "shortcutconflict.h"
 #include <QFile>
 #include <QFileDialog>
@@ -60,6 +61,18 @@ ShortcutsPage::ShortcutsPage( QWidget* parent )
 
 ShortcutsPage::~ShortcutsPage() {
     delete ui;
+}
+
+bool ShortcutsPage::filter(const QString& query)
+{
+    bool any = false;
+    for (int row = 0; row < m_treeModel->rowCount(); ++row)
+    {
+        const bool hit = prefLabelMatches(m_treeModel->item(row, ACT_NAME_COLUMN)->text(), query);
+        ui->treeView->setRowHidden(row, QModelIndex(), !hit);
+        any = any || hit;
+    }
+    return any;
 }
 
 void ShortcutsPage::tableItemClicked( const QModelIndex& modelIndex )
