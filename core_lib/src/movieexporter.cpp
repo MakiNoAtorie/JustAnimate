@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <ctime>
 #include <vector>
 #include <cstdint>
+#include <filesystem>
 #include <QDir>
 #include <QDebug>
 #include <QProcess>
@@ -115,38 +116,26 @@ Status MovieExporter::run(const Object* obj,
 
     mTempWorkDir = mTempDir.path();
 
-    const QFileInfo outputBefore(desc.strFileName);
-    const QDateTime modifiedBefore = outputBefore.lastModified();
-    const qint64 sizeBefore = outputBefore.size();
-
-    Status st = Status::OK;
     minorProgress(0.f);
-    if (desc.strFileName.endsWith("gif", Qt::CaseInsensitive))
+    const Status result = writeThenReplace(desc.strFileName, [&](const QString& outFile) -> Status
     {
-        majorProgress(0.03f, 1.f);
-        progressMessage(tr("Generating GIF..."));
-        minorProgress(0.f);
-        st = (generateGif(obj, ffmpegPath, desc.strFileName, minorProgress));
-    }
-    else
-    {
+        if (desc.strFileName.endsWith("gif", Qt::CaseInsensitive))
+        {
+            majorProgress(0.03f, 1.f);
+            progressMessage(tr("Generating GIF..."));
+            minorProgress(0.f);
+            return generateGif(obj, ffmpegPath, outFile, minorProgress);
+        }
         majorProgress(0.03f, 0.25f);
         progressMessage(tr("Assembling audio..."));
         minorProgress(0.f);
-        st = (assembleAudio(obj, ffmpegPath, minorProgress));
-        if (st.ok())
-        {
-            minorProgress(1.f);
-            majorProgress(0.25f, 1.f);
-            progressMessage(tr("Generating movie..."));
-            st = (generateMovie(obj, ffmpegPath, desc.strFileName, minorProgress));
-        }
-    }
-    if (!st.ok())
-    {
-        discardPartialOutput(desc.strFileName, modifiedBefore, sizeBefore);
-        return st;
-    }
+        STATUS_CHECK(assembleAudio(obj, ffmpegPath, minorProgress));
+        minorProgress(1.f);
+        majorProgress(0.25f, 1.f);
+        progressMessage(tr("Generating movie..."));
+        return generateMovie(obj, ffmpegPath, outFile, minorProgress);
+    });
+    if (!result.ok()) { return result; }
     minorProgress(1.f);
     majorProgress(1.f, 1.f);
     progressMessage(tr("Done"));
@@ -157,11 +146,31 @@ Status MovieExporter::run(const Object* obj,
     return Status::OK;
 }
 
-void MovieExporter::discardPartialOutput(const QString& path, const QDateTime& modifiedBefore, qint64 sizeBefore)
+Status MovieExporter::writeThenReplace(const QString& target, const std::function<Status(const QString&)>& write)
 {
-    const QFileInfo now(path);
-    const bool untouched = modifiedBefore.isValid() && now.lastModified() == modifiedBefore && now.size() == sizeBefore;
-    if (!untouched) { QFile::remove(path); }
+    const QFileInfo info(target);
+    // Keep the extension: ffmpeg picks the output format from it.
+    const QString tmp = info.dir().filePath(info.completeBaseName() + ".tmp." + info.suffix());
+    QFile::remove(tmp);
+
+    const Status st = write(tmp);
+    if (!st.ok())
+    {
+        QFile::remove(tmp);
+        return st;
+    }
+
+    std::error_code renameError;
+    std::filesystem::rename(QFileInfo(tmp).filesystemFilePath(), info.filesystemFilePath(), renameError);
+    if (renameError)
+    {
+        QFile::remove(tmp);
+        DebugDetails dd;
+        dd << QString("Error: Unable to rename %1 to %2: %3").arg(tmp, target, QString::fromStdString(renameError.message()));
+        return Status(Status::FAIL, dd, tr("Something went wrong"),
+                      tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(target));
+    }
+    return st;
 }
 
 bool MovieExporter::mayOverwrite(const QString& path, const std::function<bool()>& confirm)
