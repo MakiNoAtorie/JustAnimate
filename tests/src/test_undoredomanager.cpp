@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QApplication>
 #include <QDataStream>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QIcon>
 #include <QMouseEvent>
@@ -51,6 +52,7 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "soundclip.h"
 #include "soundmanager.h"
+#include "soundplayer.h"
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "undoredomanager.h"
@@ -1549,6 +1551,23 @@ QString writeSilentWav(const QTemporaryDir& dir)
     file.write(wav);
     return path;
 }
+}
+
+TEST_CASE("SoundPlayer: destroying a player while it loads does not crash")
+{
+    QTemporaryDir dir;
+    const QString wav = writeSilentWav(dir);
+    REQUIRE_FALSE(wav.isEmpty());
+    // Undo deletes a clip soon after its player starts to load; the media thread then still reads the source.
+    for (int i = 0; i < 300; i++)
+    {
+        SoundClip clip;
+        clip.init(wav);
+        auto p = new SoundPlayer;
+        p->init(&clip);
+        QElapsedTimer t; t.start();
+        while (t.elapsed() < i % 7) { QCoreApplication::processEvents(); }
+    }
 }
 
 TEST_CASE("UndoRedoManager: undo/redo of sound import")
