@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include "playbackmanager.h"
 
+#include <cstdlib>
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QDebug>
@@ -28,6 +29,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "toolmanager.h"
 #include "pencilsettings.h"
+#include "preferencemanager.h"
 
 
 PlaybackManager::PlaybackManager(Editor* editor) : BaseManager(editor, __FUNCTION__)
@@ -199,6 +201,44 @@ void PlaybackManager::playFlipInBetween()
     editor()->scrubTo(mFlipList[0]);
     mFlipTimer->start();
     emit playStateChanged(true);
+}
+
+void PlaybackManager::beginPenFlip()
+{
+    if (isPlaying()) { return; }
+    mPenFlipOrigin = editor()->currentFrame();
+    mPenFlipDragFrame = mPenFlipOrigin;
+}
+
+void PlaybackManager::penFlipPress(qreal x)
+{
+    mPenFlipDragX = x;
+    mPenFlipDragFrame = editor()->currentFrame();
+}
+
+void PlaybackManager::penFlipMove(qreal x)
+{
+    if (!isPenFlipping()) { return; }
+    const int steps = static_cast<int>((x - mPenFlipDragX) / kPenFlipPixels);
+    const Layer* layer = editor()->layers()->currentLayer();
+    const MarkFilter filter = editor()->preference()->markFilter();
+    int frame = mPenFlipDragFrame;
+    for (int i = 0; i < std::abs(steps); i++)
+    {
+        const int f = (steps > 0) ? layer->getNextFrameNumber(frame, true, filter)
+                                  : layer->getPreviousFrameNumber(frame, true, filter);
+        if (f < 0) { break; }
+        frame = f;
+    }
+    if (frame != editor()->currentFrame()) { editor()->scrubTo(frame); }
+}
+
+void PlaybackManager::endPenFlip()
+{
+    if (!isPenFlipping()) { return; }
+    const int origin = mPenFlipOrigin;
+    mPenFlipOrigin = 0;
+    if (origin != editor()->currentFrame()) { editor()->scrubTo(origin); }
 }
 
 void PlaybackManager::playScrub(int frame)

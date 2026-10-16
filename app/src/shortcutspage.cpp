@@ -314,6 +314,7 @@ static QString getHumanReadableShortcutName(const QString& cmdName)
         {CMD_FLIP_VERTICAL, ShortcutsPage::tr("View: Vertical Flip", "Shortcut")},
         {CMD_FLIP_INBETWEEN, ShortcutsPage::tr("Flip In-Between", "Shortcut")},
         {CMD_FLIP_ROLLING, ShortcutsPage::tr("Flip Rolling", "Shortcut")},
+        {CMD_FLIP_HOLD, ShortcutsPage::tr("Flip (hold and drag the pen)", "Shortcut")},
         {CMD_MARK_KEY, ShortcutsPage::tr("Mark: Key", "Shortcut")},
         {CMD_MARK_BREAKDOWN, ShortcutsPage::tr("Mark: Breakdown", "Shortcut")},
         {CMD_MARK_INBETWEEN, ShortcutsPage::tr("Mark: Inbetween", "Shortcut")},

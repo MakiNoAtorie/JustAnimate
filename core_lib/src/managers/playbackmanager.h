@@ -73,6 +73,14 @@ public:
 
     void stopSounds();
 
+    // Pen-drag Flip: while the Flip key is held, a horizontal pen drag steps through Drawings.
+    static constexpr int kPenFlipPixels = 20; // viewport pixels per Drawing
+    void beginPenFlip();
+    void penFlipPress(qreal x);
+    void penFlipMove(qreal x);
+    void endPenFlip();
+    bool isPenFlipping() const { return mPenFlipOrigin > 0; }
+
 private slots:
     void stopScrubPlayback();
 
@@ -125,6 +133,10 @@ private:
     QVector<int> mListOfActiveSoundFrames;
     QVector<SoundClip*> mSoundclipsToPLay;
     QVector<int> mFlipList;
+
+    int mPenFlipOrigin = 0; // frame the flip started on; 0 = not flipping
+    int mPenFlipDragFrame = 0;
+    qreal mPenFlipDragX = 0;
 };
 
 #endif // PLAYBACKMANAGER_H

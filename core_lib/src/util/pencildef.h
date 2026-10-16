@@ -171,6 +171,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_LOOP_CONTROL "CmdLoopControl"
 #define CMD_FLIP_INBETWEEN "CmdFlipInBetween"
 #define CMD_FLIP_ROLLING "CmdFlipRolling"
+#define CMD_FLIP_HOLD "CmdFlipHold"
 #define CMD_MARK_KEY "CmdMarkKey"
 #define CMD_MARK_BREAKDOWN "CmdMarkBreakdown"
 #define CMD_MARK_INBETWEEN "CmdMarkInbetween"

@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <algorithm>
 #include <cmath>
 #include <QGuiApplication>
+#include <QKeySequence>
 #include <QMessageBox>
 #include <QPainterPath>
 #include <QtMath>
@@ -50,6 +51,7 @@ GNU General Public License for more details.
 #include "colormanager.h"
 #include "toolmanager.h"
 #include "layermanager.h"
+#include "pencilsettings.h"
 #include "playbackmanager.h"
 #include "viewmanager.h"
 #include "selectionmanager.h"
@@ -447,6 +449,12 @@ void ScribbleArea::keyPressEvent(QKeyEvent *event)
         return;
     }
 
+    if (isPenFlipKey(event))
+    {
+        mEditor->playback()->beginPenFlip();
+        return;
+    }
+
     if (currentTool()->keyPressEvent(event))
     {
         return; // has been handled by tool
@@ -567,6 +575,12 @@ void ScribbleArea::keyReleaseEvent(QKeyEvent *event)
         editor()->tools()->tryClearTemporaryTool(static_cast<Qt::Key>(event->key()));
     }
 
+    if (isPenFlipKey(event))
+    {
+        mEditor->playback()->endPenFlip();
+        return;
+    }
+
     if (isPointerInUse()) { return; }
 
     if (currentTool()->keyReleaseEvent(event))
@@ -574,6 +588,22 @@ void ScribbleArea::keyReleaseEvent(QKeyEvent *event)
         // has been handled by tool
         return;
     }
+}
+
+bool ScribbleArea::isPenFlipKey(const QKeyEvent* event) const
+{
+    const QKeySequence flipKey(pencilSettings().value("shortcuts/" CMD_FLIP_HOLD).toString());
+    if (flipKey.isEmpty()) { return false; }
+    // A release matches the key alone: the modifiers may have changed while it was held.
+    return (event->type() == QEvent::KeyRelease) ? flipKey[0].key() == event->key()
+                                                 : flipKey[0] == event->keyCombination();
+}
+
+void ScribbleArea::focusOutEvent(QFocusEvent* event)
+{
+    // A key released in another window never reaches this widget.
+    mEditor->playback()->endPenFlip();
+    QWidget::focusOutEvent(event);
 }
 
 /************************************************************************************/
@@ -702,6 +732,12 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
 void ScribbleArea::pointerPressEvent(PointerEvent* event)
 {
     StageScope stage(StageProfiler::InputEvent);
+    if (mEditor->playback()->isPenFlipping() && event->button() == Qt::LeftButton)
+    {
+        mPenFlipDrag = true;
+        mEditor->playback()->penFlipPress(event->viewportPos().x());
+        return;
+    }
     bool isCameraLayer = mEditor->layers()->currentLayer()->type() == Layer::CAMERA;
     if ((currentTool()->type() != HAND || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
     {
@@ -734,12 +770,22 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
 void ScribbleArea::pointerMoveEvent(PointerEvent* event)
 {
     StageScope stage(StageProfiler::InputEvent);
+    if (mPenFlipDrag)
+    {
+        mEditor->playback()->penFlipMove(event->viewportPos().x());
+        return;
+    }
     currentTool()->pointerMoveEvent(event);
 }
 
 void ScribbleArea::pointerReleaseEvent(PointerEvent* event)
 {
     StageScope stage(StageProfiler::InputEvent);
+    if (mPenFlipDrag)
+    {
+        mPenFlipDrag = false;
+        return;
+    }
     currentTool()->pointerReleaseEvent(event);
 
     editor()->tools()->tryClearTemporaryTool(event->button());

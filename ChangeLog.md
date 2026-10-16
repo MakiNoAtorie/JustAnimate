@@ -6,6 +6,8 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Command search: Ctrl+Shift+P or the Command bar's search field finds a menu command by name and runs it; Ctrl+K opens Preferences (#183).
+- Pen-drag Flip: hold F and drag the pen left or right to flip through Drawings (following the Marked drawings filter); releasing F returns to the starting frame (#190).
+
 - Command bar: one bar under the menu bar replaces the Main, View and Overlay toolbars with the same commands; Window > Command bar hides and shows it (#182).
 
 - Onion skin: O turns it on and off in both directions (previous-only and next-only keep their commands without keys), each layer row has an onion toggle, and the Onion skin Panel mode picks Every frame, Every drawing or Marked drawings with Key, Breakdown and Inbetween choices (#187).

@@ -18,15 +18,23 @@ GNU General Public License for more details.
 #include <memory>
 #include <vector>
 #include <QDir>
+#include <QApplication>
 #include <QFile>
+#include <QKeyEvent>
+#include <QTabletEvent>
 #include <QTemporaryDir>
 #include "app_util.h"
 #include "editor.h"
 #include "fileformat.h"
 #include "filemanager.h"
+#include "layerbitmap.h"
+#include "layermanager.h"
 #include "object.h"
 #include "playbackmanager.h"
+#include "preferencemanager.h"
+#include "scribblearea.h"
 #include "testfixture.h"
+#include "toolmanager.h"
 
 namespace
 {
@@ -139,4 +147,95 @@ TEST_CASE("A held frame step key flips at the project fps and single taps always
     CHECK(skipFrameStep(true, 10, 10));       // a repeat inside the flip
     CHECK_FALSE(skipFrameStep(true, 100, 10));
     CHECK_FALSE(skipFrameStep(true, -1, 10)); // no flip yet
+}
+
+namespace
+{
+void flipKey(ScribbleArea* area, QEvent::Type type, ulong ms)
+{
+    QKeyEvent e(type, Qt::Key_F, Qt::NoModifier, "f");
+    e.setTimestamp(ms);
+    QApplication::sendEvent(area, &e);
+}
+
+void flipPen(ScribbleArea* area, QEvent::Type type, qreal x, ulong ms)
+{
+    const QPointF pos(x, 300);
+    const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
+    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                   0.8, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+    e.setTimestamp(ms);
+    QApplication::sendEvent(area, &e);
+}
+}
+
+TEST_CASE("Pen-drag Flip steps through Drawings and returns on release", "[PlaybackManager]")
+{
+    const SettingsGuard guard({ "shortcuts/" CMD_FLIP_HOLD, SETTING_ONION_TYPE, SETTING_ONION_MARKS });
+    pencilSettings().setValue("shortcuts/" CMD_FLIP_HOLD, "F");
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    for (int f : { 3, 5, 7 }) { REQUIRE(layer->addNewKeyFrameAt(f)); }
+    editor->preference()->set(SETTING::ONION_TYPE, QString("absolute"));
+    editor->scrubTo(3);
+    const int px = PlaybackManager::kPenFlipPixels;
+
+    SECTION("Drag distance sets how many Drawings; release restores the start")
+    {
+        flipKey(area, QEvent::KeyPress, 1000);
+        REQUIRE(editor->playback()->isPenFlipping());
+        flipPen(area, QEvent::TabletPress, 400, 1010);
+        flipPen(area, QEvent::TabletMove, 400 + 2 * px + 5, 1020);
+        CHECK(editor->currentFrame() == 7);
+        flipPen(area, QEvent::TabletMove, 400 + px / 2, 1030);
+        CHECK(editor->currentFrame() == 3); // under one step: back at the start
+        flipPen(area, QEvent::TabletMove, 400 - px - 1, 1040);
+        CHECK(editor->currentFrame() == 1);
+        flipPen(area, QEvent::TabletMove, 400 - 10 * px, 1050);
+        CHECK(editor->currentFrame() == 1); // no Drawing before 1
+        flipPen(area, QEvent::TabletRelease, 400 - 10 * px, 1060);
+        CHECK(editor->currentFrame() == 1);
+        flipKey(area, QEvent::KeyRelease, 1070);
+        CHECK_FALSE(editor->playback()->isPenFlipping());
+        CHECK(editor->currentFrame() == 3);
+        for (int f : { 1, 3, 5, 7 })
+        {
+            CAPTURE(f);
+            CHECK(layer->getBitmapImageAtFrame(f)->bounds().isEmpty()); // the pen did not draw
+        }
+        CHECK(layer->keyFrameCount() == 4);
+    }
+
+    SECTION("With a Mark filter only matching Drawings are visited")
+    {
+        layer->getKeyFrameAt(1)->setMark(Mark::Key);
+        layer->getKeyFrameAt(7)->setMark(Mark::Key);
+        editor->preference()->set(SETTING::ONION_TYPE, QString("marked"));
+        editor->preference()->set(SETTING::ONION_MARKS, MarkFilter({ Mark::Key }).toInt());
+        flipKey(area, QEvent::KeyPress, 2000);
+        flipPen(area, QEvent::TabletPress, 400, 2010);
+        flipPen(area, QEvent::TabletMove, 400 + px, 2020);
+        CHECK(editor->currentFrame() == 7);
+        flipPen(area, QEvent::TabletMove, 400 - px, 2030);
+        CHECK(editor->currentFrame() == 1);
+        flipPen(area, QEvent::TabletRelease, 400 - px, 2040);
+        flipKey(area, QEvent::KeyRelease, 2050);
+        CHECK(editor->currentFrame() == 3);
+    }
+
+    SECTION("Without the Flip key the pen draws")
+    {
+        flipPen(area, QEvent::TabletPress, 400, 3000);
+        flipPen(area, QEvent::TabletMove, 450, 3010);
+        flipPen(area, QEvent::TabletRelease, 450, 3020);
+        CHECK(editor->currentFrame() == 3);
+        CHECK_FALSE(layer->getBitmapImageAtFrame(3)->bounds().isEmpty());
+    }
 }
