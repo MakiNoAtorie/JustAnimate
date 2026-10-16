@@ -405,6 +405,23 @@ void LayerManager::setBlendMode(Layer* layer, BlendMode mode)
     notifyLayerChanged(layer);
 }
 
+void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state)
+{
+    Layer* layer = currentLayer();
+    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { return; }
+    KeyFrame* key = layer->getKeyFrameAt(frame);
+    if (key == nullptr) { return; }
+    // The keyframe undo state captures the key at the current frame.
+    if (editor()->currentFrame() != frame) { editor()->scrubTo(frame); }
+
+    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    key->setTween(tween);
+    key->setTweenEasing(easing);
+    key->setTweenState(state);
+    editor()->undoRedo()->record(saveStateId, tr("Tween"));
+    notifyLayerChanged(layer);
+}
+
 /**
  * @brief Get the length of current project
  * @return int: the position of the last key frame in the timeline + its length
