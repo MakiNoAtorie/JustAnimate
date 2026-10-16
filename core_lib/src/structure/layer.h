@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <QString>
 #include <QDomElement>
 #include "pencilerror.h"
+#include "blendmode.h"
 
 class KeyFrame;
 class Status;
@@ -61,6 +62,8 @@ public:
     void setVisible(bool b) { mVisible = b; }
     bool onionSkin() const { return mOnionSkin; }
     void setOnionSkin(bool b) { mOnionSkin = b; }
+    BlendMode blendMode() const { return mBlendMode; }
+    void setBlendMode(BlendMode mode) { mBlendMode = mode; }
 
     /** Get selected keyframe positions sorted by position */
     QList<int> selectedKeyFramesPositions() const { return mSelectedFrames_byPosition; }
@@ -192,6 +195,7 @@ private:
     int        mId = 0;
     bool       mVisible = true;
     bool       mOnionSkin = true;
+    BlendMode  mBlendMode = BlendMode::Normal;
     QString    mName;
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;

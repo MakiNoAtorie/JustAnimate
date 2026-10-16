@@ -699,6 +699,7 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     layerTag.setAttribute("type", type());
     // Optional: only written when off, so older versions still read the file.
     if (!onionSkin()) { layerTag.setAttribute("onion", 0); }
+    if (blendMode() != BlendMode::Normal) { layerTag.setAttribute("blend", static_cast<int>(blendMode())); }
     return layerTag;
 }
 
@@ -712,4 +713,6 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     setName(elem.attribute("name", "untitled"));
     setVisible(elem.attribute("visibility", "1").toInt());
     setOnionSkin(elem.attribute("onion", "1").toInt());
+    const int blend = elem.attribute("blend", "0").toInt();
+    setBlendMode(blend >= 0 && blend <= static_cast<int>(BlendMode::Add) ? static_cast<BlendMode>(blend) : BlendMode::Normal);
 }

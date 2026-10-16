@@ -348,6 +348,9 @@ Status ActionCommands::exportMovie(bool isGif)
     desc.strCameraName = dialog->getSelectedCameraName();
     desc.loop = dialog->getLoop();
     desc.alpha = dialog->getTransparency();
+    desc.quality = dialog->getQuality();
+    desc.gifColors = dialog->getGifColors();
+    desc.gifDither = dialog->getGifDither();
 
     DoubleProgressDialog progressDlg(mParent);
     progressDlg.setWindowModality(Qt::WindowModal);

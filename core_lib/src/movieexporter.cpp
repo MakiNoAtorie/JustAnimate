@@ -1,4 +1,4 @@
-/*
+﻿/*
 
 Pencil2D - Traditional Animation Software
 Copyright (C) 2012-2020 Matthew Chiawen Chang
@@ -375,6 +375,7 @@ Status MovieExporter::generateMovie(
     {
         args << "-pix_fmt" << "yuv420p";
     }
+    args << qualityArgs(strOutputFile, mDesc.quality);
 
     if (strOutputFile.endsWith(".avi", Qt::CaseInsensitive))
     {
@@ -494,7 +495,7 @@ Status MovieExporter::generateGif(
 
     args << "-y";
 
-    args << "-filter_complex" << "[0:v]palettegen [p]; [0:v][p] paletteuse";
+    args << "-filter_complex" << gifFilter(mDesc.gifColors, mDesc.gifDither);
 
     args << "-loop" << (loop ? "0" : "-1");
     args << strOut;
@@ -555,6 +556,28 @@ Status MovieExporter::generateGif(
  *  @return Returns Status::OK if everything went well, and Status::FAIL
  *  and error is detected (usually a non-zero exit code for ffmpeg).
  */
+QStringList MovieExporter::qualityArgs(const QString& path, MovieQuality quality)
+{
+    const int i = static_cast<int>(quality);
+    if (path.endsWith(".mp4", Qt::CaseInsensitive))
+    {
+        static const char* crf[] = { "28", "23", "18" };
+        return { "-crf", crf[i] };
+    }
+    if (path.endsWith(".webm", Qt::CaseInsensitive))
+    {
+        static const char* crf[] = { "40", "32", "24" };
+        return { "-crf", crf[i], "-b:v", "0" };
+    }
+    return {};
+}
+
+QString MovieExporter::gifFilter(int colors, bool dither)
+{
+    return QString("[0:v]palettegen=max_colors=%1 [p]; [0:v][p] paletteuse=dither=%2")
+        .arg(qBound(3, colors, 256)).arg(dither ? "sierra2_4a" : "none");
+}
+
 Status MovieExporter::executeFFmpeg(const QString& cmd, const QStringList& args, std::function<bool(int)> progress)
 {
     qDebug() << cmd;
