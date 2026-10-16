@@ -17,10 +17,13 @@ GNU General Public License for more details.
 
 #include "toolspage.h"
 
+#include <QCheckBox>
+#include <QDir>
 #include <QLabel>
 #include <QPushButton>
 #include <QtMath>
 
+#include "dabtool.h"
 #include "preferencemanager.h"
 #include "pressurecurvewidget.h"
 
@@ -36,6 +39,13 @@ ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
     ui->verticalLayout_2->addWidget(new QLabel(tr("Pressure curve (pen pressure to size and opacity):"), this));
     ui->verticalLayout_2->addWidget(mPressureCurve);
     ui->verticalLayout_2->addWidget(resetCurve, 0, Qt::AlignLeft);
+    mPressureLog = new QCheckBox(tr("Log pen pressure of every dab (for bug reports)"), this);
+    mPressureLog->setObjectName("pressureLogBox");
+    auto* logPath = new QLabel(QDir::toNativeSeparators(DabTool::pressureLogPath()), this);
+    logPath->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    ui->verticalLayout_2->addWidget(mPressureLog);
+    ui->verticalLayout_2->addWidget(logPath);
+    connect(mPressureLog, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::PRESSURE_DEBUG_LOG, on); });
     connect(mPressureCurve, &PressureCurveWidget::curveChanged, this, [this](const PressureCurve& curve) {
         mManager->set(SETTING::PRESSURE_CURVE, curve.toString());
     });
@@ -60,6 +70,7 @@ void ToolsPage::updateValues()
     ui->invertZoomDirectionBox->setChecked(mManager->isOn(SETTING::INVERT_DRAG_ZOOM_DIRECTION));
     setRotationIncrement(mManager->getInt(SETTING::ROTATION_INCREMENT));
     mPressureCurve->setCurve(PressureCurve::fromString(mManager->getString(SETTING::PRESSURE_CURVE)));
+    mPressureLog->setChecked(mManager->isOn(SETTING::PRESSURE_DEBUG_LOG));
 }
 
 void ToolsPage::quickSizingChange(int b)

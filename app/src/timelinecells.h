@@ -25,6 +25,7 @@ GNU General Public License for more details.
 class Layer;
 class SoundClip;
 enum class LayerVisibility;
+enum class Mark;
 class TimeLine;
 class QPaintEvent;
 class QMouseEvent;
@@ -57,6 +58,8 @@ public:
     int getFrameSize() const { return mFrameSize; }
 
     void setFrameLength(int n) { mFrameLength = n; }
+    /// Key, Breakdown, Inbetween, Clear Mark: the cell menu shows their text for the clicked Drawing.
+    void setMarkActions(const QList<QAction*>& actions) { mMarkActions = actions; }
     void setFrameSize(int size);
     void clearCache() { delete mCache; mCache = nullptr; }
 
@@ -98,6 +101,8 @@ private:
     int getLayerY(int layerNumber) const;
     int getFrameX(int frameNumber) const;
     int getFrameNumber(int x) const;
+    /** The frame whose right edge is under pos and ends a Drawing's Exposure, or 0. */
+    int exposureEdgeAt(const QPoint& pos) const;
     void showMarkerMenu(int frame, int layerId, const QPoint& globalPos);
     void showTweenMenu(int frame, const QPoint& globalPos);
 
@@ -114,6 +119,8 @@ private:
     void paintCurrentFrameBorder(QPainter& painter, int recLeft, int recTop, int recWidth, int recHeight) const;
     void paintFrameCursorOnCurrentLayer(QPainter& painter, int recTop, int recWidth, int recHeight) const;
     void paintSelectedFrames(QPainter& painter, const Layer* layer, const int layerIndex) const;
+    /** Draws a Drawing's Mark shape centred in its cell: Key diamond, Breakdown triangle, Inbetween dot. */
+    void paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour) const;
     void paintLabel(QPainter& painter, const Layer* layer, int x, int y, int height, int width, bool selected, LayerVisibility layerVisibility) const;
     void paintSelection(QPainter& painter, int x, int y, int width, int height) const;
     void paintHighlightedFrame(QPainter& painter, int framePos, int recTop, int recWidth, int recHeight) const;
@@ -123,6 +130,7 @@ private:
     void editLayerName(Layer* layer) const;
 
     TimeLine* mTimeLine;
+    QList<QAction*> mMarkActions;
     Editor* mEditor; // the editor for which this timeLine operates
     PreferenceManager* mPrefs;
 
@@ -167,6 +175,8 @@ private:
     bool mBoxSelecting   = false;
 
     bool mClickSelecting = false;
+    int mExposureEdge = 0; // the frame whose right edge is being dragged, or 0
+    int mRangeDragStart = 0; // ruler frame where a Shift-drag loop range started, or 0
 
     int mFramePosMoveX = 0;
     int mLayerPosMoveY = 0;

@@ -24,6 +24,7 @@ class Editor;
 class TimeLineCells;
 class TimeControls;
 
+class QAction;
 class QToolButton;
 class QWheelEvent;
 
@@ -49,6 +50,8 @@ public:
     void setPlaying( bool isPlaying );
 
     void extendLength(int frame);
+    /// The Mark Key, Breakdown, Inbetween and Clear Mark actions, whose labels the cell menu shows.
+    void setMarkActions(const QList<QAction*>& actions);
 
     int getRangeLower();
     int getRangeUpper();

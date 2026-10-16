@@ -27,7 +27,6 @@ GNU General Public License for more details.
 #include <QDebug>
 
 #include "theme.h"
-#include "buttonappearancewatcher.h"
 
 TitleBarWidget::TitleBarWidget(QWidget* parent)
     : QWidget(parent)
@@ -49,7 +48,6 @@ TitleBarWidget::~TitleBarWidget()
 
 QWidget* TitleBarWidget::createCustomTitleBarWidget(QWidget* parent)
 {
-    bool isDarkmode = Theme::isDark();
     QWidget* containerWidget = new QWidget(parent);
 
     QHBoxLayout* containerLayout = new QHBoxLayout(parent);
@@ -62,43 +60,19 @@ QWidget* TitleBarWidget::createCustomTitleBarWidget(QWidget* parent)
     QSize iconSize = QSize(14,14);
     QSize padding = QSize(2,2);
 
-    IconResource closeButtonRes;
-    closeButtonRes.lightMode = QIcon("://icons/themes/playful/window/window-close-button-normal.svg");
-    closeButtonRes.darkMode = QIcon("://icons/themes/playful/window/window-close-button-normal-darkm.svg");
-
-    QIcon closeIcon = closeButtonRes.iconForMode(isDarkmode);
-
-    IconResource closeHoverButtonRes;
-    closeHoverButtonRes.lightMode = QIcon("://icons/themes/playful/window/window-close-button-active.svg");
-    closeHoverButtonRes.darkMode = closeHoverButtonRes.lightMode;
-
-    mCloseButton->setIcon(closeIcon);
+    mCloseButton->setIcon(Theme::icon(":/icons/tabler/x.svg"));
     mCloseButton->setIconSize(iconSize);
     mCloseButton->setFixedSize(iconSize + padding);
-    mCloseButton->installEventFilter(new ButtonAppearanceWatcher(closeButtonRes,
-                                                                 closeHoverButtonRes,
-                                                            this));
 
     connect(mCloseButton, &QToolButton::clicked, this, &TitleBarWidget::closeButtonPressed);
 
-    IconResource dockButtonRes;
-    dockButtonRes.lightMode = QIcon("://icons/themes/playful/window/window-float-button-normal.svg");
-    dockButtonRes.darkMode = QIcon("://icons/themes/playful/window/window-float-button-normal-darkm.svg");
-
-    IconResource dockHoverButtonRes;
-    dockHoverButtonRes.lightMode = QIcon("://icons/themes/playful/window/window-float-button-active.svg");
-    dockHoverButtonRes.darkMode = dockHoverButtonRes.lightMode;
-
     mDockButton = new QToolButton(parent);
-
-    QIcon dockIcon = dockButtonRes.iconForMode(isDarkmode);
-    mDockButton->setIcon(dockIcon);
+    mDockButton->setIcon(Theme::icon(":/icons/tabler/app-window.svg"));
     mDockButton->setStyleSheet(flatButtonStylesheet());
     mDockButton->setToolTip(tr("Dock or undock"));
 
     mDockButton->setIconSize(iconSize);
     mDockButton->setFixedSize(iconSize + padding);
-    mDockButton->installEventFilter(new ButtonAppearanceWatcher(dockButtonRes, dockHoverButtonRes, this));
 
     connect(mDockButton, &QToolButton::clicked, this, &TitleBarWidget::undockButtonPressed);
 
@@ -127,7 +101,7 @@ QWidget* TitleBarWidget::createCustomTitleBarWidget(QWidget* parent)
 
 QString TitleBarWidget::flatButtonStylesheet() const
 {
-    return "QToolButton { border: 0; }";
+    return "QToolButton { border: 0; border-radius: 2px; } QToolButton:hover { background-color: palette(mid); }";
 }
 
 void TitleBarWidget::setTitle(const QString &title)

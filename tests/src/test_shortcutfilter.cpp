@@ -30,6 +30,8 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "shortcutconflict.h"
 #include "shortcutfilter.h"
+#include "pencildef.h"
+#include "pencilsettings.h"
 #include "testfixture.h"
 
 namespace
@@ -154,4 +156,59 @@ TEST_CASE("ShortcutConflict names the action that already uses a key sequence")
     REQUIRE(findShortcutConflict(settings, "CmdA", QKeySequence("Ctrl+J")).isEmpty());
     REQUIRE(findShortcutConflict(settings, "CmdA", QKeySequence("Ctrl+L")).isEmpty());
     REQUIRE(findShortcutConflict(settings, "CmdA", QKeySequence()).isEmpty());
+}
+
+TEST_CASE("The default shortcut preset has no duplicate keys")
+{
+    QSettings preset(":resources/kb.ini", QSettings::IniFormat);
+    preset.beginGroup("shortcuts");
+    const QStringList cmds = preset.allKeys();
+    REQUIRE(cmds.contains("CmdMarkKey"));
+    for (const QString& cmd : cmds)
+    {
+        CAPTURE(cmd);
+        CHECK(findShortcutConflict(preset, cmd, QKeySequence(preset.value(cmd).toString())).isEmpty());
+    }
+}
+
+TEST_CASE("Default shortcuts: R selects the Rotate view tool and Z rotates nothing")
+{
+    QSettings preset(":resources/kb.ini", QSettings::IniFormat);
+    preset.beginGroup("shortcuts");
+    CHECK(findShortcutConflict(preset, "", QKeySequence("R")) == CMD_TOOL_ROTATE);
+    CHECK(findShortcutConflict(preset, "", QKeySequence("Z")).isEmpty());
+    CHECK(preset.value(CMD_ROTATE_CLOCK).toString().isEmpty());
+    CHECK(preset.value(CMD_ROTATE_ANTI_CLOCK).toString().isEmpty());
+}
+
+TEST_CASE("Saved shortcuts move R from the old rotate commands to the Rotate view tool")
+{
+    QSettings& settings = pencilSettings();
+    const QString clock = QStringLiteral("shortcuts/") + CMD_ROTATE_CLOCK;
+    const QString anti = QStringLiteral("shortcuts/") + CMD_ROTATE_ANTI_CLOCK;
+    const QString tool = QStringLiteral("shortcuts/") + CMD_TOOL_ROTATE;
+    const QByteArray c = clock.toUtf8(), a = anti.toUtf8(), t = tool.toUtf8();
+    const SettingsGuard guard({ c.constData(), a.constData(), t.constData() });
+    settings.setValue(clock, "R");
+    settings.setValue(anti, "Z");
+    settings.remove(tool);
+
+    checkExistingShortcuts();
+    CHECK(settings.value(clock).toString().isEmpty());
+    CHECK(settings.value(anti).toString().isEmpty());
+    CHECK(settings.value(tool).toString() == "R");
+
+    // A key the user chose stays.
+    settings.setValue(clock, "Ctrl+R");
+    settings.remove(tool);
+    checkExistingShortcuts();
+    CHECK(settings.value(clock).toString() == "Ctrl+R");
+}
+
+TEST_CASE("Default shortcuts: Ctrl+K opens Preferences and Ctrl+Shift+P opens Command search")
+{
+    QSettings preset(":resources/kb.ini", QSettings::IniFormat);
+    preset.beginGroup("shortcuts");
+    CHECK(findShortcutConflict(preset, "", QKeySequence("Ctrl+K")) == CMD_PREFERENCE);
+    CHECK(findShortcutConflict(preset, "", QKeySequence("Ctrl+Shift+P")) == CMD_COMMAND_SEARCH);
 }

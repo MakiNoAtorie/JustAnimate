@@ -13,6 +13,7 @@ void applyDefaultDockLayout(QMainWindow* window, const DefaultDockLayout& docks,
     {
         for (QDockWidget* dock : list)
         {
+            if (!dock) { continue; }
             dock->setFloating(false);
             window->addDockWidget(area, dock);
             dock->show();
@@ -21,15 +22,26 @@ void applyDefaultDockLayout(QMainWindow* window, const DefaultDockLayout& docks,
     place(Qt::RightDockWidgetArea, docks.right);
     place(Qt::LeftDockWidgetArea, docks.left);
     place(Qt::BottomDockWidgetArea, {docks.bottom});
+    place(Qt::TopDockWidgetArea, {docks.top});
+    for (const auto& tab : docks.tabs)
+    {
+        tab.second->setFloating(false);
+        window->tabifyDockWidget(tab.first, tab.second);
+        tab.second->show();
+    }
+    for (const auto& tab : docks.tabs) { tab.first->raise(); }
 
-    // Side columns run full height; the timeline spans only the canvas width
-    window->setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
-    window->setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
+    // The Tool settings strip and the timeline run full width; side columns fill the height between
+    window->setCorner(Qt::TopLeftCorner, Qt::TopDockWidgetArea);
+    window->setCorner(Qt::TopRightCorner, Qt::TopDockWidgetArea);
+    window->setCorner(Qt::BottomLeftCorner, Qt::BottomDockWidgetArea);
+    window->setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
 
     const int sideWidth = qBound(180, screen.width() * 15 / 100, 340);
     const int bottomHeight = qBound(150, screen.height() * 22 / 100, 320);
     window->resizeDocks(docks.left + docks.right, QList<int>(docks.left.size() + docks.right.size(), sideWidth), Qt::Horizontal);
     window->resizeDocks({docks.bottom}, {bottomHeight}, Qt::Vertical);
+    if (docks.top) { window->resizeDocks({docks.top}, {docks.top->minimumSizeHint().height()}, Qt::Vertical); }
 }
 
 namespace
@@ -85,4 +97,16 @@ void resetCurrentWorkspace(QMainWindow* window, const DefaultDockLayout& docks, 
     const QString name = currentWorkspace(settings);
     settings.remove(SETTING_WORKSPACE_STATE + name);
     applyPreset(window, docks, screen, name);
+}
+
+bool dropOutdatedLayouts(QSettings& settings)
+{
+    // 2: v1.2, Panels docked by default. Older states restored floating tool windows.
+    // 3: v1.2, Tool settings strip at the top, tabbed Panels.
+    const int version = 3;
+    if (settings.value(SETTING_LAYOUT_VERSION).toInt() >= version) { return false; }
+    settings.remove(SETTING_WINDOW_STATE);
+    settings.remove(QString(SETTING_WORKSPACE_STATE).chopped(1));
+    settings.setValue(SETTING_LAYOUT_VERSION, version);
+    return true;
 }

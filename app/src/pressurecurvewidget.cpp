@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 #include "pressurecurvewidget.h"
 
+#include <QEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -29,7 +30,21 @@ constexpr qreal kMinGap = 0.02;
 PressureCurveWidget::PressureCurveWidget(QWidget* parent) : QWidget(parent)
 {
     setMinimumSize(120, 120);
-    setToolTip(tr("Drag a point to move it, double-click to add a point, right-click to remove one."));
+    updateToolTip();
+}
+
+void PressureCurveWidget::updateToolTip()
+{
+    setToolTip(isEnabled()
+                   ? tr("Drag a point to move it, double-click to add a point, right-click to remove one.")
+                   : tr("Uncheck 'Use the global pressure curve' to edit"));
+}
+
+void PressureCurveWidget::changeEvent(QEvent* event)
+{
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::EnabledChange)
+        updateToolTip();
 }
 
 void PressureCurveWidget::setCurve(const PressureCurve& curve)
@@ -101,17 +116,20 @@ void PressureCurveWidget::paintEvent(QPaintEvent*)
         const qreal x = i / static_cast<qreal>(steps);
         path.lineTo(toWidget(QPointF(x, mCurve.value(x))));
     }
-    painter.setPen(QPen(pal.highlight().color(), 2));
+    const QColor mark = isEnabled() ? pal.highlight().color() : pal.color(QPalette::Disabled, QPalette::Text);
+    painter.setPen(QPen(mark, 2));
     painter.drawPath(path);
 
     painter.setPen(pal.text().color());
-    painter.setBrush(pal.highlight());
+    painter.setBrush(mark);
     for (const QPointF& p : mCurve.points())
         painter.drawEllipse(toWidget(p), kHandleRadius, kHandleRadius);
 }
 
 void PressureCurveWidget::mousePressEvent(QMouseEvent* event)
 {
+    if (!isEnabled())
+        return;
     const int i = pointAt(event->position());
     const QList<QPointF>& points = mCurve.points();
     if (event->button() == Qt::RightButton)
@@ -150,6 +168,8 @@ void PressureCurveWidget::mouseReleaseEvent(QMouseEvent*)
 
 void PressureCurveWidget::mouseDoubleClickEvent(QMouseEvent* event)
 {
+    if (!isEnabled())
+        return;
     if (pointAt(event->position()) >= 0)
         return;
     const qreal x = toCurve(event->position()).x();

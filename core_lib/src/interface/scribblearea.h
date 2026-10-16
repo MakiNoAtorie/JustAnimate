@@ -191,6 +191,7 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent*) override;
     void keyPressEvent(QKeyEvent*) override;
     void keyReleaseEvent(QKeyEvent*) override;
+    void focusOutEvent(QFocusEvent*) override;
     void paintEvent(QPaintEvent*) override;
     void resizeEvent(QResizeEvent*) override;
 
@@ -250,6 +251,8 @@ private:
     void paintRadialMenu(QPainter& painter) const;
     /// Feeds a pointer event at `pos` (widget px) to the open radial menu.
     void radialMenuEvent(QEvent::Type type, QPointF pos);
+    /// Whether this key event is the Flip key (`CMD_FLIP_HOLD`).
+    bool isPenFlipKey(const QKeyEvent* event) const;
 
     BitmapImage* currentBitmapImage(Layer* layer) const;
     VectorImage* currentVectorImage(Layer* layer) const;
@@ -269,8 +272,11 @@ private:
        The following will filter mouse events created after a tablet release event.
     */
     void tabletReleaseEventFired();
+    /// True while mouse events come from the pen: during a tablet stroke and just after its release.
+    bool isMouseFromTablet() const;
     bool mMouseInUse = false;
     bool mTabletInUse = false;
+    bool mPenFlipDrag = false; // this pen stroke drives a Pen-drag Flip, not the tool
     qreal mDevicePixelRatio = 1.;
 
     // Double click handling for tablet input

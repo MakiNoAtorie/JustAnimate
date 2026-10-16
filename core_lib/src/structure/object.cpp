@@ -849,7 +849,8 @@ void Object::paintImage(QPainter& painter,int frameNumber,
 
     auto paintLayer = [&](QPainter& target, Layer* layer)
     {
-        if (!isLayerVisible(layer)) { return; }
+        // Every export renders through here; Rough layers show only on the canvas.
+        if (!isLayerVisible(layer) || layer->isRough()) { return; }
 
         std::function<void(QPainter&)> paint;
         if (layer->type() == Layer::BITMAP)

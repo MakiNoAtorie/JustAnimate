@@ -87,14 +87,7 @@ void BucketTool::loadSettings()
 
 QCursor BucketTool::cursor()
 {
-    if (mEditor->preference()->isOn(SETTING::TOOL_CURSOR))
-    {
-        return QCursor(QPixmap(":icons/general/cursor-bucket.svg"), -1, 17);
-    }
-    else
-    {
-        return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
-    }
+    return QCursor(QPixmap(":icons/general/cursor-bucket.svg"), 4, 16);
 }
 
 void BucketTool::pointerPressEvent(PointerEvent* event)
@@ -110,7 +103,7 @@ void BucketTool::pointerPressEvent(PointerEvent* event)
     mUndoSaveState = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     mBitmapBucket = BitmapBucket(mEditor,
                                  mEditor->color()->frontColor(),
-                                 layerCam ? layerCam->getViewAtFrame(mEditor->currentFrame()).inverted().mapRect(layerCam->getViewRect()) : QRect(),
+                                 layerCam ? canvasToKey().mapRect(layerCam->getViewAtFrame(mEditor->currentFrame()).inverted().mapRect(layerCam->getViewRect())) : QRect(),
                                  getCurrentPoint(),
                                  mSettings);
 
@@ -250,7 +243,7 @@ void BucketTool::setFillMode(int mode)
 
 QPointF BucketTool::getCurrentPoint() const
 {
-    return mEditor->view()->mapScreenToCanvas(getCurrentPixel());
+    return canvasToKey().map(mEditor->view()->mapScreenToCanvas(getCurrentPixel()));
 }
 
 QPointF BucketTool::getCurrentPixel() const

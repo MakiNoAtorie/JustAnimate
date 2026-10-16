@@ -57,9 +57,10 @@ class BrushPresetEditor : public QDialog
 public:
     /// Loads the settings of `source` (empty = tool defaults) and proposes `name`.
     /// `original` is the preset being edited, which save() may overwrite or rename;
-    /// empty for a new or duplicated preset.
+    /// empty for a new or duplicated preset. A new preset is for `tool` (a `BrushPresets::toolKey`,
+    /// empty = brush); otherwise the preset keeps the tool of `source`.
     BrushPresetEditor(const BrushPresets& presets, const QString& source, const QString& name,
-                      const QString& original = QString(), QWidget* parent = nullptr);
+                      const QString& original = QString(), const QString& tool = QString(), QWidget* parent = nullptr);
     ~BrushPresetEditor() override;
 
     /// Writes the preset. Fails, with a message in the dialog, when the name is
@@ -80,6 +81,7 @@ private:
 
     BrushPresets mPresets;
     QString mOriginal;
+    QString mTool;
     std::unique_ptr<PresetSampler> mSampler;
     QImage mPreview;
     QLabel* mPreviewLabel = nullptr;

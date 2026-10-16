@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include "playbackmanager.h"
 
+#include <cstdlib>
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QDebug>
@@ -28,6 +29,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "toolmanager.h"
 #include "pencilsettings.h"
+#include "preferencemanager.h"
 
 
 PlaybackManager::PlaybackManager(Editor* editor) : BaseManager(editor, __FUNCTION__)
@@ -58,6 +60,7 @@ bool PlaybackManager::init()
     mMsecSoundScrub = settings.value(SETTING_SOUND_SCRUB_MSEC).toInt();
     if (mMsecSoundScrub == 0) { mMsecSoundScrub = 100; }
     mSoundScrub = settings.value(SETTING_SOUND_SCRUB_ACTIVE).toBool();
+    mPlayAroundFrames = qMax(1, settings.value(SETTING_PLAY_AROUND_FRAMES, 5).toInt());
 
     mElapsedTimer = new QElapsedTimer;
     connect(mTimer, &QTimer::timeout, this, &PlaybackManager::timerTick);
@@ -112,7 +115,6 @@ void PlaybackManager::play()
         frame = editor()->currentFrame();
     }
 
-    mListOfActiveSoundFrames.clear();
     // Check for any sounds we should start playing part-way through.
     mCheckForSoundsHalfway = true;
     playSounds(frame);
@@ -132,7 +134,40 @@ void PlaybackManager::stop()
 {
     mTimer->stop();
     stopSounds();
+    if (mPlayAroundOrigin > 0)
+    {
+        const int origin = mPlayAroundOrigin;
+        mPlayAroundOrigin = 0;
+        updateStartFrame();
+        updateEndFrame();
+        editor()->scrubTo(origin);
+    }
     emit playStateChanged(false);
+}
+
+void PlaybackManager::playAround()
+{
+    if (isPlaying()) { stop(); return; }
+    mPlayAroundOrigin = editor()->currentFrame();
+    updateStartFrame();
+    editor()->scrubTo(mStartFrame);
+    play();
+}
+
+void PlaybackManager::setPlayAroundFrames(int n)
+{
+    mPlayAroundFrames = qMax(1, n);
+    pencilSettings().setValue(SETTING_PLAY_AROUND_FRAMES, mPlayAroundFrames);
+}
+
+void PlaybackManager::setLoopRange(int from, int to)
+{
+    mMarkInFrame = qMax(1, qMin(from, to));
+    mMarkOutFrame = qMax(from, to);
+    enableRangedPlayback(true);
+    updateStartFrame();
+    updateEndFrame();
+    setLooping(true);
 }
 
 void PlaybackManager::playFlipRoll()
@@ -199,6 +234,44 @@ void PlaybackManager::playFlipInBetween()
     editor()->scrubTo(mFlipList[0]);
     mFlipTimer->start();
     emit playStateChanged(true);
+}
+
+void PlaybackManager::beginPenFlip()
+{
+    if (isPlaying()) { return; }
+    mPenFlipOrigin = editor()->currentFrame();
+    mPenFlipDragFrame = mPenFlipOrigin;
+}
+
+void PlaybackManager::penFlipPress(qreal x)
+{
+    mPenFlipDragX = x;
+    mPenFlipDragFrame = editor()->currentFrame();
+}
+
+void PlaybackManager::penFlipMove(qreal x)
+{
+    if (!isPenFlipping()) { return; }
+    const int steps = static_cast<int>((x - mPenFlipDragX) / kPenFlipPixels);
+    const Layer* layer = editor()->layers()->currentLayer();
+    const MarkFilter filter = editor()->preference()->markFilter();
+    int frame = mPenFlipDragFrame;
+    for (int i = 0; i < std::abs(steps); i++)
+    {
+        const int f = (steps > 0) ? layer->getNextFrameNumber(frame, true, filter)
+                                  : layer->getPreviousFrameNumber(frame, true, filter);
+        if (f < 0) { break; }
+        frame = f;
+    }
+    if (frame != editor()->currentFrame()) { editor()->scrubTo(frame); }
+}
+
+void PlaybackManager::endPenFlip()
+{
+    if (!isPenFlipping()) { return; }
+    const int origin = mPenFlipOrigin;
+    mPenFlipOrigin = 0;
+    if (origin != editor()->currentFrame()) { editor()->scrubTo(origin); }
 }
 
 void PlaybackManager::playScrub(int frame)
@@ -279,45 +352,20 @@ void PlaybackManager::playSounds(int frame)
 
     for (LayerSound* layer : kSoundLayers)
     {
-        KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
-
         if (!layer->visible())
         {
             continue;
         }
 
-        if (key != nullptr)
-        {
-            // add keyframe position to list
-            if (key->pos() + key->length() >= frame)
-            {
-                if (!mListOfActiveSoundFrames.contains(key->pos()))
-                {
-                    mListOfActiveSoundFrames.append(key->pos());
-                }
-            }
-        }
-
         if (mCheckForSoundsHalfway)
         {
-            // Check for sounds which we should start playing from part-way through.
-            for (int i = 0; i < mListOfActiveSoundFrames.count(); i++)
-            {
-                int listPosition = mListOfActiveSoundFrames.at(i);
-                if (layer->keyExistsWhichCovers(listPosition))
-                {
-                    key = layer->getKeyFrameWhichCovers(listPosition);
-                    SoundClip* clip = static_cast<SoundClip*>(key);
-                    clip->playFromPosition(frame, mFps);
-                }
-            }
+            // Start a sound that covers this frame part-way through.
+            KeyFrame* key = layer->getKeyFrameWhichCovers(frame);
+            if (key != nullptr) { startSound(static_cast<SoundClip*>(key), frame); }
         }
         else if (layer->keyExists(frame))
         {
-            key = layer->getKeyFrameAt(frame);
-            SoundClip* clip = static_cast<SoundClip*>(key);
-
-            clip->play();
+            startSound(static_cast<SoundClip*>(layer->getKeyFrameAt(frame)), frame);
 
             // save the position of our active sound frame
             mActiveSoundFrame = frame;
@@ -327,13 +375,7 @@ void PlaybackManager::playSounds(int frame)
         {
             if (layer->keyExists(mActiveSoundFrame))
             {
-                key = layer->getKeyFrameWhichCovers(mActiveSoundFrame);
-                SoundClip* clip = static_cast<SoundClip*>(key);
-                clip->stop();
-
-                // make sure list is cleared on end
-                if (!mListOfActiveSoundFrames.isEmpty())
-                    mListOfActiveSoundFrames.clear();
+                static_cast<SoundClip*>(layer->getKeyFrameAt(mActiveSoundFrame))->stop();
             }
         }
     }
@@ -341,6 +383,13 @@ void PlaybackManager::playSounds(int frame)
     // Set flag to false, since this check should only be done when
     // starting play-back, or when looping.
     mCheckForSoundsHalfway = false;
+}
+
+// Seek even at the key: a paused scrub snippet leaves the player mid-clip. msAtFrame matches the export offset.
+void PlaybackManager::startSound(SoundClip* clip, int frame)
+{
+    clip->playFromPosition(frame, mFps);
+    emit soundStarted(clip, clip->msAtFrame(frame, mFps));
 }
 
 /**
@@ -427,10 +476,11 @@ void PlaybackManager::advance()
         {
             mIsReversing = true;
         }
-        else if (mIsLooping)
+        else if (mIsLooping || mPlayAroundOrigin > 0)
         {
             editor()->scrubTo(mStartFrame);
             mCheckForSoundsHalfway = true;
+            playSounds(mStartFrame);
             return;
         }
         else
@@ -525,12 +575,18 @@ void PlaybackManager::setRangedEndFrame(int frame)
 
 void PlaybackManager::updateStartFrame()
 {
+    if (mPlayAroundOrigin > 0) { mStartFrame = qMax(1, mPlayAroundOrigin - mPlayAroundFrames); return; }
     mStartFrame = (mIsRangedPlayback) ? mMarkInFrame : 1;
 }
 
 void PlaybackManager::updateEndFrame()
 {
     int projectLength = editor()->layers()->animationLength();
+    if (mPlayAroundOrigin > 0)
+    {
+        mEndFrame = qMax(mPlayAroundOrigin, qMin(mPlayAroundOrigin + mPlayAroundFrames, projectLength));
+        return;
+    }
     mEndFrame = (mIsRangedPlayback) ? mMarkOutFrame : projectLength;
 }
 

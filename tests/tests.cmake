@@ -11,6 +11,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_benchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_canvaspainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colormanager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colorwheel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_defaultlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_welcomehelper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineexporter.cpp
@@ -33,7 +34,10 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_filemanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_emergencysave.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_blendmode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_roughlayer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tween.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_mark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_exposure.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapbucket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_brushpresets.cpp
@@ -45,7 +49,9 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_lassofilltool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_rotateviewtool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_scribblearea.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_settings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shapetool.cpp
@@ -59,6 +65,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_importlayersdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_checkupdatesdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_appicon.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_prefsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_accessibility.cpp
 )
@@ -99,6 +106,8 @@ target_precompile_headers(pencil2d_tests PRIVATE
 set_target_properties(pencil2d_tests PROPERTIES
     AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/app/ui
 )
+
+target_compile_definitions(pencil2d_tests PRIVATE JUSTANIMATE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Link libraries
 target_link_libraries(pencil2d_tests PRIVATE

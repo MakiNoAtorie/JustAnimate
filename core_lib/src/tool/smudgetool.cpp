@@ -56,7 +56,8 @@ void SmudgeTool::loadSettings()
                           StrokeToolProperties::SCATTER_VALUE, StrokeToolProperties::ANGLE_JITTER_VALUE,
                           StrokeToolProperties::DAB_COUNT_VALUE, StrokeToolProperties::TAPER_START_VALUE,
                           StrokeToolProperties::TAPER_END_VALUE, StrokeToolProperties::GRAIN_MODE_VALUE,
-                          StrokeToolProperties::GRAIN_SCALE_VALUE, StrokeToolProperties::GRAIN_CONTRAST_VALUE,
+                          StrokeToolProperties::GRAIN_TEXTURE_VALUE, StrokeToolProperties::GRAIN_SCALE_VALUE,
+                          StrokeToolProperties::GRAIN_CONTRAST_VALUE,
                           StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, StrokeToolProperties::SMUDGE_LENGTH_VALUE,
                           StrokeToolProperties::SMUDGE_RADIUS_VALUE, StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE,
                           StrokeToolProperties::SMUDGE_MIX_VALUE })
@@ -89,11 +90,6 @@ bool SmudgeTool::emptyFrameActionEnabled()
 {
     // Disabled till we get it working for vector layers...
     return false;
-}
-
-QCursor SmudgeTool::cursor()
-{
-    return QCursor(QPixmap(":icons/general/cursor-smudge.svg"), 4, 18);
 }
 
 void SmudgeTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
@@ -131,8 +127,9 @@ void SmudgeTool::pointerPressEvent(PointerEvent* event)
             const float distanceFrom = selectMan->selectionTolerance();
             VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(currentFrame);
             if (vectorImage == nullptr) { return; }
-            selectMan->setCurves(vectorImage->getCurvesCloseTo(getCurrentPoint(), distanceFrom));
-            selectMan->setVertices(vectorImage->getVerticesCloseTo(getCurrentPoint(), distanceFrom));
+            const QPointF point = canvasToKey().map(getCurrentPoint());
+            selectMan->setCurves(vectorImage->getCurvesCloseTo(point, distanceFrom));
+            selectMan->setVertices(vectorImage->getVerticesCloseTo(point, distanceFrom));
 
             if (selectMan->closestCurves().size() > 0 || selectMan->closestCurves().size() > 0)      // the user clicks near a vertex or a curve
             {
@@ -201,7 +198,7 @@ void SmudgeTool::pointerMoveEvent(PointerEvent* event)
         }
         else     // the user is moving the mouse without pressing it
         {
-            selectMan->setVertices(vectorImage->getVerticesCloseTo(getCurrentPoint(), selectMan->selectionTolerance()));
+            selectMan->setVertices(vectorImage->getVerticesCloseTo(canvasToKey().map(getCurrentPoint()), selectMan->selectionTolerance()));
             mScribbleArea->update();
         }
     }
@@ -252,5 +249,6 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
 
 QPointF SmudgeTool::offsetFromPressPos()
 {
-    return getCurrentPoint() - getCurrentPressPoint();
+    const QTransform toKey = canvasToKey();
+    return toKey.map(getCurrentPoint()) - toKey.map(getCurrentPressPoint());
 }

@@ -34,7 +34,7 @@ void CanvasCursorPainter::setupPen()
 void CanvasCursorPainter::paint(QPainter& painter, const QRect& blitRect)
 {
     if (mOptions.showCursor) {
-        paintWidthCursor(painter, blitRect, mOptions.circleRect);
+        paintOutline(painter, blitRect);
         mIsDirty = true;
     }
 }
@@ -44,33 +44,17 @@ void CanvasCursorPainter::preparePainter(const CanvasCursorPainterOptions& paint
     mOptions = painterOptions;
 }
 
-void CanvasCursorPainter::paintWidthCursor(QPainter& painter, const QRect& blitRect, const QRectF& widthCircleBounds)
+void CanvasCursorPainter::paintOutline(QPainter& painter, const QRect& blitRect)
 {
     painter.save();
-
     painter.setClipRect(painter.transform().inverted().mapRect(blitRect));
     painter.setPen(mCursorPen);
-
     painter.setCompositionMode(QPainter::RasterOp_SourceXorDestination);
-
-    // Only draw the cross when the width is bigger than the cross itself
-    QRectF mappedRect = painter.transform().mapRect(widthCircleBounds);
-    if (mappedRect.width() > 8 && mOptions.showCross) {
-        painter.save();
-
-        const QPointF& pos = mappedRect.center();
-        painter.resetTransform();
-        painter.drawLine(QPointF(pos.x() - 2, pos.y()), QPointF(pos.x() + 2, pos.y()));
-        painter.drawLine(QPointF(pos.x(), pos.y() - 2), QPointF(pos.x(), pos.y() + 2));
-        painter.restore();
-    }
-
-    painter.drawEllipse(widthCircleBounds);
+    painter.drawPath(mOptions.shape);
     painter.restore();
 
-    mDirtyRect = widthCircleBounds.toAlignedRect();
+    mDirtyRect = mOptions.shape.boundingRect().toAlignedRect();
 }
-
 
 void CanvasCursorPainter::clearDirty()
 {

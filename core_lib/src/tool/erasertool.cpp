@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 #include "erasertool.h"
 
+#include <cmath>
 #include <QSettings>
 #include <QPixmap>
 #include <QPainter>
@@ -69,6 +70,7 @@ void EraserTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_MODE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_TEXTURE_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_SCALE_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { Layer::BITMAP };
@@ -104,11 +106,6 @@ void EraserTool::loadSettings()
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
     mQuickSizingProperties.insert(Qt::ControlModifier, StrokeToolProperties::FEATHER_VALUE);
-}
-
-QCursor EraserTool::cursor()
-{
-    return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
 }
 
 void EraserTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
@@ -164,7 +161,8 @@ void EraserTool::strokeMoved()
 
         VectorImage* currKey = static_cast<VectorImage*>(layer->getLastKeyFrameAtPosition(mEditor->currentFrame()));
         if (currKey == nullptr) { return; } // Before the layer's first keyframe: nothing to erase
-        QList<VertexRef> nearbyVertices = currKey->getVerticesCloseTo(getCurrentPoint(), radius);
+        const QTransform toKey = canvasToKey();
+        QList<VertexRef> nearbyVertices = currKey->getVerticesCloseTo(toKey.map(getCurrentPoint()), radius * std::sqrt(std::abs(toKey.determinant())));
         for (auto nearbyVertice : nearbyVertices)
         {
             currKey->setSelected(nearbyVertice, true);

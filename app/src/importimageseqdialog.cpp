@@ -78,7 +78,7 @@ void ImportImageSeqDialog::setupLayout()
 
 void ImportImageSeqDialog::setupPredefinedLayout()
 {
-    setWindowTitle(tr("Import predefined keyframe set"));
+    setWindowTitle(tr("Import predefined Drawing set"));
     setInstructionsLabel(tr("Select an image that matches the criteria: MyFile000.png, eg. Joe001.png \n"
                          "The importer will search and find images matching the same criteria. You can see the result in the preview box below."));
     hideOptionsGroupBox(true);

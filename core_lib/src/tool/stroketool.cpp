@@ -17,7 +17,9 @@ GNU General Public License for more details.
 
 #include "stroketool.h"
 
+#include <QCursor>
 #include <QKeyEvent>
+#include <QPixmap>
 #include "scribblearea.h"
 #include "viewmanager.h"
 #include "preferencemanager.h"
@@ -66,7 +68,7 @@ StrokeTool::~StrokeTool()
 void StrokeTool::loadSettings()
 {
     mQuickSizingEnabled = mEditor->preference()->isOn(SETTING::QUICK_SIZING);
-    mCanvasCursorEnabled = mEditor->preference()->isOn(SETTING::CANVAS_CURSOR);
+    mOutlineStyle = mEditor->preference()->getInt(SETTING::CURSOR_STYLE) != CURSOR_CROSS_ONLY;
 
     QSettings& settings = pencilSettings();
     QHash<int, PropertyInfo> info;
@@ -91,6 +93,7 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::TAPER_START_VALUE] = { 0, 1000, 0 };
     info[StrokeToolProperties::TAPER_END_VALUE] = { 0, 1000, 0 };
     info[StrokeToolProperties::GRAIN_MODE_VALUE] = { 0, 2, 0 };
+    info[StrokeToolProperties::GRAIN_TEXTURE_VALUE] = { 0, TiledBuffer::grainTextureCount - 1, 0 };
     info[StrokeToolProperties::GRAIN_SCALE_VALUE] = { 25, 800, 100 };
     info[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { 0, 400, 100 };
     info[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { -100, 100, 0 };
@@ -145,8 +148,9 @@ void StrokeTool::onPreferenceChanged(SETTING setting)
 {
     if (setting == SETTING::QUICK_SIZING) {
         mQuickSizingEnabled = mEditor->preference()->isOn(setting);
-    } else if (setting == SETTING::CANVAS_CURSOR) {
-        mCanvasCursorEnabled = mEditor->preference()->isOn(setting);
+    } else if (setting == SETTING::CURSOR_STYLE) {
+        mOutlineStyle = mEditor->preference()->getInt(setting) != CURSOR_CROSS_ONLY;
+        if (mEditor->tools()->currentTool() == this) { updateCanvasCursor(); }
     }
 }
 
@@ -187,6 +191,10 @@ QPointF StrokeTool::getLastPoint() const
 
 void StrokeTool::startStroke(PointerEvent::InputType inputType)
 {
+    // A stroke whose release went unhandled (other device) never recorded its state.
+    mEditor->undoRedo()->discardState(mUndoSaveStateId);
+    // A Drawing added for this stroke undoes with the stroke in one step.
+    mEditor->undoRedo()->beginMacro(typeName());
     if (emptyFrameActionEnabled())
     {
         mScribbleArea->handleDrawingOnEmptyFrame();
@@ -206,9 +214,8 @@ void StrokeTool::startStroke(PointerEvent::InputType inputType)
     mStrokePressures << mCurrentPressure;
 
     mCurrentInputType = inputType;
-    // A stroke whose release went unhandled (other device) never recorded its state.
-    mEditor->undoRedo()->discardState(mUndoSaveStateId);
-    mUndoSaveStateId =mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    mEditor->undoRedo()->endMacroWith(mUndoSaveStateId);
 
     disableCoalescing();
 }
@@ -328,7 +335,7 @@ void StrokeTool::pointerReleaseEvent(PointerEvent*)
 
 bool StrokeTool::enterEvent(QEnterEvent*)
 {
-    mCanvasCursorEnabled = mEditor->preference()->isOn(SETTING::CANVAS_CURSOR);
+    mCanvasCursorEnabled = true;
     return true;
 }
 
@@ -373,32 +380,56 @@ QRectF StrokeTool::cursorRect(StrokeToolProperties::Type settingType, const QPoi
 }
 
 
+QCursor StrokeTool::cursor()
+{
+    return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
+}
+
+QPainterPath StrokeTool::brushOutline(const QPointF& point) const
+{
+    const StrokeToolProperties& p = strokeToolProperties();
+    const qreal r = p.width() * 0.5;
+    const QRectF unit(-r, -r, 2 * r, 2 * r);
+    QPainterPath shape;
+    if (p.tipSquare() && mTipImage.isNull()) { shape.addRect(unit); }
+    else { shape.addEllipse(unit); }
+    // Same frame as the dab mask: the tip angle turns counter-clockwise on screen, y points down.
+    QTransform tip;
+    tip.translate(point.x(), point.y());
+    tip.rotate(-p.tipAngle());
+    tip.scale(1.0, p.tipAspect() / 100.0);
+    return tip.map(shape);
+}
+
 void StrokeTool::updateCanvasCursor()
 {
+    const QPointF point = mWidthSizingTool.isAdjusting() ? mWidthSizingTool.offsetPoint()
+                        : mFeatherSizingTool.isAdjusting() ? mFeatherSizingTool.offsetPoint() : getCurrentPoint();
+    const bool bigEnough = strokeToolProperties().width() * mEditor->view()->scaling() >= OUTLINE_MIN_SCREEN_PX;
+    const bool show = mCanvasCursorEnabled && bigEnough && mOutlineStyle;
+
     CanvasCursorPainterOptions widthOptions;
-    widthOptions.circleRect = cursorRect(StrokeToolProperties::WIDTH_VALUE, mWidthSizingTool.isAdjusting() ? mWidthSizingTool.offsetPoint() : getCurrentPoint());
-    widthOptions.showCursor = mCanvasCursorEnabled;
-    widthOptions.showCross = true;
+    widthOptions.shape = brushOutline(point);
+    // The centre cross, 10 px on screen: quick-sizing moves the outline away from the hardware cross.
+    const QPointF centre = mEditor->view()->getView().map(point);
+    QPainterPath cross;
+    cross.moveTo(centre - QPointF(5, 0));
+    cross.lineTo(centre + QPointF(5, 0));
+    cross.moveTo(centre - QPointF(0, 5));
+    cross.lineTo(centre + QPointF(0, 5));
+    widthOptions.shape.addPath(mEditor->view()->getViewInverse().map(cross));
+    widthOptions.showCursor = show;
 
     CanvasCursorPainterOptions featherOptions;
-    featherOptions.circleRect = cursorRect(StrokeToolProperties::FEATHER_VALUE, mFeatherSizingTool.isAdjusting() ? mFeatherSizingTool.offsetPoint() : getCurrentPoint());
-    featherOptions.showCursor = mCanvasCursorEnabled;
-    featherOptions.showCross = false;
-
-    if (mFeatherSizingTool.isAdjusting()) {
-        widthOptions.circleRect = cursorRect(StrokeToolProperties::WIDTH_VALUE, mFeatherSizingTool.offsetPoint());
-    } else if (mWidthSizingTool.isAdjusting()) {
-        featherOptions.circleRect = cursorRect(StrokeToolProperties::FEATHER_VALUE, mWidthSizingTool.offsetPoint());
-    }
+    featherOptions.shape.addEllipse(cursorRect(StrokeToolProperties::FEATHER_VALUE, point));
+    featherOptions.showCursor = show;
 
     mWidthCursorPainter.preparePainter(widthOptions);
     mFeatherCursorPainter.preparePainter(featherOptions);
 
     const QRect& dirtyRect = mWidthCursorPainter.dirtyRect();
-
-    // We know that the width rect is bigger than the feather rect
-    // so we don't need to change this
-    const QRect& updateRect = widthOptions.circleRect.toAlignedRect();
+    const QRect& updateRect = widthOptions.shape.boundingRect().toAlignedRect()
+                              .united(featherOptions.shape.boundingRect().toAlignedRect());
 
     // Adjusted to account for some pixel bleeding outside the update rect
     mScribbleArea->update(mEditor->view()->getView().mapRect(updateRect.united(dirtyRect).adjusted(-2, -2, 2, 2)).adjusted(-2, -2, 2, 2));

@@ -43,14 +43,7 @@ void EyedropperTool::loadSettings()
 
 QCursor EyedropperTool::cursor()
 {
-    if (mEditor->preference()->isOn(SETTING::TOOL_CURSOR))
-    {
-        return QCursor(QPixmap(":icons/general/cursor-eyedropper.svg"), 0, 15);
-    }
-    else
-    {
-        return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
-    }
+    return QCursor(QPixmap(":icons/general/cursor-eyedropper.svg"), 4, 16);
 }
 
 QCursor EyedropperTool::cursor(const QColor color)
@@ -70,7 +63,7 @@ QCursor EyedropperTool::cursor(const QColor color)
     painter.drawRect(16, 16, 15, 15);
     painter.end();
 
-    return QCursor(pixmap, 0, 15);
+    return QCursor(pixmap, 4, 16);
 }
 
 void EyedropperTool::pointerPressEvent(PointerEvent*)

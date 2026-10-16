@@ -64,7 +64,7 @@ public:
             case 0:
             return tr("Files");
             case 1:
-            return tr("KeyFrame Pos");
+            return tr("Drawing Position");
             default:
             return "";
         }

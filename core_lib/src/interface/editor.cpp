@@ -143,6 +143,7 @@ void Editor::settingUpdated(SETTING setting)
         mAutosaveNumber = mPreferenceManager->getInt(SETTING::AUTO_SAVE_NUMBER);
         break;
     case SETTING::ONION_TYPE:
+    case SETTING::ONION_MARKS:
         mScribbleArea->onOnionSkinTypeChanged();
         emit updateTimeLineCached();
         break;
@@ -262,7 +263,7 @@ void Editor::pasteFromPreviousFrame()
         VectorImage* vectorImage = static_cast<VectorImage*>(currentLayer->getKeyFrameAt(prevFrame));
         pasteToCanvas(vectorImage, mFrame);
     }
-    undoRedo()->record(saveStateId, tr("Paste from Previous Keyframe"));
+    undoRedo()->record(saveStateId, tr("Paste from previous drawing"));
 }
 
 void Editor::pasteToCanvas(BitmapImage* bitmapImage, int frameNumber)
@@ -980,7 +981,7 @@ KeyFrame* Editor::addKeyFrame(const int layerNumber, int frameIndex)
     layers()->notifyAnimationLengthChanged();
     KeyFrame* newFrame = layer->getKeyFrameAt(frameIndex);
 
-    undoRedo()->record(saveStateId, tr("Add frame"));
+    undoRedo()->record(saveStateId, tr("New drawing"));
 
     return newFrame;
 }
@@ -1009,7 +1010,7 @@ void Editor::removeKey()
     layers()->notifyAnimationLengthChanged();
     emit layers()->currentLayerChanged(layers()->currentLayerIndex()); // trigger timeline repaint.
 
-    undoRedo()->record(saveStateId, tr("Remove frame"));
+    undoRedo()->record(saveStateId, tr("Remove drawing"));
 }
 
 void Editor::scrubNextKeyFrame()
@@ -1038,6 +1039,13 @@ void Editor::switchVisibilityOfLayer(int layerNumber)
     mScribbleArea->onLayerChanged();
 
     emit updateTimeLine();
+}
+
+void Editor::toggleOnionSkin()
+{
+    const bool on = !mPreferenceManager->isOn(SETTING::PREV_ONION) && !mPreferenceManager->isOn(SETTING::NEXT_ONION);
+    mPreferenceManager->set(SETTING::PREV_ONION, on);
+    mPreferenceManager->set(SETTING::NEXT_ONION, on);
 }
 
 void Editor::switchOnionSkinOfLayer(int layerNumber)

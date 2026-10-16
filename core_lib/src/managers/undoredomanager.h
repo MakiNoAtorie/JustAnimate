@@ -126,6 +126,9 @@ struct UndoSaveState {
     std::vector<std::unique_ptr<KeyFrame>> selectedKeyframes;
 
     UserSaveState userState = {};
+
+    // Set by endMacroWith: recording or discarding this state ends the open macro.
+    bool endsMacro = false;
 };
 
 class UndoRedoManager : public BaseManager
@@ -182,6 +185,8 @@ public:
 
     /** Records that the blend mode of the layer with the given id changed from oldMode. */
     void recordLayerBlendMode(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description);
+    /** Records that the layer with the given id became Rough (or stopped being Rough). */
+    void recordLayerRough(int layerId, bool rough, const QString& description);
     /** Records a change of layer order or groups from `before` to the current arrangement */
     void recordLayerArrangement(const LayerArrangement& before, const QString& description);
 
@@ -189,6 +194,9 @@ public:
      *  Use UndoMacro. No step is made when nothing is recorded. */
     void beginMacro(const QString& description);
     void endMacro();
+    /** Ends the open macro when saveStateId is recorded or discarded, for a gesture
+     *  that spans events. An unknown id ends it now. */
+    void endMacroWith(SAVESTATE_ID saveStateId);
 
     QAction* createUndoAction(QObject* parent, const QIcon& icon);
     QAction* createRedoAction(QObject* parent, const QIcon& icon);

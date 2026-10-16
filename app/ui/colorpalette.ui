@@ -55,10 +55,6 @@
         <property name="text">
          <string/>
         </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/misc/add-color.svg</normaloff>:/icons/themes/playful/misc/add-color.svg</iconset>
-        </property>
         <property name="iconSize">
          <size>
           <width>22</width>
@@ -89,10 +85,6 @@
         </property>
         <property name="text">
          <string/>
-        </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/misc/remove-color.svg</normaloff>:/icons/themes/playful/misc/remove-color.svg</iconset>
         </property>
         <property name="iconSize">
          <size>
@@ -153,10 +145,6 @@
         <property name="text">
          <string/>
         </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/misc/color-dialog.svg</normaloff>:/icons/themes/playful/misc/color-dialog.svg</iconset>
-        </property>
         <property name="iconSize">
          <size>
           <width>22</width>
@@ -200,10 +188,6 @@
         </property>
         <property name="text">
          <string/>
-        </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/misc/more-options.svg</normaloff>:/icons/themes/playful/misc/more-options.svg</iconset>
         </property>
         <property name="iconSize">
          <size>

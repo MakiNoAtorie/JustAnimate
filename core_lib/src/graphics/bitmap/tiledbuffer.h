@@ -54,8 +54,9 @@ struct BrushTip
     qreal aspect = 1.0; // height / width, 0.01..1
     qreal angle = 0.0;  // degrees, counter-clockwise on screen
     QImage image;       // Format_Alpha8 coverage; when set, it replaces the generated shape and square
-    // Grain multiplies the built-in paper texture into each dab after the mask cache.
-    int grainMode = 0;          // 0 off, 1 fixed to the canvas (paper), 2 moves with each dab
+    // Grain multiplies a paper texture into each dab after the mask cache.
+    int grainTexture = 0;       // 0 generated, 1.. bundled (TiledBuffer::grainTextureCount)
+    int grainMode = 0;         // 0 off, 1 fixed to the canvas (paper), 2 moves with each dab
     float grainScale = 1.0f;    // texture size factor
     float grainContrast = 1.0f; // 0 flattens the grain to its mid level
     float grainBrightness = 0;  // -1..1, added to the grain level
@@ -80,6 +81,13 @@ class TiledBuffer: public QObject
 public:
     TiledBuffer(QObject* parent = nullptr);
     ~TiledBuffer();
+
+    /** Grain textures: 0 is the generated one, 1.. are the bundled paper images (core_lib/data/textures). */
+    static constexpr int grainTextureCount = 6;
+    /** Untranslated name, context "GrainTexture". */
+    static const char* grainTextureName(int index);
+    /** False when a bundled image is missing or malformed, and the generated texture stands in. */
+    static bool grainTextureLoaded(int index);
 
     /** Clears the content of the tiled buffer */
     void clear();

@@ -48,6 +48,7 @@ QString BaseTool::TypeName(ToolType type)
         map[CAMERA] = tr("Camera");
         map[SHAPE] = tr("Shape");
         map[LASSOFILL] = tr("Lasso Fill");
+        map[ROTATE] = tr("Rotate View");
     }
     return map.at(type);
 }
@@ -132,7 +133,7 @@ void BaseTool::pointerDoubleClickEvent(PointerEvent* event)
  */
 bool BaseTool::isDrawingTool()
 {
-    if (type() == ToolType::HAND || type() == ToolType::MOVE || type() == ToolType::CAMERA || type() == ToolType::SELECT )
+    if (type() == ToolType::HAND || type() == ToolType::ROTATE || type() == ToolType::MOVE || type() == ToolType::CAMERA || type() == ToolType::SELECT )
     {
         return false;
     }
@@ -146,12 +147,17 @@ bool BaseTool::isActive() const
 
 void BaseTool::mapCurveToKey(BezierCurve& curve) const
 {
-    const Layer* layer = mEditor->layers()->currentLayer();
-    if (layer == nullptr) { return; }
-    const TweenState tween = layer->tweenStateAt(mEditor->currentFrame());
-    if (tween.isIdentity()) { return; }
+    const QTransform toKey = canvasToKey();
+    if (toKey.isIdentity()) { return; }
     // BezierCurve::transform moves only selected vertices; a new curve is not selected.
     curve.setSelected(true);
-    curve.transform(tween.transform().inverted());
+    curve.transform(toKey);
     curve.setSelected(false);
+}
+
+QTransform BaseTool::canvasToKey() const
+{
+    const Layer* layer = mEditor->layers()->currentLayer();
+    if (layer == nullptr) { return QTransform(); }
+    return layer->tweenStateAt(mEditor->currentFrame()).transform().inverted();
 }

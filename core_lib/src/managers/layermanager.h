@@ -28,6 +28,7 @@ class LayerSound;
 struct TweenState;
 struct LayerArrangement;
 enum class CameraEasingType;
+enum class Mark;
 
 
 class LayerManager : public BaseManager
@@ -64,8 +65,11 @@ public:
     void notifyLayerChanged(Layer*);
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
+    void setRough(Layer* layer, bool rough);
     /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */
     void setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state);
+    /** Sets the Mark of the current layer's Drawing shown at frame as one undo step. */
+    void setKeyMark(int frame, Mark mark);
 
     /** Makes a new group that holds the layer. Returns its id, or 0 when the layer is already in a group. One undo step. */
     int createLayerGroup(Layer* layer);
@@ -127,6 +131,10 @@ public:
      *  keyframe one frame left, so a hold gets one frame shorter. One undo step. Returns false on a hidden layer,
      *  on the only keyframe or after the last keyframe. */
     bool rippleRemoveFrame();
+    /** Adds `delta` frames to the Exposure of the current layer's Drawing shown at `frame` (at least one frame)
+     *  and moves every later keyframe with it. One undo step. Returns false when nothing changes: a hidden
+     *  layer, no Drawing at `frame`, the last Drawing, or an Exposure already at one frame. */
+    bool changeExposure(int frame, int delta);
     /** After clips of a sound layer moved (`fromTo` keyframe positions), moves the layer's markers inside
      *  each clip's old span with it. Does nothing on other layer types. */
     void moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo);

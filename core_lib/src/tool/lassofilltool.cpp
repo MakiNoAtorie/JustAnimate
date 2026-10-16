@@ -72,6 +72,8 @@ void LassoFillTool::pointerReleaseEvent(PointerEvent* event)
 
 void LassoFillTool::fill()
 {
+    // A Drawing added for this fill undoes with the fill in one step.
+    const UndoMacro macro(mEditor->undoRedo(), typeName());
     mScribbleArea->handleDrawingOnEmptyFrame();
     const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 

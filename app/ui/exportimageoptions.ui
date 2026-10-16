@@ -179,7 +179,7 @@
          </size>
         </property>
         <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;End frame is set to last paintable keyframe (Useful when you only want to export to the last animated frame)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;End frame is set to last Drawing (Useful when you only want to export to the last animated frame)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="whatsThis">
          <string/>
@@ -240,7 +240,7 @@
       <item row="3" column="2">
        <widget class="QCheckBox" name="cbExportKeyframesOnly">
         <property name="text">
-         <string>Export keyframes only</string>
+         <string>Export Drawings only</string>
         </property>
        </widget>
       </item>

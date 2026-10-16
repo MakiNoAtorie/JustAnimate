@@ -42,6 +42,9 @@ struct TweenState
 };
 
 
+/// A Drawing's role in the motion (GLOSSARY.md, Mark).
+enum class Mark { None, Key, Breakdown, Inbetween };
+
 class KeyFrame
 {
 public:
@@ -72,6 +75,9 @@ public:
     qreal getOpacity() const { return mTweenState.opacity; }
     void setOpacity(qreal opacity) { mTweenState.opacity = opacity; }
 
+    Mark mark() const { return mMark; }
+    void setMark(Mark mark) { mMark = mark; }
+
     QString fileName() const { return mAttachedFileName; }
     void    setFileName(QString strFileName) { mAttachedFileName = strFileName; }
 
@@ -99,9 +105,31 @@ private:
     bool mTween = false;
     CameraEasingType mTweenEasing = CameraEasingType::LINEAR;
     TweenState mTweenState;
+    Mark mMark = Mark::None;
     QString mAttachedFileName;
 
     std::vector<KeyFrameEventListener*> mEventListeners;
+};
+
+/// A set of Marks that onion skin and Flip follow. A default filter passes every Drawing;
+/// a filter with a set of Marks, even an empty set, passes only Drawings with a Mark in it.
+class MarkFilter
+{
+public:
+    MarkFilter() = default;
+    MarkFilter(std::initializer_list<Mark> marks) : mAll(false) { for (Mark m : marks) { set(m, true); } }
+    static MarkFilter fromInt(int bits) { MarkFilter f; f.mAll = false; f.mBits = static_cast<unsigned>(bits); return f; }
+    int toInt() const { return static_cast<int>(mBits); }
+
+    void set(Mark mark, bool on) { mAll = false; mBits = on ? (mBits | bit(mark)) : (mBits & ~bit(mark)); }
+    bool contains(Mark mark) const { return mBits & bit(mark); }
+    bool passesAll() const { return mAll; }
+    bool passes(const KeyFrame* key) const { return mAll || contains(key->mark()); }
+
+private:
+    static unsigned bit(Mark mark) { return 1u << static_cast<unsigned>(mark); }
+    unsigned mBits = 0;
+    bool mAll = true;
 };
 
 class KeyFrameEventListener

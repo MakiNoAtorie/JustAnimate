@@ -29,8 +29,7 @@ enum class SETTING
     OUTLINES,
     ONION_BLUE,
     ONION_RED,
-    TOOL_CURSOR,
-    CANVAS_CURSOR,
+    CURSOR_STYLE,
     HIGH_RESOLUTION,
     TABLET_WINTAB,
     WINDOW_OPACITY,
@@ -57,6 +56,7 @@ enum class SETTING
     ONION_WHILE_PLAYBACK,
     ONION_MUTLIPLE_LAYERS,
     ONION_TYPE,
+    ONION_MARKS,
     ONION_FALLOFF,
     ONION_PREV_COLOR,
     ONION_NEXT_COLOR,
@@ -84,6 +84,7 @@ enum class SETTING
     TITLE_SAFE_ON,
     TITLE_SAFE,
     QUICK_SIZING,
+    PRESSURE_DEBUG_LOG,
     INVERT_DRAG_ZOOM_DIRECTION,
     INVERT_SCROLL_ZOOM_DIRECTION,
     LANGUAGE,
@@ -100,6 +101,13 @@ enum class SETTING
     DEFAULT_PRESET,
     FAST_RENDER_LAYERS_ABOVE,
     COUNT, // COUNT must always be the last one.
+};
+
+// Pointer over the canvas for Stroke tools (SETTING::CURSOR_STYLE).
+enum CursorStyle
+{
+    CURSOR_BRUSH_OUTLINE,
+    CURSOR_CROSS_ONLY
 };
 
 // Actions for drawing on an empty frame.

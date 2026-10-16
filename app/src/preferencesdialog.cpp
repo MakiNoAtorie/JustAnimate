@@ -25,12 +25,16 @@ GNU General Public License for more details.
 #include <QPushButton>
 
 #include "prefsearch.h"
+#include "theme.h"
 
 PreferencesDialog::PreferencesDialog(QWidget* parent) :
     QDialog(parent),
     ui(new Ui::PreferencesDialog)
 {
     ui->setupUi(this);
+    const char* pageIcons[] = { "settings", "file", "timeline", "tool", "keyboard" };
+    for (int i = 0; i < ui->contentsWidget->count() && i < int(std::size(pageIcons)); ++i)
+        ui->contentsWidget->item(i)->setIcon(Theme::icon(QStringLiteral(":/icons/tabler/%1.svg").arg(pageIcons[i])));
 
     mSearchEdit = new QLineEdit(this);
     mSearchEdit->setClearButtonEnabled(true);
@@ -111,8 +115,7 @@ void PreferencesDialog::addTooltips()
         { "languageCombo", tr("Language of the menus and dialogs. Takes effect after a restart.") },
         { "windowOpacityLabel windowOpacityLevel", tr("How see-through the main window is.") },
         { "shadowsBox", tr("Draw shadows under the docks and panels.") },
-        { "toolCursorsBox", tr("Show a cursor that matches the active tool.") },
-        { "canvasCursorBox", tr("Show the brush outline on the canvas while you draw.") },
+        { "cursorStyleLabel cursorStyleBox", tr("Brush outline shows the size and shape of the mark around a small cross. Cross only shows just the cross.") },
         { "checkerBackgroundButton", tr("Show a checkerboard behind the drawing.") },
         { "whiteBackgroundButton", tr("Show a white background behind the drawing.") },
         { "greyBackgroundButton", tr("Show a grey background behind the drawing.") },
@@ -153,7 +156,9 @@ void PreferencesDialog::addTooltips()
         { "useQuickSizingBox", tr("Change the brush size and feather with a key and a drag on the canvas.") },
         { "rotationIncrementLabel rotationIncrementSlider rotationIncrementDisplay", tr("Angle steps used when the Move tool rotates a selection with Shift held.") },
         { "themeCombo", tr("Light or dark colours for the app, or the colours of the system.") },
+        { "accentCombo", tr("The colour that marks the active tool, selections, sliders, the playhead and focus.") },
         { "resetCurveButton", tr("Set the pressure curve back to a straight line.") },
+        { "pressureLogBox", tr("Writes the pen pressure, curve, taper and size of every dab to the file below. Turn it on to report dabs that draw too large.") },
         { "clearButton", tr("Remove the key from the selected shortcut.") },
         { "btnSaveShortcuts", tr("Save all shortcuts to a file.") },
         { "btnLoadShortcuts", tr("Load shortcuts from a file.") },

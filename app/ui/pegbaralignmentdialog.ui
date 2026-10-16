@@ -120,7 +120,7 @@
            </font>
           </property>
           <property name="text">
-           <string>Reference key:</string>
+           <string>Reference Drawing:</string>
           </property>
          </widget>
         </item>

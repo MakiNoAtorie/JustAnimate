@@ -41,6 +41,7 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "colormanager.h"
 #include "pencilsettings.h"
+#include "theme.h"
 
 
 ColorPaletteWidget::ColorPaletteWidget(QWidget* parent) :
@@ -48,6 +49,10 @@ ColorPaletteWidget::ColorPaletteWidget(QWidget* parent) :
     ui(new Ui::ColorPalette)
 {
     ui->setupUi(this);
+    ui->addColorButton->setIcon(Theme::icon(":/icons/tabler/plus.svg"));
+    ui->removeColorButton->setIcon(Theme::icon(":/icons/tabler/minus.svg"));
+    ui->colorDialogButton->setIcon(Theme::icon(":/icons/tabler/palette.svg"));
+    ui->palettePref->setIcon(Theme::icon(":/icons/tabler/dots.svg"));
 }
 
 ColorPaletteWidget::~ColorPaletteWidget()
@@ -77,8 +82,8 @@ void ColorPaletteWidget::initUI()
 
     buttonStylesheet = "::menu-indicator{ image: none; }"
                              "QPushButton { border: 0px; }"
-                             "QPushButton:pressed { border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }"
-                             "QPushButton:checked { border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }";
+                             "QPushButton:pressed { border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }"
+                             "QPushButton:checked { border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }";
 
     ui->addColorButton->setStyleSheet(buttonStylesheet);
     ui->removeColorButton->setStyleSheet(buttonStylesheet);
@@ -356,8 +361,8 @@ void ColorPaletteWidget::palettePreferences()
 
     buttonStylesheet = "::menu-indicator{ image: none; }"
         "QToolButton { border: 0px; }"
-        "QToolButton:pressed { border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }"
-        "QToolButton:checked { border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }";
+        "QToolButton:pressed { border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }"
+        "QToolButton:checked { border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }";
 
 
     // Add to UI

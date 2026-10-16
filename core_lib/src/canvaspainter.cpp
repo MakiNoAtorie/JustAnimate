@@ -96,6 +96,7 @@ void CanvasPainter::ignoreTransformedSelection()
 
 void CanvasPainter::paintCached(const QRect& blitRect)
 {
+    mPaintOrder = paintOrder();
     const QPair<int, int> range = currentRange();
     updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, range.first - 1), blitRect, &CanvasPainter::renderPreLayers);
 
@@ -111,7 +112,7 @@ void CanvasPainter::paintCached(const QRect& blitRect)
     bool blendAbove = false;
     for (int i = range.second + 1; i < mObject->getLayerCount(); ++i)
     {
-        blendAbove |= mObject->getLayer(i)->blendMode() != BlendMode::Normal;
+        blendAbove |= mObject->getLayer(mPaintOrder[i])->blendMode() != BlendMode::Normal;
     }
 
     if (blendAbove)
@@ -145,17 +146,17 @@ void CanvasPainter::resetLayerCache()
     mPostLayersPixmapCacheValid = false;
 }
 
-// Identifies what layers startLayer..endLayer show on this frame; another key empties the cache.
-QVector<qint64> CanvasPainter::layersKey(int startLayer, int endLayer) const
+// Identifies what positions startPos..endPos show on this frame; another key empties the cache.
+QVector<qint64> CanvasPainter::layersKey(int startPos, int endPos) const
 {
     QVector<qint64> key{ qint64(quintptr(mObject)), mCurrentLayerIndex, mFrameNumber };
-    for (int i = startLayer; i <= endLayer; ++i)
+    for (int i = startPos; i <= endPos; ++i)
     {
-        Layer* layer = mObject->getLayer(i);
+        Layer* layer = mObject->getLayer(mPaintOrder[i]);
         KeyFrame* frame = layer->getLastKeyFrameAtPosition(mFrameNumber);
         const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
         const bool visible = mObject->isLayerVisible(layer);
-        key << qint64(quintptr(layer)) << visible << int(layer->blendMode()) << qint64(quintptr(frame))
+        key << qint64(quintptr(layer)) << visible << int(layer->blendMode()) << layer->isRough() << qint64(quintptr(frame))
             << qRound64((group ? group->opacity : 1.0) * 1e6);
         if (!visible || frame == nullptr) { continue; }
         if (layer->type() == Layer::BITMAP)
@@ -317,10 +318,13 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     QColor tint = Qt::transparent;
     if (nFrame < mFrameNumber) { tint = mOnionSkinPainterOptions.prevColor; }
     else if (nFrame > mFrameNumber) { tint = mOnionSkinPainterOptions.nextColor; }
-    const qreal opacity = bitmapImage->getOpacity() - (1.0 - painter.opacity());
+    const TweenState tween = layer->tweenStateAt(nFrame);
+    const qreal opacity = tween.opacity - (1.0 - painter.opacity());
     const QPoint topLeft = bitmapImage->topLeft();
     const QVector<qint64> key{ bitmapImage->image()->cacheKey(), topLeft.x(), topLeft.y(), colorize,
-                               colorize ? qint64(tint.rgba64()) : 0, colorize ? qRound64(opacity * 1e6) : 0 };
+                               colorize ? qint64(tint.rgba64()) : 0, colorize ? qRound64(opacity * 1e6) : 0,
+                               qRound64(tween.tx * 1e6), qRound64(tween.ty * 1e6), qRound64(tween.rot * 1e6),
+                               qRound64(tween.scale * 1e6) };
 
     OnionFrame frame;
     if (const OnionFrame* cached = mOnionCache.object(key))
@@ -331,13 +335,15 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     {
         // Outside the image the onion pixmap stays transparent, so only its bounds are rendered.
         const QRect canvasRect(QPoint(), mOnionSkinPixmap.deviceIndependentSize().toSize());
-        const QRect r = mViewTransform.mapRect(QRectF(bitmapImage->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1) & canvasRect;
+        const QTransform world = tween.transform() * mViewTransform;
+        const QRect r = world.mapRect(QRectF(bitmapImage->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1) & canvasRect;
         if (!r.isEmpty())
         {
             QPainter onionSkinPainter;
             initializePainter(onionSkinPainter, mOnionSkinPixmap, r);
+            onionSkinPainter.setWorldTransform(world);
             onionSkinPainter.drawImage(topLeft, *bitmapImage->image());
-            tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, bitmapImage->getOpacity());
+            tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
             onionSkinPainter.end();
             const qreal dpr = mOnionSkinPixmap.devicePixelRatio();
             frame = { mOnionSkinPixmap.copy(QRectF(QPointF(r.topLeft()) * dpr, QSizeF(r.size()) * dpr).toAlignedRect()), r.topLeft() };
@@ -360,8 +366,10 @@ void CanvasPainter::paintVectorOnionSkinFrame(QPainter& painter, const QRect& bl
     QPainter onionSkinPainter;
     initializePainter(onionSkinPainter, mOnionSkinPixmap, blitRect);
 
+    const TweenState tween = layer->tweenStateAt(nFrame);
+    onionSkinPainter.setWorldTransform(tween.transform() * mViewTransform);
     vectorImage->paintImage(onionSkinPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
-    tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, vectorImage->getOpacity());
+    tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
     painter.drawPixmap(mPointZero, mOnionSkinPixmap);
 }
 
@@ -389,6 +397,15 @@ void CanvasPainter::tintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPai
         onionSkinPainter.setBrush(colorBrush);
         onionSkinPainter.drawRect(painter.viewport());
     }
+}
+
+// Recolours the painted layer pixels in one faded blue, keeping their coverage.
+static void tintRough(QPainter& layerPainter, const QRect& blitRect)
+{
+    layerPainter.setWorldMatrixEnabled(false);
+    layerPainter.setOpacity(1.0);
+    layerPainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    layerPainter.fillRect(blitRect, QColor(107, 143, 201, 96));
 }
 
 void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer)
@@ -424,9 +441,10 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
     // We do not wish to draw selection transformations on anything but the current layer
     Q_ASSERT(!isDrawing || mSelectionTransform.isIdentity());
     if (isCurrentLayer && mRenderTransform && !isDrawing) {
-        paintTransformedSelection(currentBitmapPainter, paintedImage, mSelection);
+        paintTransformedSelection(currentBitmapPainter, paintedImage, mSelection, tween.transform() * mViewTransform);
     }
 
+    if (layer->isRough()) { tintRough(currentBitmapPainter, blitRect); }
     drawLayerPixmap(painter, blitRect, layer->blendMode());
 }
 
@@ -469,6 +487,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     painter.setWorldMatrixEnabled(false);
     painter.setTransform(QTransform());
 
+    if (layer->isRough()) { tintRough(currentVectorPainter, blitRect); }
     drawLayerPixmap(painter, blitRect, layer->blendMode());
 }
 
@@ -485,7 +504,7 @@ void CanvasPainter::drawLayerPixmap(QPainter& painter, const QRect& blitRect, Bl
     if (!rect.isEmpty()) { drawBlended(painter, mCurrentLayerPixmap.copy(rect).toImage(), rect.topLeft(), mode); }
 }
 
-void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection) const
+void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView) const
 {
     // Make sure there is something selected
     if (selection.width() == 0 && selection.height() == 0)
@@ -501,7 +520,7 @@ void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bi
 
     painter.save();
 
-    painter.setTransform(mViewTransform);
+    painter.setTransform(keyView);
 
     // Clear the painted area to make it look like the content has been erased
     painter.save();
@@ -511,7 +530,7 @@ void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bi
 
     // Multiply the selection and view matrix to get proper rotation and scale values
     // Now the image origin will be topleft
-    painter.setTransform(mSelectionTransform*mViewTransform);
+    painter.setTransform(mSelectionTransform * keyView);
 
     // Draw the selection image separately and on top
     painter.drawPixmap(selection, transformedPixmap);
@@ -524,21 +543,30 @@ void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bi
  *  @param startLayer The first layer to paint (inclusive)
  *  @param endLayer The last layer to paint (inclusive)
  */
-void CanvasPainter::paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startLayer, int endLayer)
+void CanvasPainter::paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startPos, int endPos)
 {
     painter.setOpacity(1.0);
 
-    for (int i = startLayer; i <= endLayer; ++i)
+    for (int p = startPos; p <= endPos; ++p)
     {
-        const LayerGroup* group = mObject->findLayerGroup(mObject->getLayer(i)->groupId());
+        const Layer* layer = mObject->getLayer(mPaintOrder[p]);
+        const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
         if (group == nullptr || group->opacity >= 1.0)
         {
-            paintLayer(painter, blitRect, i);
+            paintLayer(painter, blitRect, mPaintOrder[p]);
             continue;
         }
-        const int first = i;
-        i = std::min(endLayer, mObject->layerGroupRange(group->id).second);
-        if (group->visible && group->opacity > 0.0) { paintGroup(painter, blitRect, first, i, group->opacity); }
+        if (layer->isRough())
+        {
+            // A Rough layer paints apart from its group, so it fades on its own.
+            if (group->visible) { painter.setOpacity(group->opacity); paintLayer(painter, blitRect, mPaintOrder[p]); }
+            painter.setOpacity(1.0);
+            continue;
+        }
+        // The group's non-Rough layers are next to each other in paint order.
+        const int first = p;
+        while (p < endPos && mObject->getLayer(mPaintOrder[p + 1])->groupId() == group->id) { ++p; }
+        if (group->visible && group->opacity > 0.0) { paintGroup(painter, blitRect, first, p, group->opacity); }
     }
 }
 
@@ -565,10 +593,10 @@ void CanvasPainter::paintLayer(QPainter& painter, const QRect& blitRect, int ind
 void CanvasPainter::paintGroup(QPainter& painter, const QRect& blitRect, int first, int last, qreal opacity)
 {
     drawWithOpacity(painter, opacity, [&](QPainter& groupPainter) {
-        for (int i = first; i <= last; ++i)
+        for (int p = first; p <= last; ++p)
         {
             groupPainter.setOpacity(1.0);
-            paintLayer(groupPainter, blitRect, i);
+            paintLayer(groupPainter, blitRect, mPaintOrder[p]);
         }
     });
 }
@@ -578,6 +606,25 @@ QPair<int, int> CanvasPainter::currentRange() const
     const Layer* layer = mObject->getLayer(mCurrentLayerIndex);
     const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
     const bool currentOnly = mOptions.eLayerVisibility == LayerVisibility::CURRENTONLY && layer->type() != Layer::CAMERA;
-    if (group == nullptr || group->opacity >= 1.0 || currentOnly) { return { mCurrentLayerIndex, mCurrentLayerIndex }; }
-    return mObject->layerGroupRange(group->id);
+    int first = mPaintOrder.indexOf(mCurrentLayerIndex);
+    int last = first;
+    if (group == nullptr || group->opacity >= 1.0 || currentOnly || layer->isRough()) { return { first, last }; }
+    auto inGroup = [&](int p) {
+        const Layer* l = mObject->getLayer(mPaintOrder[p]);
+        return l->groupId() == group->id && !l->isRough();
+    };
+    while (first > 0 && inGroup(first - 1)) { --first; }
+    while (last < mPaintOrder.size() - 1 && inGroup(last + 1)) { ++last; }
+    return { first, last };
+}
+
+QVector<int> CanvasPainter::paintOrder() const
+{
+    QVector<int> rough;
+    QVector<int> others;
+    for (int i = 0; i < mObject->getLayerCount(); ++i)
+    {
+        (mObject->getLayer(i)->isRough() ? rough : others).append(i);
+    }
+    return rough + others;
 }

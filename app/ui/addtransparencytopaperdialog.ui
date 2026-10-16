@@ -173,14 +173,14 @@
         <item>
          <widget class="QRadioButton" name="rbCurrentKeyframe">
           <property name="text">
-           <string>Current Keyframe</string>
+           <string>Current Drawing</string>
           </property>
          </widget>
         </item>
         <item>
          <widget class="QRadioButton" name="rbAllKeyframes">
           <property name="text">
-           <string>All Keyframes on Layer</string>
+           <string>All Drawings on Layer</string>
           </property>
           <property name="checked">
            <bool>true</bool>

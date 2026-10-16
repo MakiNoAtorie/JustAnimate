@@ -140,13 +140,16 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
         }
     }
 
+    if (saveState->endsMacro) { endMacro(); }
     // The save state has now been used and should be invalidated so we can't use it again.
     clearState(saveState);
 }
 
 void UndoRedoManager::discardState(SAVESTATE_ID saveStateId)
 {
-    delete mSaveStates.take(saveStateId);
+    UndoSaveState* saveState = mSaveStates.take(saveStateId);
+    if (saveState && saveState->endsMacro) { endMacro(); }
+    delete saveState;
 }
 
 void UndoRedoManager::clearState(UndoSaveState*& state)
@@ -197,6 +200,13 @@ void UndoRedoManager::pushCommand(QUndoCommand* command)
 void UndoRedoManager::beginMacro(const QString& description)
 {
     if (mMacroDepth++ == 0) { mMacroDescription = description; }
+}
+
+void UndoRedoManager::endMacroWith(SAVESTATE_ID saveStateId)
+{
+    UndoSaveState* saveState = mSaveStates.value(saveStateId);
+    if (saveState) { saveState->endsMacro = true; }
+    else { endMacro(); }
 }
 
 void UndoRedoManager::endMacro()
@@ -398,6 +408,11 @@ void UndoRedoManager::recordLayerRemove(Layer* layer, int index, const QString& 
 void UndoRedoManager::recordLayerBlendMode(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description)
 {
     pushCommand(new LayerBlendModeCommand(layerId, oldMode, newMode, description, editor()));
+}
+
+void UndoRedoManager::recordLayerRough(int layerId, bool rough, const QString& description)
+{
+    pushCommand(new LayerRoughCommand(layerId, rough, description, editor()));
 }
 
 void UndoRedoManager::recordLayerArrangement(const LayerArrangement& before, const QString& description)

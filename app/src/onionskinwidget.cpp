@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "onionskinwidget.h"
 #include "ui_onionskin.h"
 
+#include <algorithm>
 #include <QColorDialog>
 #include <QComboBox>
 #include <QPixmap>
@@ -24,13 +25,23 @@ GNU General Public License for more details.
 #include "preferencemanager.h"
 #include "editor.h"
 #include "flowlayout.h"
+#include "theme.h"
 #include "util.h"
+
+namespace
+{
+// SETTING::ONION_TYPE values in the order of the mode combo box.
+const QStringList kModes = { "relative", "absolute", "marked" };
+const int kMarkedMode = 2;
+}
 
 OnionSkinWidget::OnionSkinWidget(QWidget *parent) :
     BaseDockWidget(parent),
     ui(new Ui::OnionSkin)
 {
     ui->setupUi(this);
+    ui->onionRedButton->setIcon(Theme::icon(":/icons/tabler/stack-back.svg"));
+    ui->onionBlueButton->setIcon(Theme::icon(":/icons/tabler/stack-front.svg"));
 
     clearFocusOnFinished(ui->onionPrevFramesNumBox);
     clearFocusOnFinished(ui->onionNextFramesNumBox);
@@ -85,8 +96,8 @@ void OnionSkinWidget::initUI()
             "margin-top: 8px;"
             "padding-top: 16px;"
         "}"
-        "QToolButton:pressed{ border: 1px solid #FFADAD; border-radius: 2px; background-color: #D5D5D5; }"
-        "QToolButton:checked{ border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }";
+        "QToolButton:pressed{ border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }"
+        "QToolButton:checked{ border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }";
     setStyleSheet(this->styleSheet().append(stylesheet));
 #endif
 }
@@ -104,7 +115,16 @@ void OnionSkinWidget::makeConnections()
     connect(ui->onionBlueButton, &QToolButton::clicked, this, &OnionSkinWidget::onionBlueButtonClicked);
     connect(ui->onionRedButton, &QToolButton::clicked, this, &OnionSkinWidget::onionRedButtonClicked);
 
-    connect(ui->onionSkinMode, &QCheckBox::stateChanged, this, &OnionSkinWidget::onionSkinModeChange);
+    connect(ui->onionSkinMode, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &OnionSkinWidget::onionSkinModeChange);
+    for (const auto& [box, mark] : markBoxes())
+    {
+        connect(box, &QCheckBox::toggled, this, [this, mark = mark](bool on) {
+            PreferenceManager* prefs = editor()->preference();
+            MarkFilter marks = MarkFilter::fromInt(prefs->getInt(SETTING::ONION_MARKS));
+            marks.set(mark, on);
+            prefs->set(SETTING::ONION_MARKS, marks.toInt());
+        });
+    }
     connect(ui->onionWhilePlayback, &QCheckBox::stateChanged, this, &OnionSkinWidget::playbackStateChanged);
     connect(ui->onionSkinMultiLayer, &QCheckBox::stateChanged, this, &OnionSkinWidget::onionSkinMultipleLayersEnabled);
     connect(mFalloffBox, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, [this](int index) {
@@ -135,7 +155,15 @@ void OnionSkinWidget::updateUI()
     ui->onionNextFramesNumBox->setValue(prefs->getInt(SETTING::ONION_NEXT_FRAMES_NUM));
 
     QSignalBlocker b5(ui->onionSkinMode);
-    ui->onionSkinMode->setChecked(prefs->getString(SETTING::ONION_TYPE) == "absolute");
+    const int mode = std::max(0, static_cast<int>(kModes.indexOf(prefs->getString(SETTING::ONION_TYPE))));
+    ui->onionSkinMode->setCurrentIndex(mode);
+    const MarkFilter marks = MarkFilter::fromInt(prefs->getInt(SETTING::ONION_MARKS));
+    for (const auto& [box, mark] : markBoxes())
+    {
+        QSignalBlocker blocker(box);
+        box->setChecked(marks.contains(mark));
+        box->setEnabled(mode == kMarkedMode);
+    }
 
     QSignalBlocker b6(ui->onionWhilePlayback);
     ui->onionWhilePlayback->setChecked(prefs->isOn(SETTING::ONION_WHILE_PLAYBACK));
@@ -217,17 +245,14 @@ void OnionSkinWidget::onionNextFramesNumChange(int value)
     prefs->set(SETTING::ONION_NEXT_FRAMES_NUM, value);
 }
 
-void OnionSkinWidget::onionSkinModeChange(int value)
+void OnionSkinWidget::onionSkinModeChange(int index)
 {
-    PreferenceManager* prefs = editor()->preference();
-    if (value == Qt::Checked)
-    {
-        prefs->set(SETTING::ONION_TYPE, QString("absolute"));
-    }
-    else
-    {
-        prefs->set(SETTING::ONION_TYPE, QString("relative"));
-    }
+    editor()->preference()->set(SETTING::ONION_TYPE, kModes.value(index));
+}
+
+std::array<std::pair<QCheckBox*, Mark>, 3> OnionSkinWidget::markBoxes() const
+{
+    return { { { ui->onionMarkKey, Mark::Key }, { ui->onionMarkBreakdown, Mark::Breakdown }, { ui->onionMarkInbetween, Mark::Inbetween } } };
 }
 
 void OnionSkinWidget::playbackStateChanged(int value)

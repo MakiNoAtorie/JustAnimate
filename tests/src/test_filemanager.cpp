@@ -1365,3 +1365,79 @@ TEST_CASE("FileManager saves after its temp working folder was removed", "[FileM
 
     REQUIRE(fm.save(obj.get(), testDir.filePath("shot.pclx")).ok());
 }
+
+TEST_CASE("FileManager keeps every frame when it saves or autosaves right after an open", "[FileManager][ParallelOpen]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const int layers = 3;
+    const int frames = 30;
+    auto colorAt = [](int l, int f) { return qRgba(l * 60, f * 6, 200, 255); };
+
+    // Enough entries that every extract worker gets some.
+    const QString source = testDir.filePath("source.pclx");
+    {
+        std::unique_ptr<Object> obj(new Object);
+        obj->init();
+        for (int l = 0; l < layers; ++l)
+        {
+            LayerBitmap* layer = obj->addNewBitmapLayer();
+            for (int f = 1; f <= frames; ++f)
+            {
+                if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f)); // a new layer starts with frame 1
+                BitmapImage fill(QRect(0, 0, 8, 8), QColor::fromRgba(colorAt(l, f)));
+                layer->getBitmapImageAtFrame(f)->paste(&fill);
+            }
+        }
+        FileManager fm;
+        REQUIRE(fm.save(obj.get(), source).ok());
+    }
+
+    auto requireEveryFrame = [&](Object* obj) {
+        REQUIRE(obj != nullptr);
+        int l = 0;
+        for (int i = 0; i < obj->getLayerCount(); ++i)
+        {
+            if (obj->getLayer(i)->type() != Layer::BITMAP) continue;
+            auto layer = static_cast<LayerBitmap*>(obj->getLayer(i));
+            REQUIRE(layer->keyFrameCount() == frames);
+            for (int f = 1; f <= frames; ++f)
+            {
+                CAPTURE(l, f);
+                REQUIRE(layer->getBitmapImageAtFrame(f)->image()->pixel(4, 4) == colorAt(l, f));
+            }
+            ++l;
+        }
+        REQUIRE(l == layers);
+    };
+
+    FileManager fm;
+    std::unique_ptr<Object> opened(fm.load(source));
+    REQUIRE(fm.error().ok());
+
+    SECTION("Save as a new file")
+    {
+        const QString copy = testDir.filePath("copy.pclx");
+        REQUIRE(fm.save(opened.get(), copy).ok());
+        FileManager reader;
+        std::unique_ptr<Object> reloaded(reader.load(copy));
+        requireEveryFrame(reloaded.get());
+    }
+
+    SECTION("Save over the opened file")
+    {
+        REQUIRE(fm.save(opened.get(), source).ok());
+        FileManager reader;
+        std::unique_ptr<Object> reloaded(reader.load(source));
+        requireEveryFrame(reloaded.get());
+    }
+
+    SECTION("Autosave, then recover after a crash")
+    {
+        REQUIRE(fm.writeToWorkingFolder(opened.get()).ok());
+        FileManager recovery;
+        std::unique_ptr<Object> recovered(recovery.recoverUnsavedProject(opened->workingDir()));
+        REQUIRE(recovery.error().ok());
+        requireEveryFrame(recovered.get());
+    }
+}

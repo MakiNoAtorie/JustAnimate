@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include "editor.h"
 #include "toolmanager.h"
+#include "theme.h"
 #include "layermanager.h"
 
 #include "cameratool.h"
@@ -28,6 +29,9 @@ CameraOptionsWidget::CameraOptionsWidget(Editor* editor, QWidget *parent) :
     ui(new Ui::CameraOptionsWidget), mEditor(editor)
 {
     ui->setupUi(this);
+    ui->resetScaleButton->setIcon(Theme::icon(":/icons/tabler/arrows-maximize.svg"));
+    ui->resetRotationButton->setIcon(Theme::icon(":/icons/tabler/rotate-clockwise-2.svg"));
+    ui->resetTranslationButton->setIcon(Theme::icon(":/icons/tabler/arrows-move.svg"));
 
     initUI();
 }

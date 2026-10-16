@@ -171,10 +171,6 @@
              <property name="text">
               <string>...</string>
              </property>
-             <property name="icon">
-              <iconset resource="../data/app.qrc">
-               <normaloff>:/icons/themes/playful/onion/onionskin-red.svg</normaloff>:/icons/themes/playful/onion/onionskin-red.svg</iconset>
-             </property>
              <property name="iconSize">
               <size>
                <width>22</width>
@@ -269,10 +265,6 @@
              </property>
              <property name="text">
               <string>...</string>
-             </property>
-             <property name="icon">
-              <iconset resource="../data/app.qrc">
-               <normaloff>:/icons/themes/playful/onion/onionskin-blue.svg</normaloff>:/icons/themes/playful/onion/onionskin-blue.svg</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -474,14 +466,60 @@
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="onionSkinMode">
+           <widget class="QComboBox" name="onionSkinMode">
             <property name="toolTip">
-             <string>Show only keyframes as onion skins</string>
+             <string>Which frames show as onion skins</string>
             </property>
-            <property name="text">
-             <string>Show Keyframes Only</string>
-            </property>
+            <item>
+             <property name="text">
+              <string>Every frame</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Every drawing</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Marked drawings</string>
+             </property>
+            </item>
            </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="onionMarksLayout">
+            <item>
+             <widget class="QCheckBox" name="onionMarkKey">
+              <property name="toolTip">
+               <string>Marked drawings mode shows Drawings marked Key</string>
+              </property>
+              <property name="text">
+               <string>Key</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="onionMarkBreakdown">
+              <property name="toolTip">
+               <string>Marked drawings mode shows Drawings marked Breakdown</string>
+              </property>
+              <property name="text">
+               <string>Breakdown</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="onionMarkInbetween">
+              <property name="toolTip">
+               <string>Marked drawings mode shows Drawings marked Inbetween</string>
+              </property>
+              <property name="text">
+               <string>Inbetween</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
           <item>
            <widget class="QCheckBox" name="onionWhilePlayback">

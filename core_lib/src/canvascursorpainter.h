@@ -17,15 +17,15 @@ GNU General Public License for more details.
 #ifndef CANVASCURSORPAINTER_H
 #define CANVASCURSORPAINTER_H
 
+#include <QPainterPath>
 #include <QPen>
 
 class QPainter;
 
 struct CanvasCursorPainterOptions
 {
-    QRectF circleRect;
+    QPainterPath shape; // in canvas coordinates
     bool showCursor = false;
-    bool showCross = false;
 };
 
 class CanvasCursorPainter
@@ -45,8 +45,7 @@ private:
 
     void setupPen();
 
-    /// @brief precision circular cursor: used for drawing a cursor on the canvas.
-    void paintWidthCursor(QPainter& painter, const QRect& blitRect, const QRectF& widthCircleBounds);
+    void paintOutline(QPainter& painter, const QRect& blitRect);
 
     CanvasCursorPainterOptions mOptions;
     QRect mDirtyRect;

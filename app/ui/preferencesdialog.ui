@@ -76,10 +76,6 @@
         <property name="textAlignment">
          <set>AlignCenter</set>
         </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/preferences/preferences-general.svg</normaloff>:/icons/themes/playful/preferences/preferences-general.svg</iconset>
-        </property>
         <property name="flags">
          <set>ItemIsSelectable|ItemIsEnabled</set>
         </property>
@@ -90,10 +86,6 @@
         </property>
         <property name="textAlignment">
          <set>AlignCenter</set>
-        </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/preferences/preferences-files.svg</normaloff>:/icons/themes/playful/preferences/preferences-files.svg</iconset>
         </property>
         <property name="flags">
          <set>ItemIsSelectable|ItemIsEnabled</set>
@@ -106,10 +98,6 @@
         <property name="textAlignment">
          <set>AlignCenter</set>
         </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/preferences/preferences-timeline.svg</normaloff>:/icons/themes/playful/preferences/preferences-timeline.svg</iconset>
-        </property>
         <property name="flags">
          <set>ItemIsSelectable|ItemIsEnabled</set>
         </property>
@@ -121,10 +109,6 @@
         <property name="textAlignment">
          <set>AlignCenter</set>
         </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/preferences/preferences-tools.svg</normaloff>:/icons/themes/playful/preferences/preferences-tools.svg</iconset>
-        </property>
         <property name="flags">
          <set>ItemIsSelectable|ItemIsEnabled</set>
         </property>
@@ -135,10 +119,6 @@
         </property>
         <property name="textAlignment">
          <set>AlignCenter</set>
-        </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/preferences/preferences-shortcuts.svg</normaloff>:/icons/themes/playful/preferences/preferences-shortcuts.svg</iconset>
         </property>
         <property name="flags">
          <set>ItemIsSelectable|ItemIsEnabled</set>

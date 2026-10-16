@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <QDomElement>
 #include "pencilerror.h"
 #include "blendmode.h"
+#include "keyframe.h"
 
 class KeyFrame;
 struct TweenState;
@@ -65,6 +66,9 @@ public:
     void setOnionSkin(bool b) { mOnionSkin = b; }
     BlendMode blendMode() const { return mBlendMode; }
     void setBlendMode(BlendMode mode) { mBlendMode = mode; }
+    /** A Rough layer paints tinted and faded on the canvas and never exports. */
+    bool isRough() const { return mRough; }
+    void setRough(bool b) { mRough = b; }
     /** Id of the LayerGroup in Object that holds this layer, 0 for none */
     int groupId() const { return mGroupId; }
     void setGroupId(int groupId) { mGroupId = groupId; }
@@ -88,8 +92,9 @@ public:
     bool keyExists(int position) const;
     int  getPreviousKeyFramePosition(int position) const;
     int  getNextKeyFramePosition(int position) const;
-    int  getPreviousFrameNumber(int position, bool isAbsolute) const;
-    int  getNextFrameNumber(int position, bool isAbsolute) const;
+    /// With isAbsolute, steps over Drawings; Drawings that fail `filter` are skipped.
+    int  getPreviousFrameNumber(int position, bool isAbsolute, const MarkFilter& filter = MarkFilter()) const;
+    int  getNextFrameNumber(int position, bool isAbsolute, const MarkFilter& filter = MarkFilter()) const;
 
     int keyFrameCount() const { return static_cast<int>(mKeyFrames.size()); }
     int selectedKeyFrameCount() const { return mSelectedFrames_byPosition.count(); }
@@ -192,7 +197,7 @@ public:
 
 protected:
     virtual KeyFrame* createKeyFrame(int position) = 0;
-    /** Optional tween attributes of an <image> key element. */
+    /** Optional tween and mark attributes of an <image> key element. */
     static void writeKeyTween(QDomElement& image, const KeyFrame* key);
     static void readKeyTween(const QDomElement& image, KeyFrame* key);
     bool loadKey(KeyFrame*);
@@ -205,6 +210,7 @@ private:
     bool       mVisible = true;
     bool       mOnionSkin = true;
     BlendMode  mBlendMode = BlendMode::Normal;
+    bool       mRough = false;
     int mGroupId = 0;
     QString    mName;
 

@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "toolmanager.h"
 #include "editor.h"
 #include "pencilsettings.h"
+#include "theme.h"
 
 // ----------------------------------------------------------------------------------
 QString GetToolTips(QString strCommandName)
@@ -49,27 +50,29 @@ ToolBoxWidget::~ToolBoxWidget()
 
 void ToolBoxWidget::initUI()
 {
-
-#ifdef __APPLE__
-    // Only Mac needs this. ToolButton is naturally borderless on Win/Linux.
-    QString sStyle =
-        "QToolButton { border: 0px; }"
-        "QToolButton:pressed { border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }"
-        "QToolButton:checked { border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }";
-    ui->pencilButton->setStyleSheet(sStyle);
-    ui->selectButton->setStyleSheet(sStyle);
-    ui->moveButton->setStyleSheet(sStyle);
-    ui->handButton->setStyleSheet(sStyle);
-    ui->penButton->setStyleSheet(sStyle);
-    ui->eraserButton->setStyleSheet(sStyle);
-    ui->polylineButton->setStyleSheet(sStyle);
-    ui->shapeButton->setStyleSheet(sStyle);
-    ui->lassoFillButton->setStyleSheet(sStyle);
-    ui->bucketButton->setStyleSheet(sStyle);
-    ui->brushButton->setStyleSheet(sStyle);
-    ui->eyedropperButton->setStyleSheet(sStyle);
-    ui->smudgeButton->setStyleSheet(sStyle);
-#endif
+    // The active tool is filled with the Accent colour on every platform.
+    setStyleSheet(
+        "QToolButton { border: 1px solid transparent; border-radius: 3px; }"
+        "QToolButton:hover { border-color: palette(highlight); }"
+        "QToolButton:pressed, QToolButton:checked { border-color: palette(highlight); background-color: palette(highlight); }");
+    const std::pair<QToolButton*, const char*> icons[] = {
+        { ui->pencilButton, "pencil" },
+        { ui->eraserButton, "eraser" },
+        { ui->selectButton, "marquee-2" },
+        { ui->moveButton, "arrows-move" },
+        { ui->penButton, "ballpen" },
+        { ui->handButton, "hand-stop" },
+        { ui->rotateButton, "rotate-clockwise-2" },
+        { ui->polylineButton, "polygon" },
+        { ui->shapeButton, "shape" },
+        { ui->lassoFillButton, "lasso" },
+        { ui->bucketButton, "bucket-droplet" },
+        { ui->eyedropperButton, "color-picker" },
+        { ui->brushButton, "brush" },
+        { ui->smudgeButton, "hand-finger" },
+    };
+    for (const auto& [button, name] : icons)
+        button->setIcon(Theme::icon(QStringLiteral(":/icons/tabler/%1.svg").arg(name), QPalette::HighlightedText));
 
     ui->pencilButton->setToolTip( tr( "Pencil Tool (%1): Sketch with pencil" )
         .arg( GetToolTips( CMD_TOOL_PENCIL ) ) );
@@ -79,6 +82,8 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_MOVE ) ) );
     ui->handButton->setToolTip( tr( "Hand Tool (%1): Move the canvas" )
         .arg( GetToolTips( CMD_TOOL_HAND ) ) );
+    ui->rotateButton->setToolTip( tr( "Rotate View Tool (%1): Rotate the canvas" )
+        .arg( GetToolTips( CMD_TOOL_ROTATE ) ) );
     ui->penButton->setToolTip( tr( "Pen Tool (%1): Sketch with pen" )
         .arg( GetToolTips( CMD_TOOL_PEN ) ) );
     ui->eraserButton->setToolTip( tr( "Eraser Tool (%1): Erase" )
@@ -109,6 +114,8 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_MOVE ) ) );
     ui->handButton->setWhatsThis( tr( "Hand Tool (%1)" )
         .arg( GetToolTips( CMD_TOOL_HAND ) ) );
+    ui->rotateButton->setWhatsThis( tr( "Rotate View Tool (%1)" )
+        .arg( GetToolTips( CMD_TOOL_ROTATE ) ) );
     ui->penButton->setWhatsThis( tr( "Pen Tool (%1)" )
         .arg( GetToolTips( CMD_TOOL_PEN ) ) );
     ui->eraserButton->setWhatsThis( tr( "Eraser Tool (%1)" )
@@ -134,6 +141,7 @@ void ToolBoxWidget::initUI()
     connect(ui->moveButton, &QToolButton::clicked, this, &ToolBoxWidget::moveOn);
     connect(ui->penButton, &QToolButton::clicked, this, &ToolBoxWidget::penOn);
     connect(ui->handButton, &QToolButton::clicked, this, &ToolBoxWidget::handOn);
+    connect(ui->rotateButton, &QToolButton::clicked, this, [this] { toolOn(ROTATE, ui->rotateButton); });
     connect(ui->polylineButton, &QToolButton::clicked, this, &ToolBoxWidget::polylineOn);
     connect(ui->shapeButton, &QToolButton::clicked, this, &ToolBoxWidget::shapeOn);
     connect(ui->lassoFillButton, &QToolButton::clicked, this, &ToolBoxWidget::lassoFillOn);
@@ -150,6 +158,7 @@ void ToolBoxWidget::initUI()
     mFlowlayout->addWidget(ui->moveButton);
     mFlowlayout->addWidget(ui->penButton);
     mFlowlayout->addWidget(ui->handButton);
+    mFlowlayout->addWidget(ui->rotateButton);
     mFlowlayout->addWidget(ui->polylineButton);
     mFlowlayout->addWidget(ui->shapeButton);
     mFlowlayout->addWidget(ui->lassoFillButton);
@@ -172,6 +181,7 @@ void ToolBoxWidget::initUI()
     buttonGroup->addButton(ui->moveButton);
     buttonGroup->addButton(ui->penButton);
     buttonGroup->addButton(ui->handButton);
+    buttonGroup->addButton(ui->rotateButton);
     buttonGroup->addButton(ui->polylineButton);
     buttonGroup->addButton(ui->shapeButton);
     buttonGroup->addButton(ui->lassoFillButton);
@@ -237,6 +247,9 @@ void ToolBoxWidget::setActiveTool(ToolType toolType)
         break;
     case ToolType::HAND:
         handOn();
+        break;
+    case ToolType::ROTATE:
+        toolOn(ROTATE, ui->rotateButton);
         break;
     case ToolType::MOVE:
     case ToolType::CAMERA:
@@ -344,6 +357,7 @@ void ToolBoxWidget::deselectAllTools()
     ui->selectButton->setChecked(false);
     ui->moveButton->setChecked(false);
     ui->handButton->setChecked(false);
+    ui->rotateButton->setChecked(false);
     ui->penButton->setChecked(false);
     ui->polylineButton->setChecked(false);
     ui->shapeButton->setChecked(false);

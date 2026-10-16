@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <algorithm>
 #include <cmath>
 #include <QGuiApplication>
+#include <QKeySequence>
 #include <QMessageBox>
 #include <QPainterPath>
 #include <QtMath>
@@ -50,6 +51,7 @@ GNU General Public License for more details.
 #include "colormanager.h"
 #include "toolmanager.h"
 #include "layermanager.h"
+#include "pencilsettings.h"
 #include "playbackmanager.h"
 #include "viewmanager.h"
 #include "selectionmanager.h"
@@ -123,9 +125,6 @@ void ScribbleArea::settingUpdated(SETTING setting)
     {
     case SETTING::CURVE_SMOOTHING:
         setCurveSmoothing(mPrefs->getInt(SETTING::CURVE_SMOOTHING));
-        break;
-    case SETTING::TOOL_CURSOR:
-        updateToolCursor();
         break;
     case SETTING::ONION_PREV_FRAMES_NUM:
     case SETTING::ONION_NEXT_FRAMES_NUM:
@@ -237,7 +236,8 @@ void ScribbleArea::invalidateOnionSkinsCacheAround(int frameNumber)
 {
     if (frameNumber < 0) { return; }
 
-    bool isOnionAbsolute = mPrefs->getString(SETTING::ONION_TYPE) == "absolute";
+    const bool isOnionAbsolute = mPrefs->isOnionAbsolute();
+    const MarkFilter filter = mPrefs->markFilter();
     Layer *layer = mEditor->layers()->currentLayer(0);
 
     // The current layer can be null if updateFrame is triggered when creating a new project
@@ -253,7 +253,7 @@ void ScribbleArea::invalidateOnionSkinsCacheAround(int frameNumber)
 
         for(int i = 1; i <= mPrefs->getInt(SETTING::ONION_PREV_FRAMES_NUM); i++)
         {
-            onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, isOnionAbsolute);
+            onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, isOnionAbsolute, filter);
             if (onionFrameNumber < 0) break;
 
             invalidateCacheForFrame(onionFrameNumber);
@@ -266,7 +266,7 @@ void ScribbleArea::invalidateOnionSkinsCacheAround(int frameNumber)
 
         for(int i = 1; i <= mPrefs->getInt(SETTING::ONION_NEXT_FRAMES_NUM); i++)
         {
-            onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, isOnionAbsolute);
+            onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, isOnionAbsolute, filter);
             if (onionFrameNumber < 0) break;
 
             invalidateCacheForFrame(onionFrameNumber);
@@ -449,6 +449,12 @@ void ScribbleArea::keyPressEvent(QKeyEvent *event)
         return;
     }
 
+    if (isPenFlipKey(event))
+    {
+        mEditor->playback()->beginPenFlip();
+        return;
+    }
+
     if (currentTool()->keyPressEvent(event))
     {
         return; // has been handled by tool
@@ -569,6 +575,12 @@ void ScribbleArea::keyReleaseEvent(QKeyEvent *event)
         editor()->tools()->tryClearTemporaryTool(static_cast<Qt::Key>(event->key()));
     }
 
+    if (isPenFlipKey(event))
+    {
+        mEditor->playback()->endPenFlip();
+        return;
+    }
+
     if (isPointerInUse()) { return; }
 
     if (currentTool()->keyReleaseEvent(event))
@@ -576,6 +588,22 @@ void ScribbleArea::keyReleaseEvent(QKeyEvent *event)
         // has been handled by tool
         return;
     }
+}
+
+bool ScribbleArea::isPenFlipKey(const QKeyEvent* event) const
+{
+    const QKeySequence flipKey(pencilSettings().value("shortcuts/" CMD_FLIP_HOLD).toString());
+    if (flipKey.isEmpty()) { return false; }
+    // A release matches the key alone: the modifiers may have changed while it was held.
+    return (event->type() == QEvent::KeyRelease) ? flipKey[0].key() == event->key()
+                                                 : flipKey[0] == event->keyCombination();
+}
+
+void ScribbleArea::focusOutEvent(QFocusEvent* event)
+{
+    // A key released in another window never reaches this widget.
+    mEditor->playback()->endPenFlip();
+    QWidget::focusOutEvent(event);
 }
 
 /************************************************************************************/
@@ -704,6 +732,12 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
 void ScribbleArea::pointerPressEvent(PointerEvent* event)
 {
     StageScope stage(StageProfiler::InputEvent);
+    if (mEditor->playback()->isPenFlipping() && event->button() == Qt::LeftButton)
+    {
+        mPenFlipDrag = true;
+        mEditor->playback()->penFlipPress(event->viewportPos().x());
+        return;
+    }
     bool isCameraLayer = mEditor->layers()->currentLayer()->type() == Layer::CAMERA;
     if ((currentTool()->type() != HAND || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
     {
@@ -736,12 +770,22 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
 void ScribbleArea::pointerMoveEvent(PointerEvent* event)
 {
     StageScope stage(StageProfiler::InputEvent);
+    if (mPenFlipDrag)
+    {
+        mEditor->playback()->penFlipMove(event->viewportPos().x());
+        return;
+    }
     currentTool()->pointerMoveEvent(event);
 }
 
 void ScribbleArea::pointerReleaseEvent(PointerEvent* event)
 {
     StageScope stage(StageProfiler::InputEvent);
+    if (mPenFlipDrag)
+    {
+        mPenFlipDrag = false;
+        return;
+    }
     currentTool()->pointerReleaseEvent(event);
 
     editor()->tools()->tryClearTemporaryTool(event->button());
@@ -763,13 +807,14 @@ void ScribbleArea::tabletReleaseEventFired()
     }
 }
 
+bool ScribbleArea::isMouseFromTablet() const
+{
+    return mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD);
+}
+
 void ScribbleArea::mousePressEvent(QMouseEvent* e)
 {
-    if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD))
-    {
-        e->ignore();
-        return;
-    }
+    if (isMouseFromTablet()) { e->ignore(); return; }
 
     if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
 
@@ -780,7 +825,7 @@ void ScribbleArea::mousePressEvent(QMouseEvent* e)
 
 void ScribbleArea::mouseMoveEvent(QMouseEvent* e)
 {
-    if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
+    if (isMouseFromTablet()) { e->ignore(); return; }
 
     if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
 
@@ -790,7 +835,7 @@ void ScribbleArea::mouseMoveEvent(QMouseEvent* e)
 
 void ScribbleArea::mouseReleaseEvent(QMouseEvent* e)
 {
-    if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
+    if (isMouseFromTablet()) { e->ignore(); return; }
 
     if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
 
@@ -801,7 +846,7 @@ void ScribbleArea::mouseReleaseEvent(QMouseEvent* e)
 
 void ScribbleArea::mouseDoubleClickEvent(QMouseEvent* e)
 {
-    if (mTabletInUse) { e->ignore(); return; }
+    if (isMouseFromTablet()) { e->ignore(); return; }
 
     PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     currentTool()->pointerDoubleClickEvent(&event);
@@ -1118,7 +1163,9 @@ void ScribbleArea::paintSelectionVisuals(QPainter &painter)
 
     QRectF currentSelectionRect = selectMan->mySelectionRect();
 
-    TransformParameters params = { currentSelectionRect, editor()->view()->getView(), selectMan->selectionTransform(),
+    // The selection lives in the space of the current key.
+    const QTransform keyView = mEditor->layers()->currentLayer()->tweenStateAt(mEditor->currentFrame()).transform() * editor()->view()->getView();
+    TransformParameters params = { currentSelectionRect, keyView, selectMan->selectionTransform(),
                                    currentTool()->type() == MOVE };
 
     mSelectionPainter.paint(painter,
@@ -1148,7 +1195,8 @@ OnionSkinPainterOptions ScribbleArea::onionSkinOptions() const
     OnionSkinPainterOptions o;
     o.enabledWhilePlaying = mPrefs->getInt(SETTING::ONION_WHILE_PLAYBACK);
     o.isPlaying = mEditor->playback()->isPlaying();
-    o.isAbsolute = (mPrefs->getString(SETTING::ONION_TYPE) == "absolute");
+    o.isAbsolute = mPrefs->isOnionAbsolute();
+    o.markFilter = mPrefs->markFilter();
     o.skinPrevFrames = mPrefs->isOn(SETTING::PREV_ONION);
     o.skinNextFrames = mPrefs->isOn(SETTING::NEXT_ONION);
     o.colorizePrevFrames = mPrefs->isOn(SETTING::ONION_RED);
@@ -1242,9 +1290,12 @@ void ScribbleArea::smudgeDab(QPointF point, qreal width, qreal feather, QColor c
 {
     if (!mTiledBuffer.isSmudging())
     {
-        BitmapImage* image = currentBitmapImage(mEditor->layers()->currentLayer());
+        Layer* layer = mEditor->layers()->currentLayer();
+        BitmapImage* image = currentBitmapImage(layer);
         if (image == nullptr) return; // the first frame can be deleted while drawing
-        mTiledBuffer.setSmudgeSource(*image->image(), image->topLeft());
+        // Dabs land in canvas space, so the source is the key as drawn there.
+        BitmapImage source = image->mapped(layer->tweenStateAt(mEditor->currentFrame()).transform());
+        mTiledBuffer.setSmudgeSource(*source.image(), source.topLeft());
     }
     mTiledBuffer.smudgeDab(point, width, feather, color, opacity, false, tip, smudge);
 }
@@ -1500,7 +1551,7 @@ void ScribbleArea::paintCanvasHud(QPainter& painter) const
 namespace
 {
 // The toolbox tools; Camera is chosen by the camera layer.
-constexpr ToolType kRadialTools[] = { PENCIL, ERASER, SELECT, MOVE, HAND, SMUDGE, PEN,
+constexpr ToolType kRadialTools[] = { PENCIL, ERASER, SELECT, MOVE, HAND, ROTATE, SMUDGE, PEN,
                                       POLYLINE, BUCKET, EYEDROPPER, BRUSH, SHAPE, LASSOFILL };
 // shortcut: the picker shows the first presets only; a paged ring when users keep more.
 constexpr int kMaxRadialPresets = 16;
@@ -1522,7 +1573,8 @@ void ScribbleArea::openToolMenu(QPointF center)
 void ScribbleArea::openPresetPicker(QPointF center, const QString& presetFolder)
 {
     if (isPointerInUse() || !mEditor->tools()->currentStrokeTool()) { return; }
-    const QStringList names = BrushPresets(presetFolder).names().mid(0, kMaxRadialPresets);
+    const QString tool = BrushPresets::toolKey(mEditor->tools()->currentStrokeTool()->type());
+    const QStringList names = BrushPresets(presetFolder).names(tool).mid(0, kMaxRadialPresets);
     if (names.isEmpty()) { return; }
     mPresetFolder = presetFolder;
     mRadialMenu = RadialMenu();
@@ -1608,6 +1660,9 @@ void ScribbleArea::deleteSelection()
         Layer* layer = mEditor->layers()->currentLayer();
         if (layer == nullptr) { return; }
 
+        const QString description = tr("Delete Selection", "Undo Step: clear the selection area.");
+        // A Drawing added for this delete undoes with it in one step.
+        const UndoMacro macro(mEditor->undoRedo(), description);
         handleDrawingOnEmptyFrame();
 
         const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
@@ -1625,7 +1680,7 @@ void ScribbleArea::deleteSelection()
             Q_CHECK_PTR(bitmapImage);
             bitmapImage->clear(selectMan->mySelectionRect());
         }
-        mEditor->undoRedo()->record(saveStateId, tr("Delete Selection", "Undo Step: clear the selection area."));
+        mEditor->undoRedo()->record(saveStateId, description);
         mEditor->setModified(mEditor->currentLayerIndex(), mEditor->currentFrame());
     }
 }

@@ -127,7 +127,7 @@ CameraContextMenu::CameraContextMenu(Editor* editor, int frameNumber, const Laye
     QAction* alignHAction = cameraFieldMenu->addAction(tr("Align horizontally to frame %1").arg(nextFrame), reset(CameraFieldOption::ALIGN_HORIZONTAL));
     QAction* alignVAction = cameraFieldMenu->addAction(tr("Align vertically to frame %1").arg(nextFrame), reset(CameraFieldOption::ALIGN_VERTICAL));
     cameraFieldMenu->addSeparator();
-    QAction* holdAction = cameraFieldMenu->addAction(tr("Hold to keyframe %1").arg(nextFrame), reset(CameraFieldOption::HOLD_FRAME));
+    QAction* holdAction = cameraFieldMenu->addAction(tr("Hold to frame %1").arg(nextFrame), reset(CameraFieldOption::HOLD_FRAME));
     if (frameNumber == layer->getMaxKeyFramePosition()) {
         holdAction->setDisabled(true);
         alignHAction->setDisabled(true);

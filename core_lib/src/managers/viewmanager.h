@@ -62,6 +62,8 @@ public:
     float rotation();
     void rotate(float degree);
     void rotateRelative(float delta);
+    /// Turns the View by the pointer's angle change about centre. A flipped View turns the other way.
+    void rotateByDrag(QPointF centre, QPointF from, QPointF to);
     void resetRotation();
 
     qreal scaling();

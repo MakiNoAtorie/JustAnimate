@@ -5,6 +5,45 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Theme: System after Dark restores the platform colours and style instead of keeping the dark panels (#192).
+- The Brush outline paints its centre cross, so quick-sizing shows the cross in the outline (#184).
+- A double click that Windows makes from a pen tap no longer starts a full-pressure mouse stroke (#175).
+- Saved "Hard Eraser" and "Soft Eraser" presets from an earlier version now show under the eraser, not the brushes (#172).
+- Polyline, lasso fill and Delete selection on a held frame undo their new Drawing in the same step (#189).
+- Rough layers draw under the other layers on the canvas, wherever they sit in the layer list (#192).
+- Shortcuts page and Window menu say "Reset layout" and "Lock Panels" instead of "Reset Windows" and "Lock Windows" (#181).
+- Marking a cell away from the playhead no longer moves the playhead (#186).
+- Marked drawings onion skin and Flip with no Mark ticked show no Drawing instead of every Drawing (#187).
+- Command search opens once per click on the Command bar field, and no longer reopens when focus returns to the field (#183).
+- Windows installer registers .pclx and .pcl so a double-click opens them in JustAnimate with its file icon; uninstall removes it (#152).
+- Windows package built with Qt 6.8 keeps the Qt DLLs next to justanimate.exe instead of in bin/ (#155).
+- Opening a .pclx project is about 3 times faster: its files are extracted to the working folder in parallel (#147).
+- Sound: deleting a sound frame, or undoing its import, no longer sometimes crashes the app (#176).
+- Sound preview matches export: a looped range restarts its sound on the first frame, a sound always starts from its beginning at its key even after scrubbing, and a loop no longer starts a later sound early (#136).
+- Brush grain: pick one of five bundled CC0 paper textures (ambientCG) next to the generated one, in the tool options and in presets (#86).
+- New JustAnimate app and file icons (.ico, .icns, Linux PNGs, window icon, About logo) generated from one SVG by `make_icons` (#25).
+- Brush presets belong to a tool: the Brush Presets panel lists only the eraser's presets (Hard Eraser, Soft Eraser) or the drawing tools' presets, and applying one never changes another tool (#172).
+- Colour wheel: follows a dock resize smoothly by scaling its last image and rebuilding once the resize stops (#173).
+- Brush preset editor: a pressure curve locked by Use the global pressure curve is painted in the disabled colour, ignores the mouse and its tooltip says how to unlock it (#171).
+- Preferences > Tools can log the pen pressure, curve, taper and size of every dab to a file, to track down dabs that draw too large (#175).
+- Drawing on a held frame now makes a new Drawing by default, undone with its stroke in one step; Preferences > Timeline keeps the old choice (#189).
+- Rough layers: mark a layer Rough from its timeline menu; it shows tinted and faded on the canvas, carries a ROUGH tag and is left out of every export (#192).
+- Play-around: Alt+Return or the timeline button loops N frames either side of the playhead (N set beside it) and returns to the playhead on stop; Shift-drag on the timeline ruler sets the loop range and turns Loop on (#191).
+- Command search: Ctrl+Shift+P or the Command bar's search field finds a menu command by name and runs it; Ctrl+K opens Preferences (#183).
+- Pen-drag Flip: hold F and drag the pen left or right to flip through Drawings (following the Marked drawings filter); releasing F returns to the starting frame (#190).
+
+- Command bar: one bar under the menu bar replaces the Main, View and Overlay toolbars with the same commands; Window > Command bar hides and shows it (#182).
+
+- Onion skin: O turns it on and off in both directions (previous-only and next-only keep their commands without keys), each layer row has an onion toggle, and the Onion skin Panel mode picks Every frame, Every drawing or Marked drawings with Key, Breakdown and Inbetween choices (#187).
+- Cursor: every Stroke tool shows the Brush outline, the true size and shape of its mark, following zoom and View rotation, around a small cross (only the cross below 6 px); the tool icon cursors and the two cursor checkboxes give way to one Cursor preference, Brush outline or Cross only (#184).
+- Exposure: + and − lengthen or shorten the current Drawing and move the later Drawings with it, dragging a cell's right edge does the same, and ripple insert and delete get Ctrl+F7 and Ctrl+F5 (#188).
+- Layout: new default Layout with Tool settings as a strip under the toolbars (a column when docked at a side), Brush presets and colours on the right, Onion skin as a tab next to the timeline; Window > Layout lists Draw, Animate, Ink and Reset layout (#181).
+- View: R selects a Rotate View tool (drag to turn the view, Reset View in Tool settings); Z and R no longer rotate in 15° steps, and the view angle stays between -180° and 180° (#174).
+- Panels: every Panel starts docked; the first v1.2 start drops old saved Layouts once, a floating Panel no longer stays above other programs, and double-clicking its title docks it back (#180).
+- Timeline: mark a Drawing as Key, Breakdown or Inbetween (Alt+K, Alt+B, Alt+I, Alt+0 clears, or the cell menu); each Mark shows as a shape in its cell and saves with the project (#186).
+- Appearance: Tabler icons in one colour that follows Light and Dark, sharp at any display scale; the active tool is filled with the Accent colour (#179).
+- Appearance: an Accent colour in Preferences (eight choices) marks selections, slider fill, focus and the playhead in Light and Dark (#178).
+- UI: menus, tooltips, the timeline, Preferences and status messages say Drawing and Exposure instead of key frame (#185).
 - Fixes: the tablet eraser end announces the tool change once per flip, not on every tablet event (#127).
 - Fixes: a vector fill keeps the first vertex of the image, so the filled area no longer drops that point (#126).
 - Image sequence import: files sort by number, so frame2 comes before frame10 (#137).
@@ -45,6 +84,7 @@ the original Pencil2D history is kept below for reference.
 - Move tool: drag the round handle on a selection edge to skew it around its centre; undoable (2.10).
 - Lock Transparency: right-click a bitmap layer to paint only on its existing pixels; strokes never change alpha and the setting is saved (2.8).
 - Ruler: View > Overlays > Ruler shows a straight line; drag its ends with the Move tool, and strokes that start near it snap to it (2.9).
+- Tweened keys: onion skins draw them with their own move, rotation and scale; smudge, vector eraser, bucket fill, select and move act where they are drawn; the timeline marks a tween with a line to the next key.
 - Fixes: a stroke on a moved (tweened) key lands where it is drawn, Duplicate Layer keeps the blend mode, a single Next/Previous Frame tap always steps, and marker names show on the timeline ruler.
 - Layer groups: right-click a member to show or hide the group or set its opacity; the group fades as one image, on the canvas and in export (3.7).
 - Layer groups: right-click a layer to make, join or leave a group; click the arrow to collapse it; a collapsed group drags as a block. Files still open in Pencil2D (3.7).

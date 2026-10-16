@@ -116,6 +116,24 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
         Theme::apply(mode);
     });
 
+    auto* accentCombo = new QComboBox(this);
+    accentCombo->setObjectName("accentCombo");
+    const QString accentNames[Theme::ACCENT_COUNT] = {
+        tr("Accent: Blue"), tr("Accent: Teal"), tr("Accent: Green"), tr("Accent: Amber"),
+        tr("Accent: Orange"), tr("Accent: Red"), tr("Accent: Pink"), tr("Accent: Violet") };
+    for (int a = 0; a < Theme::ACCENT_COUNT; ++a)
+    {
+        QPixmap swatch(16, 16);
+        swatch.fill(Theme::palette(Theme::Light, static_cast<Theme::Accent>(a)).color(QPalette::Highlight));
+        accentCombo->addItem(QIcon(swatch), accentNames[a], a);
+    }
+    accentCombo->setCurrentIndex(accentCombo->findData(Theme::savedAccent()));
+    ui->langLayout->addWidget(accentCombo, 2, 0);
+    connect(accentCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [accentCombo](int i) {
+        Theme::saveAccent(static_cast<Theme::Accent>(accentCombo->itemData(i).toInt()));
+        Theme::apply(Theme::saved());
+    });
+
     ui->undoRedoGroupApplyButton->setDisabled(true);
     ui->undoRedoGroupCancelButton->setDisabled(true);
 
@@ -126,7 +144,9 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     connect(ui->windowOpacityLevel, &QSlider::valueChanged, this, &GeneralPage::windowOpacityChange);
     connect(ui->backgroundButtons, buttonClicked, this, &GeneralPage::backgroundChanged);
     connect(ui->shadowsBox, &QCheckBox::stateChanged, this, &GeneralPage::shadowsCheckboxStateChanged);
-    connect(ui->toolCursorsBox, &QCheckBox::stateChanged, this, &GeneralPage::toolCursorsCheckboxStateChanged);
+    connect(ui->cursorStyleBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, [this](int index) {
+        mManager->set(SETTING::CURSOR_STYLE, index);
+    });
     connect(ui->antialiasingBox, &QCheckBox::stateChanged, this, &GeneralPage::antiAliasCheckboxStateChanged);
     connect(ui->fastRenderBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::FAST_RENDER_LAYERS_ABOVE, on); });
     connect(ui->curveSmoothingLevel, &QSlider::valueChanged, this, &GeneralPage::curveSmoothingChanged);
@@ -136,7 +156,6 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     ui->tabletApiLabel->hide();
     ui->tabletApiBox->hide();
 #endif
-    connect(ui->canvasCursorBox, &QCheckBox::stateChanged, this, &GeneralPage::canvasCursorCheckboxStateChanged);
     connect(ui->gridSizeInputW, spinValueChanged, this, &GeneralPage::gridWidthChanged);
     connect(ui->gridSizeInputH, spinValueChanged, this, &GeneralPage::gridHeightChanged);
     connect(ui->actionSafeCheckBox, &QCheckBox::stateChanged, this, &GeneralPage::actionSafeCheckBoxStateChanged);
@@ -173,14 +192,12 @@ void GeneralPage::updateValues()
     ui->windowOpacityLevel->setValue(100 - mManager->getInt(SETTING::WINDOW_OPACITY));
     QSignalBlocker b3(ui->shadowsBox);
     ui->shadowsBox->setChecked(mManager->isOn(SETTING::SHADOW));
-    QSignalBlocker b4(ui->toolCursorsBox);
-    ui->toolCursorsBox->setChecked(mManager->isOn(SETTING::TOOL_CURSOR));
+    QSignalBlocker b4(ui->cursorStyleBox);
+    ui->cursorStyleBox->setCurrentIndex(mManager->getInt(SETTING::CURSOR_STYLE) == CURSOR_CROSS_ONLY ? 1 : 0);
     QSignalBlocker b5(ui->antialiasingBox);
     ui->antialiasingBox->setChecked(mManager->isOn(SETTING::ANTIALIAS));
     QSignalBlocker bFast(ui->fastRenderBox);
     ui->fastRenderBox->setChecked(mManager->isOn(SETTING::FAST_RENDER_LAYERS_ABOVE));
-    QSignalBlocker b6(ui->canvasCursorBox);
-    ui->canvasCursorBox->setChecked(mManager->isOn(SETTING::CANVAS_CURSOR));
     QSignalBlocker b7(ui->gridSizeInputW);
     ui->gridSizeInputW->setValue(mManager->getInt(SETTING::GRID_SIZE_W));
     QSignalBlocker b11(ui->gridSizeInputH);
@@ -288,16 +305,6 @@ void GeneralPage::shadowsCheckboxStateChanged(int b)
 void GeneralPage::antiAliasCheckboxStateChanged(int b)
 {
     mManager->set(SETTING::ANTIALIAS, b != Qt::Unchecked);
-}
-
-void GeneralPage::toolCursorsCheckboxStateChanged(int b)
-{
-    mManager->set(SETTING::TOOL_CURSOR, b != Qt::Unchecked);
-}
-
-void GeneralPage::canvasCursorCheckboxStateChanged(int b)
-{
-    mManager->set(SETTING::CANVAS_CURSOR, b != Qt::Unchecked);
 }
 
 void GeneralPage::gridWidthChanged(int value)

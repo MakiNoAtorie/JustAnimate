@@ -407,6 +407,59 @@ TEST_CASE("A preset keeps its description and pressure curve", "[BrushPresets]")
     CHECK(other.description("Firm") == "Bold lines");
 }
 
+TEST_CASE("A preset records the tool it is for", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    BrushSession b;
+    const BrushPresets presets(dir.filePath("presets"));
+    StrokeTool* eraser = static_cast<StrokeTool*>(b.s.editor->tools()->getTool(ERASER));
+    ToolSettingsGuard eraserGuard(eraser);
+    REQUIRE(presets.save("Rub", *eraser));
+    REQUIRE(presets.save("Ink", *b.brush));
+    REQUIRE(QDir().mkpath(presets.folder()));
+    writeFile(presets.filePath("Old"), R"({"settings":{"Width":5}})"); // before the tool field
+
+    CHECK(presets.tool("Rub") == "eraser");
+    CHECK(presets.tool("Ink") == "brush");
+    CHECK(presets.tool("Old") == "brush");
+    CHECK(presets.names("eraser") == QStringList{ "Rub" });
+    CHECK(presets.names("brush") == QStringList{ "Ink", "Old" });
+    CHECK(presets.names().size() == 3);
+    CHECK(BrushPresets::toolKey(ERASER) == "eraser");
+    CHECK(BrushPresets::toolKey(PENCIL) == "brush");
+    CHECK(BrushPresets::toolKey(PEN) == "brush");
+
+    // The tool travels in a .jabrush.
+    REQUIRE(presets.exportPreset("Rub", dir.filePath("Rub.jabrush")).ok());
+    const BrushPresets other(dir.filePath("other"));
+    REQUIRE(other.importPreset(dir.filePath("Rub.jabrush")).ok());
+    CHECK(other.tool("Rub") == "eraser");
+
+    // The defaults include a hard and a soft eraser, for the eraser only.
+    const BrushPresets defaults(dir.filePath("defaults"));
+    defaults.addDefaults();
+    CHECK(defaults.names("eraser") == QStringList{ "Hard Eraser", "Soft Eraser" });
+    CHECK_FALSE(defaults.names("brush").contains("Hard Eraser"));
+}
+
+TEST_CASE("Saved default eraser presets from before the tool field move to the eraser", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    const BrushPresets presets(dir.path());
+    presets.addDefaults();
+    writeFile(presets.filePath("Hard Eraser"), R"({"settings":{"Width":31}})");
+    writeFile(presets.filePath("Soft Eraser"), R"({"settings":{"Width":32}})");
+    writeFile(presets.filePath("Mine"), R"({"settings":{"Width":5}})");
+    REQUIRE(presets.tool("Hard Eraser") == "brush");
+
+    BrushPresets(dir.path()).addDefaults(); // the next start
+    CHECK(presets.names("eraser") == QStringList{ "Hard Eraser", "Soft Eraser" });
+    CHECK(presets.tool("Mine") == "brush");
+    QFile hard(presets.filePath("Hard Eraser"));
+    REQUIRE(hard.open(QIODevice::ReadOnly));
+    CHECK(hard.readAll().contains("31")); // the user's settings stay
+}
+
 TEST_CASE("Malformed jabrush files are rejected before writing", "[BrushPresets]")
 {
     QTemporaryDir dir;

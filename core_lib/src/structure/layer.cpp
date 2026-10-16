@@ -121,7 +121,7 @@ int Layer::getNextKeyFramePosition(int position) const
     return it->first;
 }
 
-int Layer::getPreviousFrameNumber(int position, bool isAbsolute) const
+int Layer::getPreviousFrameNumber(int position, bool isAbsolute, const MarkFilter& filter) const
 {
     int prevNumber;
 
@@ -130,6 +130,11 @@ int Layer::getPreviousFrameNumber(int position, bool isAbsolute) const
     else
         prevNumber = position - 1;
 
+    while (isAbsolute && prevNumber < position && !filter.passes(getKeyFrameAt(prevNumber)))
+    {
+        position = prevNumber;
+        prevNumber = getPreviousKeyFramePosition(position);
+    }
     if (prevNumber >= position)
     {
         return -1; // There is no previous keyframe
@@ -137,7 +142,7 @@ int Layer::getPreviousFrameNumber(int position, bool isAbsolute) const
     return prevNumber;
 }
 
-int Layer::getNextFrameNumber(int position, bool isAbsolute) const
+int Layer::getNextFrameNumber(int position, bool isAbsolute, const MarkFilter& filter) const
 {
     int nextNumber;
 
@@ -146,6 +151,11 @@ int Layer::getNextFrameNumber(int position, bool isAbsolute) const
     else
         nextNumber = position + 1;
 
+    while (isAbsolute && nextNumber > position && !filter.passes(getKeyFrameAt(nextNumber)))
+    {
+        position = nextNumber;
+        nextNumber = getNextKeyFramePosition(position);
+    }
     if (nextNumber <= position)
         return -1; // There is no next keyframe
 
@@ -703,6 +713,7 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     if (!onionSkin()) { layerTag.setAttribute("onion", 0); }
     if (blendMode() != BlendMode::Normal) { layerTag.setAttribute("blend", static_cast<int>(blendMode())); }
     if (groupId() != 0) { layerTag.setAttribute("group", groupId()); }
+    if (isRough()) { layerTag.setAttribute("rough", 1); }
     return layerTag;
 }
 
@@ -719,6 +730,7 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     const int blend = elem.attribute("blend", "0").toInt();
     setBlendMode(blend >= 0 && blend < kBlendModeCount ? static_cast<BlendMode>(blend) : BlendMode::Normal);
     setGroupId(elem.attribute("group", "0").toInt());
+    setRough(elem.attribute("rough", "0").toInt() == 1);
 }
 
 TweenState Layer::tweenStateAt(int frame) const
@@ -735,9 +747,13 @@ TweenState Layer::tweenStateAt(int frame) const
     return TweenState{ lerp(a.tx, b.tx), lerp(a.ty, b.ty), lerp(a.rot, b.rot), lerp(a.scale, b.scale), lerp(a.opacity, b.opacity) };
 }
 
+// XML values of the mark attribute, indexed by Mark.
+static const char* const kMarkNames[] = { "", "key", "breakdown", "inbetween" };
+
 void Layer::writeKeyTween(QDomElement& image, const KeyFrame* key)
 {
     // Optional: only written when set, so older versions still read the file.
+    if (key->mark() != Mark::None) { image.setAttribute("mark", kMarkNames[static_cast<int>(key->mark())]); }
     if (key->tween())
     {
         image.setAttribute("tween", 1);
@@ -759,6 +775,11 @@ void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
         const qreal v = image.attribute(name).toDouble(&ok);
         return ok && qIsFinite(v) ? v : fallback;
     };
+    const QString mark = image.attribute("mark");
+    for (int m = 1; m <= static_cast<int>(Mark::Inbetween); ++m)
+    {
+        if (mark == QLatin1String(kMarkNames[m])) { key->setMark(static_cast<Mark>(m)); }
+    }
     key->setTween(image.attribute("tween", "0").toInt() == 1);
     const int easing = image.attribute("easing", "0").toInt();
     const bool validEasing = easing >= 0 && easing <= static_cast<int>(CameraEasingType::OUTINBOUNCE);

@@ -16,14 +16,20 @@ GNU General Public License for more details.
 
 #include <QDomDocument>
 #include <QImage>
+#include <QKeySequence>
 #include <QPainter>
 
+#include "bitmapimage.h"
+#include "editor.h"
 #include "layerbitmap.h"
+#include "layermanager.h"
 #include "onionskinpainteroptions.h"
 #include "onionskinsubpainter.h"
 #include "preferencemanager.h"
 #include "testfixture.h"
 #include "pencilsettings.h"
+#include "scribblearea.h"
+#include "toolmanager.h"
 
 namespace
 {
@@ -126,16 +132,19 @@ TEST_CASE("The layer onion skin flag is saved in the project", "[OnionSkin]")
     }
 }
 
-TEST_CASE("Onion skin colours and falloff are remembered across restarts", "[OnionSkin]")
+TEST_CASE("Onion skin colours falloff and mode are remembered across restarts", "[OnionSkin]")
 {
-    const SettingsGuard guard({ SETTING_ONION_PREV_COLOR, SETTING_ONION_NEXT_COLOR, SETTING_ONION_FALLOFF });
+    const SettingsGuard guard({ SETTING_ONION_PREV_COLOR, SETTING_ONION_NEXT_COLOR, SETTING_ONION_FALLOFF, SETTING_ONION_TYPE, SETTING_ONION_MARKS });
     {
         TestSession session;
+        session.object->addNewBitmapLayer(); // a mode change repaints the current layer
         REQUIRE(session.start());
         PreferenceManager* prefs = session.editor->preference();
         prefs->set(SETTING::ONION_PREV_COLOR, QString("#00ff00"));
         prefs->set(SETTING::ONION_NEXT_COLOR, QString("#ff00ff"));
         prefs->set(SETTING::ONION_FALLOFF, static_cast<int>(OnionSkinFalloff::Steep));
+        prefs->set(SETTING::ONION_TYPE, QString("marked"));
+        prefs->set(SETTING::ONION_MARKS, MarkFilter({ Mark::Inbetween }).toInt());
     }
     TestSession session;
     REQUIRE(session.start());
@@ -143,6 +152,8 @@ TEST_CASE("Onion skin colours and falloff are remembered across restarts", "[Oni
     REQUIRE(prefs->getString(SETTING::ONION_PREV_COLOR) == "#00ff00");
     REQUIRE(prefs->getString(SETTING::ONION_NEXT_COLOR) == "#ff00ff");
     REQUIRE(prefs->getInt(SETTING::ONION_FALLOFF) == static_cast<int>(OnionSkinFalloff::Steep));
+    CHECK(prefs->markFilter().contains(Mark::Inbetween));
+    CHECK_FALSE(prefs->markFilter().contains(Mark::Key));
 }
 
 TEST_CASE("Onion skin colours default to red and blue", "[OnionSkin]")
@@ -159,4 +170,90 @@ TEST_CASE("Onion skin colours default to red and blue", "[OnionSkin]")
     REQUIRE(QColor(prefs->getString(SETTING::ONION_PREV_COLOR)) == QColor(Qt::red));
     REQUIRE(QColor(prefs->getString(SETTING::ONION_NEXT_COLOR)) == QColor(Qt::blue));
     REQUIRE(prefs->getInt(SETTING::ONION_FALLOFF) == static_cast<int>(OnionSkinFalloff::Linear));
+}
+
+TEST_CASE("Marked drawings onion skin shows only Drawings that pass the Mark filter", "[OnionSkin]")
+{
+    const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_PREV_FRAMES_NUM,
+                                SETTING_ONION_MAX_OPACITY, SETTING_ONION_TYPE, SETTING_ONION_MARKS });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+
+    PreferenceManager* prefs = editor->preference();
+    prefs->set(SETTING::PREV_ONION, true);
+    prefs->set(SETTING::NEXT_ONION, false);
+    prefs->set(SETTING::ONION_RED, false);
+    prefs->set(SETTING::ONION_PREV_FRAMES_NUM, 2);
+    prefs->set(SETTING::ONION_MAX_OPACITY, 100);
+    MarkFilter keysOnly;
+    keysOnly.set(Mark::Key, true);
+    prefs->set(SETTING::ONION_MARKS, keysOnly.toInt());
+    prefs->set(SETTING::ONION_TYPE, QString("marked"));
+    REQUIRE(prefs->markFilter().contains(Mark::Key));
+    REQUIRE_FALSE(prefs->markFilter().contains(Mark::Inbetween));
+
+    REQUIRE(layer->addNewKeyFrameAt(2));
+    REQUIRE(layer->addNewKeyFrameAt(3));
+    layer->getKeyFrameAt(1)->setMark(Mark::Key);
+    layer->getKeyFrameAt(2)->setMark(Mark::Inbetween);
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-60, -10, 20, 20), Qt::NoPen, QBrush(Qt::black), QPainter::CompositionMode_Source, false);
+    layer->getBitmapImageAtFrame(2)->drawRect(QRectF(40, -10, 20, 20), Qt::NoPen, QBrush(Qt::black), QPainter::CompositionMode_Source, false);
+    editor->scrubTo(3);
+    area->onFrameModified(1);
+    area->onFrameModified(2);
+
+    QImage image = area->grab().toImage();
+    const QColor empty = image.pixelColor(100, 100);
+    CHECK(image.pixelColor(50, 100) != empty);  // the Key
+    CHECK(image.pixelColor(150, 100) == empty); // the Inbetween
+
+    prefs->set(SETTING::ONION_TYPE, QString("absolute"));
+    REQUIRE(prefs->markFilter().passesAll());
+    image = area->grab().toImage();
+    CHECK(image.pixelColor(50, 100) != empty);
+    CHECK(image.pixelColor(150, 100) != empty);
+}
+
+TEST_CASE("O toggles onion skin in both directions", "[OnionSkin]")
+{
+    const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION });
+    TestSession session;
+    REQUIRE(session.start());
+    PreferenceManager* prefs = session.editor->preference();
+
+    prefs->set(SETTING::PREV_ONION, true);
+    prefs->set(SETTING::NEXT_ONION, false);
+    session.editor->toggleOnionSkin();
+    CHECK_FALSE(prefs->isOn(SETTING::PREV_ONION));
+    CHECK_FALSE(prefs->isOn(SETTING::NEXT_ONION));
+    session.editor->toggleOnionSkin();
+    CHECK(prefs->isOn(SETTING::PREV_ONION));
+    CHECK(prefs->isOn(SETTING::NEXT_ONION));
+
+    QSettings preset(":resources/kb.ini", QSettings::IniFormat);
+    preset.beginGroup("shortcuts");
+    CHECK(QKeySequence(preset.value("CmdOnionSkin").toString()) == QKeySequence(Qt::Key_O));
+    CHECK(preset.value("CmdOnionSkinPrevious").toString().isEmpty());
+    CHECK(preset.value("CmdOnionSkinNext").toString().isEmpty());
+}
+
+TEST_CASE("A saved O on previous-only onion skin moves to the onion skin toggle", "[OnionSkin]")
+{
+    const SettingsGuard guard({ "shortcuts/CmdOnionSkin", "shortcuts/CmdOnionSkinPrevious", "shortcuts/CmdOnionSkinNext" });
+    QSettings& settings = pencilSettings();
+    settings.remove("shortcuts/CmdOnionSkin");
+    settings.setValue("shortcuts/CmdOnionSkinPrevious", "O");
+    settings.setValue("shortcuts/CmdOnionSkinNext", "Alt+O");
+    checkExistingShortcuts();
+    CHECK(settings.value("shortcuts/CmdOnionSkin").toString() == "O");
+    CHECK(settings.value("shortcuts/CmdOnionSkinPrevious").toString().isEmpty());
+    CHECK(settings.value("shortcuts/CmdOnionSkinNext").toString().isEmpty());
 }

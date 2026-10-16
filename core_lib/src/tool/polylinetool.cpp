@@ -122,13 +122,11 @@ void PolylineTool::pointerPressEvent(PointerEvent* event)
     {
         if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
         {
-            mScribbleArea->handleDrawingOnEmptyFrame();
-
+            // The Drawing for an empty frame is added in endPolyline, so it undoes with the line.
             if (layer->type() == Layer::VECTOR)
             {
                 VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
-                Q_CHECK_PTR(vectorImage);
-                vectorImage->deselectAll();
+                if (vectorImage) { vectorImage->deselectAll(); }
                 if (mScribbleArea->makeInvisible() && !mEditor->preference()->isOn(SETTING::INVISIBLE_LINES))
                 {
                     mScribbleArea->toggleThinLines();
@@ -178,9 +176,7 @@ void PolylineTool::pointerDoubleClickEvent(PointerEvent* event)
             // include the current point before ending the line.
             mPoints << getCurrentPoint();
         }
-        SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         endPolyline(mPoints);
-        mEditor->undoRedo()->record(saveStateId, typeName());
     }
 }
 
@@ -213,9 +209,7 @@ bool PolylineTool::keyPressEvent(QKeyEvent* event)
         {
             // include the current point before ending the line.
             mPoints << getCurrentPoint();
-            SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
             endPolyline(mPoints);
-            mEditor->undoRedo()->record(saveStateId, typeName());
             return true;
         }
         break;
@@ -316,6 +310,10 @@ void PolylineTool::cancelPolyline()
 void PolylineTool::endPolyline(QList<QPointF> points)
 {
     Layer* layer = mEditor->layers()->currentLayer();
+    // A Drawing added for this line undoes with the line in one step.
+    const UndoMacro macro(mEditor->undoRedo(), typeName());
+    mScribbleArea->handleDrawingOnEmptyFrame();
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
     if (layer->type() == Layer::VECTOR)
     {
@@ -333,7 +331,8 @@ void PolylineTool::endPolyline(QList<QPointF> points)
         curve.setInvisibility(mScribbleArea->makeInvisible());
 
         VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
-        if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
+        // Can happen if the first frame is deleted while drawing
+        if (vectorImage == nullptr) { mEditor->undoRedo()->discardState(saveStateId); clearToolData(); return; }
         mapCurveToKey(curve);
         vectorImage->addCurve(curve, mEditor->view()->scaling());
     }
@@ -344,6 +343,7 @@ void PolylineTool::endPolyline(QList<QPointF> points)
 
     mScribbleArea->endStroke();
     mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
+    mEditor->undoRedo()->record(saveStateId, typeName());
 
     clearToolData();
 }

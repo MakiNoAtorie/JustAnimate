@@ -601,6 +601,36 @@ void LayerBlendModeCommand::apply(BlendMode mode)
     editor()->layers()->notifyLayerChanged(layer);
 }
 
+LayerRoughCommand::LayerRoughCommand(int layerId, bool rough, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), rough(rough)
+{
+    setText(description);
+}
+
+void LayerRoughCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(!rough);
+}
+
+void LayerRoughCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(rough);
+}
+
+void LayerRoughCommand::apply(bool value)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    layer->setRough(value);
+    editor()->layers()->notifyLayerChanged(layer);
+}
+
 LayerArrangementCommand::LayerArrangementCommand(const LayerArrangement& before, const LayerArrangement& after,
                                                  const QString& description, Editor* editor)
     : UndoRedoCommand(editor), before(before), after(after)

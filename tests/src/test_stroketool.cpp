@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "bitmapimage.h"
 #include "brushpresets.h"
 #include "brushtool.h"
+#include "buckettool.h"
 #include "colormanager.h"
 #include "editor.h"
 #include "layerbitmap.h"
@@ -37,11 +38,14 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "object.h"
 #include "overlaymanager.h"
+#include "pointerevent.h"
 #include "preferencemanager.h"
 #include "pressurecurve.h"
 #include "scribblearea.h"
 #include "selectionmanager.h"
+#include "selectionmanager.h"
 #include "stageprofiler.h"
+#include "tiledbuffer.h"
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "undoredomanager.h"
@@ -483,6 +487,105 @@ TEST_CASE("Pencil - a stroke on a translated key lands where it was drawn")
     REQUIRE(curve >= 0);
     CHECK(vimage->getVertex(curve, -1).x() == Approx(-50).margin(3)); // the curve origin
     CHECK(vimage->getVertex(curve, vimage->getCurveSize(curve) - 1).x() < -30 + 3);
+}
+
+TEST_CASE("Tools on a translated key act where the key is drawn")
+{
+    TestSession s;
+    LayerBitmap* bitmap = s.object->addNewBitmapLayer();
+    LayerVector* vector = s.object->addNewVectorLayer();
+    LayerBitmap* lines = s.object->addNewBitmapLayer();
+    TweenState moved;
+    moved.tx = 40;
+    bitmap->getKeyFrameAt(1)->setTweenState(moved);
+    vector->getKeyFrameAt(1)->setTweenState(moved);
+    BezierCurve curve({ QPointF(0, -10), QPointF(0, 10) });
+    vector->getVectorImageAtFrame(1)->addCurve(curve, 1.0, false);
+
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->scrubTo(1);
+    // Key point (0, 0) is drawn at canvas (40, 0).
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+    auto alphaAt = [&](int x, int y) { return qAlpha(bitmap->getBitmapImageAtFrame(1)->pixel(QPoint(x, y))); };
+
+    SECTION("Vector eraser")
+    {
+        editor->layers()->setCurrentLayer(vector);
+        editor->tools()->setCurrentTool(ERASER);
+        const ToolSettingsGuard guard(editor->tools()->currentTool());
+        static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(10);
+        stroke(area, screen({ 40, -12 }), screen({ 40, 12 }), 1.0);
+        CHECK(vector->getVectorImageAtFrame(1)->getCurveSize(0) == -1); // no curve left
+    }
+    SECTION("Vector smudge")
+    {
+        editor->layers()->setCurrentLayer(vector);
+        editor->tools()->setCurrentTool(SMUDGE);
+        stroke(area, screen({ 40, -10 }), screen({ 50, -10 }), 0.5);
+        CHECK(vector->getVectorImageAtFrame(1)->getVertex(0, -1).x() == Approx(10).margin(2));
+    }
+    SECTION("Bitmap smudge")
+    {
+        bitmap->getBitmapImageAtFrame(1)->drawRect(QRectF(-20, -20, 20, 40), Qt::NoPen, QBrush(Qt::red),
+                                                   QPainter::CompositionMode_Source, false);
+        editor->layers()->setCurrentLayer(bitmap);
+        editor->tools()->setCurrentTool(SMUDGE);
+        StrokeTool* smudge = static_cast<StrokeTool*>(editor->tools()->currentTool());
+        const ToolSettingsGuard guard(smudge);
+        smudge->setWidth(20);
+        smudge->setFeather(48);
+        smudge->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+        smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+        stroke(area, screen({ 30, 0 }), screen({ 70, 0 }), 1.0);
+        CHECK(alphaAt(20, 0) > 0); // red carried right in key space
+    }
+    SECTION("Bitmap bucket")
+    {
+        bitmap->getBitmapImageAtFrame(1)->drawRect(QRectF(-10, -10, 20, 20), QPen(Qt::black, 2), Qt::NoBrush,
+                                                   QPainter::CompositionMode_SourceOver, false);
+        editor->layers()->setCurrentLayer(bitmap);
+        editor->tools()->setCurrentTool(BUCKET);
+        tap(area, screen({ 40, 0 }), 0.5);
+        CHECK(alphaAt(0, 0) == 255);
+    }
+    SECTION("Bitmap bucket with all layers as reference")
+    {
+        lines->getBitmapImageAtFrame(1)->drawRect(QRectF(30, -10, 20, 20), QPen(Qt::black, 2), Qt::NoBrush,
+                                                  QPainter::CompositionMode_SourceOver, false);
+        // A loaded target: the fill skips an empty key.
+        bitmap->getBitmapImageAtFrame(1)->drawRect(QRectF(60, 60, 2, 2), Qt::NoPen, QBrush(Qt::red),
+                                                   QPainter::CompositionMode_Source, false);
+        editor->layers()->setCurrentLayer(bitmap);
+        editor->tools()->setCurrentTool(BUCKET);
+        BucketTool* bucket = static_cast<BucketTool*>(editor->tools()->currentTool());
+        const ToolSettingsGuard guard(bucket);
+        bucket->setFillReferenceMode(1);
+        tap(area, screen({ 40, 0 }), 0.5);
+        CHECK(alphaAt(0, 0) == 255);
+        CHECK(alphaAt(15, 0) == 0); // outside the lines
+    }
+    SECTION("Select and move")
+    {
+        editor->layers()->setCurrentLayer(bitmap);
+        editor->tools()->setCurrentTool(SELECT);
+        stroke(area, screen({ 10, -30 }), screen({ 70, 30 }), 1.0);
+        auto selectionCenter = [&] {
+            auto select = editor->select();
+            return select->mapToSelection(QPolygonF(select->mySelectionRect())).boundingRect().center();
+        };
+        CHECK(selectionCenter().x() == Approx(0).margin(1));
+        editor->tools()->setCurrentTool(MOVE);
+        // A hover picks the move mode.
+        QTabletEvent hover(QEvent::TabletMove, QPointingDevice::primaryPointingDevice(), screen({ 40, 0 }),
+                           area->mapToGlobal(screen({ 40, 0 })), 0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+        QApplication::sendEvent(area, &hover);
+        stroke(area, screen({ 40, 0 }), screen({ 50, 0 }), 1.0);
+        CHECK(selectionCenter().x() == Approx(10).margin(1));
+    }
 }
 
 TEST_CASE("Pen - a stroke after an arrow-key nudge applies the nudge first")
@@ -1174,6 +1277,55 @@ TEST_CASE("DabTool - grain is fixed to the paper or moves with each dab and repl
     CHECK(*layer->getBitmapImageAtFrame(8)->image() == *layer->getBitmapImageAtFrame(9)->image());
 }
 
+TEST_CASE("DabTool - every bundled grain texture loads and shapes the grain")
+{
+    constexpr int count = TiledBuffer::grainTextureCount;
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 1; f <= count; ++f) layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setFeather(1);
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 1);
+
+    // The property range is the list the options panel shows.
+    CHECK(brush->strokeToolProperties().getInfo(StrokeToolProperties::GRAIN_TEXTURE_VALUE).maxInt() == count - 1);
+
+    const QPoint p = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint();
+    std::vector<std::vector<int>> blocks;
+    for (int i = 0; i < count; ++i)
+    {
+        CHECK(TiledBuffer::grainTextureLoaded(i));
+        CHECK(QByteArray(TiledBuffer::grainTextureName(i)).size() > 0);
+        brush->setDynamic(StrokeToolProperties::GRAIN_TEXTURE_VALUE, i);
+        CHECK(brush->strokeToolProperties().grainTexture() == i);
+        editor->scrubTo(i + 1);
+        tap(area, editor->view()->mapCanvasToScreen(QPointF(p)), 1.0);
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(i + 1);
+        std::vector<int> v;
+        for (int y = -10; y < 10; ++y)
+            for (int x = -10; x < 10; ++x)
+                v.push_back(qAlpha(bitmap->image()->pixel(p + QPoint(x, y) - bitmap->topLeft())));
+        std::vector<int> sorted = v;
+        std::sort(sorted.begin(), sorted.end());
+        CHECK(std::unique(sorted.begin(), sorted.end()) - sorted.begin() > 10);
+        blocks.push_back(v);
+    }
+    for (int i = 1; i < count; ++i) CHECK(blocks[i] != blocks[0]);
+}
+
 TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
 {
     TestSession s;
@@ -1446,4 +1598,386 @@ TEST_CASE("Eraser - a stroke shrinks the bitmap bounds to the remaining ink and 
     image = layer->getBitmapImageAtFrame(1);
     CHECK(image->isMinimallyBounded());
     CHECK(image->bounds().isEmpty());
+}
+
+TEST_CASE("Pencil - a stroke on a held frame makes a new Drawing by default")
+{
+    const SettingsGuard settingsGuard({ SETTING_DRAW_ON_EMPTY_FRAME_ACTION });
+    pencilSettings().remove(SETTING_DRAW_ON_EMPTY_FRAME_ACTION);
+
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    const ToolSettingsGuard guard(editor->tools()->currentTool());
+    static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(6);
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    SECTION("Default: a new Drawing, undone with its stroke in one step")
+    {
+        // Reload so the test reads the default, not a value another test set.
+        editor->preference()->loadPrefs();
+        REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == CREATE_NEW_KEY);
+
+        editor->scrubTo(3);
+        stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+        REQUIRE(layer->keyExists(3));
+        CHECK(layer->getBitmapImageAtFrame(1)->bounds().isEmpty());
+        CHECK_FALSE(layer->getBitmapImageAtFrame(3)->bounds().isEmpty());
+
+        undoAction->trigger();
+        CHECK_FALSE(layer->keyExists(3));
+        CHECK(layer->getBitmapImageAtFrame(1)->bounds().isEmpty());
+        CHECK_FALSE(undoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(layer->keyExists(3));
+        CHECK_FALSE(layer->getBitmapImageAtFrame(3)->bounds().isEmpty());
+    }
+
+    SECTION("A saved Keep drawing on previous choice still loads and draws on the held Drawing")
+    {
+        pencilSettings().setValue(SETTING_DRAW_ON_EMPTY_FRAME_ACTION, int(KEEP_DRAWING_ON_PREVIOUS_KEY));
+        editor->preference()->loadPrefs();
+        REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == KEEP_DRAWING_ON_PREVIOUS_KEY);
+
+        editor->scrubTo(3);
+        stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+        CHECK_FALSE(layer->keyExists(3));
+        CHECK_FALSE(layer->getBitmapImageAtFrame(1)->bounds().isEmpty());
+    }
+}
+
+TEST_CASE("Polyline lasso fill and Delete selection on a held frame undo their new Drawing in one step")
+{
+    const SettingsGuard settingsGuard({ SETTING_DRAW_ON_EMPTY_FRAME_ACTION });
+    pencilSettings().remove(SETTING_DRAW_ON_EMPTY_FRAME_ACTION);
+
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-30, -30, 60, 60), Qt::NoPen, QBrush(Qt::black),
+                                              QPainter::CompositionMode_Source, false);
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    editor->preference()->loadPrefs();
+    REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == CREATE_NEW_KEY);
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    editor->scrubTo(3);
+
+    SECTION("Polyline")
+    {
+        editor->tools()->setCurrentTool(POLYLINE);
+        const ToolSettingsGuard guard(editor->tools()->currentTool());
+        tap(area, origin + QPointF(-20, 0), 1.0);
+        tap(area, origin + QPointF(20, 0), 1.0);
+        QKeyEvent enter(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QApplication::sendEvent(area, &enter);
+    }
+
+    SECTION("Lasso fill")
+    {
+        editor->tools()->setCurrentTool(LASSOFILL);
+        tablet(area, QEvent::TabletPress, origin + QPointF(-20, -20), 1.0);
+        tablet(area, QEvent::TabletMove, origin + QPointF(20, -20), 1.0);
+        tablet(area, QEvent::TabletMove, origin + QPointF(20, 20), 1.0);
+        tablet(area, QEvent::TabletRelease, origin + QPointF(-20, 20), 1.0);
+    }
+
+    SECTION("Delete selection")
+    {
+        editor->select()->setSelection(QRectF(-10, -10, 20, 20));
+        area->deleteSelection();
+    }
+
+    REQUIRE(layer->keyExists(3));
+    undoAction->trigger();
+    CHECK_FALSE(layer->keyExists(3));
+    CHECK_FALSE(undoAction->isEnabled());
+}
+
+TEST_CASE("A double click that Windows makes from a pen tap starts no mouse stroke")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    BaseTool* pencil = editor->tools()->currentTool();
+    const ToolSettingsGuard guard(pencil);
+
+    const QPointF at(300, 300);
+    auto pen = [&](QEvent::Type type, quint64 t) {
+        QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), at, area->mapToGlobal(at), 0.2, 0, 0, 0, 0, 0,
+                       Qt::NoModifier, Qt::LeftButton, type == QEvent::TabletPress ? Qt::LeftButton : Qt::NoButton);
+        e.setTimestamp(t);
+        QApplication::sendEvent(area, &e);
+    };
+    pen(QEvent::TabletPress, 1000);
+    pen(QEvent::TabletRelease, 1010);
+    REQUIRE_FALSE(pencil->isActive());
+
+    QMouseEvent dbl(QEvent::MouseButtonDblClick, at, area->mapToGlobal(at), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    dbl.setTimestamp(1020);
+    QApplication::sendEvent(area, &dbl);
+    CHECK_FALSE(pencil->isActive());
+}
+
+TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure width")
+{
+    const SettingsGuard settingsGuard({ SETTING_PRESSURE_CURVE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 2; f <= 20; ++f)
+        layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(true);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    const QPointingDevice eraser("balloon eraser", 175, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Eraser,
+                                 QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
+    quint64 clock = 1000;
+    auto pen = [&](QEvent::Type type, QPointF pos, qreal pressure, quint64 t, QPointF tilt = QPointF(),
+                   const QPointingDevice* device = QPointingDevice::primaryPointingDevice()) {
+        const bool down = type == QEvent::TabletPress || type == QEvent::TabletMove;
+        QTabletEvent e(type, device, pos, area->mapToGlobal(pos), pressure, tilt.x(), tilt.y(), 0, 0, 0,
+                       Qt::NoModifier, Qt::LeftButton, down && pressure > 0 ? Qt::LeftButton : Qt::NoButton);
+        e.setTimestamp(t);
+        QApplication::sendEvent(area, &e);
+        clock = qMax(clock, t);
+    };
+    auto mouse = [&](QEvent::Type type, QPointF pos, Qt::MouseButtons buttons) {
+        QMouseEvent e(type, pos, area->mapToGlobal(pos), Qt::LeftButton, buttons, Qt::NoModifier);
+        e.setTimestamp(clock);
+        QApplication::sendEvent(area, &e);
+    };
+    // A horizontal stroke along y = 300 at `pressure`, 8 ms per event.
+    auto lightStroke = [&](qreal pressure, int events = 20) {
+        pen(QEvent::TabletPress, QPointF(100, 300), pressure, clock += 1000);
+        for (int i = 1; i <= events; ++i)
+            pen(QEvent::TabletMove, QPointF(100 + 400.0 * i / events, 300), pressure, clock += 8);
+        pen(QEvent::TabletRelease, QPointF(500, 300), pressure, clock += 8);
+    };
+    // Thickest ink column of a frame: the widest dab of a horizontal stroke.
+    auto thickest = [&](int frame) {
+        const QImage* img = layer->getBitmapImageAtFrame(frame)->image();
+        int most = 0;
+        for (int x = 0; x < img->width(); ++x)
+        {
+            int n = 0;
+            for (int y = 0; y < img->height(); ++y)
+                n += qAlpha(img->pixel(x, y)) != 0;
+            most = qMax(most, n);
+        }
+        return most;
+    };
+    // Width 40 at pressure 0.2 is 8 px; dynamics multiply it by at most `dynamics`; 2 px of edge.
+    auto checkLight = [&](int frame, qreal dynamics = 1) {
+        const int ink = thickest(frame);
+        INFO("frame " << frame << " thickest " << ink << " px");
+        CHECK(ink > 0);
+        CHECK(ink <= 40 * 0.2 * dynamics + 2);
+    };
+
+    SECTION("Mouse and synthesized mouse events inside a tablet stroke")
+    {
+        editor->scrubTo(1);
+        pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000);
+        for (int i = 1; i <= 20; ++i)
+        {
+            const QPointF pos(100 + 20.0 * i, 300);
+            if (i == 5) mouse(QEvent::MouseButtonPress, pos, Qt::LeftButton);
+            if (i == 6) mouse(QEvent::MouseMove, pos, Qt::LeftButton);
+            if (i == 7) mouse(QEvent::MouseButtonDblClick, pos, Qt::LeftButton);
+            if (i == 8) mouse(QEvent::MouseButtonRelease, pos, Qt::NoButton);
+            if (i == 9)
+            {
+                // Past the ScribbleArea filter: a mouse move straight to the tool.
+                QMouseEvent m(QEvent::MouseMove, pos, area->mapToGlobal(pos), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+                PointerEvent pe(&m, editor->view()->mapScreenToCanvas(pos));
+                brush->pointerMoveEvent(&pe);
+            }
+            pen(QEvent::TabletMove, pos, 0.2, clock += 8);
+        }
+        pen(QEvent::TabletRelease, QPointF(500, 300), 0.2, clock += 8);
+        // Mouse events Windows makes from the release, then a light stroke.
+        mouse(QEvent::MouseButtonPress, QPointF(500, 300), Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPointF(500, 300), Qt::NoButton);
+        checkLight(1);
+        editor->scrubTo(2);
+        lightStroke(0.2);
+        checkLight(2);
+    }
+    SECTION("Eraser end and proximity events around a light stroke")
+    {
+        editor->scrubTo(3);
+        pen(QEvent::TabletMove, QPointF(300, 200), 0, clock += 8, QPointF(), &eraser);
+        pen(QEvent::TabletPress, QPointF(600, 500), 1.0, clock += 8, QPointF(), &eraser);
+        pen(QEvent::TabletRelease, QPointF(600, 500), 1.0, clock += 8, QPointF(), &eraser);
+        QTabletEvent enter(QEvent::TabletEnterProximity, QPointingDevice::primaryPointingDevice(), QPointF(), QPointF(),
+                           1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+        QApplication::sendEvent(qApp, &enter);
+        pen(QEvent::TabletMove, QPointF(100, 300), 0, clock += 8);
+        lightStroke(0.2);
+        QTabletEvent leave(QEvent::TabletLeaveProximity, QPointingDevice::primaryPointingDevice(), QPointF(), QPointF(),
+                           1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+        QApplication::sendEvent(qApp, &leave);
+        CHECK(editor->tools()->currentTool() == brush);
+        checkLight(3);
+    }
+    SECTION("The full-pressure end of a tapered stroke and of a shape stays on its own stroke")
+    {
+        brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 50);
+        editor->scrubTo(4);
+        lightStroke(1.0);
+        editor->scrubTo(5);
+        lightStroke(0.2);
+        checkLight(5);
+        // A stroke whose release reports full pressure.
+        editor->scrubTo(6);
+        pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000);
+        for (int i = 1; i <= 20; ++i)
+            pen(QEvent::TabletMove, QPointF(100 + 20.0 * i, 300), 0.2, clock += 8);
+        pen(QEvent::TabletRelease, QPointF(500, 300), 1.0, clock += 8);
+        checkLight(6);
+        // A shape places full-pressure dabs, then the brush draws light.
+        editor->tools()->setCurrentTool(SHAPE);
+        editor->scrubTo(7);
+        pen(QEvent::TabletPress, QPointF(100, 100), 1.0, clock += 1000);
+        pen(QEvent::TabletMove, QPointF(200, 150), 1.0, clock += 8);
+        pen(QEvent::TabletRelease, QPointF(200, 150), 1.0, clock += 8);
+        editor->tools()->setCurrentTool(BRUSH);
+        editor->scrubTo(8);
+        lightStroke(0.2);
+        checkLight(8);
+    }
+    SECTION("A quick re-press or double tap after a hard stroke")
+    {
+        editor->scrubTo(9);
+        lightStroke(1.0);
+        editor->scrubTo(10);
+        // Within the double-click time and distance of the last press: ScribbleArea sends a double click.
+        pen(QEvent::TabletPress, QPointF(102, 300), 0.2, clock += 50);
+        for (int i = 1; i <= 20; ++i)
+            pen(QEvent::TabletMove, QPointF(100 + 20.0 * i, 300), 0.2, clock += 8);
+        pen(QEvent::TabletRelease, QPointF(500, 300), 0.2, clock += 8);
+        checkLight(10);
+        // Light double tap, then the mouse double click Windows makes from it.
+        editor->scrubTo(11);
+        pen(QEvent::TabletPress, QPointF(300, 300), 0.2, clock += 600);
+        pen(QEvent::TabletRelease, QPointF(300, 300), 0.2, clock += 8);
+        pen(QEvent::TabletPress, QPointF(300, 300), 0.2, clock += 50);
+        pen(QEvent::TabletRelease, QPointF(300, 300), 0.2, clock += 8);
+        mouse(QEvent::MouseButtonPress, QPointF(300, 300), Qt::LeftButton);
+        mouse(QEvent::MouseButtonDblClick, QPointF(300, 300), Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPointF(300, 300), Qt::NoButton);
+        lightStroke(0.2);
+        checkLight(11);
+    }
+    SECTION("Speed, tilt and jitter stay inside their size range at odd timestamps and tilts")
+    {
+        brush->setDynamic(StrokeToolProperties::SPEED_TO_SIZE_VALUE, 100);
+        brush->setDynamic(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
+        brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 100);
+        brush->seedRandom(175);
+        editor->scrubTo(12);
+        pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000, QPointF(90, -90));
+        const quint64 start = clock;
+        for (int i = 1; i <= 40; ++i)
+        {
+            // Same, backward, zero and huge timestamp steps; tilt past the 60 degree range.
+            const quint64 t = (i % 4 == 0) ? start : (i % 4 == 1) ? 0 : (i % 4 == 2) ? start + 100000 * i : start + i;
+            pen(QEvent::TabletMove, QPointF(100 + 10.0 * i, 300), 0.2, t, QPointF(i % 2 ? 90 : -90, 90));
+        }
+        pen(QEvent::TabletRelease, QPointF(500, 300), 0.2, clock += 1);
+        checkLight(12, 4);
+    }
+    SECTION("Smoothing does not carry a hard stroke into the next light one")
+    {
+        brush->setSmoothingMode(static_cast<int>(SmoothingMode::OneEuro));
+        brush->setSmoothingStrength(100);
+        editor->scrubTo(13);
+        lightStroke(1.0, 3);
+        editor->scrubTo(14);
+        // Back and forth along the line, so smoothing overshoots the turns.
+        pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000);
+        for (int i = 1; i <= 30; ++i)
+            pen(QEvent::TabletMove, QPointF(i % 2 ? 450 : 150, 300), 0.2, clock += 1);
+        pen(QEvent::TabletRelease, QPointF(300, 300), 0.2, clock += 1);
+        checkLight(14);
+    }
+}
+
+TEST_CASE("DabTool - the pressure debug log writes one line per dab only while it is on")
+{
+    const SettingsGuard settingsGuard({ SETTING_PRESSURE_CURVE, SETTING_PRESSURE_DEBUG_LOG });
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString oldPath = DabTool::pressureLogPath();
+    OnScopeExit(DabTool::pressureLogPath() = oldPath);
+    DabTool::pressureLogPath() = dir.filePath("pressure-log.csv");
+
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(2);
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setPressureEnabled(true);
+
+    editor->preference()->set(SETTING::PRESSURE_DEBUG_LOG, false);
+    stroke(area, QPointF(100, 300), QPointF(300, 300), 0.5);
+    CHECK_FALSE(QFile::exists(DabTool::pressureLogPath()));
+
+    editor->preference()->set(SETTING::PRESSURE_DEBUG_LOG, true);
+    editor->scrubTo(2);
+    tablet(area, QEvent::TabletPress, QPointF(100, 300), 0.5);
+    tablet(area, QEvent::TabletMove, QPointF(300, 300), 0.5);
+    tablet(area, QEvent::TabletRelease, QPointF(300, 300), 0.5);
+    QFile log(DabTool::pressureLogPath());
+    REQUIRE(log.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QStringList lines = QString::fromUtf8(log.readAll()).split('\n', Qt::SkipEmptyParts);
+    REQUIRE(lines.size() > 3);
+    CHECK(lines[0] == "input,pressure,curve,taper,size,width");
+    CHECK(lines[1].startsWith("# stroke"));
+    // A dab in the middle: tablet input at half pressure on a straight curve is 20 px wide.
+    CHECK(lines[lines.size() / 2] == "tablet,0.500,0.500,1.000,1.000,20.00");
 }

@@ -97,13 +97,13 @@
           <item>
            <widget class="QRadioButton" name="radioButtonAddNewKey">
             <property name="toolTip">
-             <string>Create a new (blank) key-frame and start drawing on it.</string>
+             <string>Create a new (blank) Drawing and start drawing on it.</string>
             </property>
             <property name="statusTip">
-             <string>Create a new (blank) key-frame and start drawing on it.</string>
+             <string>Create a new (blank) Drawing and start drawing on it.</string>
             </property>
             <property name="text">
-             <string>Create a new (blank) key-frame</string>
+             <string>Create a new (blank) Drawing</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -113,23 +113,23 @@
           <item>
            <widget class="QRadioButton" name="radioButtonDuplicate">
             <property name="toolTip">
-             <string>Duplicate the previous key-frame and start drawing on the duplicate.</string>
+             <string>Duplicate the previous Drawing and start drawing on the duplicate.</string>
             </property>
             <property name="statusTip">
-             <string>Duplicate the previous key-frame and start drawing on the duplicate.</string>
+             <string>Duplicate the previous Drawing and start drawing on the duplicate.</string>
             </property>
             <property name="text">
-             <string>Duplicate the previous key-frame</string>
+             <string>Duplicate the previous Drawing</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QRadioButton" name="radioButtonDrawOnPrev">
             <property name="toolTip">
-             <string>Keep drawing on the previous key-frame, so the empty frame stays empty.</string>
+             <string>Keep drawing on the previous Drawing, so the empty frame stays empty.</string>
             </property>
             <property name="text">
-             <string>Keep drawing on the previous key-frame</string>
+             <string>Keep drawing on the previous Drawing</string>
             </property>
            </widget>
           </item>

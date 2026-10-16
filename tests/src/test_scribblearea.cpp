@@ -27,6 +27,9 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layermanager.h"
 #include "object.h"
+#include "pencildef.h"
+#include "pencilsettings.h"
+#include "preferencemanager.h"
 #include "scribblearea.h"
 #include "stageprofiler.h"
 #include "testfixture.h"
@@ -152,6 +155,7 @@ TEST_CASE("ScribbleArea - quick preset picker applies a preset with the pen")
     REQUIRE(presets.save("Fine", *brush));
     brush->setWidth(60);
     REQUIRE(presets.save("Wide", *brush));
+    REQUIRE(presets.save("Rub", *brush, QString(), "eraser")); // not listed for the brush
     brush->setWidth(10);
 
     area->openPresetPicker(QPointF(400, 300), dir.path());
@@ -289,4 +293,139 @@ TEST_CASE("ScribbleArea - an edit on another layer's key repaints its held frame
     CHECK(centre() == QColor(Qt::red));
     fill(Qt::blue);
     CHECK(centre() == QColor(Qt::blue));
+}
+
+namespace
+{
+
+/// Bounds of the pixels the Brush outline changes, around a pointer hovering at the canvas origin.
+QRect outlineBounds(Editor* editor, ScribbleArea* area)
+{
+    const QPointF pos = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+    QMouseEvent move(QEvent::MouseMove, pos, area->mapToGlobal(pos), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(area, &move);
+    PreferenceManager* prefs = editor->preference();
+    prefs->set(SETTING::CURSOR_STYLE, CURSOR_CROSS_ONLY);
+    const QImage cross = area->grab().toImage();
+    prefs->set(SETTING::CURSOR_STYLE, CURSOR_BRUSH_OUTLINE);
+    const QImage outline = area->grab().toImage();
+    QRect bounds;
+    for (int y = 0; y < cross.height(); ++y)
+        for (int x = 0; x < cross.width(); ++x)
+            if (cross.pixel(x, y) != outline.pixel(x, y)) { bounds |= QRect(x, y, 1, 1); }
+    return bounds;
+}
+
+}
+
+TEST_CASE("ScribbleArea - Brush outline follows size zoom and View rotation")
+{
+    const SettingsGuard settings({ SETTING_CURSOR_STYLE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setTipAspect(100);
+    brush->setTipAngle(0);
+    brush->setTipSquare(false);
+
+    brush->setWidth(40);
+    QRect b = outlineBounds(editor, area);
+    CHECK(b.width() == Approx(41).margin(2));  // 40 px across at 100 %
+    CHECK(b.height() == Approx(41).margin(2));
+
+    editor->view()->scale(2.0);
+    b = outlineBounds(editor, area);
+    CHECK(b.width() == Approx(81).margin(2)); // 80 px across at 200 %
+
+    // A flat tip lies along x; a quarter turn of the View stands it up.
+    editor->view()->scale(1.0);
+    brush->setTipAspect(50);
+    b = outlineBounds(editor, area);
+    CHECK(b.width() == Approx(41).margin(2));
+    CHECK(b.height() == Approx(21).margin(2));
+    editor->view()->rotate(90);
+    b = outlineBounds(editor, area);
+    CHECK(b.width() == Approx(21).margin(2));
+    CHECK(b.height() == Approx(41).margin(2));
+}
+
+TEST_CASE("ScribbleArea - the Brush outline paints its centre cross")
+{
+    const SettingsGuard settings({ SETTING_CURSOR_STYLE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+
+    // The hardware cursor is not in a grab, so a cross in the grab is painted.
+    const QPoint centre = editor->view()->mapCanvasToScreen(QPointF(0, 0)).toPoint();
+    const QRect b = outlineBounds(editor, area);
+    REQUIRE(b.contains(centre));
+    const QImage outline = area->grab().toImage();
+    editor->preference()->set(SETTING::CURSOR_STYLE, CURSOR_CROSS_ONLY);
+    const QImage cross = area->grab().toImage();
+    CHECK(outline.pixel(centre + QPoint(3, 0)) != cross.pixel(centre + QPoint(3, 0)));
+    CHECK(outline.pixel(centre + QPoint(0, 3)) != cross.pixel(centre + QPoint(0, 3)));
+}
+
+TEST_CASE("ScribbleArea - below 6 px on screen only the cross shows")
+{
+    const SettingsGuard settings({ SETTING_CURSOR_STYLE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    StrokeTool* pencil = static_cast<StrokeTool*>(editor->tools()->getTool(PENCIL));
+    const ToolSettingsGuard guard(pencil);
+
+    pencil->setWidth(5);
+    CHECK(outlineBounds(editor, area).isEmpty());
+    editor->view()->scale(2.0); // 10 px on screen
+    CHECK_FALSE(outlineBounds(editor, area).isEmpty());
+}
+
+TEST_CASE("Preferences - the dotted-cursor key migrates once to the cursor style")
+{
+    const SettingsGuard settings({ SETTING_CURSOR_STYLE, SETTING_CANVAS_CURSOR, SETTING_TOOL_CURSOR });
+    QSettings& store = pencilSettings();
+    store.remove(SETTING_CURSOR_STYLE);
+    store.setValue(SETTING_CANVAS_CURSOR, false);
+    store.setValue(SETTING_TOOL_CURSOR, true);
+    {
+        TestSession s;
+        REQUIRE(s.start());
+        CHECK(s.editor->preference()->getInt(SETTING::CURSOR_STYLE) == CURSOR_CROSS_ONLY);
+        s.editor->preference()->set(SETTING::CURSOR_STYLE, CURSOR_BRUSH_OUTLINE);
+    }
+    CHECK_FALSE(store.contains(SETTING_CANVAS_CURSOR));
+    CHECK_FALSE(store.contains(SETTING_TOOL_CURSOR));
+
+    store.setValue(SETTING_CANVAS_CURSOR, false); // a stale old key no longer wins
+    TestSession s;
+    REQUIRE(s.start());
+    CHECK(s.editor->preference()->getInt(SETTING::CURSOR_STYLE) == CURSOR_BRUSH_OUTLINE);
 }

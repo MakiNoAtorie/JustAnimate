@@ -51,6 +51,7 @@ enum ToolType : int
     BRUSH,
     SHAPE,
     LASSOFILL,
+    ROTATE,
     TOOL_TYPE_COUNT
 };
 
@@ -134,6 +135,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_CLEAR_FRAME "CmdClearFrame"
 #define CMD_PEGBAR_ALIGNMENT "CmdPegBarAlignment"
 #define CMD_PREFERENCE "CmdPreferences"
+#define CMD_COMMAND_SEARCH "CmdCommandSearch"
 #define CMD_RESET_WINDOWS "CmdResetWindows"
 #define CMD_LOCK_WINDOWS "CmdLockWindows"
 #define CMD_ZOOM_IN "CmdZoomIn"
@@ -160,6 +162,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_OVERLAY_ONE_POINT_PERSPECTIVE "CmdOverlayOnePointPerspective"
 #define CMD_OVERLAY_TWO_POINT_PERSPECTIVE "CmdOverlayTwoPointPerspective"
 #define CMD_OVERLAY_THREE_POINT_PERSPECTIVE "CmdOverlayThreePointPerspective"
+#define CMD_ONIONSKIN "CmdOnionSkin"
 #define CMD_ONIONSKIN_PREV "CmdOnionSkinPrevious"
 #define CMD_ONIONSKIN_NEXT "CmdOnionSkinNext"
 #define CMD_TOGGLE_STATUS_BAR "CmdToggleStatusBar"
@@ -168,6 +171,12 @@ const static int MaxFramesBound = 9999;
 #define CMD_LOOP_CONTROL "CmdLoopControl"
 #define CMD_FLIP_INBETWEEN "CmdFlipInBetween"
 #define CMD_FLIP_ROLLING "CmdFlipRolling"
+#define CMD_PLAY_AROUND "CmdPlayAround"
+#define CMD_FLIP_HOLD "CmdFlipHold"
+#define CMD_MARK_KEY "CmdMarkKey"
+#define CMD_MARK_BREAKDOWN "CmdMarkBreakdown"
+#define CMD_MARK_INBETWEEN "CmdMarkInbetween"
+#define CMD_MARK_CLEAR "CmdMarkClear"
 #define CMD_GOTO_NEXT_FRAME "CmdGotoNextFrame"
 #define CMD_GOTO_PREV_FRAME "CmdGotoPreviousFrame"
 #define CMD_GOTO_NEXT_KEY_FRAME "CmdGotoNextKeyFrame"
@@ -177,6 +186,8 @@ const static int MaxFramesBound = 9999;
 #define CMD_REMOVE_FRAME "CmdRemoveFrame"
 #define CMD_RIPPLE_INSERT_FRAME "CmdRippleInsertFrame"
 #define CMD_RIPPLE_DELETE_FRAME "CmdRippleDeleteFrame"
+#define CMD_EXPOSURE_ADD "CmdExposureAdd"
+#define CMD_EXPOSURE_SUBTRACT "CmdExposureSubtract"
 #define CMD_REVERSE_SELECTED_FRAMES "CmdReverseSelectedFrames"
 #define CMD_REMOVE_SELECTED_FRAMES "CmdRemoveSelectedFrames"
 #define CMD_SELECTION_REPOSITION_FRAMES "CmdSelectionRepositionFrames"
@@ -199,6 +210,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOOL_SMUDGE "CmdToolSmudge"
 #define CMD_TOOL_PEN "CmdToolPen"
 #define CMD_TOOL_HAND "CmdToolHand"
+#define CMD_TOOL_ROTATE "CmdToolRotate"
 #define CMD_TOOL_PENCIL "CmdToolPencil"
 #define CMD_TOOL_BUCKET "CmdToolBucket"
 #define CMD_TOOL_EYEDROPPER "CmdToolEyedropper"
@@ -244,8 +256,9 @@ const static int MaxFramesBound = 9999;
 #define SETTING_AUTO_SAVE_NUMBER    "AutosaveNumber"
 #define SETTING_AUTO_SAVE_BY_TIME       "AutoSaveByTime"
 #define SETTING_AUTO_SAVE_BY_TIME_TIMER "AutoSaveByTimeTimer"
-#define SETTING_TOOL_CURSOR         "ToolCursors"
-#define SETTING_CANVAS_CURSOR       "DottedCursors"
+#define SETTING_CURSOR_STYLE        "CursorStyle"
+#define SETTING_TOOL_CURSOR         "ToolCursors" // migrated to CursorStyle
+#define SETTING_CANVAS_CURSOR       "DottedCursors" // migrated to CursorStyle
 #define SETTING_HIGH_RESOLUTION     "HighResPosition"
 #define SETTING_TABLET_WINTAB       "TabletWinTab"
 #define SETTING_BACKGROUND_STYLE    "Background"
@@ -257,6 +270,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_PRESSURE_CURVE      "PressureCurve"
 #define SETTING_SHORT_SCRUB         "ShortScrub"
 #define SETTING_FPS                 "Fps"
+#define SETTING_PLAY_AROUND_FRAMES  "PlayAroundFrames"
 #define SETTING_FIELD_W             "FieldW"
 #define SETTING_FIELD_H             "FieldH"
 #define SETTING_FRAME_SIZE          "FrameSize"
@@ -264,6 +278,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_LABEL_FONT_SIZE     "LabelFontSize"
 #define SETTING_DRAW_LABEL          "DrawLabel"
 #define SETTING_QUICK_SIZING        "QuickSizing"
+#define SETTING_PRESSURE_DEBUG_LOG  "PressureDebugLog"
 #define SETTING_LAYOUT_LOCK         "LayoutLock"
 #define SETTING_ROTATION_INCREMENT  "RotationIncrement"
 #define SETTING_SHOW_SELECTION_INFO "ShowSelectionInfo"
@@ -312,6 +327,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_ONION_NEXT_FRAMES_NUM   "OnionNextFramesNum"
 #define SETTING_ONION_WHILE_PLAYBACK    "OnionWhilePlayback"
 #define SETTING_ONION_TYPE              "OnionType"
+#define SETTING_ONION_MARKS             "OnionMarks"
 #define SETTING_ONION_FALLOFF           "OnionFalloff"
 #define SETTING_ONION_PREV_COLOR        "OnionPrevColor"
 #define SETTING_ONION_NEXT_COLOR        "OnionNextColor"
@@ -329,6 +345,7 @@ const static int MaxFramesBound = 9999;
 
 #define SETTING_LANGUAGE        "Language"
 #define SETTING_THEME           "Theme"
+#define SETTING_ACCENT          "Accent"
 
 #define SETTING_WORKSPACE_CURRENT   "Workspace/Current"
 #define SETTING_WORKSPACE_STATE     "Workspace/State/"

@@ -74,12 +74,19 @@ void PreferenceManager::loadPrefs()
     // General
     set(SETTING::ANTIALIAS,                settings.value(SETTING_ANTIALIAS,              true).toBool());
     set(SETTING::FAST_RENDER_LAYERS_ABOVE, settings.value(SETTING_FAST_RENDER_LAYERS_ABOVE, false).toBool());
-    set(SETTING::TOOL_CURSOR,              settings.value(SETTING_TOOL_CURSOR,            true).toBool());
-    set(SETTING::CANVAS_CURSOR,            settings.value(SETTING_CANVAS_CURSOR,          true).toBool());
+    if (!settings.contains(SETTING_CURSOR_STYLE) && settings.contains(SETTING_CANVAS_CURSOR))
+    {
+        // The tool icon cursor is gone: only the dotted-cursor key decides.
+        settings.setValue(SETTING_CURSOR_STYLE, settings.value(SETTING_CANVAS_CURSOR).toBool() ? CURSOR_BRUSH_OUTLINE : CURSOR_CROSS_ONLY);
+    }
+    settings.remove(SETTING_TOOL_CURSOR);
+    settings.remove(SETTING_CANVAS_CURSOR);
+    set(SETTING::CURSOR_STYLE,             settings.value(SETTING_CURSOR_STYLE,           CURSOR_BRUSH_OUTLINE).toInt());
     set(SETTING::HIGH_RESOLUTION,          settings.value(SETTING_HIGH_RESOLUTION,        true).toBool());
     set(SETTING::TABLET_WINTAB,            settings.value(SETTING_TABLET_WINTAB,          true).toBool());
     set(SETTING::SHADOW,                   settings.value(SETTING_SHADOW,                 false).toBool());
     set(SETTING::QUICK_SIZING,             settings.value(SETTING_QUICK_SIZING,           true).toBool());
+    set(SETTING::PRESSURE_DEBUG_LOG,       settings.value(SETTING_PRESSURE_DEBUG_LOG,     false).toBool());
     set(SETTING::SHOW_SELECTION_INFO,      settings.value(SETTING_SHOW_SELECTION_INFO,    false).toBool());
 
     set(SETTING::INVERT_DRAG_ZOOM_DIRECTION,   settings.value(SETTING_INVERT_DRAG_ZOOM_DIRECTION,  false).toBool());
@@ -121,7 +128,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::LABEL_FONT_SIZE,          settings.value(SETTING_LABEL_FONT_SIZE,        12).toInt());
 
     set( SETTING::DRAW_ON_EMPTY_FRAME_ACTION, settings.value( SETTING_DRAW_ON_EMPTY_FRAME_ACTION,
-                                                              KEEP_DRAWING_ON_PREVIOUS_KEY).toInt() );
+                                                              CREATE_NEW_KEY).toInt() );
 
     // Onion Skin
     set(SETTING::PREV_ONION,               settings.value(SETTING_PREV_ONION,             false).toBool());
@@ -137,6 +144,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::ONION_WHILE_PLAYBACK,     settings.value(SETTING_ONION_WHILE_PLAYBACK,   0).toInt());
     set(SETTING::ONION_TYPE,               settings.value(SETTING_ONION_TYPE,             "relative").toString());
     set(SETTING::ONION_FALLOFF,            settings.value(SETTING_ONION_FALLOFF,          0).toInt());
+    set(SETTING::ONION_MARKS,              settings.value(SETTING_ONION_MARKS,            MarkFilter({ Mark::Key, Mark::Breakdown }).toInt()).toInt());
     set(SETTING::ONION_PREV_COLOR,         settings.value(SETTING_ONION_PREV_COLOR,       "#ff0000").toString());
     set(SETTING::ONION_NEXT_COLOR,         settings.value(SETTING_ONION_NEXT_COLOR,       "#0000ff").toString());
     set(SETTING::LAYER_VISIBILITY,         settings.value(SETTING_LAYER_VISIBILITY,       2).toInt());
@@ -178,6 +186,17 @@ float PreferenceManager::getFloat(SETTING option)
 {
     int optionId = static_cast<int>(option);
     return mFloatingPointSet.value(optionId, -1);
+}
+
+MarkFilter PreferenceManager::markFilter()
+{
+    if (getString(SETTING::ONION_TYPE) != "marked") { return MarkFilter(); }
+    return MarkFilter::fromInt(getInt(SETTING::ONION_MARKS));
+}
+
+bool PreferenceManager::isOnionAbsolute()
+{
+    return getString(SETTING::ONION_TYPE) != "relative";
 }
 
 QString PreferenceManager::getString(SETTING option)
@@ -304,6 +323,9 @@ void PreferenceManager::set(SETTING option, int value)
     case SETTING::ONION_FALLOFF:
         settings.setValue(SETTING_ONION_FALLOFF, value);
         break;
+    case SETTING::ONION_MARKS:
+        settings.setValue(SETTING_ONION_MARKS, value);
+        break;
     case SETTING::OVERLAY_ANGLE:
         settings.setValue(SETTING_OVERLAY_ANGLE, value);
         break;
@@ -360,6 +382,9 @@ void PreferenceManager::set(SETTING option, int value)
         break;
     case SETTING::LAYER_VISIBILITY:
         settings.setValue(SETTING_LAYER_VISIBILITY, value);
+        break;
+    case SETTING::CURSOR_STYLE:
+        settings.setValue(SETTING_CURSOR_STYLE, value);
         break;
     case SETTING::DEFAULT_PRESET:
         settings.setValue(SETTING_DEFAULT_PRESET, value);
@@ -450,12 +475,6 @@ void PreferenceManager::set(SETTING option, bool value)
     case SETTING::ONION_RED:
         settings.setValue(SETTING_ONION_RED, value);
         break;
-    case SETTING::TOOL_CURSOR:
-        settings.setValue(SETTING_TOOL_CURSOR, value);
-        break;
-    case SETTING::CANVAS_CURSOR:
-        settings.setValue(SETTING_CANVAS_CURSOR, value);
-        break;
     case SETTING::HIGH_RESOLUTION:
         settings.setValue(SETTING_HIGH_RESOLUTION, value);
         break;
@@ -476,6 +495,9 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::QUICK_SIZING:
         settings.setValue(SETTING_QUICK_SIZING, value);
+        break;
+    case SETTING::PRESSURE_DEBUG_LOG:
+        settings.setValue(SETTING_PRESSURE_DEBUG_LOG, value);
         break;
     case SETTING::INVERT_DRAG_ZOOM_DIRECTION:
         settings.setValue(SETTING_INVERT_DRAG_ZOOM_DIRECTION, value);

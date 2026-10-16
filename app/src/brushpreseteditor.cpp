@@ -112,8 +112,8 @@ QImage PresetSampler::paint(QSize size)
 }
 
 BrushPresetEditor::BrushPresetEditor(const BrushPresets& presets, const QString& source, const QString& name,
-                                     const QString& original, QWidget* parent)
-    : QDialog(parent), mPresets(presets), mOriginal(original)
+                                     const QString& original, const QString& tool, QWidget* parent)
+    : QDialog(parent), mPresets(presets), mOriginal(original), mTool(source.isEmpty() ? tool : presets.tool(source))
 {
     setWindowTitle(tr("Brush Preset"));
     mSampler = std::make_unique<PresetSampler>(palette().color(QPalette::Text));
@@ -285,6 +285,7 @@ QString BrushPresetEditor::settingLabel(int key, const QString& identifier)
     case StrokeToolProperties::TAPER_START_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Start taper");
     case StrokeToolProperties::TAPER_END_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "End taper");
     case StrokeToolProperties::GRAIN_MODE_VALUE: return tr("Grain (0 off, 1 paper, 2 moving)");
+    case StrokeToolProperties::GRAIN_TEXTURE_VALUE: return tr("Grain texture (0 generated, 1-5 paper)");
     case StrokeToolProperties::GRAIN_SCALE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain scale");
     case StrokeToolProperties::GRAIN_CONTRAST_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain contrast");
     case StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain brightness");
@@ -328,7 +329,7 @@ bool BrushPresetEditor::save()
         return false;
     }
     applyCurve();
-    if (!mPresets.save(newName, *mSampler->brush, mDescription->text().trimmed()))
+    if (!mPresets.save(newName, *mSampler->brush, mDescription->text().trimmed(), mTool))
     {
         mMessage->setText(tr("Cannot write the brush preset %1.").arg(newName));
         return false;

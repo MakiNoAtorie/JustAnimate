@@ -30,6 +30,10 @@ ColorWheel::ColorWheel(QWidget* parent) : QWidget(parent)
     setWindowTitle(tr("Color Wheel", "Color Wheel's window title"));
     mCurrentColor = mCurrentColor.toHsv();
     setMinimumHeight(100);
+
+    mRebuildTimer.setSingleShot(true);
+    mRebuildTimer.setInterval(100);
+    connect(&mRebuildTimer, &QTimer::timeout, this, &ColorWheel::rebuild);
 }
 
 QColor ColorWheel::color()
@@ -167,11 +171,25 @@ void ColorWheel::mouseReleaseEvent(QMouseEvent *)
     emit colorSelected(mCurrentColor);
 }
 
-void ColorWheel::resizeEvent(QResizeEvent* event)
+void ColorWheel::resizeEvent(QResizeEvent*)
 {
-    mWheelPixmap = QPixmap(event->size());
+    // First size builds at once; later sizes scale the last image until the resize stops.
+    if (mWheelPixmap.isNull())
+    {
+        rebuild();
+        return;
+    }
+    mRebuildTimer.start();
+    update();
+}
+
+void ColorWheel::rebuild()
+{
+    mRebuildTimer.stop();
+    ++mRebuildCount;
+    mWheelPixmap = QPixmap(size());
     mWheelPixmap.fill(Qt::transparent);
-    drawWheelImage(event->size());
+    drawWheelImage(size());
     drawSquareImage(mCurrentColor.hue());
 
     update();
@@ -184,6 +202,16 @@ void ColorWheel::paintEvent(QPaintEvent* event)
     painter.begin(this);
     QStyleOption opt;
     opt.initFrom(this);
+
+    if (mRebuildTimer.isActive())
+    {
+        qreal scale = static_cast<qreal>(qMin(width(), height())) / qMin(mWheelPixmap.width(), mWheelPixmap.height());
+        QSizeF target = QSizeF(mWheelPixmap.size()) * scale;
+        painter.drawPixmap(QRectF(QPointF((width() - target.width()) / 2, (height() - target.height()) / 2), target),
+                           mWheelPixmap, mWheelPixmap.rect());
+        style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
+        return;
+    }
 
     composeWheel(mWheelPixmap, event->rect());
     painter.translate(width() / 2, height() / 2);

@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Layer / Keyframe Opacity</string>
+   <string>Layer / Drawing Opacity</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
@@ -86,7 +86,7 @@
       <item>
        <widget class="QRadioButton" name="rbActiveKeyframe">
         <property name="text">
-         <string>Active keyframe</string>
+         <string>Active Drawing</string>
         </property>
         <property name="checked">
          <bool>true</bool>
@@ -96,7 +96,7 @@
       <item>
        <widget class="QRadioButton" name="rbSelectedKeyframes">
         <property name="text">
-         <string>Selected keyframe(s)</string>
+         <string>Selected Drawing(s)</string>
         </property>
        </widget>
       </item>
@@ -119,7 +119,7 @@
       <item>
        <widget class="QPushButton" name="btnFadeIn">
         <property name="toolTip">
-         <string>Fade in over selcted keyframes</string>
+         <string>Fade in over selected Drawings</string>
         </property>
         <property name="text">
          <string>Fade in</string>
@@ -132,7 +132,7 @@
       <item>
        <widget class="QPushButton" name="btnFadeOut">
         <property name="toolTip">
-         <string>Fade out over selected keyframes</string>
+         <string>Fade out over selected Drawings</string>
         </property>
         <property name="text">
          <string>Fade out</string>

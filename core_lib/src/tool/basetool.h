@@ -107,6 +107,8 @@ protected:
     Editor* editor() { return mEditor; }
     /// Maps a new curve from canvas space into the space of the current key, which the key's tween state moves.
     void mapCurveToKey(BezierCurve& curve) const;
+    /// Maps canvas space into the space of the current key at the current frame.
+    QTransform canvasToKey() const;
     QHash<int, QSet<Layer::LAYER_TYPE>> mPropertyUsed;
 
     Editor* mEditor = nullptr;

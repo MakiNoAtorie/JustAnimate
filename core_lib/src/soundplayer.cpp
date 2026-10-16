@@ -34,6 +34,8 @@ SoundPlayer::~SoundPlayer()
     // Qt Multimedia's DirectShow backend segfaults when it is destroyed while paused
     stop();
 #endif
+    // Members die before child objects: delete the player while mBuffer, its source device, still exists.
+    delete mMediaPlayer;
 }
 
 void SoundPlayer::init(SoundClip* clip)

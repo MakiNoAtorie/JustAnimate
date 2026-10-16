@@ -47,6 +47,7 @@ GNU General Public License for more details.
 // core_lib headers
 #include "pencildef.h"
 #include "platformhandler.h"
+#include "theme.h"
 #include "pencilsettings.h"
 #include "object.h"
 #include "editor.h"
@@ -91,6 +92,7 @@ GNU General Public License for more details.
 #include "layeropacitydialog.h"
 #include "recentfilemenu.h"
 #include "shortcutfilter.h"
+#include "commandsearch.h"
 #include "app_util.h"
 #include "welcomedialog.h"
 #include "welcomehelper.h"
@@ -119,11 +121,78 @@ namespace {
 
 
 
+void MainWindow2::setIcons()
+{
+    const std::pair<QAction*, const char*> icons[] = {
+        { ui->menuZoom->menuAction(), "zoom" },
+        { ui->menuPerspectiveLinesAngle->menuAction(), "angle" },
+        { ui->actionNew, "file-plus" },
+        { ui->actionOpen, "folder-open" },
+        { ui->actionSave, "device-floppy" },
+        { ui->actionSave_as, "device-floppy" },
+        { ui->actionUndo, "arrow-back-up" },
+        { ui->actionRedo, "arrow-forward-up" },
+        { ui->actionCut, "cut" },
+        { ui->actionCopy, "copy" },
+        { ui->actionPaste, "clipboard" },
+        { ui->actionClearFrame, "clear-all" },
+        { ui->actionZoom_In, "zoom-in" },
+        { ui->actionZoom_Out, "zoom-out" },
+        { ui->actionReset_View, "focus-centered" },
+        { ui->actionHorizontal_Flip, "flip-vertical" },
+        { ui->actionVertical_Flip, "flip-horizontal" },
+        { ui->actionGrid, "grid-4x4" },
+        { ui->actionOnionSkin, "stack-2" },
+        { ui->actionOnionPrev, "stack-back" },
+        { ui->actionOnionNext, "stack-front" },
+        { ui->actionLoop, "repeat" },
+        { ui->actionAdd_Frame, "square-plus" },
+        { ui->actionDuplicate_Frame, "copy-plus" },
+        { ui->actionRemove_Frame, "square-minus" },
+        { ui->actionNext_KeyFrame, "player-track-next" },
+        { ui->actionPrev_KeyFrame, "player-track-prev" },
+        { ui->actionMove, "arrows-move" },
+        { ui->actionSelect, "marquee-2" },
+        { ui->actionBrush, "brush" },
+        { ui->actionPolyline, "polygon" },
+        { ui->actionShape, "shape" },
+        { ui->actionLassoFill, "lasso" },
+        { ui->actionSmudge, "hand-finger" },
+        { ui->actionPen, "ballpen" },
+        { ui->actionHand, "hand-stop" },
+        { ui->actionRotateView, "rotate-clockwise-2" },
+        { ui->actionPencil, "pencil" },
+        { ui->actionBucket, "bucket-droplet" },
+        { ui->actionEyedropper, "color-picker" },
+        { ui->actionEraser, "eraser" },
+        { ui->actionNew_Bitmap_Layer, "photo" },
+        { ui->actionNew_Vector_Layer, "vector" },
+        { ui->actionNew_Sound_Layer, "volume" },
+        { ui->actionNew_Camera_Layer, "video" },
+        { ui->actionDelete_Current_Layer, "minus" },
+        { ui->actionShowInvisibleLines, "line-dotted" },
+        { ui->actionShowOutlinesOnly, "border-outer" },
+        { ui->actionCenter, "crosshair" },
+        { ui->actionThirds, "grid-3x3" },
+        { ui->actionGoldenRatio, "spiral" },
+        { ui->actionSafeAreas, "frame" },
+        { ui->actionOnePointPerspective, "perspective" },
+        { ui->actionTwoPointPerspective, "box" },
+        { ui->actionThreePointPerspective, "cube" },
+    };
+    for (const auto& [action, name] : icons)
+        action->setIcon(Theme::icon(QStringLiteral(":/icons/tabler/%1.svg").arg(name)));
+    mStartIcon = Theme::icon(":/icons/tabler/player-play.svg");
+    mStopIcon = Theme::icon(":/icons/tabler/player-stop.svg");
+    ui->actionPlay->setIcon(mStartIcon);
+}
+
 MainWindow2::MainWindow2(QWidget* parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow2)
 {
     ui->setupUi(this);
+    setIcons();
 
     // Initialize order
     // 1. editor 2. object 3. scribble area 4. other widgets
@@ -145,8 +214,8 @@ MainWindow2::MainWindow2(QWidget* parent) :
     mCommands->setCore(mEditor);
 
     createDockWidgets();
-    createMenus();
     createToolbars();
+    createMenus();
     setupKeyboardShortcuts();
     // A shortcut mid-stroke can land the stroke on another frame, layer or tool.
     (new ShortcutFilter(ui->scribbleArea, this))->installOnActions(this);
@@ -217,8 +286,6 @@ void MainWindow2::createDockWidgets()
         << mToolOptions
         << mToolBox;
 
-    mStartIcon = QIcon(":icons/controls/play.png");
-    mStopIcon = QIcon(":icons/controls/stop.png");
 
     for (BaseDockWidget* pWidget : mDockWidgets)
     {
@@ -330,6 +397,7 @@ void MainWindow2::createMenus()
     connect(ui->actionDeselect_All, &QAction::triggered, mCommands, &ActionCommands::deselectAll);
     connect(ui->actionReposition_Selected_Frames, &QAction::triggered, this, &MainWindow2::openRepositionDialog);
     connect(ui->actionPreference, &QAction::triggered, [=] { preferences(); });
+    connect(ui->actionCommandSearch, &QAction::triggered, this, &MainWindow2::openCommandSearch);
 
     //--- Layer Menu ---
     connect(ui->actionNew_Bitmap_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewBitmapLayer);
@@ -407,6 +475,15 @@ void MainWindow2::createMenus()
     bindPreferenceSetting(ui->actionShowInvisibleLines, prefs, SETTING::INVISIBLE_LINES);
     bindPreferenceSetting(ui->actionOnionPrev, prefs, SETTING::PREV_ONION);
     bindPreferenceSetting(ui->actionOnionNext, prefs, SETTING::NEXT_ONION);
+    const auto syncOnionSkin = [this, prefs] {
+        QSignalBlocker block(ui->actionOnionSkin);
+        ui->actionOnionSkin->setChecked(prefs->isOn(SETTING::PREV_ONION) || prefs->isOn(SETTING::NEXT_ONION));
+    };
+    syncOnionSkin();
+    connect(prefs, &PreferenceManager::optionChanged, this, [syncOnionSkin](SETTING s) {
+        if (s == SETTING::PREV_ONION || s == SETTING::NEXT_ONION) { syncOnionSkin(); }
+    });
+    connect(ui->actionOnionSkin, &QAction::triggered, mEditor, &Editor::toggleOnionSkin);
 
     bool enableSafeArea = (prefs->isOn(SETTING::ACTION_SAFE_ON) || prefs->isOn(SETTING::TITLE_SAFE_ON));
     ui->actionSafeAreas->setEnabled(enableSafeArea);
@@ -448,6 +525,7 @@ void MainWindow2::createMenus()
     //--- Animation Menu ---
     PlaybackManager* pPlaybackManager = mEditor->playback();
     connect(ui->actionPlay, &QAction::triggered, mCommands, &ActionCommands::PlayStop);
+    connect(ui->actionPlay_Around, &QAction::triggered, pPlaybackManager, &PlaybackManager::playAround);
 
     connect(ui->actionLoop, &QAction::triggered, pPlaybackManager, &PlaybackManager::setLooping);
     connect(ui->actionLoopControl, &QAction::triggered, pPlaybackManager, &PlaybackManager::enableRangedPlayback);
@@ -460,6 +538,14 @@ void MainWindow2::createMenus()
     connect(pPlaybackManager, &PlaybackManager::playStateChanged, ui->scribbleArea, &ScribbleArea::onPlayStateChanged);
     connect(ui->actionFlip_inbetween, &QAction::triggered, pPlaybackManager, &PlaybackManager::playFlipInBetween);
     connect(ui->actionFlip_rolling, &QAction::triggered, pPlaybackManager, &PlaybackManager::playFlipRoll);
+    const std::pair<QAction*, Mark> markActions[] = { { ui->actionMark_Key, Mark::Key },
+        { ui->actionMark_Breakdown, Mark::Breakdown }, { ui->actionMark_Inbetween, Mark::Inbetween },
+        { ui->actionClear_Mark, Mark::None } };
+    for (const auto& [action, mark] : markActions)
+    {
+        connect(action, &QAction::triggered, this, [this, mark = mark] { mEditor->layers()->setKeyMark(mEditor->currentFrame(), mark); });
+    }
+    mTimeLine->setMarkActions({ ui->actionMark_Key, ui->actionMark_Breakdown, ui->actionMark_Inbetween, ui->actionClear_Mark });
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
@@ -470,6 +556,8 @@ void MainWindow2::createMenus()
     };
     connect(ui->actionRipple_Insert_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleInsertFrame); });
     connect(ui->actionRipple_Delete_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleRemoveFrame); });
+    connect(ui->actionExposure_Add, &QAction::triggered, this, [this] { mEditor->layers()->changeExposure(mEditor->currentFrame(), 1); });
+    connect(ui->actionExposure_Subtract, &QAction::triggered, this, [this] { mEditor->layers()->changeExposure(mEditor->currentFrame(), -1); });
     connect(ui->actionAdd_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::addExposureToSelectedFrames);
     connect(ui->actionSubtract_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::subtractExposureFromSelectedFrames);
     connect(ui->actionHold_1s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(1, true); });
@@ -499,6 +587,7 @@ void MainWindow2::createMenus()
     toolsActionGroup->addAction(ui->actionSmudge);
     toolsActionGroup->addAction(ui->actionPen);
     toolsActionGroup->addAction(ui->actionHand);
+    toolsActionGroup->addAction(ui->actionRotateView);
     toolsActionGroup->addAction(ui->actionPencil);
     toolsActionGroup->addAction(ui->actionBucket);
     toolsActionGroup->addAction(ui->actionEyedropper);
@@ -515,6 +604,7 @@ void MainWindow2::createMenus()
         else if (action == ui->actionSmudge) mToolBox->setActiveTool(SMUDGE);
         else if (action == ui->actionPen) mToolBox->setActiveTool(PEN);
         else if (action == ui->actionHand) mToolBox->setActiveTool(HAND);
+        else if (action == ui->actionRotateView) mToolBox->setActiveTool(ROTATE);
         else if (action == ui->actionPencil) mToolBox->setActiveTool(PENCIL);
         else if (action == ui->actionBucket) mToolBox->setActiveTool(BUCKET);
         else if (action == ui->actionEyedropper) mToolBox->setActiveTool(EYEDROPPER);
@@ -559,11 +649,11 @@ void MainWindow2::createMenus()
     for (QAction* action : actions)
     {
         action->setMenuRole(QAction::NoRole);
-        winMenu->insertAction(ui->menuToolbars->menuAction(), action);
+        winMenu->insertAction(mCommandBar->toggleViewAction(), action);
     }
-    winMenu->insertSeparator(ui->menuToolbars->menuAction());
+    winMenu->insertSeparator(mCommandBar->toggleViewAction());
 
-    QMenu* workspaceMenu = new QMenu(tr("Workspace"), winMenu);
+    QMenu* workspaceMenu = new QMenu(tr("Layout"), winMenu);
     auto* workspaceGroup = new QActionGroup(this);
     QSettings& workspaceSettings = pencilSettings();
     for (const QString& name : workspaceNames())
@@ -575,7 +665,9 @@ void MainWindow2::createMenus()
         workspaceGroup->addAction(a);
     }
     connect(workspaceGroup, &QActionGroup::triggered, this, [this](QAction* a) { switchToWorkspace(a->data().toString()); });
-    winMenu->insertMenu(ui->menuToolbars->menuAction(), workspaceMenu);
+    workspaceMenu->addSeparator();
+    workspaceMenu->addAction(ui->actionResetWindows);
+    winMenu->insertMenu(mCommandBar->toggleViewAction(), workspaceMenu);
     connect(ui->actionResetWindows, &QAction::triggered, this, &MainWindow2::resetAndDockAllSubWidgets);
     connect(ui->actionLockWindows, &QAction::toggled, this, &MainWindow2::lockWidgets);
     bindPreferenceSetting(ui->actionLockWindows, prefs, SETTING::LAYOUT_LOCK);
@@ -1158,6 +1250,13 @@ void MainWindow2::lockWidgets(bool shouldLock)
     }
 }
 
+void MainWindow2::openCommandSearch()
+{
+    CommandSearch* search = new CommandSearch(collectCommands(menuBar()), this);
+    search->setAttribute(Qt::WA_DeleteOnClose);
+    search->open();
+}
+
 void MainWindow2::preferences()
 {
     if (mPrefDialog)
@@ -1194,7 +1293,8 @@ void MainWindow2::resetAndDockAllSubWidgets()
 
 DefaultDockLayout MainWindow2::dockLayout() const
 {
-    return {{mToolBox, mToolOptions, mBrushPresets, mOnionSkinWidget}, {mColorBox, mColorInspector, mColorPalette}, mTimeLine};
+    return {mToolOptions, {mToolBox}, {mBrushPresets, mColorBox, mColorPalette}, mTimeLine,
+            {{mColorPalette, mColorInspector}, {mTimeLine, mOnionSkinWidget}}};
 }
 
 QSize MainWindow2::availableScreenSize() const
@@ -1349,8 +1449,8 @@ void MainWindow2::readSettings()
     QVariant winGeometry = settings.value(SETTING_WINDOW_GEOMETRY);
     restoreGeometry(winGeometry.toByteArray());
 
-    QVariant winState = settings.value(SETTING_WINDOW_STATE);
-    restoreState(winState.toByteArray());
+    dropOutdatedLayouts(settings);
+    restoreState(settings.value(SETTING_WINDOW_STATE).toByteArray());
 
     int opacity = mEditor->preference()->getInt(SETTING::WINDOW_OPACITY);
     setOpacity(100 - opacity);
@@ -1415,6 +1515,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionDeselect_All->setShortcut(cmdKeySeq(CMD_DESELECT_ALL));
     ui->actionPegbarAlignment->setShortcut(cmdKeySeq(CMD_PEGBAR_ALIGNMENT));
     ui->actionPreference->setShortcut(cmdKeySeq(CMD_PREFERENCE));
+    ui->actionCommandSearch->setShortcut(cmdKeySeq(CMD_COMMAND_SEARCH));
 
     // View menu
     ui->actionResetWindows->setShortcut(cmdKeySeq(CMD_RESET_WINDOWS));
@@ -1443,12 +1544,14 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionOnePointPerspective->setShortcut(cmdKeySeq(CMD_OVERLAY_ONE_POINT_PERSPECTIVE));
     ui->actionTwoPointPerspective->setShortcut(cmdKeySeq(CMD_OVERLAY_TWO_POINT_PERSPECTIVE));
     ui->actionThreePointPerspective->setShortcut(cmdKeySeq(CMD_OVERLAY_THREE_POINT_PERSPECTIVE));
+    ui->actionOnionSkin->setShortcut(cmdKeySeq(CMD_ONIONSKIN));
     ui->actionOnionPrev->setShortcut(cmdKeySeq(CMD_ONIONSKIN_PREV));
     ui->actionOnionNext->setShortcut(cmdKeySeq(CMD_ONIONSKIN_NEXT));
     ui->actionStatusBar->setShortcut(cmdKeySeq(CMD_TOGGLE_STATUS_BAR));
 
     // Animation menu
     ui->actionPlay->setShortcut(cmdKeySeq(CMD_PLAY));
+    ui->actionPlay_Around->setShortcut(cmdKeySeq(CMD_PLAY_AROUND));
     ui->actionLoop->setShortcut(cmdKeySeq(CMD_LOOP));
     ui->actionLoopControl->setShortcut(cmdKeySeq(CMD_LOOP_CONTROL));
     ui->actionPrevious_Frame->setShortcut(cmdKeySeq(CMD_GOTO_PREV_FRAME));
@@ -1460,6 +1563,8 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionRemove_Frame->setShortcut(cmdKeySeq(CMD_REMOVE_FRAME));
     ui->actionRipple_Insert_Frame->setShortcut(cmdKeySeq(CMD_RIPPLE_INSERT_FRAME));
     ui->actionRipple_Delete_Frame->setShortcut(cmdKeySeq(CMD_RIPPLE_DELETE_FRAME));
+    ui->actionExposure_Add->setShortcut(cmdKeySeq(CMD_EXPOSURE_ADD));
+    ui->actionExposure_Subtract->setShortcut(cmdKeySeq(CMD_EXPOSURE_SUBTRACT));
     ui->actionAdd_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_ADD_FRAME_EXPOSURE));
     ui->actionSubtract_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_SUBTRACT_FRAME_EXPOSURE));
     ui->actionHold_1s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_1S));
@@ -1472,6 +1577,10 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionMove_Frame_Forward->setShortcut(cmdKeySeq(CMD_MOVE_FRAME_FORWARD));
     ui->actionFlip_inbetween->setShortcut(cmdKeySeq(CMD_FLIP_INBETWEEN));
     ui->actionFlip_rolling->setShortcut(cmdKeySeq(CMD_FLIP_ROLLING));
+    ui->actionMark_Key->setShortcut(cmdKeySeq(CMD_MARK_KEY));
+    ui->actionMark_Breakdown->setShortcut(cmdKeySeq(CMD_MARK_BREAKDOWN));
+    ui->actionMark_Inbetween->setShortcut(cmdKeySeq(CMD_MARK_INBETWEEN));
+    ui->actionClear_Mark->setShortcut(cmdKeySeq(CMD_MARK_CLEAR));
     ui->actionReposition_Selected_Frames->setShortcut(cmdKeySeq(CMD_SELECTION_REPOSITION_FRAMES));
 
     ui->actionMove->setShortcut(cmdKeySeq(CMD_TOOL_MOVE));
@@ -1483,6 +1592,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionSmudge->setShortcut(cmdKeySeq(CMD_TOOL_SMUDGE));
     ui->actionPen->setShortcut(cmdKeySeq(CMD_TOOL_PEN));
     ui->actionHand->setShortcut(cmdKeySeq(CMD_TOOL_HAND));
+    ui->actionRotateView->setShortcut(cmdKeySeq(CMD_TOOL_ROTATE));
     ui->actionPencil->setShortcut(cmdKeySeq(CMD_TOOL_PENCIL));
     ui->actionBucket->setShortcut(cmdKeySeq(CMD_TOOL_BUCKET));
     ui->actionEyedropper->setShortcut(cmdKeySeq(CMD_TOOL_EYEDROPPER));
@@ -1843,55 +1953,36 @@ bool MainWindow2::startProjectRecovery(const QString recoverPath)
 
 void MainWindow2::createToolbars()
 {
-    mMainToolbar = addToolBar(tr("Main Toolbar"));
-    mMainToolbar->setObjectName("mMainToolbar");
-    mMainToolbar->addAction(ui->actionNew);
-    mMainToolbar->addAction(ui->actionOpen);
-    mMainToolbar->addAction(ui->actionSave);
-    mMainToolbar->addSeparator();
-    mMainToolbar->addAction(ui->actionUndo);
-    mMainToolbar->addAction(ui->actionRedo);
-    mMainToolbar->addSeparator();
-    mMainToolbar->addAction(ui->actionCut);
-    mMainToolbar->addAction(ui->actionCopy);
-    mMainToolbar->addAction(ui->actionPaste);
-    mMainToolbar->addAction(ui->actionClearFrame);
-
-    mViewToolbar = addToolBar(tr("View Toolbar"));
-    mViewToolbar->setObjectName("mViewToolbar");
-    mViewToolbar->addAction(ui->actionZoom_In);
-    mViewToolbar->addAction(ui->actionZoom_Out);
-    mViewToolbar->addAction(ui->actionReset_View);
-    mViewToolbar->addSeparator();
-    mViewToolbar->addAction(ui->actionHorizontal_Flip);
-    mViewToolbar->addAction(ui->actionVertical_Flip);
-    mViewToolbar->addSeparator();
-    mViewToolbar->addAction(ui->actionShowInvisibleLines);
-    mViewToolbar->addAction(ui->actionShowOutlinesOnly);
-
-    mOverlayToolbar = addToolBar(tr("Overlay Toolbar"));
-    mOverlayToolbar->setObjectName("mOverlayToolbar");
-    mOverlayToolbar->addAction(ui->actionGrid);
-    mOverlayToolbar->addAction(ui->actionCenter);
-    mOverlayToolbar->addAction(ui->actionThirds);
-    mOverlayToolbar->addAction(ui->actionGoldenRatio);
-    mOverlayToolbar->addAction(ui->actionSafeAreas);
-    mOverlayToolbar->addAction(ui->actionOnePointPerspective);
-    mOverlayToolbar->addAction(ui->actionTwoPointPerspective);
-    mOverlayToolbar->addAction(ui->actionThreePointPerspective);
-    mOverlayToolbar->setIconSize(QSize(22,22));
-    mViewToolbar->setIconSize(QSize(22,22));
-    mMainToolbar->setIconSize(QSize(22,22));
+    mCommandBar = addToolBar(tr("Command bar"));
+    mCommandBar->setObjectName("CommandBar");
+    mCommandBar->setIconSize(QSize(22,22));
+    const std::initializer_list<QAction*> groups[] = {
+        { ui->actionNew, ui->actionOpen, ui->actionSave },
+        { ui->actionUndo, ui->actionRedo },
+        { ui->actionCut, ui->actionCopy, ui->actionPaste, ui->actionClearFrame },
+        { ui->actionZoom_In, ui->actionZoom_Out, ui->actionReset_View },
+        { ui->actionHorizontal_Flip, ui->actionVertical_Flip },
+        { ui->actionShowInvisibleLines, ui->actionShowOutlinesOnly },
+        { ui->actionGrid, ui->actionCenter, ui->actionThirds, ui->actionGoldenRatio, ui->actionSafeAreas,
+          ui->actionOnePointPerspective, ui->actionTwoPointPerspective, ui->actionThreePointPerspective },
+    };
+    for (const auto& group : groups)
+    {
+        if (!mCommandBar->actions().isEmpty()) { mCommandBar->addSeparator(); }
+        mCommandBar->addActions(group);
+    }
 
     QToolButton* perspectiveLinesAngleButton = new QToolButton(this);
     perspectiveLinesAngleButton->setDefaultAction(ui->menuPerspectiveLinesAngle->menuAction());
     perspectiveLinesAngleButton->setPopupMode(QToolButton::InstantPopup);
-    mOverlayToolbar->addWidget(perspectiveLinesAngleButton);
+    mCommandBar->addWidget(perspectiveLinesAngleButton);
 
-    mToolbars = { mMainToolbar, mViewToolbar, mOverlayToolbar };
+    CommandSearchField* searchField = new CommandSearchField(this);
+    connect(searchField, &CommandSearchField::activated, this, &MainWindow2::openCommandSearch);
+    QWidget* spacer = new QWidget(this);
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    mCommandBar->addWidget(spacer);
+    mCommandBar->addWidget(searchField);
 
-    for (QToolBar* tb : mToolbars)
-    {
-        ui->menuToolbars->addAction(tb->toggleViewAction());
-    }
+    ui->menuWindows->insertAction(ui->actionStatusBar, mCommandBar->toggleViewAction());
 }

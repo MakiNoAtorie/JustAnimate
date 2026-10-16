@@ -73,6 +73,20 @@ public:
 
     void stopSounds();
 
+    // Pen-drag Flip: while the Flip key is held, a horizontal pen drag steps through Drawings.
+    static constexpr int kPenFlipPixels = 20; // viewport pixels per Drawing
+    void beginPenFlip();
+    void penFlipPress(qreal x);
+    void penFlipMove(qreal x);
+    void endPenFlip();
+    bool isPenFlipping() const { return mPenFlipOrigin > 0; }
+
+    // Play-around: loops playhead - N to playhead + N; stopping returns to the playhead.
+    void playAround(); // toggles
+    int playAroundFrames() const { return mPlayAroundFrames; }
+    void setPlayAroundFrames(int n);
+    void setLoopRange(int from, int to); // also turns on the range and Loop
+
 private slots:
     void stopScrubPlayback();
 
@@ -83,11 +97,13 @@ signals:
     void speedChanged(double speed);
     void rangedPlaybackStateChanged(bool b);
     void playStateChanged(bool isPlaying);
+    void soundStarted(SoundClip* clip, qint64 ms);
 
 private:
     void timerTick();
     void flipTimerTick();
     void playSounds(int frame);
+    void startSound(SoundClip* clip, int frame);
     bool skipFrame();
 
     int mStartFrame = 1;
@@ -122,9 +138,15 @@ private:
     int mPlayingFrameCounter = 0; // how many frames has passed after pressing play
 
     bool mCheckForSoundsHalfway = false;
-    QVector<int> mListOfActiveSoundFrames;
     QVector<SoundClip*> mSoundclipsToPLay;
     QVector<int> mFlipList;
+
+    int mPenFlipOrigin = 0; // frame the flip started on; 0 = not flipping
+    int mPenFlipDragFrame = 0;
+    qreal mPenFlipDragX = 0;
+
+    int mPlayAroundFrames = 5;
+    int mPlayAroundOrigin = 0; // 0 = not playing around
 };
 
 #endif // PLAYBACKMANAGER_H

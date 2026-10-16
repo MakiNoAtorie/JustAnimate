@@ -434,6 +434,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
         SMUDGE_RADIUS_VALUE      = 132,
         SMUDGE_COLOR_RATE_VALUE  = 133,
         SMUDGE_MIX_VALUE         = 134,
+        GRAIN_TEXTURE_VALUE      = 135,
 
         END                = 199,
     };
@@ -476,7 +477,8 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { SMUDGE_LENGTH_VALUE,   "SmudgeLength" },
             { SMUDGE_RADIUS_VALUE,   "SmudgeRadius" },
             { SMUDGE_COLOR_RATE_VALUE, "SmudgeColorRate" },
-            { SMUDGE_MIX_VALUE,      "SmudgeMix" }
+            { SMUDGE_MIX_VALUE,      "SmudgeMix" },
+            { GRAIN_TEXTURE_VALUE,   "GrainTexture" }
         });
     }
 
@@ -513,6 +515,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
     int taperStart() const { return getInfo(TAPER_START_VALUE).intValue(); } // canvas px, 0 = off
     int taperEnd() const { return getInfo(TAPER_END_VALUE).intValue(); } // canvas px, 0 = off
     int grainMode() const { return getInfo(GRAIN_MODE_VALUE).intValue(); } // 0 off, 1 fixed to the canvas, 2 moves with each dab
+    int grainTexture() const { return getInfo(GRAIN_TEXTURE_VALUE).intValue(); } // 0 generated, 1.. bundled paper
     int grainScale() const { return getInfo(GRAIN_SCALE_VALUE).intValue(); } // percent
     int grainContrast() const { return getInfo(GRAIN_CONTRAST_VALUE).intValue(); } // percent
     int grainBrightness() const { return getInfo(GRAIN_BRIGHTNESS_VALUE).intValue(); } // -100..100

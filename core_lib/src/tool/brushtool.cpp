@@ -69,6 +69,7 @@ void BrushTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_MODE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_TEXTURE_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_SCALE_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { Layer::BITMAP };
@@ -108,15 +109,6 @@ void BrushTool::loadSettings()
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
     mQuickSizingProperties.insert(Qt::ControlModifier, StrokeToolProperties::FEATHER_VALUE);
-}
-
-QCursor BrushTool::cursor()
-{
-    if (mEditor->preference()->isOn(SETTING::TOOL_CURSOR))
-    {
-        return QCursor(QPixmap(":icons/general/cursor-brush.svg"), 4, 14);
-    }
-    return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
 }
 
 void BrushTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)

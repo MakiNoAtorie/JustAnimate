@@ -227,6 +227,9 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     Layer* to = createLayer(from->type(), name);
     if (to == nullptr) { return nullptr; }
     to->setBlendMode(from->blendMode());
+    to->setVisible(from->visible());
+    to->setOnionSkin(from->onionSkin());
+    to->setRough(from->isRough());
     if (to->type() == Layer::BITMAP)
     {
         static_cast<LayerBitmap*>(to)->setLockAlpha(static_cast<LayerBitmap*>(from)->lockAlpha());
@@ -436,6 +439,14 @@ void LayerManager::setBlendMode(Layer* layer, BlendMode mode)
     notifyLayerChanged(layer);
 }
 
+void LayerManager::setRough(Layer* layer, bool rough)
+{
+    if (layer == nullptr || layer->isRough() == rough) { return; }
+    layer->setRough(rough);
+    editor()->undoRedo()->recordLayerRough(layer->id(), rough, tr("Rough Layer"));
+    notifyLayerChanged(layer);
+}
+
 // Moves layers [lo, hi] so the first lands at index t of the list without them.
 static void moveLayerBlock(LayerArrangement& a, int lo, int hi, int t)
 {
@@ -591,6 +602,24 @@ void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, c
     key->setTweenEasing(easing);
     key->setTweenState(state);
     editor()->undoRedo()->record(saveStateId, tr("Tween"));
+    notifyLayerChanged(layer);
+}
+
+void LayerManager::setKeyMark(int frame, Mark mark)
+{
+    Layer* layer = currentLayer();
+    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { return; }
+    KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    if (key == nullptr || key->mark() == mark) { return; }
+    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
+    const int playhead = editor()->currentFrame();
+    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
+    if (visit) { editor()->scrubTo(key->pos()); }
+
+    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    key->setMark(mark);
+    editor()->undoRedo()->record(saveStateId, mark == Mark::None ? tr("Clear Mark") : tr("Mark"));
+    if (visit) { editor()->scrubTo(playhead); }
     notifyLayerChanged(layer);
 }
 
@@ -776,6 +805,26 @@ bool LayerManager::rippleRemoveFrame()
     }
     shiftFramesAfter(this, undoRedo, layer, position, -1, description);
 
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+    return true;
+}
+
+bool LayerManager::changeExposure(int frame, int delta)
+{
+    Layer* layer = currentLayer(0);
+    if (layer == nullptr || !layer->visible()) { return false; }
+    const KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    if (key == nullptr) { return false; }
+    const int position = key->pos();
+    const int next = layer->getNextKeyFramePosition(position);
+    if (next <= position) { return false; }
+    const int length = next - position;
+    const int shift = qMax(1, length + delta) - length;
+    if (shift == 0) { return false; }
+
+    const QString description = shift > 0 ? tr("Add exposure") : tr("Subtract exposure");
+    shiftFramesAfter(this, editor()->undoRedo(), layer, position, shift, description);
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
     return true;

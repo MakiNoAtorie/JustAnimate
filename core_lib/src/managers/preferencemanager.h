@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "basemanager.h"
 #include "pencildef.h"
 #include "preferencesdef.h"
+#include "keyframe.h"
 
 class PreferenceManager : public BaseManager
 {
@@ -49,6 +50,11 @@ public:
     QString getString(SETTING option);
     int     getInt(SETTING option);
     float getFloat(SETTING option);
+
+    /// The Mark filter onion skin and Flip share: the saved Marks in Marked drawings mode, else one that passes every Drawing.
+    MarkFilter markFilter();
+    /// True when onion skin and Flip step by Drawing (absolute or Marked drawings mode), false when by frame.
+    bool isOnionAbsolute();
 
 signals:
     void optionChanged(SETTING e);
