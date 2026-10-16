@@ -15,6 +15,8 @@ GNU General Public License for more details.
 */
 
 #include "soundplayer.h"
+#include <QAudioBuffer>
+#include <QAudioDecoder>
 #include <QAudioOutput>
 #include <QMediaPlayer>
 #include <QFile>
@@ -50,6 +52,7 @@ void SoundPlayer::init(SoundClip* clip)
     mMediaPlayer->setAudioOutput(new QAudioOutput(this));
     mMediaPlayer->setSourceDevice(&mBuffer, QUrl::fromLocalFile(clip->fileName()));
     makeConnections();
+    decodeWaveform();
 
     clip->attachPlayer(this);
 }
@@ -121,4 +124,35 @@ void SoundPlayer::makeConnections()
         qDebug() << "MediaPlayer durationChanged :" << duration;
         emit durationChanged(this, duration);
     });
+}
+
+void SoundPlayer::decodeWaveform()
+{
+    auto decoder = new QAudioDecoder(this);
+    connect(decoder, &QAudioDecoder::bufferReady, this, [this, decoder]
+    {
+        const QAudioBuffer buffer = decoder->read();
+        const QAudioFormat format = buffer.format();
+        if (!format.isValid()) { return; }
+        mChannels = format.channelCount();
+        mSampleRate = format.sampleRate();
+        const char* data = buffer.constData<char>();
+        const qsizetype count = buffer.frameCount() * mChannels;
+        const int step = format.bytesPerSample();
+        mDecoded.reserve(mDecoded.size() + count);
+        for (qsizetype i = 0; i < count; i++)
+        {
+            mDecoded.append(format.normalizedSampleValue(data + i * step));
+        }
+    });
+    connect(decoder, &QAudioDecoder::finished, this, [this, decoder]
+    {
+        if (mSoundClip) { mSoundClip->setSamples(mDecoded, mChannels, mSampleRate); }
+        mDecoded = {};
+        decoder->deleteLater();
+        emit waveformReady(this);
+    });
+    connect(decoder, QOverload<QAudioDecoder::Error>::of(&QAudioDecoder::error), decoder, &QObject::deleteLater);
+    decoder->setSource(QUrl::fromLocalFile(mSoundClip->fileName()));
+    decoder->start();
 }

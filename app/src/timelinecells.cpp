@@ -42,6 +42,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "playbackmanager.h"
 #include "preferencemanager.h"
+#include "soundclip.h"
 #include "timeline.h"
 
 #include "cameracontextmenu.h"
@@ -599,7 +600,35 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
         }
 
         painter.drawRect(recLeft, recTop, recWidth, recHeight);
+
+        if (layer->type() == Layer::SOUND)
+        {
+            paintWaveform(painter, static_cast<const SoundClip*>(key), recTop, recHeight, frameSize);
+        }
     });
+}
+
+void TimeLineCells::paintWaveform(QPainter& painter, const SoundClip* clip, int recTop, int recHeight, int frameSize) const
+{
+    const QVector<SoundClip::Peak> peaks = clip->waveformPeaks(mEditor->fps());
+    if (peaks.isEmpty()) { return; }
+
+    painter.save();
+    painter.setPen(QColor(40, 40, 40, 160));
+    painter.setBrush(QColor(40, 40, 40, 110));
+    const qreal mid = recTop + recHeight / 2.0;
+    const qreal half = recHeight / 2.0 - 1;
+    const int firstVisible = qMax(0, getFrameNumber(0) - clip->pos());
+    const int lastVisible = qMin<int>(peaks.size() - 1, getFrameNumber(width()) - clip->pos());
+    for (int i = firstVisible; i <= lastVisible; i++)
+    {
+        // Peak i spans the cell of frame pos() + i.
+        const int left = getFrameX(clip->pos() + i) - frameSize + 1;
+        const qreal top = mid - peaks[i].max * half;
+        const qreal bottom = mid - peaks[i].min * half;
+        painter.drawRect(QRectF(left, top, frameSize - 2, qMax<qreal>(1, bottom - top)));
+    }
+    painter.restore();
 }
 
 void TimeLineCells::paintCurrentFrameBorder(QPainter &painter, int recLeft, int recTop, int recWidth, int recHeight) const

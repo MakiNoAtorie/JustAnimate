@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "layercamera.h"
 
 class Layer;
+class SoundClip;
 enum class LayerVisibility;
 class TimeLine;
 class QPaintEvent;
@@ -108,6 +109,7 @@ private:
     void paintLayerGutter(QPainter& painter) const;
     void paintTrack(QPainter& painter, const Layer* layer, int x, int y, int width, int height, bool selected, int frameSize) const;
     void paintFrames(QPainter& painter, QColor trackCol, const Layer* layer, int y, int height, bool selected, int frameSize) const;
+    void paintWaveform(QPainter& painter, const SoundClip* clip, int recTop, int recHeight, int frameSize) const;
     void paintCurrentFrameBorder(QPainter& painter, int recLeft, int recTop, int recWidth, int recHeight) const;
     void paintFrameCursorOnCurrentLayer(QPainter& painter, int recTop, int recWidth, int recHeight) const;
     void paintSelectedFrames(QPainter& painter, const Layer* layer, const int layerIndex) const;

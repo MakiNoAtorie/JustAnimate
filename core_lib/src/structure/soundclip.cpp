@@ -29,6 +29,7 @@ SoundClip::SoundClip()
 SoundClip::SoundClip(const SoundClip& s2) : KeyFrame(s2)
 {
     mOriginalSoundClipName = s2.mOriginalSoundClipName;
+    setSamples(s2.mSamples, s2.mChannels, s2.mSampleRate);
 }
 
 SoundClip::~SoundClip()
@@ -45,6 +46,8 @@ SoundClip& SoundClip::operator=(const SoundClip& a)
 
     KeyFrame::operator=(a);
     mOriginalSoundClipName = a.mOriginalSoundClipName;
+    // An undo copy taken before decoding finished must not erase the waveform.
+    if (a.hasSamples()) { setSamples(a.mSamples, a.mChannels, a.mSampleRate); }
     return *this;
 }
 
@@ -94,20 +97,51 @@ void SoundClip::play()
     }
 }
 
+qint64 SoundClip::msAtFrame(int frameNumber, int fps) const
+{
+    return qRound64((frameNumber - pos()) * 1000.0 / fps);
+}
+
 void SoundClip::playFromPosition(int frameNumber, int fps)
 {
-    int framesIntoSound = frameNumber;
-    if (pos() > 1)
-    {
-        framesIntoSound = frameNumber - pos();
-    }
-    qreal msPerFrame = 1000.0 / fps;
-    qint64 msIntoSound = qRound(framesIntoSound * msPerFrame);
     if (mPlayer)
     {
-        mPlayer->setMediaPlayerPosition(msIntoSound);
+        mPlayer->setMediaPlayerPosition(msAtFrame(frameNumber, fps));
         mPlayer->play();
     }
+}
+
+void SoundClip::setSamples(const QVector<float>& samples, int channels, int sampleRate)
+{
+    mSamples = samples;
+    mChannels = qMax(1, channels);
+    mSampleRate = sampleRate;
+    mPeaksFps = 0;
+}
+
+QVector<SoundClip::Peak> SoundClip::waveformPeaks(int fps) const
+{
+    if (fps <= 0 || mSampleRate <= 0) { return {}; }
+    if (fps == mPeaksFps) { return mPeaks; }
+
+    const qint64 frames = mSamples.size() / mChannels;
+    const qint64 count = (frames * fps + mSampleRate - 1) / mSampleRate;
+    QVector<Peak> peaks(count);
+    for (qint64 i = 0; i < count; i++)
+    {
+        // Integer bounds keep frame i at sample i * rate / fps with no drift.
+        const qint64 begin = i * mSampleRate / fps * mChannels;
+        const qint64 end = qMin<qint64>((i + 1) * mSampleRate / fps * mChannels, mSamples.size());
+        Peak& p = peaks[i];
+        for (qint64 s = begin; s < end; s++)
+        {
+            p.min = qMin(p.min, mSamples[s]);
+            p.max = qMax(p.max, mSamples[s]);
+        }
+    }
+    mPeaks = peaks;
+    mPeaksFps = fps;
+    return peaks;
 }
 
 void SoundClip::pause()

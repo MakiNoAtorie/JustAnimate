@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define SOUNDCLIP_H
 
 #include <memory>
+#include <QVector>
 #include "keyframe.h"
 
 class SoundPlayer;
@@ -52,7 +53,23 @@ public:
 
     void updateLength(int fps);
 
+    // Milliseconds into the sound at a timeline frame.
+    qint64 msAtFrame(int frameNumber, int fps) const;
+
+    struct Peak { float min = 0.f; float max = 0.f; };
+    // Decoded audio, interleaved and normalized to [-1, 1].
+    void setSamples(const QVector<float>& samples, int channels, int sampleRate);
+    bool hasSamples() const { return !mSamples.isEmpty(); }
+    // One min/max pair per frame from the clip start.
+    QVector<Peak> waveformPeaks(int fps) const;
+
 private:
+    QVector<float> mSamples;
+    int mChannels = 1;
+    int mSampleRate = 0;
+    mutable QVector<Peak> mPeaks;
+    mutable int mPeaksFps = 0;
+
     std::shared_ptr<SoundPlayer> mPlayer;
 
     QString mOriginalSoundClipName;
