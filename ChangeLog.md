@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Speed: hovering with the camera tool no longer clears the canvas caches on every mouse move (#132).
+- Export: movie and GIF export keep at most 4 unwritten frames in the ffmpeg pipe instead of queueing up to all frames in memory (#138).
 - Undo: bucket clicks that fill nothing, smudge clicks on an empty vector frame and strokes released by another device no longer leak an image copy each (#123).
 - Fixes: the camera tool Reset Scale button resets scale to 1 and keeps rotation (#131).
 - Settings: every access goes through pencilSettings(), and the test suite uses its own empty INI file instead of the real app settings (#168).
