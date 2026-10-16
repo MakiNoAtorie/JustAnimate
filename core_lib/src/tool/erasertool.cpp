@@ -107,11 +107,6 @@ void EraserTool::loadSettings()
     mQuickSizingProperties.insert(Qt::ControlModifier, StrokeToolProperties::FEATHER_VALUE);
 }
 
-QCursor EraserTool::cursor()
-{
-    return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
-}
-
 void EraserTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
     mScribbleArea->drawBrush(point,

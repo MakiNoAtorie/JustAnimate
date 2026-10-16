@@ -33,7 +33,6 @@ public:
     const StrokeToolProperties& strokeToolProperties() const override { return mSettings; }
 
     void loadSettings() override;
-    QCursor cursor() override;
 
     void pointerPressEvent(PointerEvent*) override;
     void pointerReleaseEvent(PointerEvent*) override;

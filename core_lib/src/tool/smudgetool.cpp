@@ -91,11 +91,6 @@ bool SmudgeTool::emptyFrameActionEnabled()
     return false;
 }
 
-QCursor SmudgeTool::cursor()
-{
-    return QCursor(QPixmap(":icons/general/cursor-smudge.svg"), 4, 18);
-}
-
 void SmudgeTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
     SmudgeSettings smudge;

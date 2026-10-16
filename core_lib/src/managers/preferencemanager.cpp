@@ -74,8 +74,14 @@ void PreferenceManager::loadPrefs()
     // General
     set(SETTING::ANTIALIAS,                settings.value(SETTING_ANTIALIAS,              true).toBool());
     set(SETTING::FAST_RENDER_LAYERS_ABOVE, settings.value(SETTING_FAST_RENDER_LAYERS_ABOVE, false).toBool());
-    set(SETTING::TOOL_CURSOR,              settings.value(SETTING_TOOL_CURSOR,            true).toBool());
-    set(SETTING::CANVAS_CURSOR,            settings.value(SETTING_CANVAS_CURSOR,          true).toBool());
+    if (!settings.contains(SETTING_CURSOR_STYLE) && settings.contains(SETTING_CANVAS_CURSOR))
+    {
+        // The tool icon cursor is gone: only the dotted-cursor key decides.
+        settings.setValue(SETTING_CURSOR_STYLE, settings.value(SETTING_CANVAS_CURSOR).toBool() ? CURSOR_BRUSH_OUTLINE : CURSOR_CROSS_ONLY);
+    }
+    settings.remove(SETTING_TOOL_CURSOR);
+    settings.remove(SETTING_CANVAS_CURSOR);
+    set(SETTING::CURSOR_STYLE,             settings.value(SETTING_CURSOR_STYLE,           CURSOR_BRUSH_OUTLINE).toInt());
     set(SETTING::HIGH_RESOLUTION,          settings.value(SETTING_HIGH_RESOLUTION,        true).toBool());
     set(SETTING::TABLET_WINTAB,            settings.value(SETTING_TABLET_WINTAB,          true).toBool());
     set(SETTING::SHADOW,                   settings.value(SETTING_SHADOW,                 false).toBool());
@@ -371,6 +377,9 @@ void PreferenceManager::set(SETTING option, int value)
     case SETTING::LAYER_VISIBILITY:
         settings.setValue(SETTING_LAYER_VISIBILITY, value);
         break;
+    case SETTING::CURSOR_STYLE:
+        settings.setValue(SETTING_CURSOR_STYLE, value);
+        break;
     case SETTING::DEFAULT_PRESET:
         settings.setValue(SETTING_DEFAULT_PRESET, value);
         break;
@@ -459,12 +468,6 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::ONION_RED:
         settings.setValue(SETTING_ONION_RED, value);
-        break;
-    case SETTING::TOOL_CURSOR:
-        settings.setValue(SETTING_TOOL_CURSOR, value);
-        break;
-    case SETTING::CANVAS_CURSOR:
-        settings.setValue(SETTING_CANVAS_CURSOR, value);
         break;
     case SETTING::HIGH_RESOLUTION:
         settings.setValue(SETTING_HIGH_RESOLUTION, value);

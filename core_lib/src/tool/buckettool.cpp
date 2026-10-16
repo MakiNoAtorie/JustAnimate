@@ -87,14 +87,7 @@ void BucketTool::loadSettings()
 
 QCursor BucketTool::cursor()
 {
-    if (mEditor->preference()->isOn(SETTING::TOOL_CURSOR))
-    {
-        return QCursor(QPixmap(":icons/general/cursor-bucket.svg"), 4, 16);
-    }
-    else
-    {
-        return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
-    }
+    return QCursor(QPixmap(":icons/general/cursor-bucket.svg"), 4, 16);
 }
 
 void BucketTool::pointerPressEvent(PointerEvent* event)

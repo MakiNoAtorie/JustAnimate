@@ -74,15 +74,6 @@ void PenTool::loadSettings()
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
 }
 
-QCursor PenTool::cursor()
-{
-    if (mEditor->preference()->isOn(SETTING::TOOL_CURSOR))
-    {
-        return QCursor(QPixmap(":icons/general/cursor-pen.svg"), 5, 14);
-    }
-    return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
-}
-
 void PenTool::pointerPressEvent(PointerEvent *event)
 {
     prepareInput(event->viewportPos());

@@ -110,15 +110,6 @@ void BrushTool::loadSettings()
     mQuickSizingProperties.insert(Qt::ControlModifier, StrokeToolProperties::FEATHER_VALUE);
 }
 
-QCursor BrushTool::cursor()
-{
-    if (mEditor->preference()->isOn(SETTING::TOOL_CURSOR))
-    {
-        return QCursor(QPixmap(":icons/general/cursor-brush.svg"), 4, 14);
-    }
-    return QCursor(QPixmap(":icons/general/cross.png"), 10, 10);
-}
-
 void BrushTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
     mScribbleArea->drawBrush(point,

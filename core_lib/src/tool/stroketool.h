@@ -65,6 +65,10 @@ public:
     bool handleQuickSizing(PointerEvent* event);
 
     void paint(QPainter& painter, const QRect& blitRect) override;
+    /// The cross; the Brush outline around it is painted by paint().
+    QCursor cursor() override;
+    /// Below this size on screen the Brush outline hides and only the cross shows.
+    static constexpr qreal OUTLINE_MIN_SCREEN_PX = 6.0;
 
     virtual void setSmoothingMode(int mode);
     virtual void setSmoothingStrength(int strength);
@@ -127,6 +131,8 @@ protected:
     QPointF getLastPoint() const;
 
     QRectF cursorRect(StrokeToolProperties::Type settingType, const QPointF& point);
+    /// The outline of one dab of the base width and tip at a canvas point.
+    QPainterPath brushOutline(const QPointF& point) const;
 
     static PropertyInfo smoothingModeInfo(SmoothingMode defaultMode);
     /// Sets smoothing from an old None/Simple/Strong stabilizer level.
@@ -156,7 +162,8 @@ protected:
     /// Returns true by default.
     virtual bool emptyFrameActionEnabled();
 
-    bool mCanvasCursorEnabled = false;
+    bool mCanvasCursorEnabled = true; // false while the pointer is off the canvas
+    bool mOutlineStyle = true; // SETTING::CURSOR_STYLE is CURSOR_BRUSH_OUTLINE
     QPointF mLastPixel { 0, 0 };
 
     StrokeInterpolator mInterpolator;

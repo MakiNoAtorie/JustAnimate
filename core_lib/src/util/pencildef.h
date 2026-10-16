@@ -253,8 +253,9 @@ const static int MaxFramesBound = 9999;
 #define SETTING_AUTO_SAVE_NUMBER    "AutosaveNumber"
 #define SETTING_AUTO_SAVE_BY_TIME       "AutoSaveByTime"
 #define SETTING_AUTO_SAVE_BY_TIME_TIMER "AutoSaveByTimeTimer"
-#define SETTING_TOOL_CURSOR         "ToolCursors"
-#define SETTING_CANVAS_CURSOR       "DottedCursors"
+#define SETTING_CURSOR_STYLE        "CursorStyle"
+#define SETTING_TOOL_CURSOR         "ToolCursors" // migrated to CursorStyle
+#define SETTING_CANVAS_CURSOR       "DottedCursors" // migrated to CursorStyle
 #define SETTING_HIGH_RESOLUTION     "HighResPosition"
 #define SETTING_TABLET_WINTAB       "TabletWinTab"
 #define SETTING_BACKGROUND_STYLE    "Background"

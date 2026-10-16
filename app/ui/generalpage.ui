@@ -96,17 +96,24 @@
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="toolCursorsBox">
+           <widget class="QLabel" name="cursorStyleLabel">
             <property name="text">
-             <string>Tool Cursors</string>
+             <string>Cursor</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="canvasCursorBox">
-            <property name="text">
-             <string>Canvas Cursor</string>
-            </property>
+           <widget class="QComboBox" name="cursorStyleBox">
+            <item>
+             <property name="text">
+              <string>Brush outline</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Cross only</string>
+             </property>
+            </item>
            </widget>
           </item>
          </layout>
@@ -603,8 +610,7 @@
   <tabstop>languageCombo</tabstop>
   <tabstop>windowOpacityLevel</tabstop>
   <tabstop>shadowsBox</tabstop>
-  <tabstop>toolCursorsBox</tabstop>
-  <tabstop>canvasCursorBox</tabstop>
+  <tabstop>cursorStyleBox</tabstop>
   <tabstop>checkerBackgroundButton</tabstop>
   <tabstop>whiteBackgroundButton</tabstop>
   <tabstop>greyBackgroundButton</tabstop>

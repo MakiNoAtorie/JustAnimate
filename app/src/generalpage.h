@@ -50,8 +50,6 @@ private slots:
     void languageChanged(int i);
     void shadowsCheckboxStateChanged(int b);
     void antiAliasCheckboxStateChanged(int b);
-    void toolCursorsCheckboxStateChanged(int b);
-    void canvasCursorCheckboxStateChanged(int b);
     void highResCheckboxStateChanged(int b);
     void tabletApiChanged(int index);
     void gridCheckBoxStateChanged(int b);

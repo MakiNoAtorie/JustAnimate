@@ -36,7 +36,6 @@ public:
     const StrokeToolProperties& strokeToolProperties() const override { return mSettings; }
 
     void loadSettings() override;
-    QCursor cursor() override;
 
     void paintVectorStroke(Layer* layer);
 

@@ -124,9 +124,6 @@ void ScribbleArea::settingUpdated(SETTING setting)
     case SETTING::CURVE_SMOOTHING:
         setCurveSmoothing(mPrefs->getInt(SETTING::CURVE_SMOOTHING));
         break;
-    case SETTING::TOOL_CURSOR:
-        updateToolCursor();
-        break;
     case SETTING::ONION_PREV_FRAMES_NUM:
     case SETTING::ONION_NEXT_FRAMES_NUM:
     case SETTING::ONION_MIN_OPACITY:

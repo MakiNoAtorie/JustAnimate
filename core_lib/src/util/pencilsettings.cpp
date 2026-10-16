@@ -52,7 +52,6 @@ void restoreToDefaultSetting() // TODO: finish reset list
     QSettings& s = pencilSettings();
 
     s.setValue(SETTING_AUTO_SAVE_NUMBER, 15);
-    s.setValue(SETTING_TOOL_CURSOR, true);
 
     s.sync();
     qDebug("restored default tools");
