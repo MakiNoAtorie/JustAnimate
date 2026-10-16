@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include <cmath>
 #include <QAbstractButton>
 #include <QAbstractSpinBox>
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QDockWidget>
@@ -211,6 +212,22 @@ TEST_CASE("Tab reaches every visible dock", "[Accessibility]")
         if (dock->isVisibleTo(&window)) CHECK(reached.contains(dock));
     }
 }
+TEST_CASE("Main window actions never say key frame", "[Accessibility]")
+{
+    MainWindow2 window;
+    QStringList bad;
+    for (QAction* a : window.findChildren<QAction*>())
+    {
+        for (const QString& s : { a->text(), a->toolTip(), a->statusTip() })
+        {
+            const QString t = s.toLower().remove('-').remove(' ');
+            if (t.contains("keyframe")) bad << a->objectName() + ": " + s;
+        }
+    }
+    INFO(bad.join("\n").toStdString());
+    CHECK(bad.isEmpty());
+}
+
 TEST_CASE("Timeline arrow keys move the frame and the layer", "[Accessibility]")
 {
     MainWindow2 window;

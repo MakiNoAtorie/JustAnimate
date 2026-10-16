@@ -262,7 +262,7 @@ void Editor::pasteFromPreviousFrame()
         VectorImage* vectorImage = static_cast<VectorImage*>(currentLayer->getKeyFrameAt(prevFrame));
         pasteToCanvas(vectorImage, mFrame);
     }
-    undoRedo()->record(saveStateId, tr("Paste from Previous Keyframe"));
+    undoRedo()->record(saveStateId, tr("Paste from Previous Drawing"));
 }
 
 void Editor::pasteToCanvas(BitmapImage* bitmapImage, int frameNumber)
@@ -980,7 +980,7 @@ KeyFrame* Editor::addKeyFrame(const int layerNumber, int frameIndex)
     layers()->notifyAnimationLengthChanged();
     KeyFrame* newFrame = layer->getKeyFrameAt(frameIndex);
 
-    undoRedo()->record(saveStateId, tr("Add frame"));
+    undoRedo()->record(saveStateId, tr("New drawing"));
 
     return newFrame;
 }
@@ -1009,7 +1009,7 @@ void Editor::removeKey()
     layers()->notifyAnimationLengthChanged();
     emit layers()->currentLayerChanged(layers()->currentLayerIndex()); // trigger timeline repaint.
 
-    undoRedo()->record(saveStateId, tr("Remove frame"));
+    undoRedo()->record(saveStateId, tr("Remove drawing"));
 }
 
 void Editor::scrubNextKeyFrame()

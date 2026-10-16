@@ -476,10 +476,10 @@
           <item>
            <widget class="QCheckBox" name="onionSkinMode">
             <property name="toolTip">
-             <string>Show only keyframes as onion skins</string>
+             <string>Show only Marked Drawings as onion skins</string>
             </property>
             <property name="text">
-             <string>Show Keyframes Only</string>
+             <string>Show Marked Drawings Only</string>
             </property>
            </widget>
           </item>

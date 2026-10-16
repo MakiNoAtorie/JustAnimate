@@ -1492,7 +1492,7 @@ TEST_CASE("UndoRedoManager: camera context menu edits are one undo step each")
     editor->scrubTo(1);
 
     const QString text = GENERATE(as<QString>{}, "Linear", "Reset all", "Reset position", "Reset scale", "Reset rotation",
-                                  "Align horizontally to frame 5", "Align vertically to frame 5", "Hold to keyframe 5");
+                                  "Align horizontally to frame 5", "Align vertically to frame 5", "Hold to frame 5");
     INFO(text.toStdString());
     CameraContextMenu menu(editor, 1, layer);
     QAction* action = nullptr;

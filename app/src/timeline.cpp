@@ -119,20 +119,20 @@ void TimeLine::initUI()
     // --------- key buttons ---------
     QToolBar* timelineButtons = new QToolBar(this);
     timelineButtons->setIconSize(QSize(22,22));
-    QLabel* keyLabel = new QLabel(tr("Keys:"));
+    QLabel* keyLabel = new QLabel(tr("Drawings:"));
     keyLabel->setIndent(5);
 
     QToolButton* addKeyButton = new QToolButton(this);
     addKeyButton->setIcon(QIcon(":icons/themes/playful/timeline/frame-add.svg"));
-    addKeyButton->setToolTip(tr("Add Frame"));
+    addKeyButton->setToolTip(tr("New drawing"));
 
     QToolButton* removeKeyButton = new QToolButton(this);
     removeKeyButton->setIcon(QIcon(":icons/themes/playful/timeline/frame-remove.svg"));
-    removeKeyButton->setToolTip(tr("Remove Frame"));
+    removeKeyButton->setToolTip(tr("Remove drawing"));
 
     QToolButton* duplicateKeyButton = new QToolButton(this);
     duplicateKeyButton->setIcon(QIcon(":icons/themes/playful/timeline/frame-duplicate.svg"));
-    duplicateKeyButton->setToolTip(tr("Duplicate Frame"));
+    duplicateKeyButton->setToolTip(tr("Duplicate drawing"));
 
     QLabel* zoomLabel = new QLabel(tr("Zoom:"));
     zoomLabel->setIndent(5);

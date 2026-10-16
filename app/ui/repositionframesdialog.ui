@@ -54,14 +54,14 @@
    <item>
     <widget class="QRadioButton" name="rbSameKeyframes">
      <property name="text">
-      <string>Same keyframes as selected</string>
+      <string>Same Drawings as selected</string>
      </property>
     </widget>
    </item>
    <item>
     <widget class="QRadioButton" name="rbAllKeyframes">
      <property name="text">
-      <string>All keyframes on layer</string>
+      <string>All Drawings on layer</string>
      </property>
     </widget>
    </item>
