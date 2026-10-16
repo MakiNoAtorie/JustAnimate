@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <memory>
 #include <QObject>
 #include <QBuffer>
+#include <QVector>
 #include "pencilerror.h"
 #include "keyframe.h"
 
@@ -48,13 +49,18 @@ public:
 
 signals:
     void durationChanged(SoundPlayer*, int64_t duration);
+    void waveformReady(SoundPlayer*);
 
 private:
     void makeConnections();
+    void decodeWaveform();
 
     SoundClip* mSoundClip = nullptr;
     QMediaPlayer* mMediaPlayer = nullptr;
     QBuffer mBuffer;
+    QVector<float> mDecoded;
+    int mChannels = 1;
+    int mSampleRate = 0;
 };
 
 #endif // SOUNDPLAYER_H

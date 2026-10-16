@@ -302,6 +302,8 @@ void UndoRedoManager::replaceBitmap(const UndoSaveState& undoState, const QStrin
                          selectionState.rotationAngle,
                          selectionState.scaleX,
                          selectionState.scaleY,
+                         selectionState.skewX,
+                         selectionState.skewY,
                          selectionState.anchor,
                          true, // roundPixels
                          description,
@@ -324,6 +326,8 @@ void UndoRedoManager::replaceVector(const UndoSaveState& undoState, const QStrin
                          selectionState.rotationAngle,
                          selectionState.scaleX,
                          selectionState.scaleY,
+                         selectionState.skewX,
+                         selectionState.skewY,
                          selectionState.anchor,
                          false, // Round pixels
                          description,
@@ -385,6 +389,8 @@ void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState, cons
             selectMan->myRotation(),
             selectMan->myScaleX(),
             selectMan->myScaleY(),
+            selectMan->mySkewX(),
+            selectMan->mySkewY(),
             selectMan->myTranslation(),
             selectMan->currentTransformAnchor());
     }

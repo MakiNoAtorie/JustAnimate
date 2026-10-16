@@ -122,6 +122,7 @@ void MoveTool::pointerPressEvent(PointerEvent* event)
         mEditor->overlays()->setMoveMode(mPerspMode);
         QPoint mapped = layerCam->getViewAtFrame(mEditor->currentFrame()).map(event->canvasPos()).toPoint();
         mEditor->overlays()->updatePerspective(mapped);
+        mEditor->overlays()->updateRuler(event->canvasPos());
     }
 
     mEditor->updateFrame();
@@ -141,6 +142,7 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
             LayerCamera* layerCam = mEditor->layers()->getCameraLayerBelow(mEditor->currentLayerIndex());
             Q_ASSERT(layerCam);
             mEditor->overlays()->updatePerspective(layerCam->getViewAtFrame(mEditor->currentFrame()).map(event->canvasPos()));
+            mEditor->overlays()->updateRuler(event->canvasPos());
         }
         if (mEditor->select()->somethingSelected())
         {
@@ -151,7 +153,7 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
     {
         // the user is moving the mouse without pressing it
         // update cursor to reflect selection corner interaction
-        mEditor->select()->setMoveModeForAnchorInRange(event->canvasPos());
+        mEditor->select()->setMoveModeForAnchorInRange(event->canvasPos(), true);
         if (mEditor->overlays()->anyOverlayEnabled())
         {
             LayerCamera *layerCam = mEditor->layers()->getCameraLayerBelow(mEditor->currentLayerIndex());
@@ -387,6 +389,8 @@ QCursor MoveTool::cursor(MoveMode mode) const
     case MoveMode::PERSP_RIGHT:
     case MoveMode::PERSP_MIDDLE:
     case MoveMode::PERSP_SINGLE:
+    case MoveMode::RULER_START:
+    case MoveMode::RULER_END:
     {
         cursorPainter.drawImage(QPoint(6,6),QImage("://icons/general/cursor-move.svg"));
         break;
@@ -401,6 +405,16 @@ QCursor MoveTool::cursor(MoveMode mode) const
     case MoveMode::BOTTOMLEFT:
     {
         cursorPainter.drawImage(QPoint(6,6),QImage("://icons/general/cursor-diagonal-right.svg"));
+        break;
+    }
+    case MoveMode::SKEW_HORIZONTAL:
+    {
+        cursorPainter.drawImage(QPoint(6,6),QImage("://icons/general/cursor-horizontal.svg"));
+        break;
+    }
+    case MoveMode::SKEW_VERTICAL:
+    {
+        cursorPainter.drawImage(QPoint(6,6),QImage("://icons/general/cursor-vertical.svg"));
         break;
     }
     case MoveMode::ROTATIONLEFT:

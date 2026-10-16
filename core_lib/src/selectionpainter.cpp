@@ -75,6 +75,15 @@ void SelectionPainter::paint(QPainter& painter,
                                            HANDLE_WIDTH, HANDLE_WIDTH);
     painter.drawRect(bottomLeftCorner);
 
+    if (tParams.skewHandles)
+    {
+        for (int i = 0; i < 4; ++i)
+        {
+            const QPointF mid = (projectedSelectionPolygon[i] + projectedSelectionPolygon[(i + 1) % 4]) / 2;
+            painter.drawEllipse(mid, radius, radius);
+        }
+    }
+
     if (toolProperties.showSelectionInfoEnabled()) {
         paintSelectionInfo(painter, transform, tParams.viewTransform, tParams.originalSelectionRectF, projectedSelectionPolygon);
     }

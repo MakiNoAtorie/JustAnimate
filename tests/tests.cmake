@@ -47,7 +47,9 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_editorimport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_propertyinfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_lassofilltool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_scribblearea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shapetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_stroketool.cpp
@@ -60,6 +62,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_importlayersdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_prefsearch.cpp
 )
 
 # App sources under test (the dialog and what it links against)
@@ -74,6 +77,8 @@ set(TEST_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/filedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/prefsearch.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/prefsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/importlayersdialog.ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/errordialog.ui
 )
@@ -93,7 +98,9 @@ add_executable(pencil2d_tests
     ${TEST_APP_SOURCES}
     ${TEST_RESOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.h

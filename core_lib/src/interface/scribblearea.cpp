@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <QTimer>
 
 #include "basetool.h"
+#include "stroketool.h"
 #include "transformtool.h"
 #include "pointerevent.h"
 #include "stageprofiler.h"
@@ -72,6 +73,14 @@ bool ScribbleArea::init()
 
     connect(mPrefs, &PreferenceManager::optionChanged, this, &ScribbleArea::settingUpdated);
     connect(mEditor->tools(), &ToolManager::toolChanged, this, &ScribbleArea::onToolChanged);
+    for (int t = 0; t < TOOL_TYPE_COUNT; ++t)
+    {
+        // The HUD ring follows the brush size.
+        if (auto* tool = dynamic_cast<StrokeTool*>(mEditor->tools()->getTool(static_cast<ToolType>(t))))
+        {
+            connect(tool, &StrokeTool::widthChanged, this, [this] { update(); });
+        }
+    }
 
     connect(mDoubleClickTimer, &QTimer::timeout, this, &ScribbleArea::handleDoubleClick);
     connect(mMouseFilterTimer, &QTimer::timeout, this, &ScribbleArea::tabletReleaseEventFired);
@@ -1030,6 +1039,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         }
 
         mOverlayPainter.paint(painter, rect());
+        paintCanvasHud(painter);
 
         // paints the selection outline
         if (mEditor->select()->somethingSelected())
@@ -1057,7 +1067,8 @@ void ScribbleArea::paintSelectionVisuals(QPainter &painter)
 
     QRectF currentSelectionRect = selectMan->mySelectionRect();
 
-    TransformParameters params = { currentSelectionRect, editor()->view()->getView(), selectMan->selectionTransform() };
+    TransformParameters params = { currentSelectionRect, editor()->view()->getView(), selectMan->selectionTransform(),
+                                   currentTool()->type() == MOVE };
 
     mSelectionPainter.paint(painter,
                             object,
@@ -1247,6 +1258,8 @@ void ScribbleArea::prepOverlays(int frame)
     o.mLeftPerspPoint = mEditor->overlays()->getLeftPerspectivePoint();
     o.mRightPerspPoint = mEditor->overlays()->getRightPerspectivePoint();
     o.mMiddlePerspPoint = mEditor->overlays()->getMiddlePerspectivePoint();
+    o.bRuler = mEditor->overlays()->isRulerEnabled();
+    o.mRuler = mEditor->overlays()->ruler();
 
     o.nFrameIndex = frame;
 
@@ -1374,6 +1387,61 @@ void ScribbleArea::decreaseLayerVisibilityIndex()
 BaseTool* ScribbleArea::currentTool() const
 {
     return editor()->tools()->currentTool();
+}
+
+CanvasHud ScribbleArea::canvasHud() const
+{
+    ViewManager* view = mEditor->view();
+    CanvasHud hud;
+    if (const StrokeTool* tool = mEditor->tools()->currentStrokeTool())
+    {
+        hud.ringRadius = tool->strokeToolProperties().width() * 0.5 * view->scaling();
+    }
+    hud.zoomPercent = qRound(view->scaling() * 100);
+    hud.rotation = view->rotation();
+    return hud;
+}
+
+void ScribbleArea::paintCanvasHud(QPainter& painter) const
+{
+    const CanvasHud hud = canvasHud();
+    // ponytail: a ring wider than the box is drawn at the box size; the canvas cursor shows the full size.
+    constexpr qreal kMaxRing = 24;
+    constexpr qreal kDial = 8;
+    constexpr qreal kPad = 6;
+    const QString text = tr("%1%  %2%3").arg(hud.zoomPercent).arg(qRound(hud.rotation)).arg(QChar(0x00B0));
+    const QFontMetricsF fm(painter.font());
+    const qreal ringBox = hud.ringRadius > 0 ? 2 * kMaxRing + kPad : 0;
+    const qreal w = kPad + ringBox + 2 * kDial + kPad + fm.horizontalAdvance(text) + kPad;
+    const qreal h = qMax(ringBox > 0 ? 2 * kMaxRing : 2 * kDial, fm.height()) + 2 * kPad;
+    const QRectF box(12, height() - 12 - h, w, h);
+
+    painter.save();
+    painter.setWorldMatrixEnabled(false);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(0, 0, 0, 140));
+    painter.drawRoundedRect(box, 6, 6);
+
+    painter.setPen(QPen(Qt::white, 1));
+    painter.setBrush(Qt::NoBrush);
+    qreal x = box.left() + kPad;
+    const qreal cy = box.center().y();
+    if (ringBox > 0)
+    {
+        const qreal r = qMin(hud.ringRadius, kMaxRing);
+        painter.drawEllipse(QPointF(x + kMaxRing, cy), r, r);
+        x += ringBox;
+    }
+    // The needle points to canvas up; the view turns clockwise on screen.
+    const QPointF c(x + kDial, cy);
+    painter.drawEllipse(c, kDial, kDial);
+    QLineF needle(c, c + QPointF(kDial, 0));
+    needle.setAngle(90 - hud.rotation);
+    painter.drawLine(needle);
+    x += 2 * kDial + kPad;
+    painter.drawText(QRectF(x, box.top(), box.right() - x, box.height()), Qt::AlignVCenter | Qt::AlignLeft, text);
+    painter.restore();
 }
 
 void ScribbleArea::deleteSelection()

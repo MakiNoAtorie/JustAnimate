@@ -205,6 +205,8 @@ public:
                      const qreal undoRotationAngle,
                      const qreal undoScaleX,
                      const qreal undoScaleY,
+                     const qreal undoSkewX,
+                     const qreal undoSkewY,
                      const QPointF& undoTransformAnchor,
                      const bool roundPixels,
                      const QString& description,
@@ -220,6 +222,8 @@ private:
                const qreal rotationAngle,
                const qreal scaleX,
                const qreal scaleY,
+               const qreal skewX,
+               const qreal skewY,
                const QPointF& selectionAnchor,
                const bool roundPixels);
 
@@ -237,6 +241,11 @@ private:
 
     qreal redoScaleX;
     qreal redoScaleY;
+
+    qreal undoSkewX;
+    qreal undoSkewY;
+    qreal redoSkewX;
+    qreal redoSkewY;
 
     qreal undoRotationAngle;
     qreal redoRotationAngle;

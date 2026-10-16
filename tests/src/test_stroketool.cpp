@@ -32,9 +32,11 @@ GNU General Public License for more details.
 #include "colormanager.h"
 #include "editor.h"
 #include "layerbitmap.h"
+#include "layercamera.h"
 #include "layermanager.h"
 #include "layervector.h"
 #include "object.h"
+#include "overlaymanager.h"
 #include "preferencemanager.h"
 #include "pressurecurve.h"
 #include "scribblearea.h"
@@ -1155,4 +1157,147 @@ TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
     CHECK(qAlpha(painted) > 250);
     CHECK(qBlue(painted) == qAlpha(painted));
     CHECK(qRed(painted) + qGreen(painted) == 0);
+}
+
+TEST_CASE("StrokeTool - a stroke that starts near the ruler snaps to it")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(4);
+    brush->setPressureEnabled(false);
+    brush->setFeatherEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    // Canvas rows that hold ink after a stroke on a new key, as [top, bottom].
+    auto draw = [&](int frame, QPointF a, QPointF b) {
+        layer->addNewKeyFrameAt(frame);
+        editor->scrubTo(frame);
+        stroke(area, a, b, 1.0);
+        BitmapImage* image = layer->getBitmapImageAtFrame(frame);
+        const QImage* img = image->image();
+        int top = INT_MAX, bottom = INT_MIN;
+        for (int y = 0; y < img->height(); ++y)
+            for (int x = 0; x < img->width(); ++x)
+                if (qAlpha(img->pixel(x, y)) != 0)
+                {
+                    top = std::min(top, image->top() + y);
+                    bottom = std::max(bottom, image->top() + y);
+                }
+        return std::make_pair(top, bottom);
+    };
+
+    // A horizontal ruler on canvas row 0; the pen starts 6 px below it and drifts down.
+    editor->overlays()->setRuler(QLineF(-200, 0, 200, 0));
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+    const QPointF from = origin + QPointF(-150, 6), to = origin + QPointF(150, 30);
+
+    auto rows = draw(2, from, to);
+    CHECK(rows.second - rows.first > 20); // ruler off: the stroke keeps its slope
+
+    editor->overlays()->setRulerEnabled(true);
+    rows = draw(3, from, to);
+    CHECK(rows.first >= -3);
+    CHECK(rows.second <= 3);
+
+    // A stroke that starts far from the ruler is not snapped.
+    rows = draw(4, from + QPointF(0, 100), to + QPointF(0, 100));
+    CHECK(rows.second - rows.first > 20);
+}
+TEST_CASE("MoveTool - dragging a ruler end moves only that end")
+{
+    TestSession s;
+    s.object->addNewCameraLayer();
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(MOVE);
+
+    OverlayManager* overlays = editor->overlays();
+    overlays->setRuler(QLineF(-200, 0, 200, 0));
+    overlays->setRulerEnabled(true);
+    const QPointF end = editor->view()->mapCanvasToScreen(QPointF(200, 0));
+    tablet(area, QEvent::TabletPress, end, 1.0);
+    tablet(area, QEvent::TabletMove, end + QPointF(0, 50), 1.0);
+    tablet(area, QEvent::TabletRelease, end + QPointF(0, 50), 1.0);
+    overlays->setRulerEnabled(false);
+
+    const qreal scale = editor->view()->scaling();
+    CHECK(overlays->ruler().p1() == QPointF(-200, 0));
+    CHECK(overlays->ruler().p2().x() == Approx(200).margin(0.5));
+    CHECK(overlays->ruler().p2().y() == Approx(50 / scale).margin(0.5));
+}
+
+TEST_CASE("StrokeTool - perspective snap locks a stroke to the line toward the nearest vanishing point")
+{
+    TestSession s;
+    LayerCamera* camera = s.object->addNewCameraLayer();
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(4);
+    brush->setPressureEnabled(false);
+    brush->setFeatherEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    PreferenceManager* prefs = editor->preference();
+    const bool twoPointWas = prefs->isOn(SETTING::OVERLAY_PERSPECTIVE2);
+    prefs->set(SETTING::OVERLAY_PERSPECTIVE2, true);
+
+    // Vanishing points live in camera space; strokes are drawn on the canvas.
+    const QTransform toCanvas = camera->getViewAtFrame(1).inverted();
+    const QPointF left = toCanvas.map(editor->overlays()->getLeftPerspectivePoint());
+    const QPointF right = toCanvas.map(editor->overlays()->getRightPerspectivePoint());
+    const QPointF start = (left + right) / 2 + QPointF(0, 120);
+    const QPointF onLine = start + (right - start) / 2; // halfway to the right point
+    const QPointF penEnd = onLine + QPointF(0, 25);     // the pen drifts off that line
+    const QPointF snapped = start + (right - start) / 4; // on the line, before the pen's projection ends
+
+    auto inkAt = [&](int frame, QPointF canvas) {
+        BitmapImage* image = layer->getBitmapImageAtFrame(frame);
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (qAlpha(image->pixel(canvas.toPoint() + QPoint(dx, dy))) != 0) { return true; }
+        return false;
+    };
+    auto draw = [&](int frame) {
+        layer->addNewKeyFrameAt(frame);
+        editor->scrubTo(frame);
+        stroke(area, editor->view()->mapCanvasToScreen(start), editor->view()->mapCanvasToScreen(penEnd), 1.0);
+    };
+
+    draw(2); // snap off
+    CHECK(inkAt(2, penEnd));
+    CHECK_FALSE(inkAt(2, snapped));
+
+    editor->overlays()->setPerspectiveSnapEnabled(true);
+    draw(3);
+    CHECK(inkAt(3, snapped));
+    CHECK_FALSE(inkAt(3, penEnd));
+
+    // Snap needs a visible perspective overlay.
+    prefs->set(SETTING::OVERLAY_PERSPECTIVE2, false);
+    draw(4);
+    CHECK(inkAt(4, penEnd));
+
+    prefs->set(SETTING::OVERLAY_PERSPECTIVE2, twoPointWas);
 }

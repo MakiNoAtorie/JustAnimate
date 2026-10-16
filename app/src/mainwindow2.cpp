@@ -58,6 +58,7 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "soundmanager.h"
 #include "viewmanager.h"
+#include "overlaymanager.h"
 #include "selectionmanager.h"
 #include "undoredomanager.h"
 
@@ -384,6 +385,23 @@ void MainWindow2::createMenus()
     bindPreferenceSetting(ui->actionThirds, prefs, SETTING::OVERLAY_THIRDS);
     bindPreferenceSetting(ui->actionCenter, prefs, SETTING::OVERLAY_CENTER);
     bindPreferenceSetting(ui->actionGrid, prefs, SETTING::GRID);
+
+    QAction* rulerAction = new QAction(tr("Ruler"), this);
+    rulerAction->setCheckable(true);
+    rulerAction->setToolTip(tr("Strokes that start near the ruler snap to it. Drag its ends with the Move tool."));
+    ui->menuOverlays->insertAction(ui->menuPerspectiveLinesAngle->menuAction(), rulerAction);
+    connect(rulerAction, &QAction::toggled, this, [this](bool on) {
+        mEditor->overlays()->setRulerEnabled(on);
+        mEditor->updateFrame();
+    });
+
+    QAction* perspectiveSnapAction = new QAction(tr("Snap to Perspective"), this);
+    perspectiveSnapAction->setCheckable(true);
+    perspectiveSnapAction->setToolTip(tr("Strokes follow the line from their start point toward a vanishing point of the visible perspective overlay."));
+    ui->menuOverlays->insertAction(ui->menuPerspectiveLinesAngle->menuAction(), perspectiveSnapAction);
+    connect(perspectiveSnapAction, &QAction::toggled, this, [this](bool on) {
+        mEditor->overlays()->setPerspectiveSnapEnabled(on);
+    });
     bindPreferenceSetting(ui->actionShowOutlinesOnly, prefs, SETTING::OUTLINES);
     bindPreferenceSetting(ui->actionShowInvisibleLines, prefs, SETTING::INVISIBLE_LINES);
     bindPreferenceSetting(ui->actionOnionPrev, prefs, SETTING::PREV_ONION);

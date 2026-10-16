@@ -66,6 +66,8 @@ struct SelectionSaveState {
                        const qreal rotationAngle,
                        const qreal scaleX,
                        const qreal scaleY,
+                       const qreal skewX,
+                       const qreal skewY,
                        const QPointF& translation,
                        const QPointF& anchor)
     {
@@ -73,6 +75,8 @@ struct SelectionSaveState {
         this->rotationAngle = rotationAngle;
         this->scaleX = scaleX;
         this->scaleY = scaleY;
+        this->skewX = skewX;
+        this->skewY = skewY;
         this->translation = translation;
         this->anchor = anchor;
     }
@@ -81,6 +85,8 @@ struct SelectionSaveState {
     qreal   rotationAngle = 0.0;
     qreal   scaleX = 0.0;
     qreal   scaleY = 0.0;
+    qreal   skewX = 0.0;
+    qreal   skewY = 0.0;
     QPointF translation;
     QPointF anchor;
 };

@@ -83,6 +83,10 @@ void OverlayPainter::paint(QPainter &painter, const QRect& viewport)
     {
         paintGrid(painter);
     }
+    if (mOptions.bRuler)
+    {
+        paintRuler(painter);
+    }
 
     painter.restore();
 }
@@ -385,3 +389,18 @@ int OverlayPainter::round100(double f, int gridSize) const
     return static_cast<int>(f) / gridSize * gridSize;
 }
 
+void OverlayPainter::paintRuler(QPainter& painter) const
+{
+    // Paint in screen space so the line and handles keep their size at any zoom.
+    const QLineF line = mViewTransform.map(mOptions.mRuler);
+    painter.save();
+    painter.resetTransform();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(QPen(mPalette.color(QPalette::Highlight), 2));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawLine(line);
+    painter.setBrush(mPalette.color(QPalette::Base));
+    painter.drawEllipse(line.p1(), 5, 5);
+    painter.drawEllipse(line.p2(), 5, 5);
+    painter.restore();
+}

@@ -52,7 +52,6 @@ private slots:
     void clearButtonClicked();
 
 private:
-    bool isKeySequenceExist(const QSettings&, QString, QKeySequence);
     void removeDuplicateKeySequence(QSettings*, QKeySequence);
     void treeModelLoadShortcutsSetting();
 

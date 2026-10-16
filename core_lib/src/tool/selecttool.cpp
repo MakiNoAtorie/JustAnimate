@@ -73,6 +73,8 @@ QCursor SelectTool::cursor()
         break;
     }
     case MoveMode::MIDDLE:
+    case MoveMode::SKEW_HORIZONTAL: // set by the move tool until the next hover
+    case MoveMode::SKEW_VERTICAL:
     {
         cursorPainter.drawPixmap(QPoint(6,6),QPixmap("://icons/general/cursor-move.svg"));
         break;

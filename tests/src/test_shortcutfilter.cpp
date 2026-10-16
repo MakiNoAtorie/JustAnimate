@@ -19,13 +19,16 @@ GNU General Public License for more details.
 #include <QCoreApplication>
 #include <QMouseEvent>
 #include <QPointingDevice>
+#include <QSettings>
 #include <QShortcutEvent>
+#include <QTemporaryDir>
 #include <QTabletEvent>
 #include <QWidget>
 
 #include "editor.h"
 #include "object.h"
 #include "scribblearea.h"
+#include "shortcutconflict.h"
 #include "shortcutfilter.h"
 #include "testfixture.h"
 
@@ -137,4 +140,18 @@ TEST_CASE("ShortcutFilter: every action under the main window is guarded")
     sendPen(scribbleArea, QEvent::TabletRelease, Qt::LeftButton, Qt::NoButton);
     QCoreApplication::sendEvent(action, &e);
     REQUIRE(probe.reached);
+}
+
+TEST_CASE("ShortcutConflict names the action that already uses a key sequence")
+{
+    QTemporaryDir dir;
+    QSettings settings(dir.filePath("s.ini"), QSettings::IniFormat);
+    settings.setValue("CmdA", "Ctrl+J");
+    settings.setValue("CmdB", "Ctrl+K");
+    settings.setValue("CmdC", "");
+
+    REQUIRE(findShortcutConflict(settings, "CmdB", QKeySequence("Ctrl+J")) == "CmdA");
+    REQUIRE(findShortcutConflict(settings, "CmdA", QKeySequence("Ctrl+J")).isEmpty());
+    REQUIRE(findShortcutConflict(settings, "CmdA", QKeySequence("Ctrl+L")).isEmpty());
+    REQUIRE(findShortcutConflict(settings, "CmdA", QKeySequence()).isEmpty());
 }
