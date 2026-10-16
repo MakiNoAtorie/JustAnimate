@@ -105,7 +105,11 @@ TEST_CASE("Image sequence file list is in natural order", "[ImportImageSeq]")
         REQUIRE(f.open(QIODevice::WriteOnly));
     }
 
+    // CI runs in the C locale.
+    const QLocale oldDefault;
+    QLocale::setDefault(QLocale::c());
     const QStringList sorted = naturalSortedFileNames(QDir(dir.path()));
+    QLocale::setDefault(oldDefault);
 
     // Prefixes stay grouped, numbers sort by value
     REQUIRE(sorted == QStringList({"a1.png", "a2.png", "a10.png", "b001.png", "b002.png", "b010.png"}));
