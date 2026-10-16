@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Project loading is fuzz-tested: a camera key with zero or negative scale, or an unknown element under the document, no longer crashes a debug build (1.8).
 - Lock Transparency: right-click a bitmap layer to paint only on its existing pixels; strokes never change alpha and the setting is saved (2.8).
 - Fixes: a stroke on a moved (tweened) key lands where it is drawn, Duplicate Layer keeps the blend mode, a single Next/Previous Frame tap always steps, and marker names show on the timeline ruler.
 - Layer groups: right-click a member to show or hide the group or set its opacity; the group fades as one image, on the canvas and in export (3.7).

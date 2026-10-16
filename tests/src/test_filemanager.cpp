@@ -32,11 +32,14 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "vectorimage.h"
 #include "layersound.h"
+#include "layercamera.h"
+#include "camera.h"
 #include "soundclip.h"
 #include "playbackmanager.h"
 #include "testfixture.h"
 
 #include <memory>
+#include <random>
 
 
 TEST_CASE("FileManager Initial Test")
@@ -338,6 +341,32 @@ TEST_CASE("FileManager loads malformed project XML")
         REQUIRE(cam != nullptr);
         REQUIRE(cam->keyFrameCount() == 1);
         REQUIRE(!cam->keyExists(0));
+    }
+
+    SECTION("Camera scale zero or below loads as 1")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document><object>"
+            "  <layer name='Cam' id='4' visibility='1' type='5' width='800' height='600'>"
+            "    <camera frame='1' s='0'/>"
+            "    <camera frame='2' s='-2'/>"
+            "  </layer>"
+            "</object></document>"));
+
+        REQUIRE(obj != nullptr);
+        auto cam = static_cast<LayerCamera*>(obj->findLayerByName("Cam"));
+        REQUIRE(static_cast<Camera*>(cam->getKeyFrameAt(1))->scaling() == 1.0);
+        REQUIRE(static_cast<Camera*>(cam->getKeyFrameAt(2))->scaling() == 1.0);
+    }
+
+    SECTION("Unknown element under document is skipped")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document><object></object><x/></document>"));
+
+        REQUIRE(obj != nullptr);
     }
 }
 
@@ -1086,4 +1115,96 @@ TEST_CASE("Playback loads frames ahead of the playhead and keeps edits on the ne
     REQUIRE(edited->pixel(5, 5) == qRgb(0, 0, 255));
     REQUIRE(layer->getBitmapImageAtFrame(9)->pixel(5, 5) == qRgb(255, 0, 0)); // takes the worker's read
     s.editor->playback()->stop();
+}
+
+// Load a project and read every keyframe's file. A crash or sanitizer report is the failure.
+static void loadEverything(const QString& path)
+{
+    FileManager fm;
+    std::unique_ptr<Object> obj(fm.load(path));
+    if (!obj) return;
+    for (int i = 0; i < obj->getLayerCount(); ++i)
+        obj->getLayer(i)->foreachKeyFrame([](KeyFrame* k) { k->loadFile(); });
+}
+
+static QByteArray mutate(QByteArray data, std::mt19937& rng)
+{
+    static const char* const tokens[] = { "-1", "0", "2147483648", "-2147483649", "99999", "nan", "1e308", "\"",
+                                          "<", ">", "/>", "</layer>", "<layer type='1'>", "<image frame='1'/>",
+                                          "&#0;", "../", "<object>", "<curve>" };
+    const int ops = 1 + static_cast<int>(rng() % 4);
+    for (int op = 0; op < ops && !data.isEmpty(); ++op)
+    {
+        const int pos = static_cast<int>(rng() % data.size());
+        const int len = 1 + static_cast<int>(rng() % 16);
+        switch (rng() % 4)
+        {
+        case 0: data[pos] = static_cast<char>(rng()); break;
+        case 1: data.remove(pos, len); break;
+        case 2: data.insert(pos, data.mid(pos, len)); break;
+        default: data.insert(pos, tokens[rng() % (sizeof(tokens) / sizeof(tokens[0]))]); break;
+        }
+    }
+    return data;
+}
+
+static void writeBytes(const QString& path, const QByteArray& data)
+{
+    QFile f(path);
+    REQUIRE(f.open(QFile::WriteOnly | QFile::Truncate));
+    f.write(data);
+}
+
+TEST_CASE("Fuzzed project files load without crashing", "[FileManager][Fuzz]")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString seedPath = dir.filePath("seed.pclx");
+    {
+        std::unique_ptr<Object> o(new Object);
+        o->init();
+        o->addNewCameraLayer()->addNewKeyFrameAt(3);
+        LayerBitmap* bmp = o->addNewBitmapLayer();
+        bmp->addNewKeyFrameAt(1);
+        bmp->getBitmapImageAtFrame(1)->drawRect(QRectF(0, 0, 8, 8), QPen(Qt::red), QBrush(Qt::red),
+                                                QPainter::CompositionMode_SourceOver, false);
+        LayerVector* vec = o->addNewVectorLayer();
+        vec->addNewKeyFrameAt(2);
+        BezierCurve curve({ QPointF(0, 0), QPointF(9, 0), QPointF(9, 9) });
+        vec->getVectorImageAtFrame(2)->addCurve(curve, 1.0);
+        o->addNewSoundLayer();
+        o->addLayerGroup({ 1, "G" });
+        vec->setGroupId(1);
+        o->data()->setMarker(2, { "m", QColor("#ff0000") });
+        FileManager fm;
+        REQUIRE(fm.save(o.get(), seedPath).ok());
+    }
+    QFile seedFile(seedPath);
+    REQUIRE(seedFile.open(QFile::ReadOnly));
+    const QByteArray seedZip = seedFile.readAll();
+
+    // Unpacked seed as a legacy .pcl: main XML plus its "<file>.data" folder.
+    const QString unpacked = dir.filePath("unpacked") + "/";
+    REQUIRE(MiniZ::uncompressFolder(seedPath, unpacked).ok());
+    const QString pclPath = dir.filePath("fuzz.pcl");
+    REQUIRE(QDir().rename(unpacked + "data", pclPath + ".data"));
+    QFile xmlFile(unpacked + PFF_XML_FILE_NAME);
+    REQUIRE(xmlFile.open(QFile::ReadOnly));
+    const QByteArray seedXml = xmlFile.readAll();
+
+    // Fixed seed keeps CI deterministic. Raise the counts or change the seed locally to search further.
+    std::mt19937 rng(118);
+    for (int i = 0; i < 2000; ++i)
+    {
+        INFO("xml iteration " << i);
+        writeBytes(pclPath, mutate(seedXml, rng));
+        loadEverything(pclPath);
+    }
+    const QString pclxPath = dir.filePath("fuzz.pclx");
+    for (int i = 0; i < 500; ++i)
+    {
+        INFO("zip iteration " << i);
+        writeBytes(pclxPath, mutate(seedZip, rng));
+        loadEverything(pclxPath);
+    }
 }

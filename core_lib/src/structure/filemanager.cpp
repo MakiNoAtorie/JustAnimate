@@ -219,10 +219,6 @@ bool FileManager::loadObject(Object* object, const QDomElement& root)
                 }
             }
         }
-        else
-        {
-            Q_ASSERT(false);
-        }
     }
     return ok;
 }

@@ -560,6 +560,7 @@ void LayerCamera::loadDomElement(const QDomElement& element, QString dataDirPath
 
                 qreal rotate = imageElement.attribute("r", "0").toDouble();
                 qreal scale = imageElement.attribute("s", "1").toDouble();
+                if (!(scale > 0) || !qIsFinite(scale)) scale = 1.0;
                 qreal dx = imageElement.attribute("dx", "0").toDouble();
                 qreal dy = imageElement.attribute("dy", "0").toDouble();
                 CameraEasingType easing = static_cast<CameraEasingType>(imageElement.attribute("easing", "0").toInt());
