@@ -5,14 +5,13 @@ future work; delete lines that stop being true.
 
 ## Build and test
 
-Cloud sessions: `.claude/hooks/session-start.sh` installs Qt 6, Ninja and
-ccache and sets `QT_QPA_PLATFORM=offscreen`.
+Cloud sessions: `.claude/hooks/session-start.sh` sets up Qt 6, Ninja,
+ccache and offscreen tests.
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|FAILED' | head -40
-./build/pencil2d_tests 2>&1 | tail -5             # full suite, summary only
-./build/pencil2d_tests "[ToolSettings]"           # one tag or test name
+./build/pencil2d_tests 2>&1 | tail -5    # full suite, or "[tag]"
 ```
 
 - Build with `-j2`, one build per worktree; stop only processes you
@@ -42,10 +41,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `QTabletEvent`s at `view()->mapCanvasToScreen()`; paint checks call
   `grab()` on a shown area. Input timing uses `QEvent::setTimestamp`, never
   sleeps. Compare a `Status` in double parentheses.
-- Tests write files only under their own `QTemporaryDir`: suites run in
-  parallel on one machine.
+- Tests write files only under their own `QTemporaryDir`.
 - Fixtures are stack objects or `unique_ptr`; every `new` QObject in app
-  code gets a parent (only CI's LSan sees leaks).
+  code gets a parent.
 - No modal dialog in a test path: put the logic in helpers the test can
   call. Command-line paths never prompt.
 - A test that crashes a child process on purpose faults for real (null
@@ -61,7 +59,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Undo: every edit records through `UndoRedoManager` (`createState` after
   `handleDrawingOnEmptyFrame()`, `record` on every path; layers through
   `recordLayerAdd/Remove`). A gesture records once, at its end; a state it
-  never records goes to `discardState()`. Commands address frames by
+  never records goes to `discardState()`. A gesture that may add a Drawing
+  wraps both in `beginMacro`/`endMacroWith(state)`. Commands address frames by
   position and keep removed layers alive. Camera key edits record as
   `CAMERA_MODIFY`. Undo tests assert content, never selection state.
 - An unrecorded edit still emits `frameModified`, `framesModified` or
@@ -101,7 +100,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   loop is `BezierCurve(points, false)` plus a `BezierArea`, not
   `VectorImage::fillContour`.
 - Dark/light: `Theme::isDark()`, never `PlatformHandler::isDarkMode()`.
-- Dock layouts: `app/src/defaultlayout.*`; dock `objectName`s are stable.
+- Dock layouts: `app/src/defaultlayout.*`; dock `objectName`s are stable;
+  a Layout change raises the version in `dropOutdatedLayouts`.
 - New app files go in `app/app.cmake` only. New tools append to `ToolType`
   before `TOOL_TYPE_COUNT`.
 - Speed-ups: Release `benchmark`, before/after on one machine, numbers in
@@ -123,13 +123,17 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   drawing tool paints.
 - Stroke buffer composition: only `ScribbleArea::bufferCompositionMode()`.
   `duplicateLayer` copies every saved layer attribute.
-- Sound: timing via `SoundClip::msAtFrame`/`waveformPeaks`; tests use
+- Sound: timing via `SoundClip::msAtFrame`/`waveformPeaks`; preview via
+  `PlaybackManager::startSound`; tests use
   `setSamples`, or a valid WAV when they need a player. A clip put back in
   a layer gets a player from `SoundManager::processSound`; taking a layer
   out stops its clips. A missing clip file never fails save or export: skip
   and warn, naming it with `LayerSound::clipLabel()`.
 - Preference tooltips: `PreferencesDialog::addTooltips()`.
 - User-visible strings go through `tr()`.
+- Colours come from the palette (Accent = `Highlight`), never hex; icons
+  from `Theme::icon`.
+- Copy new `KeyFrame` fields in its copy constructor and `operator=`. Mark filter only from `PreferenceManager::markFilter()`.
 
 ## Commits
 
@@ -140,28 +144,3 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
 
-## v1.2 homes (spec #176; fold into the sections above at milestone end)
-
-- Accent colour: `Theme` (`app/src/theme.*`) owns it: `Theme::Accent`,
-  `savedAccent()`/`saveAccent()`, applied as `QPalette::Highlight`. Widgets
-  read `palette().color(QPalette::Highlight)`; no per-widget colours.
-- Icons: `Theme::icon(":/icons/tabler/<name>.svg")` returns a QIcon tinted
-  from `QPalette::WindowText` that follows theme changes (#179). New icons
-  are Tabler SVGs under `app/data/icons/tabler/`.
-- Mark: `KeyFrame::mark()` (`Mark::None/Key/Breakdown/Inbetween`),
-  XML `mark="key|breakdown|inbetween"` on the frame element. `MarkFilter`
-  (core_lib) is a set of Marks; a default filter passes every Drawing, an empty set none. Onion skin and Flip
-  share one saved filter: the Onion skin Panel's mode and checkboxes.
-- Rough: `Layer::isRough()/setRough()`, XML `rough="1"` on the layer.
-- Layout: version key in `defaultlayout.*`; Command bar `objectName`
-  `CommandBar`; Tool settings dock keeps its `objectName`.
-- Cursor: one preference `CURSOR_STYLE` (Brush outline / Cross only)
-  migrates the tool-cursor and dotted-cursor keys.
-- Play-around N: with the playback settings in `PlaybackManager`.
-- Default keys (`kb.ini`, the only Shortcut preset): Command search
-  Ctrl+Shift+P, Preferences Ctrl+K, Rotate view tool R (Z, R freed from the
-  rotate commands), onion toggle O (previous/next unbound), Exposure + / -,
-  ripple insert Ctrl+F7, ripple delete Ctrl+F5, Mark Key Alt+K, Breakdown
-  Alt+B, Inbetween Alt+I, Clear mark Alt+0, Flip (held) F, play-around
-  Alt+Return. The first ticket that adds a key also adds a
-  `test_shortcutfilter` test that kb.ini has no duplicate keys.
