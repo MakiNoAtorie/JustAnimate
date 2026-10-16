@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Tween to Next Key also fades the key's opacity to the next key's on the frames it holds, on the canvas and in export (3.3).
 - Smudge runs in the brush engine with a colour bucket, smudge length, sample radius and colour rate, and can smear transparency; the old smudge loop and its Alt liquify mode are gone (B7).
 - Timeline: right-click a bitmap or vector key to set its Key Transform (move, rotate, scale) and turn on Tween to Next Key with a camera easing curve; the frames it holds show the in-between transform on the canvas and in export (3.3).
 - Export: MP4 and WebM quality presets (low/medium/high) and GIF palette options (max colours, dither on/off) in the movie exporter (3.12).
