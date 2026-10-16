@@ -200,6 +200,8 @@ public: //slots
 
     void switchVisibilityOfLayer(int layerNumber);
     void switchOnionSkinOfLayer(int layerNumber);
+    /// Turns previous and next onion skin off when either is on, else turns both on.
+    void toggleOnionSkin();
     void swapLayers(int i, int j);
     bool canSwapLayers(int layerIndexLeft, int layerIndexRight) const;
 

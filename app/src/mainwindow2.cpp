@@ -141,6 +141,7 @@ void MainWindow2::setIcons()
         { ui->actionHorizontal_Flip, "flip-vertical" },
         { ui->actionVertical_Flip, "flip-horizontal" },
         { ui->actionGrid, "grid-4x4" },
+        { ui->actionOnionSkin, "stack-2" },
         { ui->actionOnionPrev, "stack-back" },
         { ui->actionOnionNext, "stack-front" },
         { ui->actionLoop, "repeat" },
@@ -472,6 +473,15 @@ void MainWindow2::createMenus()
     bindPreferenceSetting(ui->actionShowInvisibleLines, prefs, SETTING::INVISIBLE_LINES);
     bindPreferenceSetting(ui->actionOnionPrev, prefs, SETTING::PREV_ONION);
     bindPreferenceSetting(ui->actionOnionNext, prefs, SETTING::NEXT_ONION);
+    const auto syncOnionSkin = [this, prefs] {
+        QSignalBlocker block(ui->actionOnionSkin);
+        ui->actionOnionSkin->setChecked(prefs->isOn(SETTING::PREV_ONION) || prefs->isOn(SETTING::NEXT_ONION));
+    };
+    syncOnionSkin();
+    connect(prefs, &PreferenceManager::optionChanged, this, [syncOnionSkin](SETTING s) {
+        if (s == SETTING::PREV_ONION || s == SETTING::NEXT_ONION) { syncOnionSkin(); }
+    });
+    connect(ui->actionOnionSkin, &QAction::triggered, mEditor, &Editor::toggleOnionSkin);
 
     bool enableSafeArea = (prefs->isOn(SETTING::ACTION_SAFE_ON) || prefs->isOn(SETTING::TITLE_SAFE_ON));
     ui->actionSafeAreas->setEnabled(enableSafeArea);
@@ -1522,6 +1532,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionOnePointPerspective->setShortcut(cmdKeySeq(CMD_OVERLAY_ONE_POINT_PERSPECTIVE));
     ui->actionTwoPointPerspective->setShortcut(cmdKeySeq(CMD_OVERLAY_TWO_POINT_PERSPECTIVE));
     ui->actionThreePointPerspective->setShortcut(cmdKeySeq(CMD_OVERLAY_THREE_POINT_PERSPECTIVE));
+    ui->actionOnionSkin->setShortcut(cmdKeySeq(CMD_ONIONSKIN));
     ui->actionOnionPrev->setShortcut(cmdKeySeq(CMD_ONIONSKIN_PREV));
     ui->actionOnionNext->setShortcut(cmdKeySeq(CMD_ONIONSKIN_NEXT));
     ui->actionStatusBar->setShortcut(cmdKeySeq(CMD_TOGGLE_STATUS_BAR));

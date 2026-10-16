@@ -143,6 +143,7 @@ void Editor::settingUpdated(SETTING setting)
         mAutosaveNumber = mPreferenceManager->getInt(SETTING::AUTO_SAVE_NUMBER);
         break;
     case SETTING::ONION_TYPE:
+    case SETTING::ONION_MARKS:
         mScribbleArea->onOnionSkinTypeChanged();
         emit updateTimeLineCached();
         break;
@@ -1038,6 +1039,13 @@ void Editor::switchVisibilityOfLayer(int layerNumber)
     mScribbleArea->onLayerChanged();
 
     emit updateTimeLine();
+}
+
+void Editor::toggleOnionSkin()
+{
+    const bool on = !mPreferenceManager->isOn(SETTING::PREV_ONION) && !mPreferenceManager->isOn(SETTING::NEXT_ONION);
+    mPreferenceManager->set(SETTING::PREV_ONION, on);
+    mPreferenceManager->set(SETTING::NEXT_ONION, on);
 }
 
 void Editor::switchOnionSkinOfLayer(int layerNumber)

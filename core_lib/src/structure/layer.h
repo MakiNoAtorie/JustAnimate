@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <QDomElement>
 #include "pencilerror.h"
 #include "blendmode.h"
+#include "keyframe.h"
 
 class KeyFrame;
 struct TweenState;
@@ -88,8 +89,9 @@ public:
     bool keyExists(int position) const;
     int  getPreviousKeyFramePosition(int position) const;
     int  getNextKeyFramePosition(int position) const;
-    int  getPreviousFrameNumber(int position, bool isAbsolute) const;
-    int  getNextFrameNumber(int position, bool isAbsolute) const;
+    /// With isAbsolute, steps over Drawings; Drawings that fail `filter` are skipped.
+    int  getPreviousFrameNumber(int position, bool isAbsolute, const MarkFilter& filter = MarkFilter()) const;
+    int  getNextFrameNumber(int position, bool isAbsolute, const MarkFilter& filter = MarkFilter()) const;
 
     int keyFrameCount() const { return static_cast<int>(mKeyFrames.size()); }
     int selectedKeyFrameCount() const { return mSelectedFrames_byPosition.count(); }

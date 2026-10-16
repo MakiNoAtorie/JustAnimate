@@ -115,6 +115,11 @@ private:
 class MarkFilter
 {
 public:
+    MarkFilter() = default;
+    MarkFilter(std::initializer_list<Mark> marks) { for (Mark m : marks) { set(m, true); } }
+    static MarkFilter fromInt(int bits) { MarkFilter f; f.mBits = static_cast<unsigned>(bits); return f; }
+    int toInt() const { return static_cast<int>(mBits); }
+
     void set(Mark mark, bool on) { mBits = on ? (mBits | bit(mark)) : (mBits & ~bit(mark)); }
     bool contains(Mark mark) const { return mBits & bit(mark); }
     bool isEmpty() const { return mBits == 0; }

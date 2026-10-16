@@ -50,6 +50,14 @@ GNU General Public License for more details.
 #include "cameracontextmenu.h"
 #include "pencilsettings.h"
 
+namespace
+{
+// Layer row: visibility dot, onion toggle, type icon, then the name.
+constexpr int kOnionToggleLeft = 17;
+constexpr int kOnionToggleRight = 35;
+constexpr int kLayerNameLeft = 58;
+}
+
 TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYPE type) : QWidget(parent)
 {
     mTimeLine = parent;
@@ -849,6 +857,13 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
     painter.drawEllipse(x + 6, y + 4, 9, 9);
     painter.setRenderHint(QPainter::Antialiasing, false);
 
+    if (layer->type() != Layer::SOUND)
+    {
+        static const QIcon onionIcon = Theme::icon(":/icons/tabler/stack-2.svg");
+        const QIcon::Mode mode = layer->onionSkin() ? (selected ? QIcon::Selected : QIcon::Normal) : QIcon::Disabled;
+        onionIcon.paint(&painter, QRect(kOnionToggleLeft + 1, y, 16, 16), Qt::AlignCenter, mode, layer->onionSkin() ? QIcon::On : QIcon::Off);
+    }
+
     static const QIcon bitmapIcon = Theme::icon(":/icons/tabler/photo.svg");
     static const QIcon vectorIcon = Theme::icon(":/icons/tabler/vector.svg");
     static const QIcon soundIcon = Theme::icon(":/icons/tabler/volume.svg");
@@ -859,7 +874,7 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
     if (layer->type() == Layer::SOUND) typeIcon = &soundIcon;
     if (layer->type() == Layer::CAMERA) typeIcon = &cameraIcon;
     if (typeIcon)
-        typeIcon->paint(&painter, QRect(22, y - 1, 18, 18), Qt::AlignCenter, selected ? QIcon::Selected : QIcon::Normal);
+        typeIcon->paint(&painter, QRect(kOnionToggleRight + 2, y - 1, 18, 18), Qt::AlignCenter, selected ? QIcon::Selected : QIcon::Normal);
 
     if (selected)
     {
@@ -880,7 +895,7 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
         else if (group->collapsed) { name = QChar(0x25B8) + QString(" ") + groupName; }
         else { name = QChar(0x25BE) + QString(" ") + groupName + " / " + name; }
     }
-    painter.drawText(QPoint(45, y + (2 * height) / 3), name);
+    painter.drawText(QPoint(kLayerNameLeft, y + (2 * height) / 3), name);
 }
 
 void TimeLineCells::paintSelection(QPainter& painter, int x, int y, int width, int height) const
@@ -919,7 +934,8 @@ void TimeLineCells::paintOnionSkin(QPainter& painter) const
     int prevOnionSkinCount = mEditor->preference()->getInt(SETTING::ONION_PREV_FRAMES_NUM);
     int nextOnionSkinCount = mEditor->preference()->getInt(SETTING::ONION_NEXT_FRAMES_NUM);
 
-    bool isAbsolute = (mEditor->preference()->getString(SETTING::ONION_TYPE) == "absolute");
+    const bool isAbsolute = (mEditor->preference()->getString(SETTING::ONION_TYPE) != "relative");
+    const MarkFilter filter = mEditor->preference()->markFilter();
 
     if (mEditor->preference()->isOn(SETTING::PREV_ONION) && prevOnionSkinCount > 0)
     {
@@ -928,7 +944,7 @@ void TimeLineCells::paintOnionSkin(QPainter& painter) const
         {
             onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber+1, true);
         }
-        onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, isAbsolute);
+        onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, isAbsolute, filter);
         int onionPosition = 0;
 
         while (onionPosition < prevOnionSkinCount && onionFrameNumber > 0)
@@ -941,14 +957,14 @@ void TimeLineCells::paintOnionSkin(QPainter& painter) const
             onionRect.setBottomRight(QPoint(getFrameX(onionFrameNumber), 19));
             painter.drawRect(onionRect);
 
-            onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, isAbsolute);
+            onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, isAbsolute, filter);
             onionPosition++;
         }
     }
 
     if (mEditor->preference()->isOn(SETTING::NEXT_ONION) && nextOnionSkinCount > 0) {
 
-        int onionFrameNumber = layer->getNextFrameNumber(frameNumber, isAbsolute);
+        int onionFrameNumber = layer->getNextFrameNumber(frameNumber, isAbsolute, filter);
         int onionPosition = 0;
 
         while (onionPosition < nextOnionSkinCount && onionFrameNumber > 0)
@@ -961,7 +977,7 @@ void TimeLineCells::paintOnionSkin(QPainter& painter) const
             onionRect.setBottomRight(QPoint(getFrameX(onionFrameNumber), 19));
             painter.drawRect(onionRect);
 
-            onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, isAbsolute);
+            onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, isAbsolute, filter);
             onionPosition++;
         }
     }
@@ -1137,7 +1153,12 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             {
                 mEditor->switchVisibilityOfLayer(layerNumber);
             }
-            else if (clickedGroup && event->button() == Qt::LeftButton && event->pos().x() < 57 && event->pos().x() >= 45 &&
+            else if (event->button() == Qt::LeftButton && event->pos().x() >= kOnionToggleLeft && event->pos().x() < kOnionToggleRight &&
+                     clicked->type() != Layer::SOUND)
+            {
+                mEditor->switchOnionSkinOfLayer(layerNumber);
+            }
+            else if (clickedGroup && event->button() == Qt::LeftButton && event->pos().x() < kLayerNameLeft + 12 && event->pos().x() >= kLayerNameLeft &&
                      mEditor->object()->layerGroupRange(clickedGroup->id).second == layerNumber)
             {
                 // The arrow in front of the group name
@@ -1152,9 +1173,6 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             {
                 Layer* layer = mEditor->object()->getLayer(layerNumber);
                 QMenu menu;
-                QAction* onion = menu.addAction(tr("Onion Skin"));
-                onion->setCheckable(true);
-                onion->setChecked(layer->onionSkin());
                 QAction* lockAlpha = nullptr;
                 if (layer->type() == Layer::BITMAP)
                 {
@@ -1201,11 +1219,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                     groupOpacity = menu.addAction(tr("Group Opacity..."));
                 }
                 QAction* chosen = menu.exec(event->globalPosition().toPoint());
-                if (chosen == onion)
-                {
-                    mEditor->switchOnionSkinOfLayer(layerNumber);
-                }
-                else if (chosen && chosen == lockAlpha)
+                if (chosen && chosen == lockAlpha)
                 {
                     static_cast<LayerBitmap*>(layer)->setLockAlpha(lockAlpha->isChecked());
                     mEditor->object()->modification();
@@ -1533,7 +1547,7 @@ void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
             // deselected now instead.
             layer->setFrameSelected(frameNumber, true);
         }
-        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= 15)
+        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight)
         {
             editLayerProperties(layer);
         }

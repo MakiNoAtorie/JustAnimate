@@ -237,7 +237,8 @@ void ScribbleArea::invalidateOnionSkinsCacheAround(int frameNumber)
 {
     if (frameNumber < 0) { return; }
 
-    bool isOnionAbsolute = mPrefs->getString(SETTING::ONION_TYPE) == "absolute";
+    const bool isOnionAbsolute = mPrefs->getString(SETTING::ONION_TYPE) != "relative";
+    const MarkFilter filter = mPrefs->markFilter();
     Layer *layer = mEditor->layers()->currentLayer(0);
 
     // The current layer can be null if updateFrame is triggered when creating a new project
@@ -253,7 +254,7 @@ void ScribbleArea::invalidateOnionSkinsCacheAround(int frameNumber)
 
         for(int i = 1; i <= mPrefs->getInt(SETTING::ONION_PREV_FRAMES_NUM); i++)
         {
-            onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, isOnionAbsolute);
+            onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, isOnionAbsolute, filter);
             if (onionFrameNumber < 0) break;
 
             invalidateCacheForFrame(onionFrameNumber);
@@ -266,7 +267,7 @@ void ScribbleArea::invalidateOnionSkinsCacheAround(int frameNumber)
 
         for(int i = 1; i <= mPrefs->getInt(SETTING::ONION_NEXT_FRAMES_NUM); i++)
         {
-            onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, isOnionAbsolute);
+            onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, isOnionAbsolute, filter);
             if (onionFrameNumber < 0) break;
 
             invalidateCacheForFrame(onionFrameNumber);
@@ -1150,7 +1151,8 @@ OnionSkinPainterOptions ScribbleArea::onionSkinOptions() const
     OnionSkinPainterOptions o;
     o.enabledWhilePlaying = mPrefs->getInt(SETTING::ONION_WHILE_PLAYBACK);
     o.isPlaying = mEditor->playback()->isPlaying();
-    o.isAbsolute = (mPrefs->getString(SETTING::ONION_TYPE) == "absolute");
+    o.isAbsolute = (mPrefs->getString(SETTING::ONION_TYPE) != "relative");
+    o.markFilter = mPrefs->markFilter();
     o.skinPrevFrames = mPrefs->isOn(SETTING::PREV_ONION);
     o.skinNextFrames = mPrefs->isOn(SETTING::NEXT_ONION);
     o.colorizePrevFrames = mPrefs->isOn(SETTING::ONION_RED);

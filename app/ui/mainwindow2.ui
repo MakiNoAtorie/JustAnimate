@@ -137,6 +137,7 @@
      <property name="title">
       <string>Onion Skin</string>
      </property>
+     <addaction name="actionOnionSkin"/>
      <addaction name="actionOnionPrev"/>
      <addaction name="actionOnionNext"/>
     </widget>
@@ -522,6 +523,17 @@
    </property>
    <property name="text">
     <string>Grid</string>
+   </property>
+  </action>
+  <action name="actionOnionSkin">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Onion Skin</string>
+   </property>
+   <property name="statusTip">
+    <string>Show onion skin in both directions</string>
    </property>
   </action>
   <action name="actionOnionPrev">

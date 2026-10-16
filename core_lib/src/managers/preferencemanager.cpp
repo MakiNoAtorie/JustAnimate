@@ -137,6 +137,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::ONION_WHILE_PLAYBACK,     settings.value(SETTING_ONION_WHILE_PLAYBACK,   0).toInt());
     set(SETTING::ONION_TYPE,               settings.value(SETTING_ONION_TYPE,             "relative").toString());
     set(SETTING::ONION_FALLOFF,            settings.value(SETTING_ONION_FALLOFF,          0).toInt());
+    set(SETTING::ONION_MARKS,              settings.value(SETTING_ONION_MARKS,            MarkFilter({ Mark::Key, Mark::Breakdown }).toInt()).toInt());
     set(SETTING::ONION_PREV_COLOR,         settings.value(SETTING_ONION_PREV_COLOR,       "#ff0000").toString());
     set(SETTING::ONION_NEXT_COLOR,         settings.value(SETTING_ONION_NEXT_COLOR,       "#0000ff").toString());
     set(SETTING::LAYER_VISIBILITY,         settings.value(SETTING_LAYER_VISIBILITY,       2).toInt());
@@ -178,6 +179,12 @@ float PreferenceManager::getFloat(SETTING option)
 {
     int optionId = static_cast<int>(option);
     return mFloatingPointSet.value(optionId, -1);
+}
+
+MarkFilter PreferenceManager::markFilter()
+{
+    if (getString(SETTING::ONION_TYPE) != "marked") { return MarkFilter(); }
+    return MarkFilter::fromInt(getInt(SETTING::ONION_MARKS));
 }
 
 QString PreferenceManager::getString(SETTING option)
@@ -303,6 +310,9 @@ void PreferenceManager::set(SETTING option, int value)
         break;
     case SETTING::ONION_FALLOFF:
         settings.setValue(SETTING_ONION_FALLOFF, value);
+        break;
+    case SETTING::ONION_MARKS:
+        settings.setValue(SETTING_ONION_MARKS, value);
         break;
     case SETTING::OVERLAY_ANGLE:
         settings.setValue(SETTING_OVERLAY_ANGLE, value);

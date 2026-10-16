@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #define ONIONSKINWIDGET_H
 
 #include "basedockwidget.h"
+#include <array>
+#include "keyframe.h"
 #include "preferencesdef.h"
 
 namespace Ui
@@ -26,6 +28,7 @@ namespace Ui
 }
 
 class Editor;
+class QCheckBox;
 class QComboBox;
 class QToolButton;
 class ViewManager;
@@ -57,6 +60,7 @@ private slots:
 private:
     void makeConnections();
     QToolButton* addColorButton(QLayout* layout, SETTING setting, const QString& toolTip);
+    std::array<std::pair<QCheckBox*, Mark>, 3> markBoxes() const;
     Ui::OnionSkin* ui = nullptr;
     QComboBox* mFalloffBox = nullptr;
     QToolButton* mPrevColorButton = nullptr;

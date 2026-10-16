@@ -51,10 +51,14 @@ void OnionSkinSubPainter::paint(QPainter& painter, const Layer* layer, const Oni
     if (layer->keyFrameCount() == 0)
         return;
 
+    // Marks belong to Drawings; camera keys always onion-skin.
+    const bool hasDrawings = layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR;
+    const MarkFilter filter = hasDrawings ? options.markFilter : MarkFilter();
+
     if (layer->onionSkin() && options.skinPrevFrames && frameIndex >= 1)
     {
         // Paint onion skin before current frame.
-        int onionFrameNumber = layer->getPreviousFrameNumber(frameIndex, options.isAbsolute);
+        int onionFrameNumber = layer->getPreviousFrameNumber(frameIndex, options.isAbsolute, filter);
         KeyFrame* currentAbsoluteFrame = layer->getLastKeyFrameAtPosition(frameIndex);
         int currentAbsoluteFrameNumber = currentAbsoluteFrame ? currentAbsoluteFrame->pos() : -1;
 
@@ -74,7 +78,7 @@ void OnionSkinSubPainter::paint(QPainter& painter, const Layer* layer, const Oni
                 onionPosition++;
             }
 
-            onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, options.isAbsolute);
+            onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, options.isAbsolute, filter);
         }
     }
 
@@ -83,7 +87,7 @@ void OnionSkinSubPainter::paint(QPainter& painter, const Layer* layer, const Oni
     if (layer->onionSkin() && options.skinNextFrames)
     {
         // Paint onion skin after current frame.
-        int onionFrameNumber = layer->getNextFrameNumber(frameIndex, options.isAbsolute);
+        int onionFrameNumber = layer->getNextFrameNumber(frameIndex, options.isAbsolute, filter);
         int onionPosition = 0;
 
         while (onionPosition < options.framesToSkinNext && onionFrameNumber > 0)
@@ -92,7 +96,7 @@ void OnionSkinSubPainter::paint(QPainter& painter, const Layer* layer, const Oni
 
             state(OnionSkinPaintState::NEXT, onionFrameNumber);
 
-            onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, options.isAbsolute);
+            onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, options.isAbsolute, filter);
             onionPosition++;
         }
     }

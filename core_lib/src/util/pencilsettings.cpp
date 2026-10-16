@@ -62,14 +62,20 @@ void checkExistingShortcuts()
     QSettings defaultKey(":resources/kb.ini", QSettings::IniFormat);
 
     QSettings& curSetting = pencilSettings();
+    const auto freeKey = [&](const QString& cmd, const QString& oldKey) {
+        if (curSetting.value(cmd).toString() == oldKey) { curSetting.setValue(cmd, QString()); }
+    };
     // Once, when R becomes the Rotate view tool: free R and Z from their old rotate commands.
     if (!curSetting.contains("shortcuts/" CMD_TOOL_ROTATE))
     {
-        const auto freeKey = [&](const QString& cmd, const QString& oldKey) {
-            if (curSetting.value(cmd).toString() == oldKey) { curSetting.setValue(cmd, QString()); }
-        };
         freeKey("shortcuts/" CMD_ROTATE_CLOCK, "R");
         freeKey("shortcuts/" CMD_ROTATE_ANTI_CLOCK, "Z");
+    }
+    // Once, when O becomes the onion skin toggle: free O and Alt+O from previous-only and next-only.
+    if (!curSetting.contains("shortcuts/" CMD_ONIONSKIN))
+    {
+        freeKey("shortcuts/" CMD_ONIONSKIN_PREV, "O");
+        freeKey("shortcuts/" CMD_ONIONSKIN_NEXT, "Alt+O");
     }
     foreach (QString pShortcutsKey, defaultKey.allKeys())
     {

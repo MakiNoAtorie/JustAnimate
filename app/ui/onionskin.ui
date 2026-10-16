@@ -466,14 +466,60 @@
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="onionSkinMode">
+           <widget class="QComboBox" name="onionSkinMode">
             <property name="toolTip">
-             <string>Show only Marked Drawings as onion skins</string>
+             <string>Which frames show as onion skins</string>
             </property>
-            <property name="text">
-             <string>Show Marked Drawings Only</string>
-            </property>
+            <item>
+             <property name="text">
+              <string>Every frame</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Every drawing</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Marked drawings</string>
+             </property>
+            </item>
            </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="onionMarksLayout">
+            <item>
+             <widget class="QCheckBox" name="onionMarkKey">
+              <property name="toolTip">
+               <string>Marked drawings mode shows Drawings marked Key</string>
+              </property>
+              <property name="text">
+               <string>Key</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="onionMarkBreakdown">
+              <property name="toolTip">
+               <string>Marked drawings mode shows Drawings marked Breakdown</string>
+              </property>
+              <property name="text">
+               <string>Breakdown</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="onionMarkInbetween">
+              <property name="toolTip">
+               <string>Marked drawings mode shows Drawings marked Inbetween</string>
+              </property>
+              <property name="text">
+               <string>Inbetween</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
           <item>
            <widget class="QCheckBox" name="onionWhilePlayback">
