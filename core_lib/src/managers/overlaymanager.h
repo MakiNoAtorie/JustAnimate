@@ -64,6 +64,9 @@ public:
     void setRuler(const QLineF& line) { mRuler = line; }
     bool isRulerEnabled() const { return mRulerEnabled; }
     void setRulerEnabled(bool enabled) { mRulerEnabled = enabled; }
+    /// Strokes snap to lines toward the vanishing points of the visible perspective overlays.
+    bool isPerspectiveSnapEnabled() const { return mPerspectiveSnapEnabled; }
+    void setPerspectiveSnapEnabled(bool enabled) { mPerspectiveSnapEnabled = enabled; }
 
     bool anyOverlayEnabled() const { return mRulerEnabled || mSinglePerspectiveEnabled || mTwoPointPerspectiveEnabled || mThreePointPerspectiveEnabled; }
 
@@ -79,6 +82,7 @@ private:
 
     QLineF mRuler { -300.0, 0.0, 300.0, 0.0 };
     bool mRulerEnabled = false;
+    bool mPerspectiveSnapEnabled = false;
 
     bool mSinglePerspectiveEnabled = false;
     bool mTwoPointPerspectiveEnabled = false;

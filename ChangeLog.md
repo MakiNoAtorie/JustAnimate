@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Preferences: assigning a shortcut that another action uses warns and names that action (4.5).
+- Snap to Perspective: View > Overlays > Snap to Perspective makes strokes follow the line from their start toward the nearest vanishing point of the visible perspective overlay (2.9).
 - Sound layers show a waveform aligned to frames; sound scrubbing follows fast drags and no longer plays clips at frame 1 one frame late (3.10).
 - Move and select tools: type the position, scale and rotation of a selection in the tool options; values apply exactly and undo in one step (2.10).
 - Move tool: drag the round handle on a selection edge to skew it around its centre; undoable (2.10).

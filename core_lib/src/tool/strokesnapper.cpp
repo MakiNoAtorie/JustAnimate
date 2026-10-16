@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 #include "strokesnapper.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace
@@ -27,6 +28,20 @@ QPointF project(const QLineF& line, const QPointF& p)
     return line.p1() + d * (QPointF::dotProduct(p - line.p1(), d) / len2);
 }
 
+qreal distance(const QLineF& line, const QPointF& p)
+{
+    const QPointF off = p - project(line, p);
+    return std::sqrt(QPointF::dotProduct(off, off));
+}
+
+// The guide in `guides` nearest to `p`.
+QLineF nearest(const QList<QLineF>& guides, const QPointF& p)
+{
+    return *std::min_element(guides.begin(), guides.end(), [&p](const QLineF& a, const QLineF& b) {
+        return distance(a, p) < distance(b, p);
+    });
+}
+
 } // namespace
 
 void StrokeSnapper::setGuides(const QList<QLineF>& guides, qreal tolerance)
@@ -38,20 +53,23 @@ void StrokeSnapper::setGuides(const QList<QLineF>& guides, qreal tolerance)
 void StrokeSnapper::begin(const QPointF& press)
 {
     mLocked.reset();
-    qreal best = mTolerance;
+    mCandidates.clear();
     for (const QLineF& guide : mGuides)
     {
-        const QPointF off = press - project(guide, press);
-        const qreal distance = std::sqrt(QPointF::dotProduct(off, off));
-        if (distance <= best)
-        {
-            best = distance;
-            mLocked = guide;
-        }
+        if (distance(guide, press) <= mTolerance) { mCandidates << guide; }
     }
+    if (mCandidates.isEmpty()) { return; }
+    mPress = project(nearest(mCandidates, press), press);
+    if (mCandidates.size() == 1) { mLocked = mCandidates.first(); }
 }
 
-QPointF StrokeSnapper::snap(const QPointF& point) const
+QPointF StrokeSnapper::snap(const QPointF& point)
 {
+    if (!mLocked && !mCandidates.isEmpty())
+    {
+        // Several guides near the press: wait until the pen shows a direction.
+        if (QLineF(mPress, point).length() < mTolerance) { return mPress; }
+        mLocked = nearest(mCandidates, point);
+    }
     return mLocked ? project(*mLocked, point) : point;
 }

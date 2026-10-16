@@ -25,6 +25,8 @@ GNU General Public License for more details.
 #include "toolmanager.h"
 #include "mathutils.h"
 #include "overlaymanager.h"
+#include "layermanager.h"
+#include "layercamera.h"
 #include "tiledbuffer.h"
 
 #include "canvascursorpainter.h"
@@ -435,7 +437,7 @@ void StrokeTool::migrateLineStabilization(const QSettings& settings)
     }
 }
 
-void StrokeTool::prepareInput()
+void StrokeTool::prepareInput(const QPointF& pressViewportPos)
 {
     mInterpolator.setSmoothing(strokeToolProperties().smoothingMode(), strokeToolProperties().smoothingStrength());
 
@@ -447,6 +449,25 @@ void StrokeTool::prepareInput()
     {
         const QLineF ruler = overlays->ruler();
         guides << QLineF(mEditor->view()->mapCanvasToScreen(ruler.p1()), mEditor->view()->mapCanvasToScreen(ruler.p2()));
+    }
+    const LayerCamera* camera = mEditor->layers()->getCameraLayerBelow(mEditor->currentLayerIndex());
+    if (overlays->isPerspectiveSnapEnabled() && camera)
+    {
+        // Vanishing points are in camera space, as the overlay painter draws them.
+        PreferenceManager* prefs = mEditor->preference();
+        QList<QPointF> points;
+        if (prefs->isOn(SETTING::OVERLAY_PERSPECTIVE1)) { points << overlays->getSinglePerspectivePoint(); }
+        if (prefs->isOn(SETTING::OVERLAY_PERSPECTIVE2) || prefs->isOn(SETTING::OVERLAY_PERSPECTIVE3))
+        {
+            points << overlays->getLeftPerspectivePoint() << overlays->getRightPerspectivePoint();
+        }
+        if (prefs->isOn(SETTING::OVERLAY_PERSPECTIVE3)) { points << overlays->getMiddlePerspectivePoint(); }
+        const QTransform toCanvas = camera->getViewAtFrame(mEditor->currentFrame()).inverted();
+        for (const QPointF& point : points)
+        {
+            const QPointF vanishing = mEditor->view()->mapCanvasToScreen(toCanvas.map(point));
+            if (QLineF(pressViewportPos, vanishing).length() >= 1) { guides << QLineF(pressViewportPos, vanishing); }
+        }
     }
     mInterpolator.setSnapGuides(guides, kSnapTolerancePx);
 }

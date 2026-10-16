@@ -134,7 +134,7 @@ protected:
     /// Maps the old LineStabilization setting once, while the tool has no SmoothingMode yet.
     void migrateLineStabilization(const QSettings& settings);
     /// Gives the interpolator this tool's smoothing and snap guides; call before its press event.
-    void prepareInput();
+    void prepareInput(const QPointF& pressViewportPos);
 
     static bool mQuickSizingEnabled;
 

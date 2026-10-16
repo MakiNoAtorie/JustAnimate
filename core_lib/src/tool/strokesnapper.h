@@ -26,14 +26,17 @@ class StrokeSnapper
 public:
     /// Applies from the next begin().
     void setGuides(const QList<QLineF>& guides, qreal tolerance);
-    /// Locks to the nearest guide within tolerance of the press point, or to none.
+    /// Picks the guides within tolerance of the press point. One guide locks now;
+    /// several lock on the first point a tolerance away, to the guide nearest that point.
     void begin(const QPointF& press);
-    /// The point projected onto the locked guide; unchanged when no guide is locked.
-    QPointF snap(const QPointF& point) const;
+    /// The point projected onto the locked guide; unchanged when no guide is near the press.
+    QPointF snap(const QPointF& point);
 
 private:
     QList<QLineF> mGuides;
     qreal mTolerance = 0;
+    QList<QLineF> mCandidates;
+    QPointF mPress;
     std::optional<QLineF> mLocked;
 };
 
