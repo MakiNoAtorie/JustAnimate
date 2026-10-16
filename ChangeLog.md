@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Lip-sync markers: right-click a sound layer cell to add, rename or remove a phoneme marker against the waveform; markers are saved with the project (3.10).
 - Project loading is fuzz-tested: a camera key with zero or negative scale, or an unknown element under the document, no longer crashes a debug build (1.8).
 - Triage: swept open Pencil2D crash and data-loss issues; four still apply and are filed as #164-#167 (1.9).
 - Canvas HUD: the bottom-left corner of the canvas shows a brush-size ring, a rotation dial and the zoom and rotation values (4.6).

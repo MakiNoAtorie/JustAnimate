@@ -188,6 +188,12 @@ void TimeLineCells::showCameraMenu(QPoint pos)
         return;
     }
 
+    if (curLayer->type() == Layer::SOUND)
+    {
+        showMarkerMenu(frameNumber, curLayer->id(), mapToGlobal(pos));
+        return;
+    }
+
     // only show menu if on camera layer and key exists
     if (curLayer->type() != Layer::CAMERA || !curLayer->keyExists(frameNumber))
     {
@@ -419,11 +425,10 @@ void TimeLineCells::paintTicks(QPainter& painter, const QPalette& palette) const
     painter.restore();
 }
 
-void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
+void TimeLineCells::showMarkerMenu(int frame, int layerId, const QPoint& globalPos)
 {
     ObjectData* data = mEditor->object()->data();
-    const int frame = mEditor->currentFrame();
-    const bool has = data->markers().contains(frame);
+    const bool has = data->markers(layerId).contains(frame);
 
     QMenu menu;
     QAction* add = menu.addAction(has ? tr("Rename Marker...") : tr("Add Marker..."));
@@ -432,7 +437,7 @@ void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) return;
 
-    FrameMarker m = data->markers().value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
+    FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0), layerId });
     if (chosen == add)
     {
         bool ok = false;
@@ -450,7 +455,7 @@ void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
     }
     else if (chosen == remove)
     {
-        data->removeMarker(frame);
+        data->removeMarker(frame, layerId);
     }
     mEditor->object()->modification();
     updateContent();
@@ -606,6 +611,23 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
             paintWaveform(painter, static_cast<const SoundClip*>(key), recTop, recHeight, frameSize);
         }
     });
+
+    if (layer->type() != Layer::SOUND) { return; }
+
+    // Lip-sync markers: a colour bar at the left of the cell and the phoneme over the waveform.
+    painter.save();
+    QFont nameFont = painter.font();
+    nameFont.setPixelSize(9);
+    painter.setFont(nameFont);
+    const QMap<int, FrameMarker> markers = mEditor->object()->data()->markers(layer->id());
+    for (auto it = markers.constBegin(); it != markers.constEnd(); ++it)
+    {
+        const int left = getFrameX(it.key()) - frameSize + 1;
+        painter.fillRect(left, recTop, 2, recHeight, it.value().color);
+        painter.setPen(palette().color(QPalette::Text));
+        painter.drawText(QRect(left + 3, recTop, frameSize * 4, recHeight), Qt::AlignLeft | Qt::AlignTop, it.value().name);
+    }
+    painter.restore();
 }
 
 void TimeLineCells::paintWaveform(QPainter& painter, const SoundClip* clip, int recTop, int recHeight, int frameSize) const
@@ -1131,7 +1153,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     case TIMELINE_CELL_TYPE::Tracks:
         if (event->button() == Qt::RightButton && mStartY < 20)
         {
-            showMarkerMenu(event->globalPosition().toPoint());
+            showMarkerMenu(mEditor->currentFrame(), 0, event->globalPosition().toPoint());
             return;
         }
         if (event->button() == Qt::MiddleButton)

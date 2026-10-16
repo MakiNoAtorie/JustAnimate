@@ -29,6 +29,7 @@ struct FrameMarker
 {
     QString name;
     QColor color;
+    int layerId = 0; // Sound layer of a lip-sync marker; 0 for a global marker.
 };
 
 class ObjectData
@@ -67,12 +68,15 @@ public:
     void setMarkOutFrameNumber(int n) { mMarkOutFrame = n; }
     int  getMarkOutFrameNumber() const { return mMarkOutFrame; }
 
-    void setMarker(int frame, const FrameMarker& m) { mMarkers.insert(frame, m); }
-    void removeMarker(int frame) { mMarkers.remove(frame); }
-    const QMap<int, FrameMarker>& markers() const { return mMarkers; }
+    void setMarker(int frame, const FrameMarker& m) { mMarkers[m.layerId].insert(frame, m); }
+    void removeMarker(int frame, int layerId = 0) { mMarkers[layerId].remove(frame); }
+    QMap<int, FrameMarker> markers(int layerId = 0) const { return mMarkers.value(layerId); }
+    // Markers by layer id, then by frame. Key 0 holds the global markers.
+    const QMap<int, QMap<int, FrameMarker>>& allMarkers() const { return mMarkers; }
+    void clearMarkers(int layerId) { mMarkers.remove(layerId); }
 
 private:
-    QMap<int, FrameMarker> mMarkers;
+    QMap<int, QMap<int, FrameMarker>> mMarkers;
     int mCurrentFrame = 1;
     QColor mCurrentColor{ 0, 0, 0, 255 };
     int mCurrentLayer = 0;

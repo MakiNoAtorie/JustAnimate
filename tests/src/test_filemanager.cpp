@@ -270,6 +270,47 @@ TEST_CASE("FileManager frame markers round-trip and are optional")
         REQUIRE(m.value(3).color == QColor("#ff0000"));
         REQUIRE(m.value(7).name == "breakdown");
     }
+
+    SECTION("Lip-sync markers on a sound layer survive save and load next to a global marker")
+    {
+        const int soundId = obj->addNewSoundLayer()->id();
+        obj->data()->setMarker(3, { "key", QColor("#ff0000") });
+        obj->data()->setMarker(3, { "AI", QColor("#0000ff"), soundId });
+        obj->data()->setMarker(5, { "O", QColor("#00ff00"), soundId });
+        REQUIRE(fm.save(obj.get(), path).ok());
+        std::unique_ptr<Object> loaded(fm.load(path));
+        REQUIRE(loaded != nullptr);
+        REQUIRE(loaded->data()->markers().size() == 1);
+        REQUIRE(loaded->data()->markers().value(3).name == "key");
+        const auto lip = loaded->data()->markers(soundId);
+        REQUIRE(lip.size() == 2);
+        REQUIRE(lip.value(3).name == "AI");
+        REQUIRE(lip.value(3).layerId == soundId);
+        REQUIRE(lip.value(5).color == QColor("#00ff00"));
+    }
+}
+
+TEST_CASE("FileManager loads markers with an unknown or non-sound layer as global markers")
+{
+    FileManager fm;
+    std::unique_ptr<Object> obj(loadXmlString(fm,
+        "<!DOCTYPE PencilDocument><document>"
+        "  <object><layer id='4' name='B' visibility='1' type='1'/></object>"
+        "  <projectdata><markers>"
+        "    <marker frame='2' name='unknown' color='#ff0000' layer='99'/>"
+        "    <marker frame='6' name='bitmap' color='#ff0000' layer='4'/>"
+        "    <marker frame='8' name='bad' color='#ff0000' layer='x'/>"
+        "  </markers></projectdata>"
+        "</document>"));
+    REQUIRE(obj != nullptr);
+    const auto m = obj->data()->markers();
+    REQUIRE(m.size() == 3);
+    REQUIRE(m.value(2).name == "unknown");
+    REQUIRE(m.value(2).layerId == 0);
+    REQUIRE(m.value(6).name == "bitmap");
+    REQUIRE(m.value(8).name == "bad");
+    REQUIRE(obj->data()->markers(4).isEmpty());
+    REQUIRE(obj->data()->markers(99).isEmpty());
 }
 
 TEST_CASE("FileManager loads malformed project XML")
