@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #define LAYERVECTOR_H
 
 #include <QImage>
+#include <QMap>
 #include "layer.h"
 
 class VectorImage;
@@ -43,6 +44,7 @@ public:
     bool usesColor(int index);
     void removeColor(int index);
     void moveColor(int start, int end);
+    void remapColors(const QMap<int, int>& mapping);
 
 protected:
     Status saveKeyFrameFile(KeyFrame*, QString path) override;

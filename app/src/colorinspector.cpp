@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "colormanager.h"
 #include "util.h"
+#include "pencilsettings.h"
 
 
 ColorInspector::ColorInspector(QWidget *parent) :
@@ -46,7 +47,7 @@ void ColorInspector::initUI()
 {
     mCurrentColor = editor()->color()->frontColor();
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     isRgbColors = settings.value("isRgb").toBool();
 
     if (isRgbColors) {
@@ -191,7 +192,7 @@ void ColorInspector::onColorSpecChanged()
     // assume hsv if not checked
     isRgbColors = ui->colorSpecTabWidget->currentWidget() == ui->rgbTab;
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue("isRgb", isRgbColors);
 
     if (isRgbColors)

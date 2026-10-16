@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "preferencemanager.h"
 #include "timeline.h"
 #include "pencildef.h"
+#include "pencilsettings.h"
 
 TimeControls::TimeControls(TimeLine* parent) : QToolBar(parent)
 {
@@ -37,7 +38,7 @@ TimeControls::TimeControls(TimeLine* parent) : QToolBar(parent)
 
 void TimeControls::initUI()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     mFpsBox = new QSpinBox(this);
     mFpsBox->setFixedHeight(24);
@@ -342,7 +343,7 @@ void TimeControls::updateSoundScrubIcon(bool soundScrubEnabled)
 
 void TimeControls::noTimecodeText()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(SETTING_TIMECODE_TEXT, NOTEXT);
     mTimecodeLabelEnum = NOTEXT;
     mTimecodeLabel->setToolTip(tr(""));
@@ -351,7 +352,7 @@ void TimeControls::noTimecodeText()
 
 void TimeControls::onlyFramesText()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(SETTING_TIMECODE_TEXT, FRAMES);
     mTimecodeLabelEnum = FRAMES;
     mTimecodeLabel->setToolTip(tr("Actual frame number"));
@@ -360,7 +361,7 @@ void TimeControls::onlyFramesText()
 
 void TimeControls::sffText()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(SETTING_TIMECODE_TEXT, SFF);
     mTimecodeLabelEnum = SFF;
     mTimecodeLabel->setToolTip(tr("Timecode format S:FF"));
@@ -369,7 +370,7 @@ void TimeControls::sffText()
 
 void TimeControls::smpteText()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(SETTING_TIMECODE_TEXT, SMPTE);
     mTimecodeLabelEnum = SMPTE;
     mTimecodeLabel->setToolTip(tr("Timecode format MM:SS:FF"));

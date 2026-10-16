@@ -327,7 +327,6 @@ Status MovieImporter::importMovieAudio(const QString& filePath, std::function<bo
             status.setDescription(tr("A frame already exists on frame: %1 Move the scrubber to a empty position on the timeline and try again").arg(currentFrame));
             return status;
         }
-        layer->removeKeyFrame(currentFrame);
     }
 
     QString audioPath = QDir(mTempDir->path()).filePath("audio.wav");
@@ -342,21 +341,8 @@ Status MovieImporter::importMovieAudio(const QString& filePath, std::function<bo
     if(mCanceled) return Status::CANCELED;
     progress(90);
 
-    Q_ASSERT(!layer->keyExists(currentFrame));
-
-    SoundClip* key = new SoundClip;
-    layer->addKeyFrame(currentFrame, key);
-
-    key->setSoundClipName(QFileInfo(filePath).fileName()); // keep the original file name
-    Status st = mEditor->sound()->loadSound(key, audioPath);
-
-    if (!st.ok())
-    {
-        layer->removeKeyFrame(currentFrame);
-        return st;
-    }
-
-    return Status::OK;
+    // Keep the original file name
+    return mEditor->sound()->importSoundClip(audioPath, QFileInfo(filePath).fileName());
 }
 
 

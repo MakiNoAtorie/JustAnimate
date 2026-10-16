@@ -1183,6 +1183,18 @@ void VectorImage::moveColor(int start, int end)
      }
 }
 
+void VectorImage::remapColors(const QMap<int, int>& mapping)
+{
+    for (BezierArea& area : mArea)
+    {
+        area.setColorNumber(mapping.value(area.getColorNumber(), area.getColorNumber()));
+    }
+    for (BezierCurve& curve : mCurves)
+    {
+        curve.setColorNumber(mapping.value(curve.getColorNumber(), curve.getColorNumber()));
+    }
+}
+
 /**
  * @brief VectorImage::paintImage
  * @param painter: QPainter&

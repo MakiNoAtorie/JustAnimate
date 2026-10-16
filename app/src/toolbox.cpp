@@ -45,7 +45,7 @@ ToolBoxDockWidget::ToolBoxDockWidget(QWidget* parent) :
 
 ToolBoxDockWidget::~ToolBoxDockWidget()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue("ToolBoxGeom", this->saveGeometry());
 }
 
@@ -59,7 +59,7 @@ void ToolBoxDockWidget::initUI()
 
     connect(editor()->layers(), &LayerManager::currentLayerChanged, this, &ToolBoxDockWidget::onLayerDidChange);
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     restoreGeometry(settings.value("ToolBoxGeom").toByteArray());
 
     // Important to set the proper minimumSize;

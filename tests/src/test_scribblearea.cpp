@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QtMath>
 #include "mathutils.h"
 
+#include "bitmapimage.h"
 #include "brushpresets.h"
 #include "brushtool.h"
 #include "editor.h"
@@ -27,6 +28,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "object.h"
 #include "scribblearea.h"
+#include "stageprofiler.h"
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "viewmanager.h"
@@ -210,4 +212,51 @@ TEST_CASE("ScribbleArea - pen double tap needs two taps close in time and place"
     tap(area, editor, QPointF(100, 100), 9000);
     tap(area, editor, QPointF(110, 100), 9100);
     CHECK(editor->view()->scaling() != 1.0);
+}
+
+TEST_CASE("ScribbleArea - a held frame repaints from the frame cache")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show(); // grab() on a hidden widget resizes it, which clears the cache
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    BitmapImage* key = layer->getBitmapImageAtFrame(1);
+    REQUIRE(key);
+    editor->scrubTo(3); // held by the key at 1
+
+    const auto fill = [&](QColor c) {
+        key->drawRect(QRectF(-20, -20, 40, 40), Qt::NoPen, QBrush(c), QPainter::CompositionMode_Source, false);
+        area->onFrameModified(1);
+    };
+    const auto centre = [&] { return area->grab().toImage().pixelColor(100, 100); };
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    fill(Qt::red);
+    StageProfiler::reset();
+    CHECK(centre() == QColor(Qt::red));
+    CHECK(centre() == QColor(Qt::red));
+    CHECK(StageProfiler::calls(StageProfiler::Composite) == 1);
+
+    // An edit on the key reaches its held frames.
+    fill(Qt::blue);
+    CHECK(centre() == QColor(Qt::blue));
+
+    // A tweened hold changes inside the hold: it skips the cache.
+    REQUIRE(layer->addNewKeyFrameAt(5));
+    layer->getKeyFrameAt(1)->setTween(true);
+    area->onFrameModified(1);
+    StageProfiler::reset();
+    area->grab();
+    area->grab();
+    CHECK(StageProfiler::calls(StageProfiler::Composite) == 2);
+
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
 }

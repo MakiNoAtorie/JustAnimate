@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QCoreApplication>
 #include <QObject>
 #include <QList>
+#include <QMap>
 #include <QColor>
 #include <QImage>
 #include <QRect>
@@ -107,9 +108,10 @@ public:
     void addColor(const ColorRef& newColor) { mPalette.append(newColor); }
     void addColorAtIndex(int index, const ColorRef& newColor);
     void removeColor(int index);
+    void importVectorColors(LayerVector* layer, const Object& source, QMap<int, int>& importedColors);
     bool isColorInUse(int index) const;
     void renameColor(int i, const QString& text);
-    int getColorCount() { return mPalette.size(); }
+    int getColorCount() const { return mPalette.size(); }
     bool importPalette(const QString& filePath);
     void importPaletteGPL(QFile& file);
     void importPalettePencil(QFile& file);
@@ -135,7 +137,6 @@ public:
     Layer* takeLayer(int layerId); // Note: transfer ownership of the layer
     void insertLayer(int index, Layer* layer); // Note: takes ownership; the layer keeps its id
 
-    bool swapLayers(int i, int j);
 
     /** Allows you to check whether two layers can be swappped, before doing the actual operation
      *

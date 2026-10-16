@@ -28,12 +28,13 @@ GNU General Public License for more details.
 #include "theme.h"
 
 #include "ui_generalpage.h"
+#include "pencilsettings.h"
 
 GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
 {
     ui->setupUi(this);
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     QString languages [][3]
         {

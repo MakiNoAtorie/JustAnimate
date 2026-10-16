@@ -85,6 +85,8 @@ public:
     bool moveLayer(int from, int to);
     /** Sets the layer order and groups, keeping each group's collapsed state. For undo. */
     void applyLayerArrangement(const LayerArrangement& arrangement);
+    /** Applies the arrangement and records it as one undo step. Returns false when nothing changes. */
+    bool commitLayerArrangement(const LayerArrangement& after, const QString& description);
 
     void gotoNextLayer();
     void gotoPreviouslayer();
@@ -145,7 +147,6 @@ signals:
 private:
     int getIndex(Layer*) const;
     void recordLayerAdd(const Layer* layer);
-    bool commitLayerArrangement(const LayerArrangement& after, const QString& description);
 
     int mLastCameraLayerIdx = 0;
 };

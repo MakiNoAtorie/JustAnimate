@@ -46,6 +46,8 @@ public:
     Status  writeToWorkingFolder(const Object*);
 
     Status error() const { return mError; }
+    // Sound clips the last save wrote without audio because their file was missing.
+    QStringList skippedSoundClips() const { return mSkippedSoundClips; }
     Status verifyObject(Object* obj);
 
     QStringList searchForUnsavedProjects();
@@ -90,6 +92,7 @@ private: // Project recovery
 private:
     Status mError = Status::OK;
     QString mstrLastTempFolder;
+    QStringList mSkippedSoundClips;
 
     int mCurrentProgress = 0;
     int mMaxProgressValue = 100;

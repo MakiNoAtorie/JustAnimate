@@ -169,6 +169,7 @@ Status ActionCommands::importMovieVideo()
 
 Status ActionCommands::importSound(FileType type)
 {
+    const UndoMacro macro(mEditor->undoRedo(), tr("Import Sound"));
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer == nullptr)
     {
@@ -208,15 +209,15 @@ Status ActionCommands::importSound(FileType type)
     layer = mEditor->layers()->currentLayer();
     Q_ASSERT(layer->type() == Layer::SOUND);
 
-    // Adding key before getting file name just to make sure the keyframe can be insterted
-    SoundClip* key = static_cast<SoundClip*>(mEditor->addNewKey());
-
-    if (key == nullptr)
+    if (!layer->visible())
     {
-        // Probably tried to modify a hidden layer or something like that
-        // Let Editor handle the warnings
+        mEditor->getScribbleArea()->showLayerNotVisibleWarning();
         return Status::SAFE;
     }
+    // Go to the first frame that has no clip; the import records the clip as one undo step.
+    int frame = mEditor->currentFrame();
+    while (layer->keyExists(frame) && !layer->getKeyFrameAt(frame)->fileName().isEmpty()) { ++frame; }
+    mEditor->scrubTo(frame);
 
     QString strSoundFile = FileDialog::getOpenFileName(mParent, type);
 
@@ -233,14 +234,10 @@ Status ActionCommands::importSound(FileType type)
         st = convertSoundToWav(strSoundFile);
     }
 
-    if (!st.ok())
+    if (st.ok())
     {
-        mEditor->removeKey();
-        emit mEditor->layers()->currentLayerChanged(mEditor->layers()->currentLayerIndex()); // trigger timeline repaint.
-    } else {
         showSoundClipWarningIfNeeded();
     }
-
     return st;
 }
 
@@ -395,6 +392,11 @@ Status ActionCommands::exportMovie(bool isGif)
 
     if (st.ok())
     {
+        if (!ex.skippedClips().isEmpty())
+        {
+            QMessageBox::warning(mParent, APP_NAME,
+                                 tr("These sound clips were left out of the movie because their files are missing:\n%1").arg(ex.skippedClips().join('\n')));
+        }
         if (QFile::exists(strMoviePath))
         {
             if (isGif) {

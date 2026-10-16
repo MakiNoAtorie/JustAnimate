@@ -6,6 +6,24 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Pen: a double tap needs two taps within 500 ms and 5 px, not three, and the window is a real 500 ms (#133).
+- Fixes: a held frame repaints the canvas from the cache instead of redrawing it on every repaint; an edit on its key still shows at once (#129).
+- Fixes: an eraser or smudge stroke shrinks a bitmap's bounds to the ink that remains, so erased areas no longer stay in memory, saved files and selection bounds (#130).
+- Fixes: a sound clip restored by undo or redo plays again, and deleting a sound layer stops its playing clips (#151).
+- Fixes: a bucket click outside the image fills the empty area around the drawing instead of the shape at the top-left corner; it does nothing when the whole border is drawn (#125).
+- Fixes: the polyline, bucket and other drawing tools apply a pending selection transform before they paint, so a debug build no longer asserts (#165).
+- Fixes: swap layers, Import Layers, camera drags and resets, and sound import are each one undo step (#150).
+- Save: a sound clip whose file is missing is saved without audio and named in a warning (`<layer> frame <n>`) instead of failing the save (#166).
+- Export: a sound clip whose file is missing is left out of the movie and named in a warning (`<layer> frame <n>`) instead of failing the export (#167).
+- Fixes: Import Layers keeps each vector curve and area on its source colour instead of remapping colours one after another (#134).
+- Export: a failed or cancelled movie export no longer deletes the movie it was to overwrite; export writes a temporary file and replaces the target only on success (#154).
+- Fixes: a stroke after an arrow-key selection nudge applies the nudge first instead of tripping an assert, and each nudge is one undo step (#164).
+- Speed: hovering with the camera tool no longer clears the canvas caches on every mouse move (#132).
+- Export: movie and GIF export keep at most 4 unwritten frames in the ffmpeg pipe instead of queueing up to all frames in memory (#138).
+- Undo: a bucket drag that fills several regions is one undo step, and redo restores every fill (#148).
+- Undo: bucket clicks that fill nothing, smudge clicks on an empty vector frame and strokes released by another device no longer leak an image copy each (#123).
+- Fixes: the camera tool Reset Scale button resets scale to 1 and keeps rotation (#131).
+- Settings: every access goes through pencilSettings(), and the test suite uses its own empty INI file instead of the real app settings (#168).
+- Fixes: undo and redo update the title-bar and status-bar modified marker, so undoing back to the saved state shows the file as saved (#149).
 - Translations: all .ts files re-synced with the current strings (obsolete entries kept) and the fork translation workflow is documented in docs/translations.md.
 - Accessibility: arrow keys move the frame and layer when the timeline has keyboard focus (Tab to it), every dock and tool option control has a tooltip, and dark-theme link and placeholder text meet WCAG AA contrast (4.8).
 - Lip-sync markers: right-click a sound layer cell to add, rename or remove a phoneme marker against the waveform; markers are saved with the project (3.10).

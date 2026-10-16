@@ -40,6 +40,7 @@ GNU General Public License for more details.
 #include "preferencemanager.h"
 #include "pressurecurve.h"
 #include "scribblearea.h"
+#include "selectionmanager.h"
 #include "stageprofiler.h"
 #include "testfixture.h"
 #include "toolmanager.h"
@@ -482,6 +483,66 @@ TEST_CASE("Pencil - a stroke on a translated key lands where it was drawn")
     REQUIRE(curve >= 0);
     CHECK(vimage->getVertex(curve, -1).x() == Approx(-50).margin(3)); // the curve origin
     CHECK(vimage->getVertex(curve, vimage->getCurveSize(curve) - 1).x() < -30 + 3);
+}
+
+TEST_CASE("Pen - a stroke after an arrow-key nudge applies the nudge first")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(PEN);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    layer->getBitmapImageAtFrame(1)->setPixel(10, 20, qRgba(0, 0, 0, 255));
+    editor->select()->setSelection(QRectF(0, 0, 40, 40), true);
+    auto pixelAt = [&](int x) { return qAlpha(layer->getBitmapImageAtFrame(1)->pixel(x, 20)) != 0; };
+    auto nudgeRight = [&]
+    {
+        QKeyEvent e(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+        QApplication::sendEvent(area, &e);
+    };
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+
+    SECTION("Undo restores the position before the nudge")
+    {
+        nudgeRight();
+        REQUIRE_FALSE(editor->select()->selectionTransform().isIdentity());
+        undoAction->trigger();
+        CHECK(editor->select()->selectionTransform().isIdentity());
+        CHECK(pixelAt(10));
+        CHECK_FALSE(pixelAt(11));
+    }
+
+    SECTION("A stroke paints with an identity selection transform")
+    {
+        nudgeRight();
+        tablet(area, QEvent::TabletPress, screen(QPointF(200, 200)), 1.0);
+        tablet(area, QEvent::TabletMove, screen(QPointF(250, 200)), 1.0);
+        area->grab(); // paints while drawing: asserts on a pending selection transform
+        tablet(area, QEvent::TabletRelease, screen(QPointF(250, 200)), 1.0);
+
+        CHECK(editor->select()->selectionTransform().isIdentity());
+        CHECK_FALSE(pixelAt(10));
+        CHECK(pixelAt(11));
+    }
+
+    SECTION("Enter applies the nudge")
+    {
+        nudgeRight();
+        QKeyEvent e(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QApplication::sendEvent(area, &e);
+        CHECK_FALSE(editor->select()->somethingSelected());
+        CHECK_FALSE(pixelAt(10));
+        CHECK(pixelAt(11));
+    }
 }
 
 TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
@@ -1300,4 +1361,61 @@ TEST_CASE("StrokeTool - perspective snap locks a stroke to the line toward the n
     CHECK(inkAt(4, penEnd));
 
     prefs->set(SETTING::OVERLAY_PERSPECTIVE2, twoPointWas);
+}
+
+TEST_CASE("Eraser - a stroke shrinks the bitmap bounds to the remaining ink and undo restores them")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    BitmapImage* image = layer->getBitmapImageAtFrame(1);
+    const QRect blobA(-80, -10, 20, 20);
+    const QRect blobB(60, -10, 20, 20);
+    BitmapImage a(blobA, Qt::black);
+    BitmapImage b(blobB, Qt::black);
+    image->paste(&a);
+    image->paste(&b);
+    // Minimal bounds before the stroke, like a frame loaded from a file.
+    const QRect beforeBounds = image->bounds();
+    REQUIRE(beforeBounds == blobA.united(blobB));
+    REQUIRE(image->isMinimallyBounded());
+    const QImage beforePixels = *image->image();
+
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->scrubTo(1);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(ERASER);
+    auto* eraser = static_cast<StrokeTool*>(editor->tools()->currentTool());
+    const ToolSettingsGuard guard(eraser);
+    eraser->setWidth(100);
+    eraser->setFeatherEnabled(false);
+    eraser->setPressureEnabled(false);
+    auto erase = [&](QPointF from, QPointF to) {
+        stroke(area, editor->view()->mapCanvasToScreen(from), editor->view()->mapCanvasToScreen(to), 1.0);
+    };
+
+    erase(QPointF(70, -40), QPointF(70, 40));
+    image = layer->getBitmapImageAtFrame(1);
+    CHECK(image->isMinimallyBounded());
+    CHECK(image->bounds() == blobA);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    REQUIRE(undoAction->isEnabled());
+    undoAction->trigger();
+    image = layer->getBitmapImageAtFrame(1);
+    CHECK(image->bounds() == beforeBounds);
+    CHECK(*image->image() == beforePixels);
+
+    REQUIRE(redoAction->isEnabled());
+    redoAction->trigger();
+    CHECK(layer->getBitmapImageAtFrame(1)->bounds() == blobA);
+    erase(QPointF(-70, -40), QPointF(-70, 40));
+    image = layer->getBitmapImageAtFrame(1);
+    CHECK(image->isMinimallyBounded());
+    CHECK(image->bounds().isEmpty());
 }
