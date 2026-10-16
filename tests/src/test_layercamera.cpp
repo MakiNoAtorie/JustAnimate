@@ -28,6 +28,11 @@ GNU General Public License for more details.
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "cameratool.h"
+#include "scribblearea.h"
+#include "viewmanager.h"
+#include <QApplication>
+#include <QPointingDevice>
+#include <QTabletEvent>
 
 SCENARIO("Create camera keyframe with linear easing")
 {
@@ -331,4 +336,37 @@ TEST_CASE("CameraTool Reset Scale sets scale to 1 and keeps rotation")
     tool->performAction(CameraTool::RESET_ROTATION);
     CHECK(cam->scaling() == Approx(2.0));
     CHECK(cam->rotation() == Approx(0.0));
+}
+
+TEST_CASE("CameraTool hover does not change the view but a drag does")
+{
+    TestSession session;
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    layer->addNewKeyFrameAt(1);
+
+    session.start();
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(CAMERA);
+    auto send = [&](QEvent::Type type, QPointF canvas, Qt::MouseButtons buttons)
+    {
+        const QPointF pos = editor->view()->mapCanvasToScreen(canvas);
+        QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                       1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+        QApplication::sendEvent(area, &e);
+    };
+
+    int views = 0;
+    QObject::connect(editor->view(), &ViewManager::viewChanged, area, [&] { ++views; });
+    for (int i = 0; i < 5; ++i) send(QEvent::TabletMove, QPointF(i * 10, i * 5), Qt::NoButton);
+    CHECK(views == 0);
+
+    send(QEvent::TabletPress, QPointF(0, 0), Qt::LeftButton);
+    send(QEvent::TabletMove, QPointF(20, 10), Qt::LeftButton);
+    CHECK(views > 0);
+    send(QEvent::TabletRelease, QPointF(20, 10), Qt::NoButton);
 }

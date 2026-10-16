@@ -343,14 +343,15 @@ void CameraTool::pointerMoveEvent(PointerEvent* event)
     {
         if (currentLayer->keyExists(mEditor->currentFrame())) {
             transformCamera(event->canvasPos(), event->modifiers());
+            mEditor->view()->forceUpdateViewTransform();
         }
         else if (mCamMoveMode == CameraMoveType::PATH)
         {
             transformCameraPath(event->canvasPos());
+            mEditor->view()->forceUpdateViewTransform();
         }
     }
     mScribbleArea->updateToolCursor();
-    mEditor->view()->forceUpdateViewTransform();
     mEditor->updateFrame();
 }
 
