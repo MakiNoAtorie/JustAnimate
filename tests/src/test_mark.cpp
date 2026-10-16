@@ -67,6 +67,29 @@ TEST_CASE("Setting and clearing a Mark are one undo step each", "[Mark]")
     REQUIRE(layer->getKeyFrameAt(5)->mark() == Mark::Breakdown);
 }
 
+TEST_CASE("Marking another cell keeps the playhead", "[Mark]")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+    layer->addNewKeyFrameAt(5);
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    editor->layers()->setKeyMark(5, Mark::Key);
+    CHECK(editor->currentFrame() == 1);
+    REQUIRE(layer->getKeyFrameAt(5)->mark() == Mark::Key);
+    REQUIRE(layer->getKeyFrameAt(1)->mark() == Mark::None);
+
+    undo->trigger();
+    CHECK(layer->getKeyFrameAt(5)->mark() == Mark::None);
+    CHECK(layer->getKeyFrameAt(1)->mark() == Mark::None);
+}
+
 TEST_CASE("Setting the Mark a Drawing already has records no undo step", "[Mark]")
 {
     TestSession session;

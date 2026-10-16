@@ -611,12 +611,15 @@ void LayerManager::setKeyMark(int frame, Mark mark)
     if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { return; }
     KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr || key->mark() == mark) { return; }
-    // The keyframe undo state captures the Drawing shown at the current frame.
-    if (layer->getLastKeyFrameAtPosition(editor()->currentFrame()) != key) { editor()->scrubTo(key->pos()); }
+    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
+    const int playhead = editor()->currentFrame();
+    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
+    if (visit) { editor()->scrubTo(key->pos()); }
 
     const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     key->setMark(mark);
     editor()->undoRedo()->record(saveStateId, mark == Mark::None ? tr("Clear Mark") : tr("Mark"));
+    if (visit) { editor()->scrubTo(playhead); }
     notifyLayerChanged(layer);
 }
 
