@@ -269,4 +269,20 @@ private:
     Layer* detachedLayer = nullptr;
 };
 
+class LayerBlendModeCommand : public UndoRedoCommand
+{
+public:
+    LayerBlendModeCommand(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(BlendMode mode);
+
+    int layerId = 0;
+    BlendMode oldMode = BlendMode::Normal;
+    BlendMode newMode = BlendMode::Normal;
+};
+
 #endif // UNDOREDOCOMMAND_H

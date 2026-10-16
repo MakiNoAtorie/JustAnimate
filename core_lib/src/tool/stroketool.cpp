@@ -86,6 +86,10 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::FLOW_PER_DAB_ENABLED] = false;
     info[StrokeToolProperties::TAPER_START_VALUE] = { 0, 1000, 0 };
     info[StrokeToolProperties::TAPER_END_VALUE] = { 0, 1000, 0 };
+    info[StrokeToolProperties::GRAIN_MODE_VALUE] = { 0, 2, 0 };
+    info[StrokeToolProperties::GRAIN_SCALE_VALUE] = { 25, 800, 100 };
+    info[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { 0, 400, 100 };
+    info[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { -100, 100, 0 };
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;

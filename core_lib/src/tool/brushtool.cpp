@@ -67,6 +67,10 @@ void BrushTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::DAB_COUNT_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_MODE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_SCALE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::FLOW_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::OPACITY_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::WASH_ENABLED] = { Layer::BITMAP };

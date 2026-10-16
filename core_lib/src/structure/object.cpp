@@ -735,29 +735,28 @@ void Object::paintImage(QPainter& painter,int frameNumber,
 
         painter.setOpacity(1.0);
 
+        std::function<void(QPainter&)> paint;
         if (layer->type() == Layer::BITMAP)
         {
-
-            LayerBitmap* layerBitmap = static_cast<LayerBitmap*>(layer);
-            BitmapImage* bitmap = layerBitmap->getLastBitmapImageAtFrame(frameNumber);
+            BitmapImage* bitmap = static_cast<LayerBitmap*>(layer)->getLastBitmapImageAtFrame(frameNumber);
             if (bitmap)
             {
                 painter.setOpacity(bitmap->getOpacity());
-                bitmap->paintImage(painter);
+                paint = [bitmap](QPainter& p) { bitmap->paintImage(p); };
             }
-
         }
-        // paints the vector images
         if (layer->type() == Layer::VECTOR)
         {
-            LayerVector* layerVector = static_cast<LayerVector*>(layer);
-            VectorImage* vec = layerVector->getLastVectorImageAtFrame(frameNumber);
+            VectorImage* vec = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(frameNumber);
             if (vec)
             {
                 painter.setOpacity(vec->getOpacity());
-                vec->paintImage(painter, *this, false, false, antialiasing);
+                paint = [this, vec, antialiasing](QPainter& p) { vec->paintImage(p, *this, false, false, antialiasing); };
             }
         }
+        if (!paint) { continue; }
+        if (layer->blendMode() == BlendMode::Normal) { paint(painter); }
+        else { drawBlendedLayer(painter, layer->blendMode(), paint); }
     }
 }
 

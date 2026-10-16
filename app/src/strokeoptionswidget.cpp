@@ -73,7 +73,17 @@ void StrokeOptionsWidget::initUI()
         // Taper also gives mouse strokes thin ends, like simulated pressure.
         { StrokeToolProperties::TAPER_START_VALUE, tr("Start taper"), tr(" px") },
         { StrokeToolProperties::TAPER_END_VALUE, tr("End taper"), tr(" px") },
+        { StrokeToolProperties::GRAIN_SCALE_VALUE, tr("Grain scale"), "%" },
+        { StrokeToolProperties::GRAIN_CONTRAST_VALUE, tr("Grain contrast"), "%" },
+        { StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, tr("Grain brightness"), "" },
     };
+    // Item index is the GrainMode value.
+    mGrainModeCombo = new QComboBox(mDynamicsBox);
+    mGrainModeCombo->addItems({ tr("Off"), tr("Fixed to paper"), tr("Moves with stroke") });
+    dynamics->addRow(tr("Grain"), mGrainModeCombo);
+    connect(mGrainModeCombo, &QComboBox::activated, this, [this](int mode) {
+        mCurrentTool->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, mode);
+    });
     for (const auto& [type, label, suffix] : rows)
     {
         const PropertyInfo info = p.getInfo(type);
@@ -443,6 +453,8 @@ void StrokeOptionsWidget::updateDynamics()
         QSignalBlocker b(box);
         box->setValue(p.getInfo(type).intValue());
     }
+    QSignalBlocker b(mGrainModeCombo);
+    mGrainModeCombo->setCurrentIndex(p.grainMode());
 }
 
 void StrokeOptionsWidget::setFeatherEnabled(bool enabled)

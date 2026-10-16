@@ -59,6 +59,8 @@ public:
     void insertLayer(int index, Layer* layer);
     Status renameLayer(Layer*, const QString& newName);
     void notifyLayerChanged(Layer*);
+    /** Sets how the layer composites over the layers below it. One undo step. */
+    void setBlendMode(Layer* layer, BlendMode mode);
 
     void gotoNextLayer();
     void gotoPreviouslayer();

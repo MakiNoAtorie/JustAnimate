@@ -53,6 +53,10 @@ edit `dabtool.*`, `tiledbuffer.*`, `stroketool.*`, `toolproperties.h`,
   quantized field to the `DabMask` cache key. The default tip keeps the old
   fast path so golden hashes do not change. `DabTool::drawDab` takes the tip
   from `dabTip(direction)`; subclasses pass it through unchanged.
+- Grain (`BrushTip::grainMode`) is not part of the `DabMask` key:
+  `TiledBuffer::grainMask` multiplies a copy of the cached mask per dab.
+  Paper grain samples canvas pixels; moving grain samples pixels from the
+  dab's integer origin. The texture is generated with integer math only.
 - Tip angles are degrees, counter-clockwise on screen (canvas y points down).
 - Brush tip files (.gbr, PNG) are untrusted: bound every header field and
   check data length against file size before reading. A tip image is a

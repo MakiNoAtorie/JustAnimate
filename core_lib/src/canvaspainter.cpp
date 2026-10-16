@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 
 #include "painterutils.h"
+#include "blendmode.h"
 
 namespace
 {
@@ -105,6 +106,18 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 
     paintCurrentFrame(mainPainter, blitRect, mCurrentLayerIndex, mCurrentLayerIndex);
 
+    // A blend layer needs every layer below it as backdrop, so the layers above paint straight onto the canvas.
+    bool blendAbove = false;
+    for (int i = mCurrentLayerIndex + 1; i < mObject->getLayerCount(); ++i)
+    {
+        blendAbove |= mObject->getLayer(i)->blendMode() != BlendMode::Normal;
+    }
+
+    if (blendAbove)
+    {
+        renderPostLayers(mainPainter, blitRect);
+        return;
+    }
     if (mOptions.bFastLayersAbove)
     {
         updateCells(mPostLayersCache, mPostLayersPixmap, layersKey(mCurrentLayerIndex + 1, mObject->getLayerCount() - 1),
@@ -139,7 +152,7 @@ QVector<qint64> CanvasPainter::layersKey(int startLayer, int endLayer) const
     {
         Layer* layer = mObject->getLayer(i);
         KeyFrame* frame = layer->getLastKeyFrameAtPosition(mFrameNumber);
-        key << qint64(quintptr(layer)) << layer->visible() << qint64(quintptr(frame));
+        key << qint64(quintptr(layer)) << layer->visible() << int(layer->blendMode()) << qint64(quintptr(frame));
         if (!layer->visible() || frame == nullptr) { continue; }
         if (layer->type() == Layer::BITMAP)
         {
@@ -407,7 +420,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
         paintTransformedSelection(currentBitmapPainter, paintedImage, mSelection);
     }
 
-    painter.drawPixmap(mPointZero, mCurrentLayerPixmap);
+    drawLayerPixmap(painter, blitRect, layer->blendMode());
 }
 
 void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer)
@@ -446,7 +459,20 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     painter.setWorldMatrixEnabled(false);
     painter.setTransform(QTransform());
 
-    painter.drawPixmap(mPointZero, mCurrentLayerPixmap);
+    drawLayerPixmap(painter, blitRect, layer->blendMode());
+}
+
+void CanvasPainter::drawLayerPixmap(QPainter& painter, const QRect& blitRect, BlendMode mode)
+{
+    if (mode == BlendMode::Normal)
+    {
+        painter.drawPixmap(mPointZero, mCurrentLayerPixmap);
+        return;
+    }
+    const qreal dpr = mCurrentLayerPixmap.devicePixelRatioF();
+    const QRect rect = QRectF(QPointF(blitRect.topLeft()) * dpr, QSizeF(blitRect.size()) * dpr).toAlignedRect()
+                       & mCurrentLayerPixmap.rect();
+    if (!rect.isEmpty()) { drawBlended(painter, mCurrentLayerPixmap.copy(rect).toImage(), rect.topLeft(), mode); }
 }
 
 void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection) const
