@@ -23,8 +23,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `QT_VERSION < 6` branches.
 - CI runs the suite with ASan, UBSan and LSan (`-DJUSTANIMATE_SANITIZE=ON`).
 - Windows: `tools\build-test.cmd ["exact test name" | [tag]]` runs the CI
-  source guards, builds both targets and runs the suite offscreen. For `benchmark` set `QT_QPA_PLATFORM=offscreen` and
-  `QT_QPA_PLATFORM_PLUGIN_PATH=%QTDIR%\plugins\platforms`.
+  source guards, builds both targets and runs the suite offscreen.
 - Edit files with the Edit tool or a byte-level script: keep each file's
   line endings (`git ls-files --eol`). Git Bash `sed -i` drops CRLF.
   PowerShell: commit with `git commit -F <scratch file>` written as UTF-8
@@ -39,8 +38,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   are `// shortcut:`.
 - Test at a public interface (`Editor`, `FileManager`, a tool, a manager;
   `MainWindow2` only for whole-UI sweeps such as `[Accessibility]`).
-- Tests that touch `QSettings` restore the value they change, and set up
-  what they read: CI starts with empty settings, your machine does not.
+- Settings go through `pencilSettings()` (`util/pencilsettings.h`) only,
+  never `QSettings(PENCIL2D, PENCIL2D)`. Tests restore what they change and
+  set up what they read.
 - Tests write files only under their own `QTemporaryDir`: agents run suites in
   parallel on one machine.
 - Fixtures are stack objects or `unique_ptr`, and every `new` QObject in app
@@ -62,6 +62,10 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `handleDrawingOnEmptyFrame()`, then `record` on every path; layer
   add/remove through `recordLayerAdd/Remove`). Commands address frames by
   stored position and keep removed layers alive, never recreate them.
+  A gesture records once, at its end; a state it never records goes to
+  `UndoRedoManager::discardState()`.
+- A missing sound clip file never fails save or export: skip the clip and
+  warn, naming it `<layer> frame <n>`.
 - Undo tests assert content after undo and redo, never selection state.
 - An edit that is not recorded for undo still emits `frameModified`,
   `framesModified` or `layerCountChanged`, or calls `object()->modification()`.
