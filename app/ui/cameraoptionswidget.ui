@@ -156,6 +156,9 @@
         </item>
         <item>
          <widget class="QComboBox" name="pathColorComboBox">
+          <property name="toolTip">
+           <string>Color of the camera path</string>
+          </property>
           <item>
            <property name="text">
             <string>Red</string>

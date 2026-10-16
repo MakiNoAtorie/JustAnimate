@@ -32,6 +32,9 @@ BrushPresetDock::BrushPresetDock(QWidget* parent, const QString& folder) : BaseD
     auto newButton = new QPushButton(tr("New"), this);
     auto editButton = new QPushButton(tr("Edit"), this);
     auto duplicateButton = new QPushButton(tr("Duplicate"), this);
+    newButton->setToolTip(tr("Create a new brush preset"));
+    editButton->setToolTip(tr("Edit the selected brush preset"));
+    duplicateButton->setToolTip(tr("Duplicate the selected brush preset"));
     auto buttons = new QHBoxLayout;
     buttons->addWidget(newButton);
     buttons->addWidget(editButton);

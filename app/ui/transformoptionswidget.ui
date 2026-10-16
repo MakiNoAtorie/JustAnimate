@@ -43,6 +43,9 @@
      </item>
      <item>
       <widget class="QCheckBox" name="antiAliasingCheckBox">
+       <property name="toolTip">
+        <string>Smooth edges when transforming</string>
+       </property>
        <property name="text">
         <string>Anti-Aliasing</string>
        </property>

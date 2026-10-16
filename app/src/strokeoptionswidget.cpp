@@ -83,6 +83,7 @@ void StrokeOptionsWidget::initUI()
     // Item index is the GrainMode value.
     mGrainModeCombo = new QComboBox(mDynamicsBox);
     mGrainModeCombo->addItems({ tr("Off"), tr("Fixed to paper"), tr("Moves with stroke") });
+    mGrainModeCombo->setToolTip(tr("Paper grain mode"));
     dynamics->addRow(tr("Grain"), mGrainModeCombo);
     connect(mGrainModeCombo, &QComboBox::activated, this, [this](int mode) {
         mCurrentTool->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, mode);
@@ -90,6 +91,7 @@ void StrokeOptionsWidget::initUI()
     // Item index is the SmudgeMix value.
     mSmudgeMixCombo = new QComboBox(mDynamicsBox);
     mSmudgeMixCombo->addItems({ tr("Light"), tr("Pigment") });
+    mSmudgeMixCombo->setToolTip(tr("How smudge mixes colours"));
     dynamics->addRow(tr("Smudge mixing"), mSmudgeMixCombo);
     connect(mSmudgeMixCombo, &QComboBox::activated, this, [this](int mode) {
         mCurrentTool->setDynamic(StrokeToolProperties::SMUDGE_MIX_VALUE, mode);
@@ -100,6 +102,7 @@ void StrokeOptionsWidget::initUI()
         auto* box = new QSpinBox(mDynamicsBox);
         box->setRange(info.minInt(), info.maxInt());
         box->setSuffix(suffix);
+        box->setToolTip(label);
         dynamics->addRow(label, box);
         mDynamicsSpinBoxes.append({ type, box });
         connect(box, &QSpinBox::valueChanged, this, [this, type = type](int value) { mCurrentTool->setDynamic(type, value); });
@@ -109,6 +112,7 @@ void StrokeOptionsWidget::initUI()
     // Item index is the ShapeTool::Mode value.
     mShapeModeCombo = new QComboBox(this);
     mShapeModeCombo->addItems({ tr("Line"), tr("Rectangle"), tr("Ellipse"), tr("Polygon") });
+    mShapeModeCombo->setToolTip(tr("Shape"));
     ui->verticalLayout_2->insertWidget(0, mShapeModeCombo);
     connect(mShapeModeCombo, &QComboBox::activated, this, [this](int mode) {
         static_cast<ShapeTool*>(mCurrentTool)->setShapeMode(static_cast<ShapeTool::Mode>(mode));

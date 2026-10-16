@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include <QFontMetrics>
 #include <QFormLayout>
 #include <QInputDialog>
+#include <QKeyEvent>
 #include <QMenu>
 #include <QPainter>
 #include <QRegularExpression>
@@ -64,6 +65,8 @@ TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYP
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
     setAttribute(Qt::WA_OpaquePaintEvent, false);
     setMouseTracking(true);
+    // Tab focus only: a click must leave keyboard focus on the canvas.
+    setFocusPolicy(Qt::TabFocus);
 
     connect(mPrefs, &PreferenceManager::optionChanged, this, &TimeLineCells::loadSetting);
 }
@@ -993,6 +996,20 @@ bool TimeLineCells::event(QEvent* event)
     }
 
     return QWidget::event(event);
+}
+
+// Same keys as the canvas: Left/Right move the frame, Up/Down the layer.
+void TimeLineCells::keyPressEvent(QKeyEvent* event)
+{
+    switch (event->key())
+    {
+    case Qt::Key_Right: mEditor->scrubForward(); break;
+    case Qt::Key_Left: mEditor->scrubBackward(); break;
+    case Qt::Key_Up: mEditor->layers()->gotoNextLayer(); break;
+    case Qt::Key_Down: mEditor->layers()->gotoPreviouslayer(); break;
+    default: QWidget::keyPressEvent(event); return;
+    }
+    event->accept();
 }
 
 void TimeLineCells::mousePressEvent(QMouseEvent* event)

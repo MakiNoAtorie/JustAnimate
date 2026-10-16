@@ -120,6 +120,9 @@
       </item>
       <item>
        <widget class="QPushButton" name="colorDialogButton">
+        <property name="toolTip">
+         <string>Open the native color dialog</string>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
           <horstretch>0</horstretch>
@@ -180,6 +183,9 @@
       </item>
       <item>
        <widget class="QToolButton" name="palettePref">
+        <property name="toolTip">
+         <string>Palette display options</string>
+        </property>
         <property name="minimumSize">
          <size>
           <width>0</width>

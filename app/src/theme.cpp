@@ -12,6 +12,7 @@ namespace
 QPalette darkPalette()
 {
     QPalette p;
+    // Link and placeholder colors keep WCAG AA contrast (4.5:1) on base.
     const QColor window(53, 53, 53), base(35, 35, 35), text(Qt::white), disabled(127, 127, 127);
     p.setColor(QPalette::Window, window);
     p.setColor(QPalette::WindowText, text);
@@ -23,10 +24,10 @@ QPalette darkPalette()
     p.setColor(QPalette::Button, window);
     p.setColor(QPalette::ButtonText, text);
     p.setColor(QPalette::BrightText, Qt::red);
-    p.setColor(QPalette::Link, QColor(42, 130, 218));
+    p.setColor(QPalette::Link, QColor(90, 160, 240));
     p.setColor(QPalette::Highlight, QColor(42, 130, 218));
     p.setColor(QPalette::HighlightedText, Qt::black);
-    p.setColor(QPalette::PlaceholderText, disabled);
+    p.setColor(QPalette::PlaceholderText, QColor(160, 160, 160));
     for (auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText})
         p.setColor(QPalette::Disabled, role, disabled);
     return p;

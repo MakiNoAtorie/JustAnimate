@@ -61,6 +61,7 @@ StatusBar::StatusBar(QWidget *parent) : QStatusBar(parent)
                            << locale.toString(1., 'f', 1) + locale.percent());
     mZoomBox->setMaxCount(mZoomBox->count() + 1);
     mZoomBox->setEditable(true);
+    mZoomBox->setToolTip(tr("Zoom level"));
     mZoomBox->lineEdit()->setAlignment(Qt::AlignRight);
     connect(mZoomBox, &QComboBox::textActivated, [=](const QString &currentText)
     {
@@ -79,6 +80,7 @@ StatusBar::StatusBar(QWidget *parent) : QStatusBar(parent)
     mZoomSlider->setRange(-20, 20);
     mZoomSlider->setTickPosition(QSlider::TicksBelow);
     mZoomSlider->setTickInterval(20);
+    mZoomSlider->setToolTip(tr("Zoom"));
     connect(mZoomSlider, &QSlider::valueChanged, [this](int value)
     {
         emit zoomChanged(std::pow(10, value / 10.));

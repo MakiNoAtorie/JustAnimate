@@ -21,8 +21,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON`, Qt 6.4
   (Linux) and 6.5.3 on GCC, Clang and MSVC: no Qt 6.5+ API, no
   `QT_VERSION < 6` branches.
-- `pencil2d_tests` does not compile all of `app/src`: build `pencil2d` too
-  after an edit there.
+- `pencil2d_tests` compiles all of `app/src` except `main.cpp`; tests can
+  build `MainWindow2`.
 - CI runs the suite with ASan, UBSan and LSan (`-DJUSTANIMATE_SANITIZE=ON`).
 - Windows: `tools\build-test.cmd [filter]` builds both targets and runs the
   suite offscreen. For `benchmark` set `QT_QPA_PLATFORM=offscreen` and
@@ -104,8 +104,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `PlatformHandler::isDarkMode()`.
 - Dock layouts: free functions in `app/src/defaultlayout.*`; dock
   `objectName`s are stable keys.
-- App files compiled into a test are listed in both `app/app.cmake` and
-  `tests/tests.cmake`.
+- New app files go in `app/app.cmake` only; `tests/tests.cmake` takes them
+  from there.
 - New tools append to `ToolType` before `TOOL_TYPE_COUNT`.
 - Speed-ups: Release `benchmark`, before/after back to back, numbers in the
   commit; an attempt inside noise goes to `docs/rejected-optimizations.md`.
@@ -135,7 +135,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `duplicateLayer` copies every saved layer attribute.
 - Sound timing: `SoundClip::msAtFrame`/`waveformPeaks`; tests use
   `setSamples`.
-- A UI rule a test needs lives in a non-UI helper (both cmake files).
+- A UI rule a test needs lives in a non-UI helper.
   Preference tooltips: `PreferencesDialog::addTooltips()`.
 - Loader: a bad value from a file loads as the default; unknown tags are
   skipped; never `Q_ASSERT` on file data.

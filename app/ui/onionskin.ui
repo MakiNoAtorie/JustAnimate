@@ -134,6 +134,9 @@
            </property>
            <item>
             <widget class="QSpinBox" name="onionPrevFramesNumBox">
+             <property name="toolTip">
+              <string>Number of previous frames to show</string>
+             </property>
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                <horstretch>0</horstretch>
@@ -218,6 +221,9 @@
            </property>
            <item>
             <widget class="QSpinBox" name="onionNextFramesNumBox">
+             <property name="toolTip">
+              <string>Number of next frames to show</string>
+             </property>
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                <horstretch>0</horstretch>
@@ -342,6 +348,9 @@
               </item>
               <item>
                <widget class="QSpinBox" name="onionMaxOpacityBox">
+                <property name="toolTip">
+                 <string>Opacity of the nearest onion skin frame</string>
+                </property>
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -407,6 +416,9 @@
               </item>
               <item>
                <widget class="QSpinBox" name="onionMinOpacityBox">
+                <property name="toolTip">
+                 <string>Opacity of the farthest onion skin frame</string>
+                </property>
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -446,6 +458,9 @@
           </property>
           <item>
            <widget class="QCheckBox" name="onionSkinMultiLayer">
+            <property name="toolTip">
+             <string>Show onion skins of every layer, not only the current one</string>
+            </property>
             <property name="text">
              <string>Show On All Layers</string>
             </property>
@@ -460,6 +475,9 @@
           </item>
           <item>
            <widget class="QCheckBox" name="onionSkinMode">
+            <property name="toolTip">
+             <string>Show only keyframes as onion skins</string>
+            </property>
             <property name="text">
              <string>Show Keyframes Only</string>
             </property>
@@ -467,6 +485,9 @@
           </item>
           <item>
            <widget class="QCheckBox" name="onionWhilePlayback">
+            <property name="toolTip">
+             <string>Keep onion skins visible during playback</string>
+            </property>
             <property name="text">
              <string>Show During Playback</string>
             </property>
