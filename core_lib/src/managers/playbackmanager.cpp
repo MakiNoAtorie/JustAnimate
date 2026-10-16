@@ -115,7 +115,6 @@ void PlaybackManager::play()
         frame = editor()->currentFrame();
     }
 
-    mListOfActiveSoundFrames.clear();
     // Check for any sounds we should start playing part-way through.
     mCheckForSoundsHalfway = true;
     playSounds(frame);
@@ -353,45 +352,20 @@ void PlaybackManager::playSounds(int frame)
 
     for (LayerSound* layer : kSoundLayers)
     {
-        KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
-
         if (!layer->visible())
         {
             continue;
         }
 
-        if (key != nullptr)
-        {
-            // add keyframe position to list
-            if (key->pos() + key->length() >= frame)
-            {
-                if (!mListOfActiveSoundFrames.contains(key->pos()))
-                {
-                    mListOfActiveSoundFrames.append(key->pos());
-                }
-            }
-        }
-
         if (mCheckForSoundsHalfway)
         {
-            // Check for sounds which we should start playing from part-way through.
-            for (int i = 0; i < mListOfActiveSoundFrames.count(); i++)
-            {
-                int listPosition = mListOfActiveSoundFrames.at(i);
-                if (layer->keyExistsWhichCovers(listPosition))
-                {
-                    key = layer->getKeyFrameWhichCovers(listPosition);
-                    SoundClip* clip = static_cast<SoundClip*>(key);
-                    clip->playFromPosition(frame, mFps);
-                }
-            }
+            // Start a sound that covers this frame part-way through.
+            KeyFrame* key = layer->getKeyFrameWhichCovers(frame);
+            if (key != nullptr) { startSound(static_cast<SoundClip*>(key), frame); }
         }
         else if (layer->keyExists(frame))
         {
-            key = layer->getKeyFrameAt(frame);
-            SoundClip* clip = static_cast<SoundClip*>(key);
-
-            clip->play();
+            startSound(static_cast<SoundClip*>(layer->getKeyFrameAt(frame)), frame);
 
             // save the position of our active sound frame
             mActiveSoundFrame = frame;
@@ -401,13 +375,7 @@ void PlaybackManager::playSounds(int frame)
         {
             if (layer->keyExists(mActiveSoundFrame))
             {
-                key = layer->getKeyFrameWhichCovers(mActiveSoundFrame);
-                SoundClip* clip = static_cast<SoundClip*>(key);
-                clip->stop();
-
-                // make sure list is cleared on end
-                if (!mListOfActiveSoundFrames.isEmpty())
-                    mListOfActiveSoundFrames.clear();
+                static_cast<SoundClip*>(layer->getKeyFrameAt(mActiveSoundFrame))->stop();
             }
         }
     }
@@ -415,6 +383,13 @@ void PlaybackManager::playSounds(int frame)
     // Set flag to false, since this check should only be done when
     // starting play-back, or when looping.
     mCheckForSoundsHalfway = false;
+}
+
+// Seek even at the key: a paused scrub snippet leaves the player mid-clip. msAtFrame matches the export offset.
+void PlaybackManager::startSound(SoundClip* clip, int frame)
+{
+    clip->playFromPosition(frame, mFps);
+    emit soundStarted(clip, clip->msAtFrame(frame, mFps));
 }
 
 /**
@@ -505,6 +480,7 @@ void PlaybackManager::advance()
         {
             editor()->scrubTo(mStartFrame);
             mCheckForSoundsHalfway = true;
+            playSounds(mStartFrame);
             return;
         }
         else

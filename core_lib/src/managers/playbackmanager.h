@@ -97,11 +97,13 @@ signals:
     void speedChanged(double speed);
     void rangedPlaybackStateChanged(bool b);
     void playStateChanged(bool isPlaying);
+    void soundStarted(SoundClip* clip, qint64 ms);
 
 private:
     void timerTick();
     void flipTimerTick();
     void playSounds(int frame);
+    void startSound(SoundClip* clip, int frame);
     bool skipFrame();
 
     int mStartFrame = 1;
@@ -136,7 +138,6 @@ private:
     int mPlayingFrameCounter = 0; // how many frames has passed after pressing play
 
     bool mCheckForSoundsHalfway = false;
-    QVector<int> mListOfActiveSoundFrames;
     QVector<SoundClip*> mSoundclipsToPLay;
     QVector<int> mFlipList;
 

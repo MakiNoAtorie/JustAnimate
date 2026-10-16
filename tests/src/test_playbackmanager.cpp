@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QApplication>
 #include <QFile>
 #include <QKeyEvent>
+#include <QRegularExpression>
 #include <QTabletEvent>
 #include <QTemporaryDir>
 #include "app_util.h"
@@ -29,10 +30,13 @@ GNU General Public License for more details.
 #include "filemanager.h"
 #include "layerbitmap.h"
 #include "layermanager.h"
+#include "layersound.h"
+#include "movieexporter.h"
 #include "object.h"
 #include "playbackmanager.h"
 #include "preferencemanager.h"
 #include "scribblearea.h"
+#include "soundclip.h"
 #include "testfixture.h"
 #include "toolmanager.h"
 
@@ -306,4 +310,82 @@ TEST_CASE("Setting a loop range turns on the range and Loop", "[PlaybackManager]
     CHECK(pb->isRangedPlaybackOn());
     CHECK(pb->markInFrame() == 4);
     CHECK(pb->markOutFrame() == 9);
+}
+
+namespace
+{
+// Milliseconds into a clip that the exported movie plays at a frame, read from the audioMix ffmpeg args.
+double exportedMsAtFrame(const QStringList& args, int frame, int startFrame, int fps)
+{
+    const QRegularExpression delay("adelay=(\\d+)S");
+    const double delayMs = delay.match(args.join(' ')).captured(1).toDouble() * 1000 / 44100;
+    const double trimMs = args.at(args.indexOf("-ss") + 1).toDouble() * 1000;
+    return (frame - startFrame) * 1000.0 / fps + trimMs - delayMs;
+}
+}
+
+TEST_CASE("Preview starts a sound at the offset the export plays at that frame", "[PlaybackManager]")
+{
+    SettingsGuard guard({ SETTING_FPS });
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString path = dir.filePath("click.wav");
+    {
+        QFile f(path);
+        REQUIRE(f.open(QIODevice::WriteOnly));
+    }
+    TestSession s;
+    s.object->addNewBitmapLayer();
+    LayerSound* sound = s.object->addNewSoundLayer();
+    REQUIRE(s.start());
+    PlaybackManager* pb = s.editor->playback();
+    pb->setFps(24);
+    pb->setPingPong(false);
+    SoundClip* clip = new SoundClip;
+    clip->setFileName(path);
+    clip->setLength(4); // covers frames 5..8
+    REQUIRE(sound->addKeyFrame(5, clip));
+
+    std::vector<std::pair<int, qint64>> starts; // frame shown, ms into the clip
+    QObject::connect(pb, &PlaybackManager::soundStarted, [&](SoundClip* c, qint64 ms) {
+        CHECK(c == clip);
+        starts.emplace_back(s.editor->currentFrame(), ms);
+    });
+    auto play = [&](int from, int to, bool loop, int steps) {
+        pb->setLooping(loop);
+        pb->enableRangedPlayback(true);
+        pb->setRangedStartFrame(from);
+        pb->setRangedEndFrame(to);
+        pb->play();
+        for (int i = 0; i < steps && pb->isPlaying(); i++) { pb->advance(); }
+        pb->stop();
+        const QStringList args = MovieExporter::audioMix(s.editor->object(), from, to, 24, "out.wav").args;
+        for (const auto& st : starts)
+        {
+            CHECK(std::abs(st.second - exportedMsAtFrame(args, st.first, from, 24)) <= 1.0);
+        }
+    };
+    using Starts = std::vector<std::pair<int, qint64>>;
+
+    SECTION("From the start the clip starts on its key at 0 ms")
+    {
+        play(1, 10, false, 20);
+        REQUIRE(starts == Starts{ { 5, 0 } });
+    }
+    SECTION("Started part-way the clip seeks to the export offset")
+    {
+        s.editor->scrubTo(7);
+        play(1, 10, false, 20);
+        REQUIRE(starts == Starts{ { 7, 83 } });
+    }
+    SECTION("Each loop pass starts the clip on its key and never early")
+    {
+        play(3, 8, true, 9); // frames 3..8 then 3..6
+        REQUIRE(starts == Starts{ { 5, 0 }, { 5, 0 } });
+    }
+    SECTION("A loop restart inside the clip seeks to the export offset")
+    {
+        play(6, 8, true, 3); // frames 6 7 8 6
+        REQUIRE(starts == Starts{ { 6, 42 }, { 6, 42 } });
+    }
 }
