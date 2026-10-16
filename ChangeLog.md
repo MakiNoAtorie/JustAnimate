@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Fixes: a stroke after an arrow-key selection nudge applies the nudge first instead of tripping an assert, and each nudge is one undo step (#164).
 - Speed: hovering with the camera tool no longer clears the canvas caches on every mouse move (#132).
 - Export: movie and GIF export keep at most 4 unwritten frames in the ffmpeg pipe instead of queueing up to all frames in memory (#138).
 - Undo: bucket clicks that fill nothing, smudge clicks on an empty vector frame and strokes released by another device no longer leak an image copy each (#123).
