@@ -117,3 +117,28 @@ TEST_CASE("A Rough layer shows tinted and faded on the canvas", "[RoughLayer]")
     undo->trigger();
     CHECK(area->grab().toImage().pixel(center) == qRgb(0, 0, 0));
 }
+
+TEST_CASE("A Rough layer draws under the other layers on the canvas", "[RoughLayer]")
+{
+    TestSession s;
+    LayerBitmap* below = filledLayer(s.object, Qt::red);
+    LayerBitmap* rough = filledLayer(s.object, Qt::black);
+    rough->setRough(true);
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(400, 300);
+    area->show();
+    QApplication::processEvents();
+    QObject::connect(editor->layers(), &LayerManager::currentLayerChanged, area, &ScribbleArea::onLayerChanged);
+    editor->scrubTo(1);
+    const QPoint center = editor->view()->mapCanvasToScreen(QPointF(0, 0)).toPoint();
+
+    for (Layer* current : { static_cast<Layer*>(below), static_cast<Layer*>(rough) })
+    {
+        editor->layers()->setCurrentLayer(current);
+        INFO("current layer " << current->name().toStdString());
+        CHECK(area->grab().toImage().pixel(center) == qRgb(255, 0, 0));
+    }
+}
