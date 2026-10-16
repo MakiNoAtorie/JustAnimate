@@ -20,10 +20,13 @@ GNU General Public License for more details.
 #include <cmath>
 #include <QGuiApplication>
 #include <QMessageBox>
+#include <QPainterPath>
+#include <QtMath>
 #include <QPixmapCache>
 #include <QTimer>
 
 #include "basetool.h"
+#include "brushpresets.h"
 #include "stroketool.h"
 #include "transformtool.h"
 #include "pointerevent.h"
@@ -409,6 +412,13 @@ void ScribbleArea::keyPressEvent(QKeyEvent *event)
 
     if (isPointerInUse()) { return; } // prevents shortcuts calls while drawing
 
+    if (mRadialMenu.kind != RadialMenu::Closed && event->key() == Qt::Key_Escape)
+    {
+        mRadialMenu = RadialMenu();
+        update();
+        return;
+    }
+
     if (currentTool()->keyPressEvent(event))
     {
         return; // has been handled by tool
@@ -572,6 +582,19 @@ void ScribbleArea::wheelEvent(QWheelEvent* event)
 
 void ScribbleArea::tabletEvent(QTabletEvent *e)
 {
+    if (mRadialMenu.kind != RadialMenu::Closed)
+    {
+        if (e->type() == QEvent::TabletRelease)
+        {
+            // Filter the mouse events Windows makes from this release.
+            mTabletReleaseMillisAgo = 0;
+            mMouseFilterTimer->start();
+        }
+        radialMenuEvent(e->type(), e->position());
+        e->accept();
+        return;
+    }
+
     PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
 
     if (event.pointerType() == QPointingDevice::PointerType::Eraser)
@@ -729,6 +752,8 @@ void ScribbleArea::mousePressEvent(QMouseEvent* e)
         return;
     }
 
+    if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
+
     PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerPressEvent(&event);
     mMouseInUse = event.isAccepted();
@@ -738,6 +763,8 @@ void ScribbleArea::mouseMoveEvent(QMouseEvent* e)
 {
     if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
 
+    if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
+
     PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerMoveEvent(&event);
 }
@@ -745,6 +772,8 @@ void ScribbleArea::mouseMoveEvent(QMouseEvent* e)
 void ScribbleArea::mouseReleaseEvent(QMouseEvent* e)
 {
     if (mTabletInUse || (mMouseFilterTimer->isActive() && mTabletReleaseMillisAgo < MOUSE_FILTER_THRESHOLD)) { e->ignore(); return; }
+
+    if (mRadialMenu.kind != RadialMenu::Closed) { radialMenuEvent(e->type(), e->position()); return; }
 
     PointerEvent event(e, mEditor->view()->mapScreenToCanvas(e->position()));
     pointerReleaseEvent(&event);
@@ -1040,6 +1069,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
 
         mOverlayPainter.paint(painter, rect());
         paintCanvasHud(painter);
+        paintRadialMenu(painter);
 
         // paints the selection outline
         if (mEditor->select()->somethingSelected())
@@ -1441,6 +1471,120 @@ void ScribbleArea::paintCanvasHud(QPainter& painter) const
     painter.drawLine(needle);
     x += 2 * kDial + kPad;
     painter.drawText(QRectF(x, box.top(), box.right() - x, box.height()), Qt::AlignVCenter | Qt::AlignLeft, text);
+    painter.restore();
+}
+
+namespace
+{
+// The toolbox tools; Camera is chosen by the camera layer.
+constexpr ToolType kRadialTools[] = { PENCIL, ERASER, SELECT, MOVE, HAND, SMUDGE, PEN,
+                                      POLYLINE, BUCKET, EYEDROPPER, BRUSH, SHAPE, LASSOFILL };
+// shortcut: the picker shows the first presets only; a paged ring when users keep more.
+constexpr int kMaxRadialPresets = 16;
+}
+
+int radialSliceAt(QPointF offset, int count, qreal inner, qreal outer)
+{
+    const qreal r = std::hypot(offset.x(), offset.y());
+    if (count <= 0 || r < inner || r > outer) { return -1; }
+    // Degrees clockwise from up; screen y points down.
+    qreal angle = qRadiansToDegrees(std::atan2(offset.x(), -offset.y()));
+    const qreal step = 360.0 / count;
+    angle = std::fmod(angle + step / 2 + 360.0, 360.0);
+    return qMin(static_cast<int>(angle / step), count - 1);
+}
+
+void ScribbleArea::openToolMenu(QPointF center)
+{
+    if (isPointerInUse()) { return; }
+    mRadialMenu = RadialMenu();
+    mRadialMenu.kind = RadialMenu::Tools;
+    mRadialMenu.center = center;
+    for (ToolType t : kRadialTools)
+    {
+        mRadialMenu.labels << BaseTool::TypeName(t);
+    }
+    update();
+}
+
+void ScribbleArea::openPresetPicker(QPointF center, const QString& presetFolder)
+{
+    if (isPointerInUse() || !mEditor->tools()->currentStrokeTool()) { return; }
+    const QStringList names = BrushPresets(presetFolder).names().mid(0, kMaxRadialPresets);
+    if (names.isEmpty()) { return; }
+    mPresetFolder = presetFolder;
+    mRadialMenu = RadialMenu();
+    mRadialMenu.kind = RadialMenu::Presets;
+    mRadialMenu.center = center;
+    mRadialMenu.labels = names;
+    update();
+}
+
+void ScribbleArea::radialMenuEvent(QEvent::Type type, QPointF pos)
+{
+    mRadialMenu.hovered = radialSliceAt(pos - mRadialMenu.center, static_cast<int>(mRadialMenu.labels.size()),
+                                        RadialMenu::kInner, RadialMenu::kOuter);
+    update();
+    if (type != QEvent::TabletRelease && type != QEvent::MouseButtonRelease) { return; }
+
+    const RadialMenu menu = mRadialMenu;
+    mRadialMenu = RadialMenu();
+    if (menu.hovered < 0) { return; }
+    ToolManager* tools = mEditor->tools();
+    if (menu.kind == RadialMenu::Tools)
+    {
+        tools->setCurrentTool(kRadialTools[menu.hovered]);
+    }
+    else if (StrokeTool* tool = tools->currentStrokeTool())
+    {
+        if (BrushPresets(mPresetFolder).apply(menu.labels.at(menu.hovered), *tool))
+        {
+            emit tools->toolsReset(); // the tool options show the new values
+        }
+    }
+}
+
+void ScribbleArea::paintRadialMenu(QPainter& painter) const
+{
+    const RadialMenu& menu = mRadialMenu;
+    const int n = static_cast<int>(menu.labels.size());
+    if (menu.kind == RadialMenu::Closed || n == 0) { return; }
+
+    const qreal step = 360.0 / n;
+    const qreal mid = (RadialMenu::kInner + RadialMenu::kOuter) / 2;
+    const QRectF outer(menu.center - QPointF(RadialMenu::kOuter, RadialMenu::kOuter),
+                       QSizeF(2 * RadialMenu::kOuter, 2 * RadialMenu::kOuter));
+    const QRectF inner(menu.center - QPointF(RadialMenu::kInner, RadialMenu::kInner),
+                       QSizeF(2 * RadialMenu::kInner, 2 * RadialMenu::kInner));
+    const QFontMetricsF fm(painter.font());
+    const qreal labelWidth = qMax(2 * M_PI * mid / n - 4, 2 * RadialMenu::kInner);
+
+    painter.save();
+    painter.setWorldMatrixEnabled(false);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(QPen(QColor(255, 255, 255, 90), 1));
+    for (int i = 0; i < n; ++i)
+    {
+        // Qt angles run counter-clockwise from 3 o'clock; slice i is centred at i * step clockwise from up.
+        const qreal start = 90 - i * step + step / 2;
+        QPainterPath slice;
+        slice.arcMoveTo(outer, start);
+        slice.arcTo(outer, start, -step);
+        slice.arcTo(inner, start - step, step);
+        slice.closeSubpath();
+        painter.setBrush(i == menu.hovered ? QColor(70, 130, 220, 220) : QColor(0, 0, 0, 170));
+        painter.drawPath(slice);
+    }
+
+    painter.setPen(Qt::white);
+    for (int i = 0; i < n; ++i)
+    {
+        const qreal a = qDegreesToRadians(i * step);
+        const QPointF c = menu.center + QPointF(std::sin(a), -std::cos(a)) * mid;
+        const QString text = fm.elidedText(menu.labels.at(i), Qt::ElideRight, labelWidth);
+        painter.drawText(QRectF(c.x() - labelWidth / 2, c.y() - fm.height() / 2, labelWidth, fm.height()),
+                         Qt::AlignCenter, text);
+    }
     painter.restore();
 }
 

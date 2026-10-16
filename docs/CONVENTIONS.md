@@ -107,20 +107,17 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - App files compiled into a test are listed in both `app/app.cmake` and
   `tests/tests.cmake`.
 - New tools append to `ToolType` before `TOOL_TYPE_COUNT`.
-- Speed-ups: Release `benchmark` target, before/after back to back on the
-  same machine, numbers in the commit message; a kept attempt that is not
-  outside noise goes to `docs/rejected-optimizations.md` instead. Caches
-  are checked pixel-identical against a fresh `CanvasPainter::paint` (with
-  `LayerVisibility::ALL`). Clear them from the modification signals; what
-  those can't scope to one layer is keyed by content (keyframe pointer,
-  visibility, opacity, `QImage::cacheKey`). Layer-range caches reuse
-  `LayerCellCache`/`layersKey` in `CanvasPainter`; a setting that changes
-  cached output joins the `invalidateAllCache` list in `ScribbleArea`.
-- Frame pool: frames more than 50 frames from the playhead unload; frames
-  with unsaved changes stay in RAM. Viewing a frame never marks it
-  modified. Memory claims use the benchmark's peak RAM line. Playback
-  preloads frames ahead through `Object::preloadFrames`, with a look-ahead
-  below the 50-frame unload distance.
+- Speed-ups: Release `benchmark`, before/after back to back, numbers in the
+  commit; an attempt inside noise goes to `docs/rejected-optimizations.md`.
+  Caches are checked pixel-identical against `CanvasPainter::paint`
+  (`LayerVisibility::ALL`), cleared from modification signals or keyed by
+  content (keyframe pointer, visibility, opacity, `QImage::cacheKey`).
+  Layer-range caches reuse `LayerCellCache`/`layersKey`; a setting that
+  changes cached output joins `invalidateAllCache` in `ScribbleArea`.
+- Frame pool: frames over 50 from the playhead unload unless modified;
+  viewing never marks modified. Playback preloads through
+  `Object::preloadFrames` (look-ahead under 50). Memory claims use the
+  benchmark's peak RAM line.
 - A timeline frame selection can span layers: clear it with
   `LayerManager::deselectAllFrames`. Multi-layer frame edits go through
   `LayerManager`, one `createState(type, layer)` per layer in one `UndoMacro`.
@@ -129,16 +126,20 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - A cache that must survive a scrub is keyed by content only (`onScrubbed`
   resets layer caches). Pixel-identical caches carry a golden hash
   recorded on the code before the change.
-
-- Stroke snapping (ruler, perspective) goes through
-  `core_lib/src/tool/strokesnapper.*`: StrokeTool snaps input points before
-  smoothing. Ruler and perspective state live in `OverlayManager`; neither
-  is saved.
-- Selection skew and numeric transform values go through
-  `SelectionManager` setters that rebuild `mSelectionTransform`; the UI
-  never builds its own `QTransform`.
-- Every user-visible string goes through `tr()`; tooltips live in the `.ui`
-  file or next to the widget's creation.
+- Snapping: guides are viewport-px lines added in
+  `StrokeTool::prepareInput` (`strokesnapper.*`); ruler state in
+  `OverlayManager`, unsaved.
+- Selection transforms change only through `SelectionManager` setters; a
+  new field joins `SelectionSaveState` and `TransformCommand`.
+- Stroke buffer composition: only `ScribbleArea::bufferCompositionMode()`.
+  `duplicateLayer` copies every saved layer attribute.
+- Sound timing: `SoundClip::msAtFrame`/`waveformPeaks`; tests use
+  `setSamples`.
+- A UI rule a test needs lives in a non-UI helper (both cmake files).
+  Preference tooltips: `PreferencesDialog::addTooltips()`.
+- Loader: a bad value from a file loads as the default; unknown tags are
+  skipped; never `Q_ASSERT` on file data.
+- User-visible strings go through `tr()`.
 
 ## Commits
 

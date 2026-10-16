@@ -27,6 +27,7 @@ GNU General Public License for more details.
 
 #include <QColor>
 #include <QPoint>
+#include <QStringList>
 #include <QWidget>
 #include <QPixmapCache>
 
@@ -55,6 +56,22 @@ struct CanvasHud
     int zoomPercent = 100;
     qreal rotation = 0; ///< view rotation in degrees
 };
+
+/// A ring of slices on the canvas: the radial tool menu or the quick preset picker.
+struct RadialMenu
+{
+    enum Kind { Closed, Tools, Presets };
+    static constexpr qreal kInner = 30; ///< screen px; a release inside closes the menu
+    static constexpr qreal kOuter = 130;
+    Kind kind = Closed;
+    QPointF center; ///< widget px
+    QStringList labels; ///< slice 0 at the top, then clockwise
+    int hovered = -1;
+};
+
+/// The slice under `offset` (px from the ring centre) in a ring of `count` slices,
+/// slice 0 at the top, then clockwise; -1 inside `inner` or outside `outer`.
+int radialSliceAt(QPointF offset, int count, qreal inner, qreal outer);
 
 
 class ScribbleArea : public QWidget
@@ -127,6 +144,13 @@ public:
     BaseTool* currentTool() const;
 
     CanvasHud canvasHud() const;
+
+    /// Opens the radial tool menu around `center` (widget px). The next pen or mouse
+    /// release picks the slice under it, or closes the menu off the ring.
+    void openToolMenu(QPointF center);
+    /// Like openToolMenu, with the brush presets in `presetFolder` (empty = default folder).
+    void openPresetPicker(QPointF center, const QString& presetFolder = QString());
+    const RadialMenu& radialMenu() const { return mRadialMenu; }
 
     bool isMouseInUse() const { return mMouseInUse; }
     bool isTabletInUse() const { return mTabletInUse; }
@@ -227,6 +251,9 @@ private:
     void settingUpdated(SETTING setting);
     void paintSelectionVisuals(QPainter &painter);
     void paintCanvasHud(QPainter& painter) const;
+    void paintRadialMenu(QPainter& painter) const;
+    /// Feeds a pointer event at `pos` (widget px) to the open radial menu.
+    void radialMenuEvent(QEvent::Type type, QPointF pos);
 
     BitmapImage* currentBitmapImage(Layer* layer) const;
     VectorImage* currentVectorImage(Layer* layer) const;
@@ -258,6 +285,8 @@ private:
     const int DOUBLE_CLICK_THRESHOLD = 500;
     QTimer* mDoubleClickTimer = nullptr;
     QPointF mTabletPressPos;
+    RadialMenu mRadialMenu;
+    QString mPresetFolder;
     int mTabletReleaseMillisAgo;
     const int MOUSE_FILTER_THRESHOLD = 200;
     bool mTabletHasEntered = false;
