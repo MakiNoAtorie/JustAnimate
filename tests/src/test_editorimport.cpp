@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "testfixture.h"
 #include "vectorimage.h"
 #include "importimageconfig.h"
+#include "importimageseqdialog.h"
 
 namespace
 {
@@ -91,4 +92,21 @@ TEST_CASE("Editor - Importing into a hidden layer warns instead of crashing")
         REQUIRE(layer->keyFrameCount() == keys);
         REQUIRE_FALSE(st.code() == Status::FAIL);
     }
+}
+
+TEST_CASE("Image sequence file list is in natural order", "[ImportImageSeq]")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QStringList names = {"a1.png", "a10.png", "a2.png", "b001.png", "b010.png", "b002.png"};
+    for (const QString& n : names)
+    {
+        QFile f(dir.filePath(n));
+        REQUIRE(f.open(QIODevice::WriteOnly));
+    }
+
+    const QStringList sorted = naturalSortedFileNames(QDir(dir.path()));
+
+    // Prefixes stay grouped, numbers sort by value
+    REQUIRE(sorted == QStringList({"a1.png", "a2.png", "a10.png", "b001.png", "b002.png", "b010.png"}));
 }
