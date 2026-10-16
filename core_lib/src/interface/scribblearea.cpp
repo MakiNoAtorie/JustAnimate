@@ -700,6 +700,11 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
         currentTool()->pointerPressEvent(event);
     } else if (event->button() == Qt::LeftButton)
     {
+        // A drawing tool cannot paint over a pending selection transform.
+        if (currentTool()->isDrawingTool() && !mEditor->select()->selectionTransform().isIdentity())
+        {
+            applyTransformedSelection();
+        }
         currentTool()->pointerPressEvent(event);
     }
 }
