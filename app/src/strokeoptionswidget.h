@@ -61,6 +61,7 @@ private:
     QWidget* mDynamicsBox = nullptr;
     QComboBox* mShapeModeCombo = nullptr;
     QComboBox* mGrainModeCombo = nullptr;
+    QComboBox* mSmudgeMixCombo = nullptr;
     QList<std::pair<int, QSpinBox*>> mDynamicsSpinBoxes;
 
     Editor* mEditor = nullptr;

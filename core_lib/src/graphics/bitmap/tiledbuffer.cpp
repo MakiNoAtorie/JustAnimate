@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 */
 #include "tiledbuffer.h"
+#include "spectralmix.h"
 
 #include <QElapsedTimer>
 #include <QFile>
@@ -198,12 +199,19 @@ const std::vector<quint8>& grainTexture()
     return texture;
 }
 
-// The colour-mix step of smudge: t = 0 gives a, 1 gives b, linear in premultiplied RGBA.
-std::array<float, 4> mixSmudgeColor(const std::array<float, 4>& a, const std::array<float, 4>& b, float t)
+// The colour-mix step of smudge: t = 0 gives a, 1 gives b, premultiplied RGBA.
+// Linear by default; wet mixes colour as pigment (Kubelka-Munk) and alpha linearly.
+std::array<float, 4> mixSmudgeColor(const std::array<float, 4>& a, const std::array<float, 4>& b, float t, bool wet)
 {
     std::array<float, 4> out;
     for (int i = 0; i < 4; ++i) out[i] = a[i] + (b[i] - a[i]) * t;
-    return out;
+    // Each paint counts by its amount; with one side transparent the linear mix is already its colour.
+    const float weightA = (1 - t) * a[3];
+    const float weightB = t * b[3];
+    if (!wet || weightA <= 0 || weightB <= 0) return out;
+    const std::array<float, 3> rgb = spectralMix({ a[0] / a[3], a[1] / a[3], a[2] / a[3] }, weightA,
+                                                 { b[0] / b[3], b[1] / b[3], b[2] / b[3] }, weightB);
+    return { rgb[0] * out[3], rgb[1] * out[3], rgb[2] * out[3], out[3] };
 }
 }
 
@@ -842,12 +850,12 @@ void TiledBuffer::smudgeDab(QPointF center, qreal diameter, qreal feather, QColo
 
     // Pick up what lies under the dab, then paint what the bucket holds.
     const std::array<float, 4> sample = sampleSmudge(center, radius);
-    mSmudgeBucket = mSmudgeBucketEmpty ? sample : mixSmudgeColor(sample, mSmudgeBucket, smudge.length);
+    mSmudgeBucket = mSmudgeBucketEmpty ? sample : mixSmudgeColor(sample, mSmudgeBucket, smudge.length, smudge.wet);
     mSmudgeBucketEmpty = false;
     const float alpha = float(color.alphaF());
     const std::array<float, 4> paint = mixSmudgeColor(
         mSmudgeBucket, { float(color.redF()) * alpha, float(color.greenF()) * alpha, float(color.blueF()) * alpha, alpha },
-        smudge.colorRate);
+        smudge.colorRate, smudge.wet);
     auto to8 = [](float v) { return quint32(qBound(0, qRound(v * 255), 255)); };
     const quint32 a = to8(paint[3]);
     const quint32 src = (a << 24) | (qMin(to8(paint[0]), a) << 16) | (qMin(to8(paint[1]), a) << 8) | qMin(to8(paint[2]), a);

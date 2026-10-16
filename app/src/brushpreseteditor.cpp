@@ -291,6 +291,7 @@ QString BrushPresetEditor::settingLabel(int key, const QString& identifier)
     case StrokeToolProperties::SMUDGE_LENGTH_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge length");
     case StrokeToolProperties::SMUDGE_RADIUS_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge sample radius");
     case StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge colour rate");
+    case StrokeToolProperties::SMUDGE_MIX_VALUE: return tr("Smudge mixing (0 light, 1 pigment)");
     case StrokeToolProperties::FLOW_PER_DAB_ENABLED: return tr("Flow per dab (Classic)");
     default: return identifier;
     }
