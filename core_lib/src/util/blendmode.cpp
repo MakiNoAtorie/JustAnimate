@@ -199,6 +199,27 @@ void drawBlended(QPainter& painter, const QImage& layer, const QPoint& pos, Blen
     painter.restore();
 }
 
+void drawWithOpacity(QPainter& painter, qreal opacity, const std::function<void(QPainter&)>& paint)
+{
+    QPaintDevice* device = painter.device();
+    QImage copy = grabDevice(device, QRect(0, 0, device->width(), device->height())).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    if (copy.isNull()) { return; }
+    copy.setDevicePixelRatio(device->devicePixelRatioF());
+    QPainter copyPainter(&copy);
+    copyPainter.setRenderHints(painter.renderHints());
+    copyPainter.setWorldTransform(painter.combinedTransform());
+    paint(copyPainter);
+    copyPainter.end();
+
+    painter.save();
+    painter.resetTransform();
+    // Source with an opacity interpolates between the source and the device pixel.
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    painter.setOpacity(opacity);
+    painter.drawImage(QPointF(), copy);
+    painter.restore();
+}
+
 void drawBlendedLayer(QPainter& painter, BlendMode mode, const std::function<void(QPainter&)>& paint)
 {
     QPaintDevice* device = painter.device();

@@ -727,9 +727,12 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
     const Object* object = mEditor->object();
     if (const LayerGroup* group = object->findLayerGroup(layer->groupId()))
     {
+        QString groupName = group->name;
+        if (!group->visible) { groupName += tr(" (hidden)"); }
+        else if (group->opacity < 1.0) { groupName += QString(" %1%").arg(qRound(group->opacity * 100)); }
         if (object->getLayer(object->layerGroupRange(group->id).second) != layer) { name = "    " + name; }
-        else if (group->collapsed) { name = QChar(0x25B8) + QString(" ") + group->name; }
-        else { name = QChar(0x25BE) + QString(" ") + group->name + " / " + name; }
+        else if (group->collapsed) { name = QChar(0x25B8) + QString(" ") + groupName; }
+        else { name = QChar(0x25BE) + QString(" ") + groupName + " / " + name; }
     }
     painter.drawText(QPoint(45, y + (2 * height) / 3), name);
 }
@@ -995,6 +998,8 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 QAction* newGroup = nullptr;
                 QAction* ungroup = nullptr;
                 QAction* collapse = nullptr;
+                QAction* groupVisible = nullptr;
+                QAction* groupOpacity = nullptr;
                 if (clickedGroup == nullptr) { newGroup = menu.addAction(tr("New Group")); }
                 QMenu* addTo = menu.addMenu(tr("Add to Group"));
                 for (const LayerGroup& g : mEditor->object()->layerGroups())
@@ -1009,6 +1014,10 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 {
                     ungroup = menu.addAction(tr("Remove from Group"));
                     collapse = menu.addAction(clickedGroup->collapsed ? tr("Expand Group") : tr("Collapse Group"));
+                    groupVisible = menu.addAction(tr("Show Group"));
+                    groupVisible->setCheckable(true);
+                    groupVisible->setChecked(clickedGroup->visible);
+                    groupOpacity = menu.addAction(tr("Group Opacity..."));
                 }
                 QAction* chosen = menu.exec(event->globalPosition().toPoint());
                 if (chosen == onion)
@@ -1026,6 +1035,17 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 else if (chosen && chosen == collapse)
                 {
                     mEditor->layers()->setLayerGroupCollapsed(clickedGroup->id, !clickedGroup->collapsed);
+                }
+                else if (chosen && chosen == groupVisible)
+                {
+                    mEditor->layers()->setLayerGroupVisible(clickedGroup->id, groupVisible->isChecked());
+                }
+                else if (chosen && chosen == groupOpacity)
+                {
+                    bool ok = false;
+                    const int percent = QInputDialog::getInt(this, tr("Group Opacity"), tr("Opacity (%):"),
+                                                             qRound(clickedGroup->opacity * 100), 0, 100, 1, &ok);
+                    if (ok) { mEditor->layers()->setLayerGroupOpacity(clickedGroup->id, percent / 100.0); }
                 }
                 else if (chosen && chosen->parent() == addTo)
                 {

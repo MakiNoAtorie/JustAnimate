@@ -14,6 +14,8 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <algorithm>
+#include <cstdlib>
 #include <memory>
 #include <QAction>
 #include <QDomDocument>
@@ -24,6 +26,8 @@ GNU General Public License for more details.
 
 #include "filemanager.h"
 #include "layerbitmap.h"
+#include "bitmapimage.h"
+#include "canvaspainter.h"
 #include "layercamera.h"
 #include "layermanager.h"
 #include "object.h"
@@ -190,4 +194,137 @@ TEST_CASE("Reordering keeps group members together", "[LayerGroup]")
         REQUIRE(layers->moveLayer(4, 0));
         CHECK(arrangement(object) == "Cam D A B* C*");
     }
+}
+
+namespace
+{
+
+/// Bitmap layers: empty "A", then group members "B" (red) and "C" (blue) that overlap at the centre.
+std::unique_ptr<Object> groupOfTwo(qreal opacity)
+{
+    std::unique_ptr<Object> object(new Object);
+    object->init();
+    object->addNewBitmapLayer()->setName("A");
+    const QRectF rects[] = { QRectF(-20, -20, 30, 30), QRectF(-10, -10, 30, 30) };
+    const QColor colors[] = { Qt::red, Qt::blue };
+    for (int i = 0; i < 2; ++i)
+    {
+        LayerBitmap* layer = object->addNewBitmapLayer();
+        layer->setGroupId(1);
+        layer->addNewKeyFrameAt(1);
+        layer->getBitmapImageAtFrame(1)->drawRect(rects[i], Qt::NoPen, QBrush(colors[i]), QPainter::CompositionMode_Source, false);
+    }
+    object->addLayerGroup(LayerGroup{ 1, "G", false, true, opacity });
+    return object;
+}
+
+QImage canvasImage(const Object* object, int paintedLayer, LayerVisibility visibility = LayerVisibility::ALL)
+{
+    QPixmap canvas(60, 60);
+    CanvasPainter painter(canvas);
+    const QTransform view = QTransform::fromTranslate(30, 30);
+    painter.setViewTransform(view, view.inverted());
+    CanvasPainterOptions options;
+    options.eLayerVisibility = visibility;
+    painter.setOptions(options);
+    painter.setPaintSettings(object, paintedLayer, 1, nullptr);
+    painter.paint(QRect(0, 0, 60, 60));
+    return canvas.toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
+}
+
+QImage exportImage(const Object* object)
+{
+    QImage image(60, 60, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setWorldTransform(QTransform::fromTranslate(30, 30));
+    object->paintImage(painter, 1, false, true);
+    painter.end();
+    return image;
+}
+
+QImage faded(const QImage& image, qreal opacity)
+{
+    QImage out(image.size(), QImage::Format_ARGB32_Premultiplied);
+    out.fill(Qt::transparent);
+    QPainter painter(&out);
+    painter.setOpacity(opacity);
+    painter.drawImage(0, 0, image);
+    return out;
+}
+
+/// Largest channel difference between two premultiplied images of one size.
+int maxDiff(const QImage& a, const QImage& b)
+{
+    int diff = 0;
+    for (int y = 0; y < a.height(); ++y)
+    {
+        for (int x = 0; x < a.width(); ++x)
+        {
+            const QRgb p = a.pixel(x, y), q = b.pixel(x, y);
+            diff = std::max({ diff, std::abs(qRed(p) - qRed(q)), std::abs(qGreen(p) - qGreen(q)), std::abs(qBlue(p) - qBlue(q)),
+                              std::abs(qAlpha(p) - qAlpha(q)) });
+        }
+    }
+    return diff;
+}
+
+} // namespace
+
+TEST_CASE("A hidden group hides its layers on canvas and export", "[LayerGroup]")
+{
+    auto object = groupOfTwo(1.0);
+    object->findLayerGroup(1)->visible = false;
+    for (int painted = 0; painted < 3; ++painted)
+    {
+        for (LayerVisibility visibility : { LayerVisibility::ALL, LayerVisibility::RELATED, LayerVisibility::CURRENTONLY })
+        {
+            INFO("painted layer " << painted << " visibility " << int(visibility));
+            CHECK(qAlpha(canvasImage(object.get(), painted, visibility).pixel(30, 30)) == 0);
+        }
+    }
+    CHECK(qAlpha(exportImage(object.get()).pixel(30, 30)) == 0);
+}
+
+TEST_CASE("Group opacity fades the composite of its layers", "[LayerGroup]")
+{
+    auto opaque = groupOfTwo(1.0);
+    auto half = groupOfTwo(0.5);
+    for (int painted = 0; painted < 3; ++painted)
+    {
+        INFO("painted layer " << painted);
+        CHECK(maxDiff(canvasImage(half.get(), painted), faded(canvasImage(opaque.get(), painted), 0.5)) <= 1);
+    }
+    CHECK(maxDiff(exportImage(half.get()), faded(exportImage(opaque.get()), 0.5)) <= 1);
+    // The red member does not show through the blue one
+    CHECK(qRed(exportImage(half.get()).pixel(30, 30)) == 0);
+}
+
+TEST_CASE("Group visibility and opacity changes undo and redo", "[LayerGroup]")
+{
+    TestSession session;
+    addLayers(session.object);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    LayerManager* layers = editor->layers();
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    const int id = layers->createLayerGroup(editor->object()->findLayerByName("B"));
+    auto group = [&] { return editor->object()->findLayerGroup(id); };
+
+    layers->setLayerGroupVisible(id, false);
+    CHECK_FALSE(group()->visible);
+    layers->setLayerGroupOpacity(id, 0.25);
+    CHECK(group()->opacity == Approx(0.25));
+
+    undo->trigger();
+    CHECK(group()->opacity == Approx(1.0));
+    CHECK_FALSE(group()->visible);
+    undo->trigger();
+    CHECK(group()->visible);
+    redo->trigger();
+    redo->trigger();
+    CHECK_FALSE(group()->visible);
+    CHECK(group()->opacity == Approx(0.25));
 }

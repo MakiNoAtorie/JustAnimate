@@ -497,6 +497,26 @@ void LayerManager::setLayerGroupCollapsed(int groupId, bool collapsed)
     emit editor()->updateTimeLine();
 }
 
+void LayerManager::setLayerGroupVisible(int groupId, bool visible)
+{
+    LayerArrangement a = object()->layerArrangement();
+    for (LayerGroup& group : a.groups)
+    {
+        if (group.id == groupId) { group.visible = visible; }
+    }
+    commitLayerArrangement(a, visible ? tr("Show Layer Group") : tr("Hide Layer Group"));
+}
+
+void LayerManager::setLayerGroupOpacity(int groupId, qreal opacity)
+{
+    LayerArrangement a = object()->layerArrangement();
+    for (LayerGroup& group : a.groups)
+    {
+        if (group.id == groupId) { group.opacity = qBound(0.0, opacity, 1.0); }
+    }
+    commitLayerArrangement(a, tr("Layer Group Opacity"));
+}
+
 bool LayerManager::moveLayer(int from, int to)
 {
     const int count = object()->getLayerCount();
