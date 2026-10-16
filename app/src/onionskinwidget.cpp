@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "preferencemanager.h"
 #include "editor.h"
 #include "flowlayout.h"
+#include "theme.h"
 #include "util.h"
 
 OnionSkinWidget::OnionSkinWidget(QWidget *parent) :
@@ -31,6 +32,8 @@ OnionSkinWidget::OnionSkinWidget(QWidget *parent) :
     ui(new Ui::OnionSkin)
 {
     ui->setupUi(this);
+    ui->onionRedButton->setIcon(Theme::icon(":/icons/tabler/stack-back.svg"));
+    ui->onionBlueButton->setIcon(Theme::icon(":/icons/tabler/stack-front.svg"));
 
     clearFocusOnFinished(ui->onionPrevFramesNumBox);
     clearFocusOnFinished(ui->onionNextFramesNumBox);

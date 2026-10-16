@@ -55,10 +55,6 @@
         <property name="toolTip">
          <string>Reset scaling</string>
         </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/tools/tool-camera-scale.svg</normaloff>:/icons/themes/playful/tools/tool-camera-scale.svg</iconset>
-        </property>
         <property name="iconSize">
          <size>
           <width>22</width>
@@ -71,10 +67,6 @@
        <widget class="QPushButton" name="resetRotationButton">
         <property name="toolTip">
          <string>Reset rotation</string>
-        </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/tools/tool-camera-rotate.svg</normaloff>:/icons/themes/playful/tools/tool-camera-rotate.svg</iconset>
         </property>
         <property name="iconSize">
          <size>
@@ -95,10 +87,6 @@
        <widget class="QPushButton" name="resetTranslationButton">
         <property name="toolTip">
          <string>Reset translation</string>
-        </property>
-        <property name="icon">
-         <iconset resource="../data/app.qrc">
-          <normaloff>:/icons/themes/playful/tools/tool-camera-move.svg</normaloff>:/icons/themes/playful/tools/tool-camera-move.svg</iconset>
         </property>
         <property name="iconSize">
          <size>

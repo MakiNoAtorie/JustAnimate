@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include "timeline.h"
 #include "pencildef.h"
 #include "pencilsettings.h"
+#include "theme.h"
 
 TimeControls::TimeControls(TimeLine* parent) : QToolBar(parent)
 {
@@ -53,7 +54,7 @@ void TimeControls::initUI()
     mTimecodeSelect = new QToolButton(this);
 
     QMenu* timeSelectMenu = new QMenu(tr("Display timecode", "Timeline menu for choose a timecode"), this);
-    mTimecodeSelect->setIcon(QIcon(":/icons/themes/playful/misc/more-options.svg"));
+    mTimecodeSelect->setIcon(Theme::icon(":/icons/tabler/dots.svg"));
 
     timeSelectMenu->addAction(mNoTimecodeAction = new QAction(tr("No text"), this));
     timeSelectMenu->addAction(mOnlyFramesAction = new QAction(tr("Frames"), this));
@@ -130,13 +131,13 @@ void TimeControls::initUI()
     mJumpToStartButton = new QPushButton(this);
     mJumpToStartButton->setIconSize(QSize(22,22));
 
-    mLoopIcon = QIcon(":icons/themes/playful/controls/control-loop.svg");
-    mSoundIcon = QIcon(":icons/themes/playful/controls/control-sound-enable.svg");
-    mSoundScrubIcon = QIcon(":icons/themes/playful/controls/control-sound-scrub.svg");
-    mJumpToEndIcon = QIcon(":icons/themes/playful/controls/control-play-end.svg");
-    mJumpToStartIcon = QIcon(":icons/themes/playful/controls/control-play-start.svg");
-    mStartIcon = QIcon(":icons/themes/playful/controls/control-play.svg");
-    mStopIcon = QIcon(":icons/themes/playful/controls/control-stop.svg");
+    mLoopIcon = Theme::icon(":/icons/tabler/repeat.svg");
+    mSoundIcon = Theme::icon(":/icons/tabler/volume.svg");
+    mSoundScrubIcon = Theme::icon(":/icons/tabler/wave-sine.svg");
+    mJumpToEndIcon = Theme::icon(":/icons/tabler/player-skip-forward.svg");
+    mJumpToStartIcon = Theme::icon(":/icons/tabler/player-skip-back.svg");
+    mStartIcon = Theme::icon(":/icons/tabler/player-play.svg");
+    mStopIcon = Theme::icon(":/icons/tabler/player-stop.svg");
     mPlayButton->setIcon(mStartIcon);
     mLoopButton->setIcon(mLoopIcon);
     mSoundButton->setIcon(mSoundIcon);

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 
 #include "timelinecells.h"
+#include "theme.h"
 
 #include <QActionGroup>
 #include <QApplication>
@@ -836,10 +837,17 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
     painter.drawEllipse(x + 6, y + 4, 9, 9);
     painter.setRenderHint(QPainter::Antialiasing, false);
 
-    if (layer->type() == Layer::BITMAP) painter.drawPixmap(QPoint(22, y - 1), QPixmap(":icons/themes/playful/timeline/cell-bitmap.svg"));
-    if (layer->type() == Layer::VECTOR) painter.drawPixmap(QPoint(22, y - 1), QPixmap(":icons/themes/playful/timeline/cell-vector.svg"));
-    if (layer->type() == Layer::SOUND) painter.drawPixmap(QPoint(22, y - 1), QPixmap(":icons/themes/playful/timeline/cell-sound.svg"));
-    if (layer->type() == Layer::CAMERA) painter.drawPixmap(QPoint(22, y - 1), QPixmap(":icons/themes/playful/timeline/cell-camera.svg"));
+    static const QIcon bitmapIcon = Theme::icon(":/icons/tabler/photo.svg");
+    static const QIcon vectorIcon = Theme::icon(":/icons/tabler/vector.svg");
+    static const QIcon soundIcon = Theme::icon(":/icons/tabler/volume.svg");
+    static const QIcon cameraIcon = Theme::icon(":/icons/tabler/video.svg");
+    const QIcon* typeIcon = nullptr;
+    if (layer->type() == Layer::BITMAP) typeIcon = &bitmapIcon;
+    if (layer->type() == Layer::VECTOR) typeIcon = &vectorIcon;
+    if (layer->type() == Layer::SOUND) typeIcon = &soundIcon;
+    if (layer->type() == Layer::CAMERA) typeIcon = &cameraIcon;
+    if (typeIcon)
+        typeIcon->paint(&painter, QRect(22, y - 1, 18, 18), Qt::AlignCenter, selected ? QIcon::Selected : QIcon::Normal);
 
     if (selected)
     {

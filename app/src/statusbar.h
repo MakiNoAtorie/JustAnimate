@@ -80,9 +80,15 @@ signals:
      */
     void zoomChanged(double scale);
 
+protected:
+    void changeEvent(QEvent* event) override;
+
 private:
+    void updateIcons();
+
     /** The editor associated with this status bar */
     Editor *mEditor = nullptr;
+    ToolType mTool = PENCIL;
 
     /** Label used to display the icon of the current tool */
     QLabel *mToolIcon = nullptr;

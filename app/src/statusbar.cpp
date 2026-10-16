@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include <cmath>
 #include <QComboBox>
+#include <QEvent>
 #include <QLabel>
 #include <QLineEdit>
 
@@ -23,6 +24,7 @@ GNU General Public License for more details.
 #include "elidedlabel.h"
 #include "layermanager.h"
 #include "scribblearea.h"
+#include "theme.h"
 #include "toolmanager.h"
 #include "viewmanager.h"
 
@@ -39,7 +41,7 @@ StatusBar::StatusBar(QWidget *parent) : QStatusBar(parent)
     addWidget(mToolLabel, 1);
 
     mModifiedLabel = new QLabel(this);
-    mModifiedLabel->setPixmap(QPixmap(":/icons/themes/playful/menubar/save.svg"));
+    updateIcons();
     updateModifiedStatus(false);
     addPermanentWidget(mModifiedLabel);
 
@@ -145,24 +147,40 @@ void StatusBar::updateToolStatus(ToolType tool)
             Q_ASSERT(false);
     }
 
-    static QPixmap toolIcons[TOOL_TYPE_COUNT]{
-        {":icons/themes/playful/tools/tool-pencil.svg"},
-        {":icons/themes/playful/tools/tool-eraser.svg"},
-        {":icons/themes/playful/tools/tool-select.svg"},
-        {":icons/themes/playful/tools/tool-move.svg"},
-        {":icons/themes/playful/tools/tool-hand.svg"},
-        {":icons/themes/playful/tools/tool-smudge.svg"},
-        {""}, // Camera tool does not have an icon
-        {":icons/themes/playful/tools/tool-pen.svg"},
-        {":icons/themes/playful/tools/tool-polyline.svg"},
-        {":icons/themes/playful/tools/tool-bucket.svg"},
-        {":icons/themes/playful/tools/tool-eyedropper.svg"},
-        {":icons/themes/playful/tools/tool-brush.svg"},
-        {":icons/themes/playful/tools/tool-shape.svg"},
-        {":icons/themes/playful/tools/tool-lassofill.svg"}
-    };
-    mToolIcon->setPixmap(toolIcons[tool]);
+    mTool = tool;
+    updateIcons();
     mToolIcon->setToolTip(BaseTool::TypeName(tool));
+}
+
+void StatusBar::updateIcons()
+{
+    static const QIcon toolIcons[TOOL_TYPE_COUNT]{
+        Theme::icon(":/icons/tabler/pencil.svg"),
+        Theme::icon(":/icons/tabler/eraser.svg"),
+        Theme::icon(":/icons/tabler/marquee-2.svg"),
+        Theme::icon(":/icons/tabler/arrows-move.svg"),
+        Theme::icon(":/icons/tabler/hand-stop.svg"),
+        Theme::icon(":/icons/tabler/hand-finger.svg"),
+        Theme::icon(":/icons/tabler/video.svg"),
+        Theme::icon(":/icons/tabler/ballpen.svg"),
+        Theme::icon(":/icons/tabler/polygon.svg"),
+        Theme::icon(":/icons/tabler/bucket-droplet.svg"),
+        Theme::icon(":/icons/tabler/color-picker.svg"),
+        Theme::icon(":/icons/tabler/brush.svg"),
+        Theme::icon(":/icons/tabler/shape.svg"),
+        Theme::icon(":/icons/tabler/lasso.svg"),
+    };
+    static const QIcon saveIcon = Theme::icon(":/icons/tabler/device-floppy.svg");
+    // QLabel keeps a fixed pixmap: redraw it for the current colours.
+    mToolIcon->setPixmap(toolIcons[mTool].pixmap(QSize(16, 16), devicePixelRatioF()));
+    mModifiedLabel->setPixmap(saveIcon.pixmap(QSize(16, 16), devicePixelRatioF()));
+}
+
+void StatusBar::changeEvent(QEvent* event)
+{
+    QStatusBar::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange)
+        updateIcons();
 }
 
 void StatusBar::updateModifiedStatus(bool modified)

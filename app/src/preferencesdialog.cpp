@@ -25,12 +25,16 @@ GNU General Public License for more details.
 #include <QPushButton>
 
 #include "prefsearch.h"
+#include "theme.h"
 
 PreferencesDialog::PreferencesDialog(QWidget* parent) :
     QDialog(parent),
     ui(new Ui::PreferencesDialog)
 {
     ui->setupUi(this);
+    const char* pageIcons[] = { "settings", "file", "timeline", "tool", "keyboard" };
+    for (int i = 0; i < ui->contentsWidget->count() && i < int(std::size(pageIcons)); ++i)
+        ui->contentsWidget->item(i)->setIcon(Theme::icon(QStringLiteral(":/icons/tabler/%1.svg").arg(pageIcons[i])));
 
     mSearchEdit = new QLineEdit(this);
     mSearchEdit->setClearButtonEnabled(true);

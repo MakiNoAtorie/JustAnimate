@@ -89,7 +89,7 @@ QCursor BucketTool::cursor()
 {
     if (mEditor->preference()->isOn(SETTING::TOOL_CURSOR))
     {
-        return QCursor(QPixmap(":icons/general/cursor-bucket.svg"), -1, 17);
+        return QCursor(QPixmap(":icons/general/cursor-bucket.svg"), 4, 16);
     }
     else
     {

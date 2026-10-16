@@ -150,6 +150,7 @@ private:
 
     void changePlayState(bool isPlaying);
 
+    void setIcons();
     void makeConnections(Editor*);
     void makeConnections(Editor*, ColorBox* colorBox);
     void makeConnections(Editor*, ColorInspector*);

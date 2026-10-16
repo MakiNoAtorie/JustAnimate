@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "timecontrols.h"
 #include "timelinecells.h"
+#include "theme.h"
 
 
 TimeLine::TimeLine(QWidget* parent) : BaseDockWidget(parent)
@@ -73,15 +74,15 @@ void TimeLine::initUI()
     layerLabel->setIndent(5);
 
     QToolButton* addLayerButton = new QToolButton(this);
-    addLayerButton->setIcon(QIcon(":icons/themes/playful/timeline/layer-add.svg"));
+    addLayerButton->setIcon(Theme::icon(":/icons/tabler/plus.svg"));
     addLayerButton->setToolTip(tr("Add Layer"));
 
     mLayerDeleteButton = new QToolButton(this);
-    mLayerDeleteButton->setIcon(QIcon(":icons/themes/playful/timeline/layer-remove.svg"));
+    mLayerDeleteButton->setIcon(Theme::icon(":/icons/tabler/minus.svg"));
     mLayerDeleteButton->setToolTip(tr("Delete Layer"));
 
     QToolButton* duplicateLayerButton = new QToolButton(this);
-    duplicateLayerButton->setIcon(QIcon(":icons/themes/playful/timeline/layer-duplicate.svg"));
+    duplicateLayerButton->setIcon(Theme::icon(":/icons/tabler/copy.svg"));
     duplicateLayerButton->setToolTip(tr("Duplicate Layer"));
 
     layerButtons->addWidget(layerLabel);
@@ -95,10 +96,10 @@ void TimeLine::initUI()
     leftToolBarLayout->addWidget(layerButtons);
     leftToolBar->setLayout(leftToolBarLayout);
 
-    QAction* newBitmapLayerAct = new QAction(QIcon(":icons/themes/playful/timeline/cell-bitmap.svg"), tr("New Bitmap Layer"), this);
-    QAction* newVectorLayerAct = new QAction(QIcon(":icons/themes/playful/timeline/cell-vector.svg"), tr("New Vector Layer"), this);
-    QAction* newSoundLayerAct = new QAction(QIcon(":icons/themes/playful/timeline/cell-sound.svg"), tr("New Sound Layer"), this);
-    QAction* newCameraLayerAct = new QAction(QIcon(":icons/themes/playful/timeline/cell-camera.svg"), tr("New Camera Layer"), this);
+    QAction* newBitmapLayerAct = new QAction(Theme::icon(":/icons/tabler/photo.svg"), tr("New Bitmap Layer"), this);
+    QAction* newVectorLayerAct = new QAction(Theme::icon(":/icons/tabler/vector.svg"), tr("New Vector Layer"), this);
+    QAction* newSoundLayerAct = new QAction(Theme::icon(":/icons/tabler/volume.svg"), tr("New Sound Layer"), this);
+    QAction* newCameraLayerAct = new QAction(Theme::icon(":/icons/tabler/video.svg"), tr("New Camera Layer"), this);
 
     QMenu* layerMenu = new QMenu(tr("Layer", "Timeline add-layer menu"), this);
     layerMenu->addAction(newBitmapLayerAct);
@@ -123,15 +124,15 @@ void TimeLine::initUI()
     keyLabel->setIndent(5);
 
     QToolButton* addKeyButton = new QToolButton(this);
-    addKeyButton->setIcon(QIcon(":icons/themes/playful/timeline/frame-add.svg"));
+    addKeyButton->setIcon(Theme::icon(":/icons/tabler/square-plus.svg"));
     addKeyButton->setToolTip(tr("New drawing"));
 
     QToolButton* removeKeyButton = new QToolButton(this);
-    removeKeyButton->setIcon(QIcon(":icons/themes/playful/timeline/frame-remove.svg"));
+    removeKeyButton->setIcon(Theme::icon(":/icons/tabler/square-minus.svg"));
     removeKeyButton->setToolTip(tr("Remove drawing"));
 
     QToolButton* duplicateKeyButton = new QToolButton(this);
-    duplicateKeyButton->setIcon(QIcon(":icons/themes/playful/timeline/frame-duplicate.svg"));
+    duplicateKeyButton->setIcon(Theme::icon(":/icons/tabler/copy-plus.svg"));
     duplicateKeyButton->setToolTip(tr("Duplicate drawing"));
 
     QLabel* zoomLabel = new QLabel(tr("Zoom:"));

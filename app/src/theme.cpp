@@ -4,7 +4,12 @@
 #include <cmath>
 
 #include <QApplication>
+#include <QFile>
+#include <QIconEngine>
+#include <QPainter>
+#include <QPixmapCache>
 #include <QSettings>
+#include <QSvgRenderer>
 #include <QStyle>
 #include <QStyleFactory>
 
@@ -63,6 +68,64 @@ void setAccent(QPalette& p, Theme::Accent accent)
     p.setColor(QPalette::Highlight, c);
     p.setColor(QPalette::HighlightedText, text);
 }
+
+class TintedSvgEngine : public QIconEngine
+{
+public:
+    TintedSvgEngine(const QString& path, QPalette::ColorRole on) : mPath(path), mOn(on)
+    {
+        QFile file(path);
+        if (file.open(QIODevice::ReadOnly))
+            mSvg = file.readAll();
+        if (!QSvgRenderer(mSvg).isValid())
+        {
+            qWarning("Missing or invalid icon %s", qPrintable(path));
+            mSvg.clear();
+        }
+    }
+
+    void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode, QIcon::State state) override
+    {
+        const qreal dpr = painter->device() ? painter->device()->devicePixelRatioF() : 1.0;
+        painter->drawPixmap(rect, pixmap(rect.size() * dpr, mode, state));
+    }
+
+    // QIcon passes the size in device pixels, so the result is sharp at any scale.
+    QPixmap pixmap(const QSize& size, QIcon::Mode mode, QIcon::State state) override
+    {
+        if (mSvg.isEmpty() || size.isEmpty())
+            return QPixmap();
+        const QPalette p = QApplication::palette();
+        QColor color = p.color(state == QIcon::On ? mOn : QPalette::WindowText);
+        if (mode == QIcon::Disabled)
+            color = p.color(QPalette::Disabled, QPalette::WindowText);
+        else if (mode == QIcon::Selected)
+            color = p.color(QPalette::HighlightedText);
+
+        const QString key = QStringLiteral("ja-icon:%1:%2x%3:%4")
+            .arg(mPath).arg(size.width()).arg(size.height()).arg(color.rgba(), 0, 16);
+        QPixmap pm;
+        if (QPixmapCache::find(key, &pm))
+            return pm;
+        QByteArray svg = mSvg;
+        svg.replace("currentColor", color.name().toLatin1());
+        pm = QPixmap(size);
+        pm.fill(Qt::transparent);
+        QPainter painter(&pm);
+        QSvgRenderer(svg).render(&painter);
+        painter.end();
+        QPixmapCache::insert(key, pm);
+        return pm;
+    }
+
+    bool isNull() override { return mSvg.isEmpty(); }
+    QIconEngine* clone() const override { return new TintedSvgEngine(*this); }
+
+private:
+    QString mPath;
+    QPalette::ColorRole mOn;
+    QByteArray mSvg;
+};
 
 // Captured on first use, before any change, so System restores the platform look.
 struct Original
@@ -128,5 +191,10 @@ void apply(Mode mode)
 bool isDark()
 {
     return QApplication::palette().color(QPalette::Window).lightness() < 128;
+}
+
+QIcon icon(const QString& svgPath, QPalette::ColorRole on)
+{
+    return QIcon(new TintedSvgEngine(svgPath, on));
 }
 }

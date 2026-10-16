@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "toolmanager.h"
 #include "editor.h"
 #include "pencilsettings.h"
+#include "theme.h"
 
 // ----------------------------------------------------------------------------------
 QString GetToolTips(QString strCommandName)
@@ -49,27 +50,28 @@ ToolBoxWidget::~ToolBoxWidget()
 
 void ToolBoxWidget::initUI()
 {
-
-#ifdef __APPLE__
-    // Only Mac needs this. ToolButton is naturally borderless on Win/Linux.
-    QString sStyle =
-        "QToolButton { border: 0px; }"
-        "QToolButton:pressed { border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }"
-        "QToolButton:checked { border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }";
-    ui->pencilButton->setStyleSheet(sStyle);
-    ui->selectButton->setStyleSheet(sStyle);
-    ui->moveButton->setStyleSheet(sStyle);
-    ui->handButton->setStyleSheet(sStyle);
-    ui->penButton->setStyleSheet(sStyle);
-    ui->eraserButton->setStyleSheet(sStyle);
-    ui->polylineButton->setStyleSheet(sStyle);
-    ui->shapeButton->setStyleSheet(sStyle);
-    ui->lassoFillButton->setStyleSheet(sStyle);
-    ui->bucketButton->setStyleSheet(sStyle);
-    ui->brushButton->setStyleSheet(sStyle);
-    ui->eyedropperButton->setStyleSheet(sStyle);
-    ui->smudgeButton->setStyleSheet(sStyle);
-#endif
+    // The active tool is filled with the Accent colour on every platform.
+    setStyleSheet(
+        "QToolButton { border: 1px solid transparent; border-radius: 3px; }"
+        "QToolButton:hover { border-color: palette(highlight); }"
+        "QToolButton:pressed, QToolButton:checked { border-color: palette(highlight); background-color: palette(highlight); }");
+    const std::pair<QToolButton*, const char*> icons[] = {
+        { ui->pencilButton, "pencil" },
+        { ui->eraserButton, "eraser" },
+        { ui->selectButton, "marquee-2" },
+        { ui->moveButton, "arrows-move" },
+        { ui->penButton, "ballpen" },
+        { ui->handButton, "hand-stop" },
+        { ui->polylineButton, "polygon" },
+        { ui->shapeButton, "shape" },
+        { ui->lassoFillButton, "lasso" },
+        { ui->bucketButton, "bucket-droplet" },
+        { ui->eyedropperButton, "color-picker" },
+        { ui->brushButton, "brush" },
+        { ui->smudgeButton, "hand-finger" },
+    };
+    for (const auto& [button, name] : icons)
+        button->setIcon(Theme::icon(QStringLiteral(":/icons/tabler/%1.svg").arg(name), QPalette::HighlightedText));
 
     ui->pencilButton->setToolTip( tr( "Pencil Tool (%1): Sketch with pencil" )
         .arg( GetToolTips( CMD_TOOL_PENCIL ) ) );

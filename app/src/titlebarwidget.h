@@ -19,8 +19,6 @@ GNU General Public License for more details.
 
 #include <QWidget>
 
-#include "appearance.h"
-
 class QLabel;
 class QToolButton;
 

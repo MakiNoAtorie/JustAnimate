@@ -47,6 +47,7 @@ GNU General Public License for more details.
 // core_lib headers
 #include "pencildef.h"
 #include "platformhandler.h"
+#include "theme.h"
 #include "pencilsettings.h"
 #include "object.h"
 #include "editor.h"
@@ -119,11 +120,76 @@ namespace {
 
 
 
+void MainWindow2::setIcons()
+{
+    const std::pair<QAction*, const char*> icons[] = {
+        { ui->menuZoom->menuAction(), "zoom" },
+        { ui->menuPerspectiveLinesAngle->menuAction(), "angle" },
+        { ui->actionNew, "file-plus" },
+        { ui->actionOpen, "folder-open" },
+        { ui->actionSave, "device-floppy" },
+        { ui->actionSave_as, "device-floppy" },
+        { ui->actionUndo, "arrow-back-up" },
+        { ui->actionRedo, "arrow-forward-up" },
+        { ui->actionCut, "cut" },
+        { ui->actionCopy, "copy" },
+        { ui->actionPaste, "clipboard" },
+        { ui->actionClearFrame, "clear-all" },
+        { ui->actionZoom_In, "zoom-in" },
+        { ui->actionZoom_Out, "zoom-out" },
+        { ui->actionReset_View, "focus-centered" },
+        { ui->actionHorizontal_Flip, "flip-vertical" },
+        { ui->actionVertical_Flip, "flip-horizontal" },
+        { ui->actionGrid, "grid-4x4" },
+        { ui->actionOnionPrev, "stack-back" },
+        { ui->actionOnionNext, "stack-front" },
+        { ui->actionLoop, "repeat" },
+        { ui->actionAdd_Frame, "square-plus" },
+        { ui->actionDuplicate_Frame, "copy-plus" },
+        { ui->actionRemove_Frame, "square-minus" },
+        { ui->actionNext_KeyFrame, "player-track-next" },
+        { ui->actionPrev_KeyFrame, "player-track-prev" },
+        { ui->actionMove, "arrows-move" },
+        { ui->actionSelect, "marquee-2" },
+        { ui->actionBrush, "brush" },
+        { ui->actionPolyline, "polygon" },
+        { ui->actionShape, "shape" },
+        { ui->actionLassoFill, "lasso" },
+        { ui->actionSmudge, "hand-finger" },
+        { ui->actionPen, "ballpen" },
+        { ui->actionHand, "hand-stop" },
+        { ui->actionPencil, "pencil" },
+        { ui->actionBucket, "bucket-droplet" },
+        { ui->actionEyedropper, "color-picker" },
+        { ui->actionEraser, "eraser" },
+        { ui->actionNew_Bitmap_Layer, "photo" },
+        { ui->actionNew_Vector_Layer, "vector" },
+        { ui->actionNew_Sound_Layer, "volume" },
+        { ui->actionNew_Camera_Layer, "video" },
+        { ui->actionDelete_Current_Layer, "minus" },
+        { ui->actionShowInvisibleLines, "line-dotted" },
+        { ui->actionShowOutlinesOnly, "border-outer" },
+        { ui->actionCenter, "crosshair" },
+        { ui->actionThirds, "grid-3x3" },
+        { ui->actionGoldenRatio, "spiral" },
+        { ui->actionSafeAreas, "frame" },
+        { ui->actionOnePointPerspective, "perspective" },
+        { ui->actionTwoPointPerspective, "box" },
+        { ui->actionThreePointPerspective, "cube" },
+    };
+    for (const auto& [action, name] : icons)
+        action->setIcon(Theme::icon(QStringLiteral(":/icons/tabler/%1.svg").arg(name)));
+    mStartIcon = Theme::icon(":/icons/tabler/player-play.svg");
+    mStopIcon = Theme::icon(":/icons/tabler/player-stop.svg");
+    ui->actionPlay->setIcon(mStartIcon);
+}
+
 MainWindow2::MainWindow2(QWidget* parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow2)
 {
     ui->setupUi(this);
+    setIcons();
 
     // Initialize order
     // 1. editor 2. object 3. scribble area 4. other widgets
@@ -217,8 +283,6 @@ void MainWindow2::createDockWidgets()
         << mToolOptions
         << mToolBox;
 
-    mStartIcon = QIcon(":icons/controls/play.png");
-    mStopIcon = QIcon(":icons/controls/stop.png");
 
     for (BaseDockWidget* pWidget : mDockWidgets)
     {

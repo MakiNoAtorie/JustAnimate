@@ -41,6 +41,7 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "colormanager.h"
 #include "pencilsettings.h"
+#include "theme.h"
 
 
 ColorPaletteWidget::ColorPaletteWidget(QWidget* parent) :
@@ -48,6 +49,10 @@ ColorPaletteWidget::ColorPaletteWidget(QWidget* parent) :
     ui(new Ui::ColorPalette)
 {
     ui->setupUi(this);
+    ui->addColorButton->setIcon(Theme::icon(":/icons/tabler/plus.svg"));
+    ui->removeColorButton->setIcon(Theme::icon(":/icons/tabler/minus.svg"));
+    ui->colorDialogButton->setIcon(Theme::icon(":/icons/tabler/palette.svg"));
+    ui->palettePref->setIcon(Theme::icon(":/icons/tabler/dots.svg"));
 }
 
 ColorPaletteWidget::~ColorPaletteWidget()
