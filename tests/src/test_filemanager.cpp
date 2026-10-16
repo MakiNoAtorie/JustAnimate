@@ -629,6 +629,25 @@ TEST_CASE("FileManager File-saving")
     }
 }
 
+// Adds a sound clip whose copy in the data folder is deleted after the layers
+// are saved, so MiniZ::compressFolder fails on a listed file on every OS.
+static void addClipDeletedBeforeZip(FileManager& fm, Object* obj, const QString& srcDir)
+{
+    const QString src = QDir(srcDir).filePath("beep.wav");
+    QFile f(src);
+    REQUIRE(f.open(QFile::WriteOnly));
+    f.write(QByteArray(64, '\0'));
+    f.close();
+
+    SoundClip* clip = new SoundClip;
+    clip->setFileName(src);
+    REQUIRE(obj->addNewSoundLayer()->addKeyFrame(1, clip));
+    // Progress is emitted on the main thread between the layer saves and the zip job.
+    QObject::connect(&fm, &FileManager::progressChanged, [clip, src] {
+        if (clip->fileName() != src) QFile::remove(clip->fileName());
+    });
+}
+
 TEST_CASE("FileManager atomic save", "[FileManager]")
 {
     QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
@@ -665,13 +684,10 @@ TEST_CASE("FileManager atomic save", "[FileManager]")
     {
         const QByteArray original = readAll(projectPath);
 
-        // A sound clip pointing at a folder in the data folder makes
-        // the zip writer fail after it has started writing the archive.
-        LayerSound* sound = obj->addNewSoundLayer();
-        SoundClip* clip = new SoundClip;
-        REQUIRE(QDir(obj->dataDir()).mkpath("folder.wav"));
-        clip->setFileName(QDir(obj->dataDir()).filePath("folder.wav"));
-        REQUIRE(sound->addKeyFrame(1, clip));
+        // The zip writer fails after it has started writing the archive.
+        QTemporaryDir srcDir;
+        REQUIRE(srcDir.isValid());
+        addClipDeletedBeforeZip(fm, obj.get(), srcDir.path());
 
         REQUIRE_FALSE(fm.save(obj.get(), projectPath).ok());
         const bool unchanged = (readAll(projectPath) == original);
@@ -732,11 +748,9 @@ TEST_CASE("FileManager reports progress while it zips and unzips", "[FileManager
         const QByteArray original = file.readAll();
         file.close();
 
-        // A sound clip that points at a folder fails inside MiniZ::compressFolder.
-        SoundClip* clip = new SoundClip;
-        REQUIRE(QDir(obj->dataDir()).mkpath("folder.wav"));
-        clip->setFileName(QDir(obj->dataDir()).filePath("folder.wav"));
-        REQUIRE(obj->addNewSoundLayer()->addKeyFrame(1, clip));
+        QTemporaryDir srcDir;
+        REQUIRE(srcDir.isValid());
+        addClipDeletedBeforeZip(fm, obj.get(), srcDir.path());
 
         const Status st = fm.save(obj.get(), projectPath);
         REQUIRE(st.code() == Status::ERROR_MINIZ_FAIL);
