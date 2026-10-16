@@ -305,7 +305,7 @@ void Editor::pasteToCanvas(VectorImage* vectorImage, int frameNumber)
     mScribbleArea->handleDrawingOnEmptyFrame();
     VectorImage* canvasImage = static_cast<VectorImage*>(currentLayer->getLastKeyFrameAtPosition(frameNumber));
     canvasImage->paste(*vectorImage);
-    select()->setSelection(vectorImage->getSelectionRect());
+    select()->setSelection(canvasImage->getSelectionRect());
     emit frameModified(frameNumber);
 }
 

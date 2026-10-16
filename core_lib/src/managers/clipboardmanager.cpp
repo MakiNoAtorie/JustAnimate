@@ -76,7 +76,6 @@ void ClipboardManager::copyVectorImage(const VectorImage* vectorImage)
     resetStates();
     if (vectorImage == nullptr || vectorImage->isEmpty()) { return; }
 
-    // FIXME: handle vector selections, ie. independent strokes...
     mVectorImage = *std::unique_ptr<VectorImage>(vectorImage->clone());
 }
 

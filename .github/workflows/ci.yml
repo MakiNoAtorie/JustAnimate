@@ -83,6 +83,9 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest https://github.com/pencil2d/pencil2d-deps/releases/download/ffmpge-v4.1.1/ffmpeg-win64.zip -OutFile ffmpeg-win64.zip
+          $expected = '70FF7D439FF98EAF7055559E5E9D22E36892D3EB24D07E31C64307B875382178'
+          $actual = (Get-FileHash -Algorithm SHA256 ffmpeg-win64.zip).Hash
+          if ($actual -ne $expected) { throw "ffmpeg-win64.zip SHA-256 mismatch: expected $expected, got $actual" }
           Expand-Archive ffmpeg-win64.zip -DestinationPath ffmpeg
           "FFMPEG=$("$PWD\ffmpeg\ffmpeg.exe".Replace('\', '/'))" >> $env:GITHUB_ENV
 
@@ -202,6 +205,8 @@ jobs:
       # handler; ASan must let it run, not replace it.
       ASAN_OPTIONS: allow_user_segv_handler=1:detect_leaks=1
       UBSAN_OPTIONS: print_stacktrace=1
+      # QMediaPlayer's GStreamer device monitor leaks inside libpulse.
+      LSAN_OPTIONS: suppressions=${{ github.workspace }}/tools/lsan.supp
     steps:
       - name: Check out repository
         uses: actions/checkout@v7

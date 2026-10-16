@@ -7,6 +7,7 @@
 #include "layermanager.h"
 #include "layervector.h"
 #include "scribblearea.h"
+#include "selectionmanager.h"
 
 TEST_CASE("VectorImage removeColor")
 {
@@ -77,6 +78,17 @@ TEST_CASE("Editor - Vector copy and paste")
     SECTION("Without a selection, the whole frame is pasted")
     {
         REQUIRE(copyFrame1PasteFrame2() == 2);
+    }
+
+    SECTION("The selection covers the pasted curves")
+    {
+        source->setSelected(1, true);
+        editor->scrubTo(1);
+        editor->copy();
+        editor->scrubTo(2);
+        editor->paste();
+
+        REQUIRE(editor->select()->mySelectionRect() == target->curve(0).getBoundingRect());
     }
 }
 
