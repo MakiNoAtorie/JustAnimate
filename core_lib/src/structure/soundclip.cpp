@@ -68,6 +68,11 @@ Status SoundClip::init(const QString& strSoundFile)
     return Status::OK;
 }
 
+bool SoundClip::isFileMissing() const
+{
+    return !fileName().isEmpty() && !QFile::exists(fileName());
+}
+
 bool SoundClip::isValid() const
 {
     if (fileName().isEmpty())

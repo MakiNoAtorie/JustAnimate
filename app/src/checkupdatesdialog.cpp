@@ -81,10 +81,6 @@ CheckUpdatesDialog::CheckUpdatesDialog()
     connect(mCloseButton, &QPushButton::clicked, this, &CheckUpdatesDialog::closeDialog);
 }
 
-CheckUpdatesDialog::~CheckUpdatesDialog()
-{
-}
-
 void CheckUpdatesDialog::startChecking()
 {
     QString version(APP_VERSION);

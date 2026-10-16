@@ -818,6 +818,17 @@ TEST_CASE("FileManager saves a project whose sound clip file is missing", "[File
     KeyFrame* kept = loadedSound->getKeyFrameAt(10);
     REQUIRE(kept != nullptr);
     REQUIRE(QFile::exists(kept->fileName()));
+
+    // The file comes back: the next save finds it again.
+    QFile back(lost->fileName());
+    REQUIRE(back.open(QFile::WriteOnly));
+    back.write("RIFF");
+    back.close();
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+    REQUIRE(fm.skippedSoundClips().isEmpty());
+    std::unique_ptr<Object> reloaded(fm.load(projectPath));
+    REQUIRE(reloaded != nullptr);
+    REQUIRE(reloaded->getLayersByType<LayerSound>().front()->getKeyFrameAt(1) != nullptr);
 }
 
 TEST_CASE("FileManager saves bitmap frames byte-identical to serial PNG encoding", "[FileManager][ParallelSave]")
@@ -1338,4 +1349,19 @@ TEST_CASE("Fuzzed project files load without crashing", "[FileManager][Fuzz]")
         writeBytes(pclxPath, mutate(seedZip, rng));
         loadEverything(pclxPath);
     }
+}
+
+TEST_CASE("FileManager saves after its temp working folder was removed", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewBitmapLayer();
+    REQUIRE(QDir(obj->workingDir()).removeRecursively());
+    REQUIRE_FALSE(removePFFTmpDirectory(obj->workingDir()));
+
+    REQUIRE(fm.save(obj.get(), testDir.filePath("shot.pclx")).ok());
 }

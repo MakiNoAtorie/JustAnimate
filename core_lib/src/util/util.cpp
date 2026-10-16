@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QSemaphore>
 #include <QStandardPaths>
@@ -150,7 +151,8 @@ QString uniqueString(int len)
     char s[128 + 1];
     for (int i = 0; i < len; ++i)
     {
-        s[i] = alphanum[rand() % (alphanumLen - 1)];
+        // Thread-safe and seeded per process: rand() repeats across processes started in the same second.
+        s[i] = alphanum[QRandomGenerator::global()->bounded(alphanumLen - 1)];
     }
     s[len] = 0;
     return QString::fromUtf8(s);

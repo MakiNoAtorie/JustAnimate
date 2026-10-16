@@ -214,11 +214,6 @@ Status ActionCommands::importSound(FileType type)
         mEditor->getScribbleArea()->showLayerNotVisibleWarning();
         return Status::SAFE;
     }
-    // Go to the first frame that has no clip; the import records the clip as one undo step.
-    int frame = mEditor->currentFrame();
-    while (layer->keyExists(frame) && !layer->getKeyFrameAt(frame)->fileName().isEmpty()) { ++frame; }
-    mEditor->scrubTo(frame);
-
     QString strSoundFile = FileDialog::getOpenFileName(mParent, type);
 
     Status st = Status::FAIL;
@@ -229,6 +224,11 @@ Status ActionCommands::importSound(FileType type)
     }
     else
     {
+        // Go to the first frame that has no clip; the import records the clip as one undo step.
+        int frame = mEditor->currentFrame();
+        while (layer->keyExists(frame) && !layer->getKeyFrameAt(frame)->fileName().isEmpty()) { ++frame; }
+        mEditor->scrubTo(frame);
+
         // Convert even if it already is a WAV file to strip metadata that the
         // DirectShow media player backend on Windows can't handle
         st = convertSoundToWav(strSoundFile);
@@ -394,7 +394,7 @@ Status ActionCommands::exportMovie(bool isGif)
     {
         if (!ex.skippedClips().isEmpty())
         {
-            QMessageBox::warning(mParent, APP_NAME,
+            QMessageBox::warning(mParent, tr("Missing Sound Files"),
                                  tr("These sound clips were left out of the movie because their files are missing:\n%1").arg(ex.skippedClips().join('\n')));
         }
         if (QFile::exists(strMoviePath))

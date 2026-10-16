@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QPainter>
 #include <QDomElement>
+#include <QFile>
 #include <QSet>
 #include "keyframe.h"
 #include "util.h"
@@ -365,7 +366,8 @@ Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, Progr
             KeyFrame* keyFrame = keys[i];
             if (results[i].ok())
             {
-                if (!keyFrame->fileName().isEmpty())
+                // A sound clip whose file is missing saves without it.
+                if (!keyFrame->fileName().isEmpty() && QFile::exists(keyFrame->fileName()))
                     attachedFiles.append(keyFrame->fileName());
             }
             else

@@ -236,13 +236,14 @@ MovieExporter::AudioMix MovieExporter::audioMix(const Object* obj, int startFram
         if (!layer->visible()) { continue; }
         layer->foreachKeyFrame([&](KeyFrame* key)
         {
-            if (key->fileName().isEmpty()) { return; }
-            if (!QFile::exists(key->fileName()))
+            SoundClip* clip = static_cast<SoundClip*>(key);
+            if (clip->fileName().isEmpty()) { return; }
+            if (clip->isFileMissing())
             {
                 mix.skipped << layer->clipLabel(key);
                 return;
             }
-            allSoundClips.push_back(static_cast<SoundClip*>(key));
+            allSoundClips.push_back(clip);
         });
     }
 
@@ -721,7 +722,6 @@ Status MovieExporter::executeFFMpegPipe(const QString& cmd, const QStringList& a
 
             progress((framesGenerated + lastFrameProcessed) / frameCount / 2);
         }
-        qDebug() << "Peak unwritten pipe bytes:" << mPeakQueuedBytes;
 
         QString output(ffmpeg.readAll());
         QStringList sList = output.split(QRegularExpression("[\r\n]"), SplitBehaviorFlags::SkipEmptyParts);

@@ -286,20 +286,19 @@ void Object::createWorkingDir()
         QFileInfo fileInfo(mFilePath);
         projectName = fileInfo.completeBaseName();
     }
-    QDir dir(QDir::tempPath());
+    const QString tempRoot = QString("%1/%2/").arg(QDir::tempPath(), APP_TEMP_DIR_NAME);
+    QDir dir;
+    dir.mkpath(tempRoot);
 
+    // mkdir fails on an existing folder, so two processes never share one.
     QString strWorkingDir;
+    int attempts = 0;
     do
     {
-        strWorkingDir = QString("%1/%2/%3_%4_%5/").arg(QDir::tempPath(),
-                                                             APP_TEMP_DIR_NAME,
-                                                             projectName,
-                                                             PFF_TMP_DECOMPRESS_EXT,
-                                                             uniqueString(8));
+        strWorkingDir = QString("%1%2_%3_%4/").arg(tempRoot, projectName, PFF_TMP_DECOMPRESS_EXT, uniqueString(8));
     }
-    while(dir.exists(strWorkingDir));
+    while (!dir.mkdir(strWorkingDir) && ++attempts < 100);
 
-    dir.mkpath(strWorkingDir);
     mWorkingDirPath = strWorkingDir;
 
     QDir dataDir(strWorkingDir + PFF_DATA_DIR);
@@ -530,7 +529,6 @@ void Object::moveVectorColor(int start, int end)
     }
 }
 
-// Adds the source colours the layer uses (once per source index) and remaps the layer in one pass.
 void Object::importVectorColors(LayerVector* layer, const Object& source, QMap<int, int>& importedColors)
 {
     QMap<int, int> mapping;

@@ -33,7 +33,6 @@ class CheckUpdatesDialog : public QDialog
 
 public:
     CheckUpdatesDialog();
-    ~CheckUpdatesDialog();
 
     void startChecking();
 

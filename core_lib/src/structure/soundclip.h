@@ -36,6 +36,8 @@ public:
 
     Status init(const QString& strSoundFile);
     bool isValid() const;
+    // True when the clip names a file that is not on disk.
+    bool isFileMissing() const;
 
     void setSoundClipName(const QString& sName) { mOriginalSoundClipName = sName; }
     QString soundClipName() const { return mOriginalSoundClipName; }
