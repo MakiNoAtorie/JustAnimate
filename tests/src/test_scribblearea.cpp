@@ -166,6 +166,54 @@ TEST_CASE("ScribbleArea - quick preset picker applies a preset with the pen")
     CHECK(brush->strokeToolProperties().width() == 60);
 }
 
+namespace
+{
+
+/// A right-button pen press at a canvas point, stamped `ms` after the test epoch.
+void tap(ScribbleArea* area, Editor* editor, QPointF canvasPos, ulong ms)
+{
+    const QPointF pos = editor->view()->mapCanvasToScreen(canvasPos);
+    QTabletEvent e(QEvent::TabletPress, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                   0.8, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::RightButton, Qt::RightButton);
+    e.setTimestamp(ms);
+    QApplication::sendEvent(area, &e);
+    QTabletEvent r(QEvent::TabletRelease, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                   0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::RightButton, Qt::NoButton);
+    r.setTimestamp(ms + 10);
+    QApplication::sendEvent(area, &r);
+}
+
+}
+
+TEST_CASE("ScribbleArea - pen double tap needs two taps close in time and place")
+{
+    TestSession s;
+    s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->tools()->setCurrentTool(HAND);
+
+    // The hand tool resets the view on a right-button double click.
+    auto zoomed = [&] { editor->view()->scale(2.0); return editor->view()->scaling() != 1.0; };
+
+    REQUIRE(zoomed());
+    tap(area, editor, QPointF(100, 100), 1000);
+    tap(area, editor, QPointF(100, 100), 1100);
+    CHECK(editor->view()->scaling() == 1.0);
+
+    REQUIRE(zoomed());
+    tap(area, editor, QPointF(100, 100), 5000);
+    tap(area, editor, QPointF(100, 100), 5600);
+    CHECK(editor->view()->scaling() != 1.0);
+
+    tap(area, editor, QPointF(100, 100), 9000);
+    tap(area, editor, QPointF(110, 100), 9100);
+    CHECK(editor->view()->scaling() != 1.0);
+}
+
 TEST_CASE("ScribbleArea - a held frame repaints from the frame cache")
 {
     TestSession s;

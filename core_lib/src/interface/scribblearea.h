@@ -274,12 +274,10 @@ private:
     qreal mDevicePixelRatio = 1.;
 
     // Double click handling for tablet input
-    void handleDoubleClick();
-    bool mIsFirstClick = true;
-    int mDoubleClickMillis = 0;
+    bool mHasTabletPress = false;
+    ulong mTabletPressTime = 0;
     // Microsoft suggests that a double click action should be no more than 500 ms
-    const int DOUBLE_CLICK_THRESHOLD = 500;
-    QTimer* mDoubleClickTimer = nullptr;
+    const ulong DOUBLE_CLICK_THRESHOLD = 500;
     QPointF mTabletPressPos;
     RadialMenu mRadialMenu;
     QString mPresetFolder;
