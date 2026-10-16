@@ -1,0 +1,379 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway. Verdict: variant B won (Tool settings as a strip Panel under the Command bar, movable like any Panel). Three structural variants of the v1.2 main window, switchable via ?variant=A|B|C.
+     Open this file in a browser. Not production code; lives only on branch prototype/ui-refresh. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JustAnimate v1.2 mockup</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root {
+  --accent: #3d8bfd;
+  --bg: #1e1f22; --panel: #2a2b2f; --panel2: #323338; --line: #3c3d43;
+  --text: #d9dadf; --dim: #8b8d96; --canvas-bg: #18191b; --paper: #f7f6f2;
+  --cell: #3a3b41; --cell-held: #34353a;
+}
+body.light {
+  --bg: #e4e5e8; --panel: #f3f3f5; --panel2: #e9eaed; --line: #cfd1d6;
+  --text: #24262b; --dim: #6c6f78; --canvas-bg: #c9cbd0; --paper: #ffffff;
+  --cell: #d9dbe0; --cell-held: #e3e5e9;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 12px/1.3 "Segoe UI", system-ui, sans-serif; overflow: hidden; user-select: none; }
+.ti { font-size: 18px; }
+
+/* app grid; each variant redefines areas */
+#app { display: grid; height: 100vh; }
+body.vA #app { grid-template: "menu menu menu" 24px "cmd cmd cmd" 36px "tools canvas right" 1fr "tl tl tl" 210px / 40px 1fr 280px; }
+body.vB #app { grid-template: "menu menu menu" 24px "cmd cmd cmd" 36px "strip strip strip" 34px "tools canvas right" 1fr "tl tl tl" 210px / 40px 1fr 250px; }
+body.vC #app { grid-template: "menu menu menu menu" 24px "cmd cmd cmd cmd" 36px "tools canvas fly rail" 1fr "tl tl tl tl" 150px / 40px 1fr auto 40px; }
+
+.menu { grid-area: menu; display: flex; gap: 14px; align-items: center; padding: 0 10px; background: var(--panel); color: var(--dim); }
+.menu span:hover { color: var(--text); }
+
+.cmd { grid-area: cmd; display: flex; align-items: center; gap: 2px; padding: 0 6px; background: var(--panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
+.btn { width: 30px; height: 28px; display: grid; place-items: center; border-radius: 4px; color: var(--text); cursor: default; }
+.btn:hover { background: var(--panel2); }
+.btn.on { color: var(--accent); }
+.search { margin-left: auto; display: flex; align-items: center; gap: 6px; width: 260px; height: 26px; padding: 0 8px; border-radius: 4px; background: var(--bg); color: var(--dim); border: 1px solid var(--line); }
+.search kbd { margin-left: auto; font: 10px monospace; color: var(--dim); }
+
+.tools { grid-area: tools; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding-top: 6px; gap: 2px; }
+.tool { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 4px; color: var(--text); }
+.tool:hover { background: var(--panel2); }
+.tool.active { background: var(--accent); color: #fff; }
+.tools .gap { height: 8px; }
+
+/* canvas */
+.canvas { grid-area: canvas; background: var(--canvas-bg); position: relative; overflow: hidden; cursor: none; }
+.paper { position: absolute; inset: 8% 10%; background: var(--paper); box-shadow: 0 2px 12px rgba(0,0,0,.35); }
+.paper svg { width: 100%; height: 100%; }
+#outline { position: absolute; pointer-events: none; border-radius: 50%; border: 1px solid #000; box-shadow: 0 0 0 1px rgba(255,255,255,.8); transform: translate(-50%,-50%); display: none; }
+#cross { position: absolute; pointer-events: none; width: 11px; height: 11px; transform: translate(-50%,-50%); display: none; }
+#cross:before, #cross:after { content: ""; position: absolute; background: #000; box-shadow: 0 0 0 1px rgba(255,255,255,.8); }
+#cross:before { left: 5px; top: 0; width: 1px; height: 11px; }
+#cross:after { top: 5px; left: 0; height: 1px; width: 11px; }
+.hud { position: absolute; left: 10px; bottom: 8px; color: var(--dim); font-size: 11px; }
+
+/* panels */
+.right { grid-area: right; background: var(--bg); display: flex; flex-direction: column; gap: 1px; overflow: auto; border-left: 1px solid var(--line); }
+.panel { background: var(--panel); display: flex; flex-direction: column; }
+.ph { height: 24px; display: flex; align-items: center; padding: 0 8px; gap: 10px; color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: .02em; border-bottom: 1px solid var(--line); }
+.ph .t { color: var(--text); }
+.ph .tab { cursor: default; padding: 4px 0; }
+.ph .tab.on { color: var(--text); box-shadow: inset 0 -2px var(--accent); }
+.ph .ctl { margin-left: auto; display: flex; gap: 4px; }
+.ph .ctl .ti { font-size: 14px; }
+.pb { padding: 8px; }
+.panel.floating { position: fixed; z-index: 20; width: 260px; box-shadow: 0 8px 28px rgba(0,0,0,.5); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+
+.row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.row label { width: 56px; color: var(--dim); }
+.row output { width: 34px; text-align: right; }
+input[type=range] { flex: 1; accent-color: var(--accent); }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { padding: 3px 8px; border-radius: 4px; background: var(--panel2); color: var(--dim); }
+.chip.on { background: var(--accent); color: #fff; }
+
+.presets .p { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 4px; }
+.presets .p.on { background: var(--panel2); box-shadow: inset 2px 0 var(--accent); }
+.presets svg { width: 90px; height: 18px; flex: none; }
+.presets small { color: var(--dim); display: block; }
+
+.wheel { width: 150px; height: 150px; margin: 4px auto; border-radius: 50%; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); position: relative; }
+.wheel:after { content: ""; position: absolute; inset: 22px; border-radius: 50%; background: var(--panel); }
+.wheel i { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px; z-index: 1; background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, #2d7cf6); }
+.swatches { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.swatches span { aspect-ratio: 1; border-radius: 3px; }
+
+/* variant B: tool settings strip */
+.strip { grid-area: strip; display: none; align-items: center; gap: 16px; padding: 0 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+body.vB .strip { display: flex; }
+body.vB #p-toolsettings { display: none; }
+.strip .row { margin: 0; }
+.strip input[type=range] { width: 120px; flex: none; }
+
+/* variant C: icon rail + flyout */
+.rail { grid-area: rail; display: none; flex-direction: column; align-items: center; gap: 2px; padding-top: 6px; background: var(--panel); border-left: 1px solid var(--line); }
+.fly { grid-area: fly; display: none; width: 270px; overflow: auto; background: var(--bg); border-left: 1px solid var(--line); }
+body.vC .rail { display: flex; }
+body.vC .fly.open { display: block; }
+body.vC .right { display: none; }
+.rail .tool.on { color: var(--accent); background: var(--panel2); }
+
+/* timeline */
+.tl { grid-area: tl; background: var(--panel); border-top: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.transport { display: flex; align-items: center; gap: 2px; padding: 0 6px; height: 30px; border-bottom: 1px solid var(--line); }
+.transport .fps { margin-left: 10px; color: var(--dim); }
+.tlbody { flex: 1; display: grid; grid-template-columns: 220px 1fr; overflow: auto; }
+.layers .lr, .cells .cr { height: 26px; border-bottom: 1px solid var(--line); }
+.layers { border-right: 1px solid var(--line); }
+.layers .lr { display: flex; align-items: center; gap: 4px; padding: 0 6px; }
+.layers .lr.cur { background: var(--panel2); box-shadow: inset 2px 0 var(--accent); }
+.layers .lr .ti { font-size: 15px; color: var(--dim); }
+.layers .lr .ti.on { color: var(--text); }
+.layers .lr .ti.acc { color: var(--accent); }
+.layers .name { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tag { font-size: 9px; padding: 1px 4px; border-radius: 3px; background: #6b8fc9; color: #fff; }
+.ruler { height: 20px; display: flex; color: var(--dim); font-size: 10px; border-bottom: 1px solid var(--line); position: relative; }
+.ruler span { width: 22px; flex: none; text-align: center; line-height: 20px; }
+.cells { position: relative; }
+.cr { display: flex; }
+.c { width: 22px; flex: none; border-right: 1px solid var(--line); position: relative; }
+.c.d { background: var(--cell); }
+.c.h { background: var(--cell-held); }
+.c.h:after { content: ""; position: absolute; left: 0; right: 0; top: 12px; height: 2px; background: var(--dim); opacity: .6; }
+.c.d.end:after { display: none; }
+.c .m { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 8px; height: 8px; background: var(--text); }
+.m.key { transform: translate(-50%,-50%) rotate(45deg); }
+.m.bd { width: 0; height: 0; background: none; border: 5px solid transparent; border-bottom: 8px solid var(--text); border-top: 0; }
+.m.ib { border-radius: 50%; width: 6px; height: 6px; }
+.c.rough { background: rgba(107,143,201,.35); }
+.c.rough.h { background: rgba(107,143,201,.2); }
+.playhead { position: absolute; top: 0; bottom: 0; width: 22px; background: color-mix(in srgb, var(--accent) 22%, transparent); border-left: 2px solid var(--accent); pointer-events: none; }
+.loop { position: absolute; top: 2px; height: 3px; background: var(--accent); border-radius: 2px; }
+
+/* prototype switcher, deliberately not part of the design */
+#proto { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 99; display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: 999px; background: #fffbe6; color: #222; box-shadow: 0 4px 20px rgba(0,0,0,.45); font: 12px system-ui; border: 2px dashed #e0a800; }
+#proto button { border: 0; background: #222; color: #fff; border-radius: 999px; width: 26px; height: 26px; cursor: pointer; }
+#proto .acc { display: flex; gap: 4px; }
+#proto .acc span { width: 16px; height: 16px; border-radius: 50%; cursor: pointer; outline-offset: 2px; }
+#proto .acc span.on { outline: 2px solid #222; }
+#proto label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
+#state { position: fixed; right: 10px; bottom: 14px; z-index: 99; background: #fffbe6; color: #222; font: 11px monospace; padding: 6px 8px; border-radius: 6px; border: 2px dashed #e0a800; white-space: pre; }
+</style>
+</head>
+<body class="vA">
+<div id="app">
+  <div class="menu"><span>File</span><span>Edit</span><span>View</span><span>Layer</span><span>Animation</span><span>Window</span><span>Help</span></div>
+
+  <div class="cmd">
+    <div class="btn" title="New"><i class="ti ti-file-plus"></i></div>
+    <div class="btn" title="Open"><i class="ti ti-folder-open"></i></div>
+    <div class="btn" title="Save"><i class="ti ti-device-floppy"></i></div>
+    <div class="sep"></div>
+    <div class="btn" title="Undo"><i class="ti ti-arrow-back-up"></i></div>
+    <div class="btn" title="Redo"><i class="ti ti-arrow-forward-up"></i></div>
+    <div class="sep"></div>
+    <div class="btn" title="Zoom in"><i class="ti ti-zoom-in"></i></div>
+    <div class="btn" title="Zoom out"><i class="ti ti-zoom-out"></i></div>
+    <div class="btn" title="Reset view"><i class="ti ti-focus-centered"></i></div>
+    <div class="btn" title="Flip view"><i class="ti ti-flip-vertical"></i></div>
+    <div class="sep"></div>
+    <div class="btn on" title="Onion skin (O)"><i class="ti ti-stack-2"></i></div>
+    <div class="btn" title="Grid"><i class="ti ti-grid-4x4"></i></div>
+    <div class="btn" title="Overlays"><i class="ti ti-ruler-2"></i></div>
+    <div class="search"><i class="ti ti-search" style="font-size:14px"></i>Search commands<kbd>Ctrl+Shift+P</kbd></div>
+  </div>
+
+  <div class="strip">
+    <b>Pencil</b>
+    <div class="row"><label>Size</label><input type="range" min="1" max="120" class="size"><output class="sizeo"></output></div>
+    <div class="row"><label>Opacity</label><input type="range" value="100"><output>100%</output></div>
+    <div class="chips"><span class="chip on">Pressure</span><span class="chip">Stabilizer</span><span class="chip">Anti-alias</span></div>
+  </div>
+
+  <div class="tools">
+    <div class="tool active" title="Pencil"><i class="ti ti-pencil"></i></div>
+    <div class="tool" title="Pen"><i class="ti ti-ballpen"></i></div>
+    <div class="tool" title="Brush"><i class="ti ti-brush"></i></div>
+    <div class="tool" title="Eraser"><i class="ti ti-eraser"></i></div>
+    <div class="tool" title="Smudge"><i class="ti ti-hand-finger"></i></div>
+    <div class="gap"></div>
+    <div class="tool" title="Fill"><i class="ti ti-bucket-droplet"></i></div>
+    <div class="tool" title="Eyedropper"><i class="ti ti-color-picker"></i></div>
+    <div class="tool" title="Select"><i class="ti ti-marquee-2"></i></div>
+    <div class="tool" title="Move"><i class="ti ti-arrows-move"></i></div>
+    <div class="gap"></div>
+    <div class="tool" title="Hand"><i class="ti ti-hand-stop"></i></div>
+    <div class="tool" title="Zoom"><i class="ti ti-zoom"></i></div>
+    <div class="tool" title="Rotate view"><i class="ti ti-rotate-clockwise-2"></i></div>
+  </div>
+
+  <div class="canvas" id="canvas">
+    <div class="paper">
+      <svg viewBox="0 0 400 260" fill="none" stroke-linecap="round">
+        <g stroke="#6b8fc9" stroke-opacity=".5" stroke-width="1.4"><ellipse cx="200" cy="100" rx="46" ry="52"/><path d="M200 152 L196 225 M150 175 L250 180 M196 225 L170 255 M196 225 L225 255"/></g>
+        <g stroke="#e05a4f" stroke-opacity=".35" stroke-width="1.6"><ellipse cx="185" cy="104" rx="44" ry="50"/></g>
+        <g stroke="#3db37a" stroke-opacity=".35" stroke-width="1.6"><ellipse cx="215" cy="98" rx="44" ry="50"/></g>
+        <g stroke="#222" stroke-width="2"><path d="M160 92 C162 55 238 52 244 94 C248 132 222 152 200 152 C176 152 158 128 160 92Z"/><path d="M182 96 q4 -6 8 0 M210 96 q4 -6 8 0 M190 122 q10 8 20 0"/></g>
+      </svg>
+    </div>
+    <div id="outline"></div><div id="cross"></div>
+    <div class="hud">Frame 7 · Drawing 3 (Breakdown) · 100% · 0°</div>
+  </div>
+
+  <div class="right" id="right">
+    <div class="panel" id="p-toolsettings">
+      <div class="ph"><span class="t">Tool settings</span><span class="ctl"><i class="ti ti-app-window float"></i><i class="ti ti-x"></i></span></div>
+      <div class="pb">
+        <div class="row"><label>Size</label><input type="range" min="1" max="120" class="size"><output class="sizeo"></output></div>
+        <div class="row"><label>Opacity</label><input type="range" value="100"><output>100%</output></div>
+        <div class="row"><label>Feather</label><input type="range" value="20"><output>20</output></div>
+        <div class="chips"><span class="chip on">Pressure</span><span class="chip">Stabilizer</span><span class="chip">Anti-alias</span></div>
+      </div>
+    </div>
+    <div class="panel" id="p-presets">
+      <div class="ph"><span class="t">Brush presets</span><span class="ctl"><i class="ti ti-app-window float"></i><i class="ti ti-x"></i></span></div>
+      <div class="pb presets">
+        <div class="p on"><svg viewBox="0 0 90 18"><path d="M3 12 C25 2 50 18 87 6" stroke="currentColor" stroke-width="1.5" fill="none"/></svg><div>HB pencil<small>Light sketch line</small></div></div>
+        <div class="p"><svg viewBox="0 0 90 18"><path d="M3 12 C25 2 50 18 87 6" stroke="currentColor" stroke-width="3" fill="none"/></svg><div>G-pen ink<small>Clean-up, tapered</small></div></div>
+        <div class="p"><svg viewBox="0 0 90 18"><path d="M3 12 C25 2 50 18 87 6" stroke="currentColor" stroke-width="7" stroke-opacity=".4" fill="none"/></svg><div>Soft airbrush<small>Shading</small></div></div>
+      </div>
+    </div>
+    <div class="panel" id="p-wheel">
+      <div class="ph"><span class="t">Colour</span><span class="ctl"><i class="ti ti-app-window float"></i><i class="ti ti-x"></i></span></div>
+      <div class="pb"><div class="wheel"><i></i></div></div>
+    </div>
+    <div class="panel" id="p-palette">
+      <div class="ph"><span class="tab on">Palette</span><span class="tab">Colour inspector</span><span class="ctl"><i class="ti ti-app-window float"></i><i class="ti ti-x"></i></span></div>
+      <div class="pb"><div class="swatches" id="sw"></div></div>
+    </div>
+  </div>
+
+  <div class="fly" id="fly"></div>
+  <div class="rail">
+    <div class="tool" data-p="p-toolsettings" title="Tool settings"><i class="ti ti-adjustments-horizontal"></i></div>
+    <div class="tool" data-p="p-presets" title="Brush presets"><i class="ti ti-brush"></i></div>
+    <div class="tool" data-p="p-wheel" title="Colour"><i class="ti ti-color-swatch"></i></div>
+    <div class="tool" data-p="p-palette" title="Palette"><i class="ti ti-palette"></i></div>
+  </div>
+
+  <div class="tl">
+    <div class="ph"><span class="tab on">Timeline</span><span class="tab">Onion skin</span><span class="tab">X-sheet <small>(v1.3)</small></span></div>
+    <div class="transport">
+      <div class="btn" title="First frame"><i class="ti ti-player-skip-back"></i></div>
+      <div class="btn" title="Previous drawing"><i class="ti ti-player-track-prev"></i></div>
+      <div class="btn" title="Play"><i class="ti ti-player-play"></i></div>
+      <div class="btn" title="Next drawing"><i class="ti ti-player-track-next"></i></div>
+      <div class="btn on" title="Loop"><i class="ti ti-repeat"></i></div>
+      <div class="btn" title="Play around playhead"><i class="ti ti-arrows-horizontal"></i></div>
+      <div class="sep"></div>
+      <div class="btn" title="New drawing"><i class="ti ti-square-plus"></i></div>
+      <div class="btn" title="Duplicate drawing"><i class="ti ti-copy"></i></div>
+      <div class="btn" title="Mark: Key"><i class="ti ti-diamond"></i></div>
+      <div class="btn" title="Mark: Breakdown"><i class="ti ti-triangle"></i></div>
+      <div class="btn" title="Mark: Inbetween"><i class="ti ti-circle"></i></div>
+      <span class="fps">24 fps · 1×</span>
+    </div>
+    <div class="tlbody">
+      <div class="layers" id="layers"><div class="ruler"></div></div>
+      <div class="cells" id="cells"></div>
+    </div>
+  </div>
+</div>
+
+<div id="proto">
+  <button id="prev">←</button><b id="vlabel"></b><button id="next">→</button>
+  <span>|</span>
+  <label><input type="checkbox" id="light"> Light</label>
+  <span class="acc" id="acc"></span>
+</div>
+<div id="state"></div>
+
+<script>
+const variants = { A: "Docked sides (decided Layout)", B: "Tool settings strip", C: "Canvas first, icon rail" };
+const keys = Object.keys(variants);
+const accents = { blue: "#3d8bfd", teal: "#14a3a3", green: "#3fae5a", amber: "#e0a800", orange: "#f07f2c", red: "#e5484d", pink: "#e0559b", violet: "#8e6cf0" };
+const st = { variant: new URLSearchParams(location.search).get("variant") || "A", theme: "dark", accent: "blue", size: 14, cursor: "", floating: [] };
+
+function render() {
+  document.body.className = "v" + st.variant + (st.theme === "light" ? " light" : "");
+  document.documentElement.style.setProperty("--accent", accents[st.accent]);
+  document.getElementById("vlabel").textContent = st.variant + " (" + variants[st.variant] + ")";
+  document.querySelectorAll(".size").forEach(e => e.value = st.size);
+  document.querySelectorAll(".sizeo").forEach(e => e.value = st.size + " px");
+  document.querySelectorAll("#acc span").forEach(s => s.classList.toggle("on", s.dataset.a === st.accent));
+  document.getElementById("state").textContent = JSON.stringify(st, null, 1);
+}
+function go(d) {
+  st.variant = keys[(keys.indexOf(st.variant) + d + keys.length) % keys.length];
+  try { history.replaceState(null, "", "?variant=" + st.variant); } catch (e) {}
+  render();
+}
+prev.onclick = () => go(-1); next.onclick = () => go(1);
+addEventListener("keydown", e => {
+  if (e.target.closest("input,textarea,[contenteditable]")) return;
+  if (e.key === "ArrowLeft") go(-1);
+  if (e.key === "ArrowRight") go(1);
+});
+light.onchange = () => { st.theme = light.checked ? "light" : "dark"; render(); };
+for (const [k, v] of Object.entries(accents)) {
+  const s = document.createElement("span"); s.style.background = v; s.dataset.a = k; s.title = k;
+  s.onclick = () => { st.accent = k; render(); }; acc.appendChild(s);
+}
+document.querySelectorAll(".size").forEach(e => e.oninput = () => { st.size = +e.value; render(); });
+
+// Brush outline: true size, cross at centre; cross only below 6 px.
+const cv = document.getElementById("canvas");
+cv.onmousemove = e => {
+  const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const big = st.size >= 6;
+  outline.style.display = big ? "block" : "none";
+  Object.assign(outline.style, { left: x + "px", top: y + "px", width: st.size + "px", height: st.size + "px" });
+  Object.assign(cross.style, { display: "block", left: x + "px", top: y + "px" });
+  if (st.cursor !== (big ? "outline" : "cross only")) { st.cursor = big ? "outline" : "cross only"; render(); }
+};
+cv.onmouseleave = () => { outline.style.display = cross.style.display = "none"; };
+cv.onwheel = e => { e.preventDefault(); st.size = Math.max(1, Math.min(120, st.size - Math.sign(e.deltaY) * 2)); render(); };
+
+// Float a panel; double-click its title to dock it back.
+document.querySelectorAll(".float").forEach(b => b.onclick = () => {
+  const p = b.closest(".panel"); p.classList.add("floating");
+  p.style.left = "35%"; p.style.top = "30%"; st.floating.push(p.id); render();
+});
+document.querySelectorAll(".panel .ph").forEach(h => h.ondblclick = () => {
+  const p = h.closest(".panel"); p.classList.remove("floating"); p.style.left = p.style.top = "";
+  st.floating = st.floating.filter(i => i !== p.id); render();
+});
+
+// Variant C rail opens one panel at a time in the flyout.
+document.querySelectorAll(".rail .tool").forEach(t => t.onclick = () => {
+  const fly = document.getElementById("fly"), p = document.getElementById(t.dataset.p), was = t.classList.contains("on");
+  document.querySelectorAll(".rail .tool").forEach(x => x.classList.remove("on"));
+  [...fly.children].forEach(c => right.appendChild(c));
+  fly.classList.toggle("open", !was);
+  if (!was) { t.classList.add("on"); fly.appendChild(p); }
+});
+
+// Palette swatches.
+["#222","#555","#888","#bbb","#fff","#e5484d","#f07f2c","#e0a800","#3fae5a","#14a3a3","#3d8bfd","#8e6cf0","#e0559b","#7a4b2a","#c99a6b","#f2d4b6","#1d3557","#457b9d","#a8dadc","#f1faee"]
+  .forEach(c => { const s = document.createElement("span"); s.style.background = c; sw.appendChild(s); });
+
+// Timeline: Drawings with Marks, Exposure lines, per-layer onion toggle, a Rough layer.
+const N = 30;
+const layers = [
+  { name: "Camera", icon: "ti-video", d: [] },
+  { name: "Clean-up", icon: "ti-photo", cur: true, d: [[1,2,"key"],[3,2,"ib"],[5,2,"ib"],[7,2,"bd"],[9,2,"ib"],[11,2,"ib"],[13,3,"key"]] },
+  { name: "Colour", icon: "ti-photo", d: [[1,6],[7,6],[13,3]] },
+  { name: "Rough", icon: "ti-photo", rough: true, d: [[1,6,"key"],[7,6,"bd"],[13,6,"key"]] },
+  { name: "Sound", icon: "ti-volume", d: [] },
+];
+
+const rul = document.createElement("div"); rul.className = "ruler";
+for (let f = 1; f <= N; f++) { const s = document.createElement("span"); s.textContent = f % 5 === 0 || f === 1 ? f : "·"; rul.appendChild(s); }
+cells.appendChild(rul);
+const loop = document.createElement("div"); loop.className = "loop"; loop.style.left = 0; loop.style.width = (16 * 22) + "px"; rul.appendChild(loop);
+for (const L of layers) {
+  const lr = document.createElement("div"); lr.className = "lr" + (L.cur ? " cur" : "");
+  lr.innerHTML = `<i class="ti ti-eye on"></i><i class="ti ti-stack-2 ${L.d.length ? "acc" : ""}" title="Onion skin for this layer"></i><i class="ti ti-lock-open"></i><i class="ti ${L.icon}"></i><span class="name">${L.name}</span>${L.rough ? '<span class="tag">ROUGH</span>' : ""}`;
+  document.getElementById("layers").appendChild(lr);
+  const cr = document.createElement("div"); cr.className = "cr";
+  const cellsArr = [];
+  for (let f = 1; f <= N; f++) { const c = document.createElement("div"); c.className = "c"; cellsArr.push(c); cr.appendChild(c); }
+  for (const [start, len, mark] of L.d) for (let i = 0; i < len; i++) {
+    const c = cellsArr[start - 1 + i]; if (!c) continue;
+    c.classList.add(i === 0 ? "d" : "h"); if (L.rough) c.classList.add("rough");
+    if (i === 0 && mark) { const m = document.createElement("span"); m.className = "m " + mark; c.appendChild(m); }
+  }
+  cells.appendChild(cr);
+}
+const ph = document.createElement("div"); ph.className = "playhead"; ph.style.left = (6 * 22) + "px"; cells.appendChild(ph);
+
+render();
+</script>
+</body>
+</html>
