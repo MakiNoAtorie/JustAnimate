@@ -38,6 +38,7 @@ GNU General Public License for more details.
 #include "mainwindow2.h"
 #include "pencildef.h"
 #include "platformhandler.h"
+#include "pencilsettings.h"
 
 
 
@@ -135,7 +136,7 @@ bool Pencil2D::event(QEvent* event)
 
 void Pencil2D::installTranslators()
 {
-    QSettings setting(PENCIL2D, PENCIL2D);
+    QSettings& setting = pencilSettings();
     QString userLocale = setting.value(SETTING_LANGUAGE).toString();
     QLocale locale = userLocale.isEmpty() ? QLocale::system() : QLocale(userLocale);
     QLocale::setDefault(locale);

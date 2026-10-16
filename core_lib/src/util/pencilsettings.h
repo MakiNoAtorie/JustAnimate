@@ -23,6 +23,8 @@ GNU General Public License for more details.
 #include "pencildef.h"
 
 QSettings& pencilSettings();
+// Tests only: call before the first pencilSettings() to use an INI file instead of the native store.
+void usePencilSettingsIniFile(const QString& path);
 void restoreToDefaultSetting();
 
 void restoreShortcutsToDefault();

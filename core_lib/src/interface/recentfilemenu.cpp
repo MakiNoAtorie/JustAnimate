@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QVariant>
 #include <QDebug>
+#include "pencilsettings.h"
 
 
 RecentFileMenu::RecentFileMenu(const QString& title, QWidget *parent) :
@@ -69,7 +70,7 @@ void RecentFileMenu::setRecentFiles(const QStringList& filenames)
 
 bool RecentFileMenu::loadFromDisk()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     QVariant recent = settings.value("RecentFiles");
     if (recent.isNull())
     {
@@ -83,7 +84,7 @@ bool RecentFileMenu::loadFromDisk()
 
 bool RecentFileMenu::saveToDisk()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue("RecentFiles", QVariant(mRecentFiles));
     return true;
 }

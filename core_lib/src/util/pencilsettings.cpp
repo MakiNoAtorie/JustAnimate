@@ -22,21 +22,30 @@ GNU General Public License for more details.
 
 // ==== Singleton ====
 
+static QString gIniPath;
+
+void usePencilSettingsIniFile(const QString& path)
+{
+    gIniPath = path;
+}
+
 QSettings& pencilSettings()
 {
-    static QSettings settings(PENCIL2D, PENCIL2D);
+    static QSettings settings = gIniPath.isEmpty()
+        ? QSettings(PENCIL2D, PENCIL2D)
+        : QSettings(gIniPath, QSettings::IniFormat);
 
     if ( !settings.contains("InitPencilSetting") )
     {
-        restoreToDefaultSetting();
         settings.setValue("InitPencilSetting", true);
+        restoreToDefaultSetting();
     }
     return settings;
 }
 
 void restoreToDefaultSetting() // TODO: finish reset list
 {
-    QSettings s(PENCIL2D, PENCIL2D);
+    QSettings& s = pencilSettings();
 
     s.setValue(SETTING_AUTO_SAVE_NUMBER, 15);
     s.setValue(SETTING_TOOL_CURSOR, true);
@@ -44,12 +53,11 @@ void restoreToDefaultSetting() // TODO: finish reset list
     s.sync();
     qDebug("restored default tools");
 }
-
 void checkExistingShortcuts()
 {
     QSettings defaultKey(":resources/kb.ini", QSettings::IniFormat);
 
-    QSettings curSetting( PENCIL2D, PENCIL2D );
+    QSettings& curSetting = pencilSettings();
     foreach (QString pShortcutsKey, defaultKey.allKeys())
     {
         if ( ! curSetting.contains( pShortcutsKey ) )
@@ -76,7 +84,7 @@ void restoreShortcutsToDefault()
 {
     QSettings defaultKey(":resources/kb.ini", QSettings::IniFormat);
 
-    QSettings curSetting( PENCIL2D, PENCIL2D );
+    QSettings& curSetting = pencilSettings();
     curSetting.remove("shortcuts");
 
     foreach (QString pShortcutsKey, defaultKey.allKeys())

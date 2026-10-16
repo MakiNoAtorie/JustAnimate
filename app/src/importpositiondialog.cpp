@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QStandardItemModel>
 #include "editor.h"
 #include "layermanager.h"
+#include "pencilsettings.h"
 
 ImportPositionDialog::ImportPositionDialog(Editor* editor, QWidget *parent) :
     QDialog(parent),
@@ -42,7 +43,7 @@ ImportPositionDialog::ImportPositionDialog(Editor* editor, QWidget *parent) :
     connect(ui->cbImagePosition, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &ImportPositionDialog::didChangeComboBoxIndex);
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &ImportPositionDialog::changeImportView);
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     int value = settings.value(IMPORT_REPOSITION_TYPE).toInt();
 
     ui->cbImagePosition->setCurrentIndex(value);
@@ -65,6 +66,6 @@ void ImportPositionDialog::changeImportView()
         mImportConfig.importFrame = mEditor->currentFrame();
     }
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(IMPORT_REPOSITION_TYPE, ui->cbImagePosition->currentIndex());
 }

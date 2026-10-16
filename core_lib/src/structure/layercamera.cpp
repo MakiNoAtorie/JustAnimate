@@ -20,12 +20,13 @@ GNU General Public License for more details.
 
 #include "camera.h"
 #include "pencildef.h"
+#include "pencilsettings.h"
 
 LayerCamera::LayerCamera(int id) : Layer(id, Layer::CAMERA)
 {
     setName(tr("Camera Layer"));
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     mFieldW = settings.value("FieldW").toInt();
     mFieldH = settings.value("FieldH").toInt();
     if (mFieldW < 2 || mFieldH < 2)

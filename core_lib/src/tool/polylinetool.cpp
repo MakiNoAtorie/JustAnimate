@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layerbitmap.h"
 #include "vectorimage.h"
+#include "pencilsettings.h"
 
 
 PolylineTool::PolylineTool(QObject* parent) : StrokeTool(parent)
@@ -49,7 +50,7 @@ void PolylineTool::loadSettings()
     mPropertyUsed[PolylineToolProperties::BEZIERPATH_ENABLED] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::ANTI_ALIASING_ENABLED] = { Layer::BITMAP };
 
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     QHash<int, PropertyInfo> info;
 
@@ -59,16 +60,16 @@ void PolylineTool::loadSettings()
     info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = true;
 
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
 
-    if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("polylineWidth", 8.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::ANTI_ALIASING_ENABLED, pencilSettings.value("brushAA", true).toBool());
-        toolProperties().setBaseValue(PolylineToolProperties::CLOSEDPATH_ENABLED, pencilSettings.value("closedPolylinePath", false).toBool());
+    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
+        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("polylineWidth", 8.0).toReal());
+        toolProperties().setBaseValue(StrokeToolProperties::ANTI_ALIASING_ENABLED, settings.value("brushAA", true).toBool());
+        toolProperties().setBaseValue(PolylineToolProperties::CLOSEDPATH_ENABLED, settings.value("closedPolylinePath", false).toBool());
 
-        pencilSettings.remove("polylineWidth");
-        pencilSettings.remove("brushAA");
-        pencilSettings.remove("closedPolylinePath");
+        settings.remove("polylineWidth");
+        settings.remove("brushAA");
+        settings.remove("closedPolylinePath");
     }
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
