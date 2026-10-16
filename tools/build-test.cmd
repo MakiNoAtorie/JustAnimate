@@ -1,5 +1,5 @@
 @echo off
-rem Builds pencil2d and pencil2d_tests with MSVC, then runs the suite. Usage: tools\build-test.cmd [catch test filter]
+rem Builds pencil2d and pencil2d_tests with MSVC, then runs the suite. Usage: tools\build-test.cmd ["exact test name" | [tag]]
 rem Override VCVARS or QTDIR for another install. Tests run offscreen when the plugin is installed.
 if not defined VCVARS set "VCVARS=C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 if not defined QTDIR set "QTDIR=C:\Qt\6.8.3\msvc2022_64"
@@ -10,6 +10,8 @@ rem Offscreen keeps test windows off the desktop.
 rem The build folder deploys only the windows plugin, so load platform plugins from QTDIR.
 if not defined QT_QPA_PLATFORM if exist "%QTDIR%\plugins\platforms\qoffscreen.dll" set "QT_QPA_PLATFORM=offscreen"& set "QT_QPA_PLATFORM_PLUGIN_PATH=%QTDIR%\plugins\platforms"
 cd /d "%~dp0.."
+rem Same source guards as CI: no UTF-8 BOM, no ponytail markers in C++ files, committed or not.
+powershell -NoProfile -Command "$f = git ls-files --cached --others --exclude-standard -- '*.cpp' '*.h'; $bom = $f | Where-Object { $b = [IO.File]::ReadAllBytes($_); $b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF } | ForEach-Object { \"UTF-8 BOM: $_\" }; $pt = Select-String -Path $f -SimpleMatch 'ponytail:' | ForEach-Object { \"$($_.Path):$($_.LineNumber): use // shortcut:\" }; if ($bom -or $pt) { $bom; $pt; exit 1 }" || exit /b 1
 if not exist build\build.ninja cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON "-DCMAKE_PREFIX_PATH=%QTDIR%" >nul || exit /b 1
 cmake --build build -j2 --target pencil2d pencil2d_tests > build\build.log 2>&1
 if errorlevel 1 (findstr /i /c:"error" /c:"warning C" /c:"FAILED:" build\build.log & exit /b 1)

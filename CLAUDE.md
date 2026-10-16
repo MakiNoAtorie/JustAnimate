@@ -41,9 +41,10 @@ To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
   mechanical work (merges, CI/config, docs, small well-specified fixes).
 - **Implementer prompts** stay short and point: ticket number, branch,
   `docs/CONVENTIONS.md`, files other agents are editing in parallel.
-  Implementers run local checks only; the orchestrator reads CI on the last
-  push of a batch (each push cancels the running CI) and sends a red job's
-  error back to the implementer of that commit.
+  Implementers run local checks only. Merges land on the local integration
+  branch; push it only once the previous CI run has finished (each push
+  cancels the running CI), so every push gets a full run. Read that run and
+  send a red job's error back to the implementer of that commit.
 - **Conventions:** implementers end their report with at most 10 proposed
   convention bullets; the orchestrator folds the binding ones into
   `docs/CONVENTIONS.md`. Exploration notes and container facts go in the

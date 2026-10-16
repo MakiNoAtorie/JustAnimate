@@ -21,15 +21,14 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON`, Qt 6.4
   (Linux) and 6.5.3 on GCC, Clang and MSVC: no Qt 6.5+ API, no
   `QT_VERSION < 6` branches.
-- `pencil2d_tests` compiles all of `app/src` except `main.cpp`; tests can
-  build `MainWindow2`.
 - CI runs the suite with ASan, UBSan and LSan (`-DJUSTANIMATE_SANITIZE=ON`).
-- Windows: `tools\build-test.cmd [filter]` builds both targets and runs the
-  suite offscreen. For `benchmark` set `QT_QPA_PLATFORM=offscreen` and
+- Windows: `tools\build-test.cmd ["exact test name" | [tag]]` runs the CI
+  source guards, builds both targets and runs the suite offscreen. For `benchmark` set `QT_QPA_PLATFORM=offscreen` and
   `QT_QPA_PLATFORM_PLUGIN_PATH=%QTDIR%\plugins\platforms`.
 - Edit files with the Edit tool or a byte-level script: keep each file's
   line endings (`git ls-files --eol`). Git Bash `sed -i` drops CRLF.
-  PowerShell: commit with `git commit -F <scratch file>`.
+  PowerShell: commit with `git commit -F <scratch file>` written as UTF-8
+  without BOM (`[IO.File]::WriteAllText`).
 
 ## Tests
 
@@ -38,18 +37,21 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Every fix ships with a test you ran red on the old code (a compile
   failure counts for new API). These rules beat Ponytail's; its markers
   are `// shortcut:`.
-- Test at a public interface (`Editor`, `FileManager`, a tool, a manager).
-- Tests that touch `QSettings` restore the value they change.
-- Tests write files only under their own `QTemporaryDir`: several agents run
-  suites at once on one machine.
-- Fixtures are stack objects or `unique_ptr`; a raw `new` fails the leak job.
+- Test at a public interface (`Editor`, `FileManager`, a tool, a manager;
+  `MainWindow2` only for whole-UI sweeps such as `[Accessibility]`).
+- Tests that touch `QSettings` restore the value they change, and set up
+  what they read: CI starts with empty settings, your machine does not.
+- Tests write files only under their own `QTemporaryDir`: agents run suites in
+  parallel on one machine.
+- Fixtures are stack objects or `unique_ptr`, and every `new` QObject in app
+  code gets a parent: only CI's LSan job sees leaks (none on Windows).
 - No modal dialog in a test path: put the logic in helpers the test can
   call. Command-line paths never prompt.
 - A test that crashes a child process on purpose faults for real (null
   write in a function marked `no_sanitize`), sets `SEM_NOGPFAULTERRORBOX` on
   Windows and forwards the child's stderr.
 - Golden values change only in a commit that means to change output.
-- Catch2 test names have no commas (the CLI filter splits on them).
+- Catch2 test names have no commas: CLI filters split on them.
 
 ## Code
 
@@ -66,7 +68,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Do not tell the user an action cannot be undone unless no record exists.
 - Bitmap pixels are premultiplied: `qUnpremultiply` before use as a `QColor`.
 - Untrusted files: reject the whole archive before writing anything; return
-  a failed `Status`, never `Q_ASSERT` on it.
+  a failed `Status`. A bad value loads as the default; unknown tags are
+  skipped; never `Q_ASSERT` on file data.
 - A tool property a test may leave unregistered gets a getter that returns
   the default when it is missing.
 - CPU-parallel loops use `parallelFor` (`util.h`, at most 8 threads). Tasks
@@ -79,10 +82,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   hold joins `layersKey` and skips the `ScribbleArea` frame cache.
 - Layer order and group edits record through
   `LayerManager::commitLayerArrangement`; timeline rows map through
-  `getLayerNumber`/`getLayerY` (folded group rows are skipped). Rendering
-  asks `Object::isLayerVisible(layer)` so group visibility applies; group
-  opacity applies to the group composite, never to member opacity.
-- Code that runs in a crash handler uses static buffers only.
+  `getLayerNumber`/`getLayerY`. Rendering asks `Object::isLayerVisible`;
+  group opacity applies to the group composite only.
+- Crash-handler code uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
 - Zip and unzip run through `FileManager::runArchiveJob` (worker thread;
@@ -107,26 +109,21 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - New app files go in `app/app.cmake` only; `tests/tests.cmake` takes them
   from there.
 - New tools append to `ToolType` before `TOOL_TYPE_COUNT`.
-- Speed-ups: Release `benchmark`, before/after back to back on the same
-  machine, numbers in the commit; an attempt inside noise goes to
-  `docs/rejected-optimizations.md`. Caches are checked pixel-identical
-  against `CanvasPainter::paint` (`LayerVisibility::ALL`) and cleared from
-  modification signals; only what those can't scope to one layer is keyed
-  by content (keyframe pointer, visibility, opacity, `QImage::cacheKey`).
-  Layer-range caches reuse `LayerCellCache`/`layersKey`; a setting that
-  changes cached output joins `invalidateAllCache` in `ScribbleArea`.
+- Speed-ups: Release `benchmark`, before/after back to back on one
+  machine, numbers in the commit; noise-level wins go to
+  `docs/rejected-optimizations.md`. Caches match `CanvasPainter::paint`
+  pixel for pixel and clear on modification signals; only what those can't
+  scope to a layer is keyed by content. Reuse `LayerCellCache`/`layersKey`;
+  output-changing settings join `invalidateAllCache`.
 - Frame pool: frames over 50 from the playhead unload unless modified;
   viewing never marks modified. Playback preloads through
   `Object::preloadFrames` (look-ahead under 50). Memory claims use the
   benchmark's peak RAM line.
-- A timeline frame selection can span layers: clear it with
-  `LayerManager::deselectAllFrames`. Multi-layer frame edits go through
-  `LayerManager`, one `createState(type, layer)` per layer in one `UndoMacro`.
-  A batch re-time computes all target positions first, then applies them
-  with one `Layer::moveKeyFrames`.
-- A cache that must survive a scrub is keyed by content only (`onScrubbed`
-  resets layer caches). Pixel-identical caches carry a golden hash
-  recorded on the code before the change.
+- Frame selections span layers (`LayerManager::deselectAllFrames`).
+  Multi-layer edits: one `createState(type, layer)` per layer in one
+  `UndoMacro`; a re-time computes all targets, then one `moveKeyFrames`.
+- A cache that survives a scrub is keyed by content only; pixel-identical
+  caches carry a golden hash recorded before the change.
 - Snapping: guides are viewport-px lines added in
   `StrokeTool::prepareInput` (`strokesnapper.*`); ruler state in
   `OverlayManager`, unsaved.
@@ -136,10 +133,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `duplicateLayer` copies every saved layer attribute.
 - Sound timing: `SoundClip::msAtFrame`/`waveformPeaks`; tests use
   `setSamples`.
-- A UI rule a test needs lives in a non-UI helper.
-  Preference tooltips: `PreferencesDialog::addTooltips()`.
-- Loader: a bad value from a file loads as the default; unknown tags are
-  skipped; never `Q_ASSERT` on file data.
+- Preference tooltips: `PreferencesDialog::addTooltips()`.
 - User-visible strings go through `tr()`.
 
 ## Commits
