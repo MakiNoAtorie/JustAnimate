@@ -17,8 +17,11 @@ GNU General Public License for more details.
 
 #include <cmath>
 
+#include <QDir>
+#include <QFileInfo>
 #include <QPainter>
 #include <QPainterPath>
+#include <QStandardPaths>
 #include <QtMath>
 
 #include "colormanager.h"
@@ -71,6 +74,21 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     mStrokeEnding = false;
     mPendingPoints.clear();
     mDistanceToNextDab = dabSpacing(dabWidth(mCurrentPressure) * taperAt(0));
+    mPressureLog.close();
+    if (mEditor->preference()->isOn(SETTING::PRESSURE_DEBUG_LOG))
+    {
+        QDir().mkpath(QFileInfo(pressureLogPath()).absolutePath());
+        mPressureLog.setFileName(pressureLogPath());
+        if (mPressureLog.open(QIODevice::Append | QIODevice::Text))
+        {
+            if (mPressureLog.size() == 0) mPressureLog.write("input,pressure,curve,taper,size,width\n");
+            mPressureLog.write(QStringLiteral("# stroke %1 %2 width %3 pressure %4\n")
+                                   .arg(typeName(), QString::number(event->timestamp()))
+                                   .arg(strokeToolProperties().width())
+                                   .arg(strokeToolProperties().pressureEnabled() ? "on" : "off")
+                                   .toUtf8());
+        }
+    }
     strokeStarted();
 
     StrokeTool::pointerPressEvent(event);
@@ -120,6 +138,7 @@ void DabTool::pointerReleaseEvent(PointerEvent* event)
         finishVectorStroke(layer);
     }
     endStroke();
+    mPressureLog.close();
 
     StrokeTool::pointerReleaseEvent(event);
 }
@@ -231,6 +250,26 @@ qreal DabTool::sizeDynamics()
     return qMax(factor, kMinSizeFactor);
 }
 
+QString& DabTool::pressureLogPath()
+{
+    static QString path = QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath("pressure-log.csv");
+    return path;
+}
+
+void DabTool::logDab(qreal pressure, qreal taper, qreal sizeFactor, qreal width)
+{
+    if (!mPressureLog.isOpen()) return;
+    const char* input = mCurrentInputType == PointerEvent::Tablet ? "tablet" : mCurrentInputType == PointerEvent::Mouse ? "mouse" : "unknown";
+    mPressureLog.write(QStringLiteral("%1,%2,%3,%4,%5,%6\n")
+                           .arg(input)
+                           .arg(pressure, 0, 'f', 3)
+                           .arg(mPressureCurve.value(pressure), 0, 'f', 3)
+                           .arg(taper, 0, 'f', 3)
+                           .arg(sizeFactor, 0, 'f', 3)
+                           .arg(width, 0, 'f', 2)
+                           .toUtf8());
+}
+
 qreal DabTool::randomSigned()
 {
     // mt19937 raw output only: std distributions differ between platforms.
@@ -244,7 +283,9 @@ void DabTool::paintAt(QPointF point)
     {
         mDabSpeed = mInterpolator.speed();
         mDabTilt = mInterpolator.tilt();
-        mCurrentWidth = dabWidth(mCurrentPressure) * sizeDynamics();
+        const qreal factor = sizeDynamics();
+        mCurrentWidth = dabWidth(mCurrentPressure) * factor;
+        logDab(mCurrentPressure, 1, factor, mCurrentWidth);
         drawDab(point, mCurrentWidth, dabOpacity(mCurrentPressure), dabTip(QPointF()));
     }
 }
@@ -264,12 +305,15 @@ void DabTool::dabSegment(const PenPoint& b)
     {
         const qreal f = (length > 0) ? t / length : 1.0;
         const qreal pressure = startPressure + (b.pressure - startPressure) * f;
-        const qreal baseWidth = dabWidth(pressure) * taperAt(mBrushDistance + t);
+        const qreal taper = taperAt(mBrushDistance + t);
+        const qreal baseWidth = dabWidth(pressure) * taper;
         qreal brushWidth = baseWidth;
         for (int i = 0; i < mDabCount; ++i)
         {
-            brushWidth = baseWidth * sizeDynamics();
+            const qreal factor = sizeDynamics();
+            brushWidth = baseWidth * factor;
             mCurrentWidth = brushWidth;
+            logDab(pressure, taper, factor, brushWidth);
             BrushTip scattered = tip;
             QPointF offset;
             // Draw random numbers only for scatter that is on, so 0 scatter keeps the jitter sequence.

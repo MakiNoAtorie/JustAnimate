@@ -158,6 +158,7 @@ void PreferencesDialog::addTooltips()
         { "themeCombo", tr("Light or dark colours for the app, or the colours of the system.") },
         { "accentCombo", tr("The colour that marks the active tool, selections, sliders, the playhead and focus.") },
         { "resetCurveButton", tr("Set the pressure curve back to a straight line.") },
+        { "pressureLogBox", tr("Writes the pen pressure, curve, taper and size of every dab to the file below. Turn it on to report dabs that draw too large.") },
         { "clearButton", tr("Remove the key from the selected shortcut.") },
         { "btnSaveShortcuts", tr("Save all shortcuts to a file.") },
         { "btnLoadShortcuts", tr("Load shortcuts from a file.") },

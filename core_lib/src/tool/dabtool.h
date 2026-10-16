@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "stroketool.h"
 #include "tiledbuffer.h"
 
+#include <QFile>
 #include <QPen>
 #include <QPolygonF>
 #include <random>
@@ -49,6 +50,9 @@ public:
 
     /// Restarts the size jitter sequence, so a replay paints the same dabs.
     void seedRandom(quint32 seed) { mRandom.seed(seed); }
+
+    /// The CSV file the pressure debug log preference appends to; tests point it into their own folder.
+    static QString& pressureLogPath();
 
 protected:
     /// Paints one bitmap dab.
@@ -124,6 +128,10 @@ private:
     qreal mAngleJitter = 0; // degrees
     int mDabCount = 1; // dabs per spacing step
     std::mt19937 mRandom{ 1 };
+
+    // Open from press to release while the pressure debug log preference is on.
+    QFile mPressureLog;
+    void logDab(qreal pressure, qreal taper, qreal sizeFactor, qreal width);
 
     bool mPredictionEnabled = true;
     QLineF mPrediction; // canvas coordinates; null when hidden

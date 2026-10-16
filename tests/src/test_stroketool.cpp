@@ -38,6 +38,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "object.h"
 #include "overlaymanager.h"
+#include "pointerevent.h"
 #include "preferencemanager.h"
 #include "pressurecurve.h"
 #include "scribblearea.h"
@@ -1603,4 +1604,246 @@ TEST_CASE("Pencil - a stroke on a held frame makes a new Drawing by default")
         CHECK_FALSE(layer->keyExists(3));
         CHECK_FALSE(layer->getBitmapImageAtFrame(1)->bounds().isEmpty());
     }
+}
+
+TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure width")
+{
+    const SettingsGuard settingsGuard({ SETTING_PRESSURE_CURVE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 2; f <= 20; ++f)
+        layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setFeatherEnabled(false);
+    brush->setPressureEnabled(true);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    const QPointingDevice eraser("balloon eraser", 175, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Eraser,
+                                 QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
+    quint64 clock = 1000;
+    auto pen = [&](QEvent::Type type, QPointF pos, qreal pressure, quint64 t, QPointF tilt = QPointF(),
+                   const QPointingDevice* device = QPointingDevice::primaryPointingDevice()) {
+        const bool down = type == QEvent::TabletPress || type == QEvent::TabletMove;
+        QTabletEvent e(type, device, pos, area->mapToGlobal(pos), pressure, tilt.x(), tilt.y(), 0, 0, 0,
+                       Qt::NoModifier, Qt::LeftButton, down && pressure > 0 ? Qt::LeftButton : Qt::NoButton);
+        e.setTimestamp(t);
+        QApplication::sendEvent(area, &e);
+        clock = qMax(clock, t);
+    };
+    auto mouse = [&](QEvent::Type type, QPointF pos, Qt::MouseButtons buttons) {
+        QMouseEvent e(type, pos, area->mapToGlobal(pos), Qt::LeftButton, buttons, Qt::NoModifier);
+        e.setTimestamp(clock);
+        QApplication::sendEvent(area, &e);
+    };
+    // A horizontal stroke along y = 300 at `pressure`, 8 ms per event.
+    auto lightStroke = [&](qreal pressure, int events = 20) {
+        pen(QEvent::TabletPress, QPointF(100, 300), pressure, clock += 1000);
+        for (int i = 1; i <= events; ++i)
+            pen(QEvent::TabletMove, QPointF(100 + 400.0 * i / events, 300), pressure, clock += 8);
+        pen(QEvent::TabletRelease, QPointF(500, 300), pressure, clock += 8);
+    };
+    // Thickest ink column of a frame: the widest dab of a horizontal stroke.
+    auto thickest = [&](int frame) {
+        const QImage* img = layer->getBitmapImageAtFrame(frame)->image();
+        int most = 0;
+        for (int x = 0; x < img->width(); ++x)
+        {
+            int n = 0;
+            for (int y = 0; y < img->height(); ++y)
+                n += qAlpha(img->pixel(x, y)) != 0;
+            most = qMax(most, n);
+        }
+        return most;
+    };
+    // Width 40 at pressure 0.2 is 8 px; dynamics multiply it by at most `dynamics`; 2 px of edge.
+    auto checkLight = [&](int frame, qreal dynamics = 1) {
+        const int ink = thickest(frame);
+        INFO("frame " << frame << " thickest " << ink << " px");
+        CHECK(ink > 0);
+        CHECK(ink <= 40 * 0.2 * dynamics + 2);
+    };
+
+    SECTION("Mouse and synthesized mouse events inside a tablet stroke")
+    {
+        editor->scrubTo(1);
+        pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000);
+        for (int i = 1; i <= 20; ++i)
+        {
+            const QPointF pos(100 + 20.0 * i, 300);
+            if (i == 5) mouse(QEvent::MouseButtonPress, pos, Qt::LeftButton);
+            if (i == 6) mouse(QEvent::MouseMove, pos, Qt::LeftButton);
+            if (i == 7) mouse(QEvent::MouseButtonDblClick, pos, Qt::LeftButton);
+            if (i == 8) mouse(QEvent::MouseButtonRelease, pos, Qt::NoButton);
+            if (i == 9)
+            {
+                // Past the ScribbleArea filter: a mouse move straight to the tool.
+                QMouseEvent m(QEvent::MouseMove, pos, area->mapToGlobal(pos), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+                PointerEvent pe(&m, editor->view()->mapScreenToCanvas(pos));
+                brush->pointerMoveEvent(&pe);
+            }
+            pen(QEvent::TabletMove, pos, 0.2, clock += 8);
+        }
+        pen(QEvent::TabletRelease, QPointF(500, 300), 0.2, clock += 8);
+        // Mouse events Windows makes from the release, then a light stroke.
+        mouse(QEvent::MouseButtonPress, QPointF(500, 300), Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPointF(500, 300), Qt::NoButton);
+        checkLight(1);
+        editor->scrubTo(2);
+        lightStroke(0.2);
+        checkLight(2);
+    }
+    SECTION("Eraser end and proximity events around a light stroke")
+    {
+        editor->scrubTo(3);
+        pen(QEvent::TabletMove, QPointF(300, 200), 0, clock += 8, QPointF(), &eraser);
+        pen(QEvent::TabletPress, QPointF(600, 500), 1.0, clock += 8, QPointF(), &eraser);
+        pen(QEvent::TabletRelease, QPointF(600, 500), 1.0, clock += 8, QPointF(), &eraser);
+        QTabletEvent enter(QEvent::TabletEnterProximity, QPointingDevice::primaryPointingDevice(), QPointF(), QPointF(),
+                           1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+        QApplication::sendEvent(qApp, &enter);
+        pen(QEvent::TabletMove, QPointF(100, 300), 0, clock += 8);
+        lightStroke(0.2);
+        QTabletEvent leave(QEvent::TabletLeaveProximity, QPointingDevice::primaryPointingDevice(), QPointF(), QPointF(),
+                           1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+        QApplication::sendEvent(qApp, &leave);
+        CHECK(editor->tools()->currentTool() == brush);
+        checkLight(3);
+    }
+    SECTION("The full-pressure end of a tapered stroke and of a shape stays on its own stroke")
+    {
+        brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 50);
+        editor->scrubTo(4);
+        lightStroke(1.0);
+        editor->scrubTo(5);
+        lightStroke(0.2);
+        checkLight(5);
+        // A stroke whose release reports full pressure.
+        editor->scrubTo(6);
+        pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000);
+        for (int i = 1; i <= 20; ++i)
+            pen(QEvent::TabletMove, QPointF(100 + 20.0 * i, 300), 0.2, clock += 8);
+        pen(QEvent::TabletRelease, QPointF(500, 300), 1.0, clock += 8);
+        checkLight(6);
+        // A shape places full-pressure dabs, then the brush draws light.
+        editor->tools()->setCurrentTool(SHAPE);
+        editor->scrubTo(7);
+        pen(QEvent::TabletPress, QPointF(100, 100), 1.0, clock += 1000);
+        pen(QEvent::TabletMove, QPointF(200, 150), 1.0, clock += 8);
+        pen(QEvent::TabletRelease, QPointF(200, 150), 1.0, clock += 8);
+        editor->tools()->setCurrentTool(BRUSH);
+        editor->scrubTo(8);
+        lightStroke(0.2);
+        checkLight(8);
+    }
+    SECTION("A quick re-press or double tap after a hard stroke")
+    {
+        editor->scrubTo(9);
+        lightStroke(1.0);
+        editor->scrubTo(10);
+        // Within the double-click time and distance of the last press: ScribbleArea sends a double click.
+        pen(QEvent::TabletPress, QPointF(102, 300), 0.2, clock += 50);
+        for (int i = 1; i <= 20; ++i)
+            pen(QEvent::TabletMove, QPointF(100 + 20.0 * i, 300), 0.2, clock += 8);
+        pen(QEvent::TabletRelease, QPointF(500, 300), 0.2, clock += 8);
+        checkLight(10);
+        // Light double tap, then the mouse double click Windows makes from it.
+        editor->scrubTo(11);
+        pen(QEvent::TabletPress, QPointF(300, 300), 0.2, clock += 600);
+        pen(QEvent::TabletRelease, QPointF(300, 300), 0.2, clock += 8);
+        pen(QEvent::TabletPress, QPointF(300, 300), 0.2, clock += 50);
+        pen(QEvent::TabletRelease, QPointF(300, 300), 0.2, clock += 8);
+        mouse(QEvent::MouseButtonPress, QPointF(300, 300), Qt::LeftButton);
+        mouse(QEvent::MouseButtonDblClick, QPointF(300, 300), Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPointF(300, 300), Qt::NoButton);
+        lightStroke(0.2);
+        checkLight(11);
+    }
+    SECTION("Speed, tilt and jitter stay inside their size range at odd timestamps and tilts")
+    {
+        brush->setDynamic(StrokeToolProperties::SPEED_TO_SIZE_VALUE, 100);
+        brush->setDynamic(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
+        brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 100);
+        brush->seedRandom(175);
+        editor->scrubTo(12);
+        pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000, QPointF(90, -90));
+        const quint64 start = clock;
+        for (int i = 1; i <= 40; ++i)
+        {
+            // Same, backward, zero and huge timestamp steps; tilt past the 60 degree range.
+            const quint64 t = (i % 4 == 0) ? start : (i % 4 == 1) ? 0 : (i % 4 == 2) ? start + 100000 * i : start + i;
+            pen(QEvent::TabletMove, QPointF(100 + 10.0 * i, 300), 0.2, t, QPointF(i % 2 ? 90 : -90, 90));
+        }
+        pen(QEvent::TabletRelease, QPointF(500, 300), 0.2, clock += 1);
+        checkLight(12, 4);
+    }
+    SECTION("Smoothing does not carry a hard stroke into the next light one")
+    {
+        brush->setSmoothingMode(static_cast<int>(SmoothingMode::OneEuro));
+        brush->setSmoothingStrength(100);
+        editor->scrubTo(13);
+        lightStroke(1.0, 3);
+        editor->scrubTo(14);
+        // Back and forth along the line, so smoothing overshoots the turns.
+        pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000);
+        for (int i = 1; i <= 30; ++i)
+            pen(QEvent::TabletMove, QPointF(i % 2 ? 450 : 150, 300), 0.2, clock += 1);
+        pen(QEvent::TabletRelease, QPointF(300, 300), 0.2, clock += 1);
+        checkLight(14);
+    }
+}
+
+TEST_CASE("DabTool - the pressure debug log writes one line per dab only while it is on")
+{
+    const SettingsGuard settingsGuard({ SETTING_PRESSURE_CURVE, SETTING_PRESSURE_DEBUG_LOG });
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString oldPath = DabTool::pressureLogPath();
+    OnScopeExit(DabTool::pressureLogPath() = oldPath);
+    DabTool::pressureLogPath() = dir.filePath("pressure-log.csv");
+
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(2);
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setPressureEnabled(true);
+
+    editor->preference()->set(SETTING::PRESSURE_DEBUG_LOG, false);
+    stroke(area, QPointF(100, 300), QPointF(300, 300), 0.5);
+    CHECK_FALSE(QFile::exists(DabTool::pressureLogPath()));
+
+    editor->preference()->set(SETTING::PRESSURE_DEBUG_LOG, true);
+    editor->scrubTo(2);
+    tablet(area, QEvent::TabletPress, QPointF(100, 300), 0.5);
+    tablet(area, QEvent::TabletMove, QPointF(300, 300), 0.5);
+    tablet(area, QEvent::TabletRelease, QPointF(300, 300), 0.5);
+    QFile log(DabTool::pressureLogPath());
+    REQUIRE(log.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QStringList lines = QString::fromUtf8(log.readAll()).split('\n', Qt::SkipEmptyParts);
+    REQUIRE(lines.size() > 3);
+    CHECK(lines[0] == "input,pressure,curve,taper,size,width");
+    CHECK(lines[1].startsWith("# stroke"));
+    // A dab in the middle: tablet input at half pressure on a straight curve is 20 px wide.
+    CHECK(lines[lines.size() / 2] == "tablet,0.500,0.500,1.000,1.000,20.00");
 }
