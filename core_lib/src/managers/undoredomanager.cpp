@@ -39,6 +39,9 @@ GNU General Public License for more details.
 
 UndoRedoManager::UndoRedoManager(Editor* editor) : BaseManager(editor, "UndoRedoManager")
 {
+    // Undo and redo only move the stack index; the window listens to this signal.
+    connect(&mUndoStack, &QUndoStack::indexChanged, this, &UndoRedoManager::didUpdateUndoStack);
+    connect(&mUndoStack, &QUndoStack::cleanChanged, this, &UndoRedoManager::didUpdateUndoStack);
     qDebug() << "UndoRedoManager: created";
 }
 

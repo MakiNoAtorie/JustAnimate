@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Fixes: undo and redo update the title-bar and status-bar modified marker, so undoing back to the saved state shows the file as saved (#149).
 - Translations: all .ts files re-synced with the current strings (obsolete entries kept) and the fork translation workflow is documented in docs/translations.md.
 - Accessibility: arrow keys move the frame and layer when the timeline has keyboard focus (Tab to it), every dock and tool option control has a tooltip, and dark-theme link and placeholder text meet WCAG AA contrast (4.8).
 - Lip-sync markers: right-click a sound layer cell to add, rename or remove a phoneme marker against the waveform; markers are saved with the project (3.10).
