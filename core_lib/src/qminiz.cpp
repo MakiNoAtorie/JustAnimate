@@ -15,12 +15,15 @@ GNU General Public License for more details.
 */
 #include "qminiz.h"
 
+#include <atomic>
 #include <sstream>
+#include <vector>
 #include <QFileInfo>
 #include <QDir>
 #include <QDebug>
 #include <QDirIterator>
 #include <QRegularExpression>
+#include <QSet>
 #include "util.h"
 
 
@@ -246,32 +249,59 @@ Status MiniZ::uncompressFolder(QString zipFilePath, QString destPath, const Prog
         }
     }
 
+    // Make every folder first, so the workers below only write files.
+    std::vector<std::pair<int, QByteArray>> files;
+    QSet<QString> folders;
     for (int i = 0; i < num; ++i)
     {
-        if (progress) progress(i, num);
         if (!mz_zip_reader_file_stat(mz, i, stat)) { return Status(Status::FAIL, dd); }
-
-        if (!stat->m_is_directory)
+        if (stat->m_is_directory || QString(stat->m_filename) == "mimetype") continue;        const QString sFullPath = baseDir.filePath(QString::fromUtf8(stat->m_filename));
+        folders.insert(QFileInfo(sFullPath).absolutePath());
+        files.emplace_back(i, sFullPath.toUtf8());
+    }
+    for (const QString& folder : folders)
+    {
+        if (!QDir().mkpath(folder))
         {
-            if (QString(stat->m_filename) == "mimetype") continue;
-            QString sFullPath = baseDir.filePath(QString::fromUtf8(stat->m_filename));
-            dd << QString("Unzip file: ").append(sFullPath);
-            if (!QFileInfo(sFullPath).absoluteDir().mkpath("."))
-            {
-                dd << "Make Dir failed.";
-                return Status(Status::FAIL, dd);
-            }
-
-            bool extractOK = mz_zip_reader_extract_to_file(mz, i, sFullPath.toUtf8(), 0);
-            if (!extractOK)
-            {
-                ok = false;
-                mz_zip_error err = mz_zip_get_last_error(mz);
-                dd << QString("WARNING: Unable to extract file. Error code: %1, reason: %2").arg(static_cast<int>(err)).arg(mz_zip_get_error_string(err));
-            }
+            dd << QString("Make Dir failed: ").append(folder);
+            return Status(Status::FAIL, dd);
         }
     }
 
+    // Creating a file costs about 1 ms on Windows, so files are written in parallel.
+    // Each worker opens its own reader: one mz_zip_archive is not safe across threads.
+    const int count = static_cast<int>(files.size());
+    const int workers = std::min(parallelWorkerCount(), std::max(count, 1));
+    const QByteArray zipPathUtf8 = zipFilePath.toUtf8();
+    std::vector<QString> errors(workers);
+    std::atomic<int> done{0};
+    parallelFor(workers, [&](int w) {
+        mz_zip_archive reader;
+        mz_zip_zero_struct(&reader);
+        if (!mz_zip_reader_init_file(&reader, zipPathUtf8.constData(), 0))
+        {
+            errors[w] = QString("Error: Worker failed to open the archive: %1").arg(mz_zip_get_error_string(mz_zip_get_last_error(&reader)));
+            return;
+        }
+        for (int k = w * count / workers; k < (w + 1) * count / workers; ++k)
+        {
+            if (!mz_zip_reader_extract_to_file(&reader, files[k].first, files[k].second.constData(), 0) && errors[w].isEmpty())
+            {
+                mz_zip_error err = mz_zip_get_last_error(&reader);
+                errors[w] = QString("Error: Unable to extract %1. Error code: %2, reason: %3")
+                    .arg(QString::fromUtf8(files[k].second)).arg(static_cast<int>(err)).arg(mz_zip_get_error_string(err));
+            }
+            if (progress) progress(++done, count);
+        }
+        mz_zip_reader_end(&reader);
+    });
+
+    for (const QString& error : errors)
+    {
+        if (error.isEmpty()) continue;
+        dd << error;
+        ok = false;
+    }
     if (!ok)
     {
         return Status(Status::FAIL, dd);

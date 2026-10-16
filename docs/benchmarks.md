@@ -61,7 +61,8 @@ draw brush       1268.4     1211.1     1430.3    63.42 ms/stroke
 ```
 
 `open` is file extraction: about 4.3 s of it writes the 5003 archive entries
-to the working folder (about 0.85 ms per file on Windows).
+to the working folder (about 0.85 ms per file on Windows). Since #147 the
+entries are extracted on up to 8 threads, about 3 times faster.
 
 ## Brush replay
 

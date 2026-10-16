@@ -25,7 +25,8 @@ namespace MiniZ
 {
     Status sanityCheck(const QString& sZipFilePath);
     size_t istreamReadCallback(void *pOpaque, mz_uint64 file_ofs, void * pBuf, size_t n);
-    // progress(done, total) runs on the thread that calls these, before each entry.
+    // progress(done, total) runs before each entry: compressFolder calls it on its own thread,
+    // uncompressFolder on its extract workers, so it must be thread-safe.
     using Progress = std::function<void(int done, int total)>;
     Status compressFolder(QString zipFilePath, QString srcFolderPath, const QStringList& fileList, QString mimetype,
                           const Progress& progress = {});

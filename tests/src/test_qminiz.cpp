@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "catch.hpp"
 #include "qminiz.h"
 
+#include <atomic>
 #include <cstring>
 #include <QDir>
 #include <QFile>
@@ -157,5 +158,46 @@ TEST_CASE("QMiniZ::uncompressFolder rejects zip-slip entries")
 
         REQUIRE(MiniZ::uncompressFolder(zipPath, tempDir.path() + "/out/").ok());
         REQUIRE(QFileInfo::exists(tempDir.path() + "/out/data/a.txt"));
+    }
+}
+
+TEST_CASE("QMiniZ::uncompressFolder extracts many entries in parallel byte for byte", "[ParallelOpen]")
+{
+    QTemporaryDir tempDir;
+    REQUIRE(tempDir.isValid());
+    const QString zipPath = tempDir.path() + "/many.pclx";
+    const int count = 101; // not a multiple of the worker count
+    auto nameAt = [](int i) { return QString("d%1/sub/f%2.bin").arg(i % 3).arg(i).toUtf8(); };
+    auto bytesAt = [](int i) { return QByteArray(i * 37 + 1, char('a' + i % 26)); };
+
+    // No folder entries: extraction must make the folders itself.
+    mz_zip_archive zip;
+    memset(&zip, 0, sizeof(zip));
+    REQUIRE(mz_zip_writer_init_file(&zip, zipPath.toUtf8().data(), 0));
+    for (int i = 0; i < count; ++i)
+    {
+        const QByteArray bytes = bytesAt(i);
+        REQUIRE(mz_zip_writer_add_mem(&zip, nameAt(i).constData(), bytes.constData(), bytes.size(), MZ_DEFAULT_COMPRESSION));
+    }
+    REQUIRE(mz_zip_writer_finalize_archive(&zip));
+    mz_zip_writer_end(&zip);
+
+    // Progress runs on the workers, so it only counts; Catch2 asserts stay on this thread.
+    std::atomic<int> calls{0};
+    std::atomic<bool> wrongTotal{false};
+    REQUIRE(MiniZ::uncompressFolder(zipPath, tempDir.path() + "/out/", [&](int, int total) {
+        ++calls;
+        if (total != count) wrongTotal = true;
+    }).ok());
+    REQUIRE(calls == count);
+    REQUIRE_FALSE(wrongTotal);
+
+    for (int i = 0; i < count; ++i)
+    {
+        CAPTURE(i);
+        QFile f(tempDir.path() + "/out/" + QString::fromUtf8(nameAt(i)));
+        REQUIRE(f.open(QIODevice::ReadOnly));
+        const bool same = f.readAll() == bytesAt(i);
+        REQUIRE(same);
     }
 }
