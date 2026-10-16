@@ -16,6 +16,9 @@ GNU General Public License for more details.
 */
 
 #include "exportimagedialog.h"
+
+#include <QCheckBox>
+#include <QSpinBox>
 #include "ui_exportimageoptions.h"
 #include "util.h"
 
@@ -27,6 +30,21 @@ ExportImageDialog::ExportImageDialog(QWidget* parent, FileType eFileType) :
     if (eFileType == FileType::IMAGE_SEQUENCE)
     {
         setWindowTitle(tr("Export image sequence"));
+        mSpriteSheet = new QCheckBox(tr("Sprite sheet (one PNG)"), getOptionsGroupBox());
+        mSheetColumns = new QSpinBox(getOptionsGroupBox());
+        mSheetColumns->setRange(0, 999);
+        mSheetColumns->setSpecialValueText(tr("Columns: automatic"));
+        mSheetColumns->setPrefix(tr("Columns: "));
+        mSheetColumns->setEnabled(false);
+        getOptionsGroupBox()->layout()->addWidget(mSpriteSheet);
+        getOptionsGroupBox()->layout()->addWidget(mSheetColumns);
+        connect(mSpriteSheet, &QCheckBox::toggled, mSheetColumns, &QWidget::setEnabled);
+        connect(mSpriteSheet, &QCheckBox::toggled, this, [this](bool on)
+        {
+            if (on) { ui->formatComboBox->setCurrentText("PNG"); }
+            ui->formatComboBox->setEnabled(!on);
+            ui->cbExportKeyframesOnly->setEnabled(!on);
+        });
     }
     else
     {
@@ -97,6 +115,16 @@ QSize ExportImageDialog::getExportSize() const
 bool ExportImageDialog::getTransparency() const
 {
     return ui->cbTransparency->checkState() == Qt::Checked;
+}
+
+bool ExportImageDialog::getSpriteSheet() const
+{
+    return mSpriteSheet && mSpriteSheet->isChecked();
+}
+
+int ExportImageDialog::getSpriteSheetColumns() const
+{
+    return mSheetColumns ? mSheetColumns->value() : 0;
 }
 
 bool ExportImageDialog::getExportKeyframesOnly() const
