@@ -450,27 +450,27 @@ void ScribbleArea::keyPressEvent(QKeyEvent *event)
 void ScribbleArea::keyEventForSelection(QKeyEvent* event)
 {
     auto selectMan = mEditor->select();
+    auto nudge = [&](QPointF offset)
+    {
+        const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        selectMan->translate(offset);
+        selectMan->calculateSelectionTransformation();
+        mEditor->undoRedo()->record(saveStateId, tr("Nudge selection", "Undo step: arrow key moves the selection"));
+        emit mEditor->frameModified(mEditor->currentFrame());
+    };
     switch (event->key())
     {
     case Qt::Key_Right:
-        selectMan->translate(QPointF(1, 0));
-        selectMan->calculateSelectionTransformation();
-        emit mEditor->frameModified(mEditor->currentFrame());
+        nudge(QPointF(1, 0));
         return;
     case Qt::Key_Left:
-        selectMan->translate(QPointF(-1, 0));
-        selectMan->calculateSelectionTransformation();
-        emit mEditor->frameModified(mEditor->currentFrame());
+        nudge(QPointF(-1, 0));
         return;
     case Qt::Key_Up:
-        selectMan->translate(QPointF(0, -1));
-        selectMan->calculateSelectionTransformation();
-        emit mEditor->frameModified(mEditor->currentFrame());
+        nudge(QPointF(0, -1));
         return;
     case Qt::Key_Down:
-        selectMan->translate(QPointF(0, 1));
-        selectMan->calculateSelectionTransformation();
-        emit mEditor->frameModified(mEditor->currentFrame());
+        nudge(QPointF(0, 1));
         return;
     case Qt::Key_Return:
         applyTransformedSelection();
@@ -1348,6 +1348,8 @@ void ScribbleArea::applyTransformedSelection()
             vectorImage->applySelectionTransformation(selectMan->selectionTransform());
         }
 
+        // The pixels now hold the transform: keep the selection on them with an identity transform.
+        selectMan->setSelection(selectMan->mapToSelection(QPolygonF(selectMan->mySelectionRect())).boundingRect());
         mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
     }
 
