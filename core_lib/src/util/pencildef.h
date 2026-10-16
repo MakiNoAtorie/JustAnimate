@@ -51,6 +51,7 @@ enum ToolType : int
     BRUSH,
     SHAPE,
     LASSOFILL,
+    ROTATE,
     TOOL_TYPE_COUNT
 };
 
@@ -205,6 +206,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOOL_SMUDGE "CmdToolSmudge"
 #define CMD_TOOL_PEN "CmdToolPen"
 #define CMD_TOOL_HAND "CmdToolHand"
+#define CMD_TOOL_ROTATE "CmdToolRotate"
 #define CMD_TOOL_PENCIL "CmdToolPencil"
 #define CMD_TOOL_BUCKET "CmdToolBucket"
 #define CMD_TOOL_EYEDROPPER "CmdToolEyedropper"

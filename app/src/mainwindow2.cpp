@@ -158,6 +158,7 @@ void MainWindow2::setIcons()
         { ui->actionSmudge, "hand-finger" },
         { ui->actionPen, "ballpen" },
         { ui->actionHand, "hand-stop" },
+        { ui->actionRotateView, "rotate-clockwise-2" },
         { ui->actionPencil, "pencil" },
         { ui->actionBucket, "bucket-droplet" },
         { ui->actionEyedropper, "color-picker" },
@@ -572,6 +573,7 @@ void MainWindow2::createMenus()
     toolsActionGroup->addAction(ui->actionSmudge);
     toolsActionGroup->addAction(ui->actionPen);
     toolsActionGroup->addAction(ui->actionHand);
+    toolsActionGroup->addAction(ui->actionRotateView);
     toolsActionGroup->addAction(ui->actionPencil);
     toolsActionGroup->addAction(ui->actionBucket);
     toolsActionGroup->addAction(ui->actionEyedropper);
@@ -588,6 +590,7 @@ void MainWindow2::createMenus()
         else if (action == ui->actionSmudge) mToolBox->setActiveTool(SMUDGE);
         else if (action == ui->actionPen) mToolBox->setActiveTool(PEN);
         else if (action == ui->actionHand) mToolBox->setActiveTool(HAND);
+        else if (action == ui->actionRotateView) mToolBox->setActiveTool(ROTATE);
         else if (action == ui->actionPencil) mToolBox->setActiveTool(PENCIL);
         else if (action == ui->actionBucket) mToolBox->setActiveTool(BUCKET);
         else if (action == ui->actionEyedropper) mToolBox->setActiveTool(EYEDROPPER);
@@ -1565,6 +1568,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionSmudge->setShortcut(cmdKeySeq(CMD_TOOL_SMUDGE));
     ui->actionPen->setShortcut(cmdKeySeq(CMD_TOOL_PEN));
     ui->actionHand->setShortcut(cmdKeySeq(CMD_TOOL_HAND));
+    ui->actionRotateView->setShortcut(cmdKeySeq(CMD_TOOL_ROTATE));
     ui->actionPencil->setShortcut(cmdKeySeq(CMD_TOOL_PENCIL));
     ui->actionBucket->setShortcut(cmdKeySeq(CMD_TOOL_BUCKET));
     ui->actionEyedropper->setShortcut(cmdKeySeq(CMD_TOOL_EYEDROPPER));

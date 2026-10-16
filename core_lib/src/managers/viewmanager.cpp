@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 */
 
+#include <cmath>
 #include <QPainterPath>
 #include "viewmanager.h"
 #include "editor.h"
@@ -165,7 +166,9 @@ float ViewManager::rotation()
 
 void ViewManager::rotate(float degree)
 {
-    mRotation = degree;
+    // Keep the angle in (-180, 180].
+    mRotation = std::remainder(static_cast<qreal>(degree), 360.0);
+    if (mRotation <= -180.0) { mRotation += 360.0; }
     updateViewTransforms();
 
     emit viewChanged();
@@ -173,10 +176,7 @@ void ViewManager::rotate(float degree)
 
 void ViewManager::rotateRelative(float delta)
 {
-    mRotation = mRotation + delta;
-    updateViewTransforms();
-
-    emit viewChanged();
+    rotate(static_cast<float>(mRotation + delta));
 }
 
 void ViewManager::resetRotation()

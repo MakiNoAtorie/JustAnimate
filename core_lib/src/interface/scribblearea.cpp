@@ -1513,7 +1513,7 @@ void ScribbleArea::paintCanvasHud(QPainter& painter) const
 namespace
 {
 // The toolbox tools; Camera is chosen by the camera layer.
-constexpr ToolType kRadialTools[] = { PENCIL, ERASER, SELECT, MOVE, HAND, SMUDGE, PEN,
+constexpr ToolType kRadialTools[] = { PENCIL, ERASER, SELECT, MOVE, HAND, ROTATE, SMUDGE, PEN,
                                       POLYLINE, BUCKET, EYEDROPPER, BRUSH, SHAPE, LASSOFILL };
 // shortcut: the picker shows the first presets only; a paged ring when users keep more.
 constexpr int kMaxRadialPresets = 16;

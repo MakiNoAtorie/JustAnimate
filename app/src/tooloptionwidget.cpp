@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "tooloptionwidget.h"
 #include "ui_tooloptions.h"
 
+#include <QPushButton>
 #include <QSettings>
 #include <QDebug>
 #include <QBoxLayout>
@@ -34,6 +35,7 @@ GNU General Public License for more details.
 #include "stroketool.h"
 #include "toolmanager.h"
 #include "basewidget.h"
+#include "viewmanager.h"
 
 
 ToolOptionWidget::ToolOptionWidget(QWidget* parent) : BaseDockWidget(parent)
@@ -65,6 +67,13 @@ void ToolOptionWidget::initUI()
     ui->scrollAreaWidgetContents->layout()->addWidget(mCameraOptionsWidget);
     ui->scrollAreaWidgetContents->layout()->addWidget(mStrokeOptionsWidget);
     ui->scrollAreaWidgetContents->layout()->addWidget(mTransformOptionsWidget);
+
+    mResetViewButton = new QPushButton(tr("Reset View"), this);
+    mResetViewButton->setObjectName("resetViewButton");
+    mResetViewButton->setToolTip(tr("Set the view rotation back to 0 degrees"));
+    mResetViewButton->setHidden(true);
+    connect(mResetViewButton, &QPushButton::clicked, editor()->view(), &ViewManager::resetRotation);
+    ui->scrollAreaWidgetContents->layout()->addWidget(mResetViewButton);
     ui->scrollAreaWidgetContents->layout()->addItem(new QSpacerItem(0, 0, QSizePolicy::MinimumExpanding, QSizePolicy::Expanding));
 
     for (QBoxLayout* layout : ui->scrollAreaWidgetContents->findChildren<QBoxLayout*>())
@@ -109,6 +118,7 @@ void ToolOptionWidget::updateUIForTool(BaseTool* tool)
     setWidgetVisibility(mCameraOptionsWidget, tool->type() == CAMERA);
     setWidgetVisibility(mStrokeOptionsWidget, editor()->tools()->isStrokeTool(tool));
     setWidgetVisibility(mTransformOptionsWidget, editor()->tools()->isTransformTool(tool));
+    mResetViewButton->setVisible(tool->type() == ROTATE);
 }
 
 void ToolOptionWidget::updateOrientation()

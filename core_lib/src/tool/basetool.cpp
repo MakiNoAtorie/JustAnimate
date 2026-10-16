@@ -48,6 +48,7 @@ QString BaseTool::TypeName(ToolType type)
         map[CAMERA] = tr("Camera");
         map[SHAPE] = tr("Shape");
         map[LASSOFILL] = tr("Lasso Fill");
+        map[ROTATE] = tr("Rotate View");
     }
     return map.at(type);
 }
@@ -132,7 +133,7 @@ void BaseTool::pointerDoubleClickEvent(PointerEvent* event)
  */
 bool BaseTool::isDrawingTool()
 {
-    if (type() == ToolType::HAND || type() == ToolType::MOVE || type() == ToolType::CAMERA || type() == ToolType::SELECT )
+    if (type() == ToolType::HAND || type() == ToolType::ROTATE || type() == ToolType::MOVE || type() == ToolType::CAMERA || type() == ToolType::SELECT )
     {
         return false;
     }

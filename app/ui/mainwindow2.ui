@@ -273,6 +273,7 @@
     <addaction name="actionMove"/>
     <addaction name="actionPen"/>
     <addaction name="actionHand"/>
+    <addaction name="actionRotateView"/>
     <addaction name="actionPolyline"/>
     <addaction name="actionShape"/>
     <addaction name="actionLassoFill"/>
@@ -664,6 +665,11 @@
   <action name="actionHand">
    <property name="text">
     <string>Hand</string>
+   </property>
+  </action>
+  <action name="actionRotateView">
+   <property name="text">
+    <string>Rotate View</string>
    </property>
   </action>
   <action name="actionPencil">

@@ -143,6 +143,9 @@ void StatusBar::updateToolStatus(ToolType tool)
         case LASSOFILL:
             mToolLabel->setText(tr("Click and drag around an area to fill it with the current color."));
             break;
+        case ROTATE:
+            mToolLabel->setText(tr("Click and drag to rotate the view."));
+            break;
         default:
             Q_ASSERT(false);
     }
@@ -169,6 +172,7 @@ void StatusBar::updateIcons()
         Theme::icon(":/icons/tabler/brush.svg"),
         Theme::icon(":/icons/tabler/shape.svg"),
         Theme::icon(":/icons/tabler/lasso.svg"),
+        Theme::icon(":/icons/tabler/rotate-clockwise-2.svg"),
     };
     static const QIcon saveIcon = Theme::icon(":/icons/tabler/device-floppy.svg");
     // QLabel keeps a fixed pixmap: redraw it for the current colours.

@@ -33,6 +33,7 @@ class BucketOptionsWidget;
 class CameraOptionsWidget;
 class StrokeOptionsWidget;
 class TransformOptionsWidget;
+class QPushButton;
 
 class ToolOptionWidget : public BaseDockWidget
 {
@@ -64,6 +65,7 @@ private:
     StrokeOptionsWidget* mStrokeOptionsWidget = nullptr;
     TransformOptionsWidget* mTransformOptionsWidget = nullptr;
     QList<QBoxLayout*> mColumnLayouts;
+    QPushButton* mResetViewButton = nullptr;
 };
 
 #endif // TOOLOPTIONDOCKWIDGET_H

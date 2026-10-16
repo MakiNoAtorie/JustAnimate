@@ -62,6 +62,15 @@ void checkExistingShortcuts()
     QSettings defaultKey(":resources/kb.ini", QSettings::IniFormat);
 
     QSettings& curSetting = pencilSettings();
+    // Once, when R becomes the Rotate view tool: free R and Z from their old rotate commands.
+    if (!curSetting.contains("shortcuts/" CMD_TOOL_ROTATE))
+    {
+        const auto freeKey = [&](const QString& cmd, const QString& oldKey) {
+            if (curSetting.value(cmd).toString() == oldKey) { curSetting.setValue(cmd, QString()); }
+        };
+        freeKey("shortcuts/" CMD_ROTATE_CLOCK, "R");
+        freeKey("shortcuts/" CMD_ROTATE_ANTI_CLOCK, "Z");
+    }
     foreach (QString pShortcutsKey, defaultKey.allKeys())
     {
         if ( ! curSetting.contains( pShortcutsKey ) )

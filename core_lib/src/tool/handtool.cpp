@@ -17,8 +17,6 @@ GNU General Public License for more details.
 
 #include "handtool.h"
 
-#include <QtMath>
-#include <QVector2D>
 #include <pointerevent.h>
 
 #include "layer.h"
@@ -26,6 +24,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "strokeinterpolator.h"
 #include "viewmanager.h"
+#include "rotateviewtool.h"
 #include "scribblearea.h"
 
 
@@ -109,16 +108,8 @@ void HandTool::transformView(Qt::KeyboardModifiers keyMod, const QPointF& pos, Q
     }
     else if (isRotate)
     {
-        QPoint centralPixel(mScribbleArea->width() / 2, mScribbleArea->height() / 2);
-        QVector2D startV(mLastPixel - centralPixel);
-        QVector2D curV(pos - centralPixel);
-
-        qreal angleOffset = static_cast<qreal>(std::atan2(curV.y(), curV.x()) - std::atan2(startV.y(), startV.x()));
-        angleOffset = qRadiansToDegrees(angleOffset);
-        // Invert rotation direction if view is flipped either vertically or horizontally
-        const float delta = viewMgr->isFlipHorizontal() == !viewMgr->isFlipVertical()
-            ? static_cast<float>(angleOffset * -1) : static_cast<float>(angleOffset);
-        viewMgr->rotateRelative(delta);
+        const QPointF centre(mScribbleArea->width() / 2, mScribbleArea->height() / 2);
+        RotateViewTool::rotateView(viewMgr, centre, mLastPixel, pos);
     }
     else if (isScale)
     {

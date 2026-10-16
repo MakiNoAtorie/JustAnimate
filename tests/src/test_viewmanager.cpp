@@ -114,6 +114,34 @@ TEST_CASE("ViewManager: Rotate")
     delete editor;
 }
 
+TEST_CASE("ViewManager: rotation wraps into (-180 180]")
+{
+    Object* object = new Object;
+    Editor* editor = new Editor;
+    editor->setObject(object);
+    {
+        // The editor owns its managers: v must go first.
+        ViewManager v(editor);
+        v.init();
+
+        for (int i = 0; i < 25; ++i) { v.rotateRelative(15); }
+        CHECK(v.rotation() == Approx(15));
+        v.resetRotation();
+        for (int i = 0; i < 25; ++i) { v.rotateRelative(-15); }
+        CHECK(v.rotation() == Approx(-15));
+
+        v.rotate(400);
+        CHECK(v.rotation() == Approx(40));
+        v.rotate(-180);
+        CHECK(v.rotation() == Approx(180));
+        v.rotate(180);
+        CHECK(v.rotation() == Approx(180));
+        v.rotate(-540);
+        CHECK(v.rotation() == Approx(180));
+    }
+    delete editor;
+}
+
 TEST_CASE("ViewManager: Scaling")
 {
     Object* object = new Object;
