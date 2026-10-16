@@ -54,6 +54,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 
 - Follow the ground rules and lean rules in `ROADMAP.md`.
 - File format: new XML attributes are optional; old files must still load.
+  Decided homes for new project data: `docs/file-format.md`.
 - Undo: every edit records through `UndoRedoManager` (`createState` after
   `handleDrawingOnEmptyFrame()`, then `record` on every path; layer
   add/remove through `recordLayerAdd/Remove`). Commands address frames by
