@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Triage: swept open Pencil2D crash and data-loss issues; four still apply and are filed as #164-#167 (1.9).
 - Canvas HUD: the bottom-left corner of the canvas shows a brush-size ring, a rotation dial and the zoom and rotation values (4.6).
 - Preferences: a search box finds options by name, and every option has a tooltip (4.9).
 - Preferences: assigning a shortcut that another action uses warns and names that action (4.5).
