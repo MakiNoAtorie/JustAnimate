@@ -25,6 +25,8 @@ class LayerBitmap;
 class LayerVector;
 class LayerCamera;
 class LayerSound;
+struct TweenState;
+enum class CameraEasingType;
 
 
 class LayerManager : public BaseManager
@@ -61,6 +63,8 @@ public:
     void notifyLayerChanged(Layer*);
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
+    /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */
+    void setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state);
 
     void gotoNextLayer();
     void gotoPreviouslayer();

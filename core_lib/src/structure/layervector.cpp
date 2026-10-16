@@ -139,6 +139,7 @@ QDomElement LayerVector::createDomElement(QDomDocument& doc) const
         imageTag.setAttribute("src", fileName(keyframe));
         VectorImage* image = getVectorImageAtFrame(keyframe->pos());
         imageTag.setAttribute("opacity", image->getOpacity());
+        writeKeyTween(imageTag, keyframe);
         layerElem.appendChild(imageTag);
 
         Q_ASSERT(QFileInfo(keyframe->fileName()).fileName() == fileName(keyframe));
@@ -175,8 +176,7 @@ void LayerVector::loadDomElement(const QDomElement& element, QString dataDirPath
                 getVectorImageAtFrame(position)->loadDomElement(imageElement);
                 getVectorImageAtFrame(position)->setOpacity(imageElement.attribute("opacity", "1.0").toDouble());
             }
-
-
+            if (position > 0) { readKeyTween(imageElement, getKeyFrameAt(position)); }
 
             progressStep();
         }

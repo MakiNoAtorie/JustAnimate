@@ -206,6 +206,7 @@ QDomElement LayerBitmap::createDomElement(QDomDocument& doc) const
         imageTag.setAttribute("topLeftX", pImg->topLeft().x());
         imageTag.setAttribute("topLeftY", pImg->topLeft().y());
         imageTag.setAttribute("opacity", pImg->getOpacity());
+        writeKeyTween(imageTag, pKeyFrame);
         layerElem.appendChild(imageTag);
 
         if (!pKeyFrame->fileName().isEmpty()) {
@@ -235,6 +236,7 @@ void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath
                 int y = imageElement.attribute("topLeftY").toInt();
                 qreal opacity = imageElement.attribute("opacity", "1.0").toDouble();
                 loadImageAtFrame(path, QPoint(x, y), position, opacity);
+                readKeyTween(imageElement, getKeyFrameAt(position));
             }
 
             progressStep();
