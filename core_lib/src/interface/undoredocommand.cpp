@@ -665,7 +665,6 @@ void CameraModifyCommand::apply(const std::vector<std::unique_ptr<Camera>>& came
         Camera* cam = static_cast<Camera*>(layer->getKeyFrameAt(saved->pos()));
         if (cam == nullptr) { continue; }
         cam->assign(*saved);
-        cam->setPathControlPointMoved(saved->pathControlPointMoved());
     }
     editor()->view()->forceUpdateViewTransform();
     emit editor()->frameModified(editor()->currentFrame());

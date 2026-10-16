@@ -30,6 +30,8 @@ GNU General Public License for more details.
 
 #include "beziercurve.h"
 #include "camera.h"
+#include "cameracontextmenu.h"
+#include "cameraeasingtype.h"
 #include "cameratool.h"
 #include "colormanager.h"
 #include "bitmapimage.h"
@@ -1472,36 +1474,56 @@ TEST_CASE("UndoRedoManager: undo/redo of camera reset actions")
     }
 }
 
-TEST_CASE("UndoRedoManager: undo/redo of sound import")
+TEST_CASE("UndoRedoManager: camera context menu edits are one undo step each")
 {
-    QTemporaryDir dir;
-    REQUIRE(dir.isValid());
-    const QString wav = dir.filePath("beep.wav");
-    QFile file(wav);
-    REQUIRE(file.open(QIODevice::WriteOnly));
-    file.write(QByteArray(64, '\0'));
-    file.close();
-
     TestSession session;
-    LayerSound* sound = session.object->addNewSoundLayer();
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    layer->addNewKeyFrameAt(5);
+    Camera* cam = layer->getCameraAtFrame(1);
+    cam->scale(2.0);
+    cam->rotate(15);
+    cam->translate(QPointF(30, 0));
+    cam->setEasingType(CameraEasingType::INSINE);
+    layer->getCameraAtFrame(5)->translate(QPointF(100, 40));
+    layer->getCameraAtFrame(5)->scale(0.5);
     REQUIRE(session.start());
     Editor* editor = session.editor.get();
-    editor->layers()->setCurrentLayer(sound);
-    editor->scrubTo(3);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
 
-    REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
-    REQUIRE(sound->keyExists(3));
-    const QString copied = sound->getKeyFrameAt(3)->fileName();
+    const QString text = GENERATE(as<QString>{}, "Linear", "Reset all", "Reset position", "Reset scale", "Reset rotation",
+                                  "Align horizontally to frame 5", "Align vertically to frame 5", "Hold to keyframe 5");
+    INFO(text.toStdString());
+    CameraContextMenu menu(editor, 1, layer);
+    QAction* action = nullptr;
+    for (QAction* a : menu.findChildren<QAction*>())
+        if (a->text() == text) { action = a; }
+    REQUIRE(action != nullptr);
+
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&edits] { ++edits; });
+    // Some edits change the next key: compare both.
+    auto keysEqual = [layer](const std::vector<std::unique_ptr<Camera>>& saved) {
+        return *layer->getCameraAtFrame(1) == *saved[0] && *layer->getCameraAtFrame(5) == *saved[1];
+    };
+    auto snapshot = [layer] {
+        std::vector<std::unique_ptr<Camera>> keys;
+        keys.emplace_back(layer->getCameraAtFrame(1)->clone());
+        keys.emplace_back(layer->getCameraAtFrame(5)->clone());
+        return keys;
+    };
+    const auto before = snapshot();
+    action->trigger();
+    const auto after = snapshot();
+    REQUIRE_FALSE(keysEqual(before));
+    CHECK(edits == 1);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
 
     QObject parent;
     editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
-    CHECK_FALSE(sound->keyExists(3));
+    CHECK(keysEqual(before));
     editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
-    REQUIRE(sound->keyExists(3));
-    SoundClip* clip = static_cast<SoundClip*>(sound->getKeyFrameAt(3));
-    CHECK(clip->soundClipName() == "Beep");
-    CHECK(clip->fileName() == copied);
-    CHECK(clip->player() != nullptr);
+    CHECK(keysEqual(after));
 }
 
 namespace
@@ -1527,6 +1549,35 @@ QString writeSilentWav(const QTemporaryDir& dir)
     file.write(wav);
     return path;
 }
+}
+
+TEST_CASE("UndoRedoManager: undo/redo of sound import")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString wav = writeSilentWav(dir);
+    REQUIRE_FALSE(wav.isEmpty());
+
+    TestSession session;
+    LayerSound* sound = session.object->addNewSoundLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(sound);
+    editor->scrubTo(3);
+
+    REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
+    REQUIRE(sound->keyExists(3));
+    const QString copied = sound->getKeyFrameAt(3)->fileName();
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK_FALSE(sound->keyExists(3));
+    editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
+    REQUIRE(sound->keyExists(3));
+    SoundClip* clip = static_cast<SoundClip*>(sound->getKeyFrameAt(3));
+    CHECK(clip->soundClipName() == "Beep");
+    CHECK(clip->fileName() == copied);
+    CHECK(clip->player() != nullptr);
 }
 
 TEST_CASE("UndoRedoManager: undo of a removed sound frame restores a playable clip")

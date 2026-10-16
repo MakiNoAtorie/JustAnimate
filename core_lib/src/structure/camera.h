@@ -47,6 +47,8 @@ public:
     qreal scaling() const { return mScale; }
 
     bool compare(const Camera& rhs) const;
+    // Exact match of position and every saved field.
+    bool operator==(const Camera& rhs) const;
 
     void setEasingType(CameraEasingType type);
     CameraEasingType getEasingType() const { return mEasingType; }

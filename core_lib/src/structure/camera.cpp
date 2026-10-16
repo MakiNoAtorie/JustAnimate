@@ -56,6 +56,7 @@ void Camera::assign(const Camera& rhs)
     mScale = rhs.mScale;
     mPathControlPoint = rhs.mPathControlPoint;
     mEasingType = rhs.mEasingType;
+    mPathControlPointMoved = rhs.mPathControlPointMoved;
 
     mNeedUpdateView = true;
     updateViewTransform();
@@ -151,6 +152,13 @@ void Camera::setPathControlPointMoved(bool moved)
 {
     mPathControlPointMoved = moved;
     modification();
+}
+
+bool Camera::operator==(const Camera& rhs) const
+{
+    return pos() == rhs.pos() && mTranslate == rhs.mTranslate && mRotate == rhs.mRotate && mScale == rhs.mScale
+        && mEasingType == rhs.mEasingType && mPathControlPoint == rhs.mPathControlPoint
+        && mPathControlPointMoved == rhs.mPathControlPointMoved;
 }
 
 bool Camera::compare(const Camera& rhs) const

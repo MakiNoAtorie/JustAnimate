@@ -308,17 +308,11 @@ void UndoRedoManager::modifyCameras(const UndoSaveState& undoState, const QStrin
 
     std::vector<std::unique_ptr<Camera>> after;
     layer->foreachKeyFrame([&after](KeyFrame* key) { after.emplace_back(static_cast<Camera*>(key->clone())); });
-    auto same = [](const Camera& a, const Camera& b)
-    {
-        return a.pos() == b.pos() && a.translation() == b.translation() && a.rotation() == b.rotation()
-            && a.scaling() == b.scaling() && a.getEasingType() == b.getEasingType()
-            && a.getPathControlPoint() == b.getPathControlPoint() && a.pathControlPointMoved() == b.pathControlPointMoved();
-    };
     const std::vector<std::unique_ptr<KeyFrame>>& before = undoState.selectedKeyframes;
     bool changed = before.size() != after.size();
     for (size_t i = 0; !changed && i < after.size(); ++i)
     {
-        changed = !same(*static_cast<const Camera*>(before[i].get()), *after[i]);
+        changed = !(*static_cast<const Camera*>(before[i].get()) == *after[i]);
     }
     if (!changed) { return; }
 
