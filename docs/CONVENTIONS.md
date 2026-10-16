@@ -139,3 +139,29 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   attribution trailers.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
+
+## v1.2 homes (spec #176; fold into the sections above at milestone end)
+
+- Accent colour: `Theme` (`app/src/theme.*`) owns it: `Theme::Accent`,
+  `savedAccent()`/`saveAccent()`, applied as `QPalette::Highlight`. Widgets
+  read `palette().color(QPalette::Highlight)`; no per-widget colours.
+- Icons: `Theme::icon(":/icons/tabler/<name>.svg")` returns a QIcon tinted
+  from `QPalette::WindowText` that follows theme changes (#179). New icons
+  are Tabler SVGs under `app/data/icons/tabler/`.
+- Mark: `KeyFrame::mark()` (`Mark::None/Key/Breakdown/Inbetween`),
+  XML `mark="key|breakdown|inbetween"` on the frame element. `MarkFilter`
+  (core_lib) is a set of Marks; empty = every Drawing. Onion skin and Flip
+  share one saved filter: the Onion skin Panel's mode and checkboxes.
+- Rough: `Layer::isRough()/setRough()`, XML `rough="1"` on the layer.
+- Layout: version key in `defaultlayout.*`; Command bar `objectName`
+  `CommandBar`; Tool settings dock keeps its `objectName`.
+- Cursor: one preference `CURSOR_STYLE` (Brush outline / Cross only)
+  migrates the tool-cursor and dotted-cursor keys.
+- Play-around N: with the playback settings in `PlaybackManager`.
+- Default keys (`kb.ini`, the only Shortcut preset): Command search
+  Ctrl+Shift+P, Preferences Ctrl+K, Rotate view tool R (Z, R freed from the
+  rotate commands), onion toggle O (previous/next unbound), Exposure + / -,
+  ripple insert Ctrl+F7, ripple delete Ctrl+F5, Mark Key Alt+K, Breakdown
+  Alt+B, Inbetween Alt+I, Clear mark Alt+0, Flip (held) F, play-around
+  Alt+Return. The first ticket that adds a key also adds a
+  `test_shortcutfilter` test that kb.ini has no duplicate keys.
