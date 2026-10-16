@@ -360,6 +360,9 @@ else()
     endif()
 
     qt_generate_deploy_app_script(TARGET pencil2d OUTPUT_SCRIPT DEPLOY_SCRIPT)
+    if(WIN32)
+        install(CODE "set(QT_DEPLOY_BIN_DIR .)")  # Qt 6.8 ignores CMAKE_INSTALL_BINDIR here
+    endif()
     install(SCRIPT ${DEPLOY_SCRIPT})
 
     if(APPLE)
