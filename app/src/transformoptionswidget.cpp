@@ -100,13 +100,18 @@ void TransformOptionsWidget::makeConnectionFromModelToUI(TransformTool* transfor
     connect(transformTool, &TransformTool::antiAliasingChanged, this, &TransformOptionsWidget::setAntiAliasingEnabled);
 }
 
+std::array<QDoubleSpinBox*, 5> TransformOptionsWidget::numericBoxes() const
+{
+    return { ui->positionXBox, ui->positionYBox, ui->scaleXBox, ui->scaleYBox, ui->rotationBox };
+}
+
 void TransformOptionsWidget::updateNumericTransform()
 {
     const SelectionManager* select = mEditor->select();
     const bool selected = select->somethingSelected();
     const QPointF centre = selected ? select->selectionCentre() : QPointF();
     const qreal values[] = { centre.x(), centre.y(), select->myScaleX() * 100, select->myScaleY() * 100, select->myRotation() };
-    QDoubleSpinBox* boxes[] = { ui->positionXBox, ui->positionYBox, ui->scaleXBox, ui->scaleYBox, ui->rotationBox };
+    const auto boxes = numericBoxes();
     for (int i = 0; i < 5; ++i) {
         QSignalBlocker b(boxes[i]);
         boxes[i]->setEnabled(selected);
@@ -120,7 +125,7 @@ void TransformOptionsWidget::applyNumericTransform()
     SelectionManager* select = mEditor->select();
     if (!select->somethingSelected()) { return; }
 
-    QDoubleSpinBox* boxes[] = { ui->positionXBox, ui->positionYBox, ui->scaleXBox, ui->scaleYBox, ui->rotationBox };
+    const auto boxes = numericBoxes();
     bool changed = false;
     for (int i = 0; i < 5; ++i) { changed |= boxes[i]->value() != mShownValues[i]; }
     if (!changed) { return; }
