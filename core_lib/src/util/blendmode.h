@@ -33,8 +33,11 @@ enum class BlendMode
 };
 
 /** Blends `count` premultiplied ARGB32 source pixels onto `dst` in place.
- *  Integer maths with exact rounding of x / 255: a SIMD path must match it byte for byte. */
+ *  Uses SSE2 on x86-64 and gives the same bytes as blendPixelsScalar. */
 void blendPixels(BlendMode mode, quint32* dst, const quint32* src, int count);
+
+/// Reference for blendPixels: integer maths with exact rounding of x / 255.
+void blendPixelsScalar(BlendMode mode, quint32* dst, const quint32* src, int count);
 
 /** Blends `layer` (premultiplied, in device pixels) onto the painter's device at device position `pos`,
  *  with the painter's opacity. The device must be a QImage or a QPixmap. */
