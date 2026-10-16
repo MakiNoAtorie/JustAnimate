@@ -812,8 +812,8 @@ bool LayerManager::rippleRemoveFrame()
 
 bool LayerManager::changeExposure(int frame, int delta)
 {
-    Layer* layer = currentLayer();
-    if (!layer->visible()) { return false; }
+    Layer* layer = currentLayer(0);
+    if (layer == nullptr || !layer->visible()) { return false; }
     const KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr) { return false; }
     const int position = key->pos();

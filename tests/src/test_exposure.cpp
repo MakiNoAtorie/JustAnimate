@@ -42,6 +42,15 @@ QList<int> keyPositions(const Layer* layer)
 
 } // namespace
 
+TEST_CASE("Exposure + and - do nothing with no current layer", "[Exposure]")
+{
+    TestSession session;
+    REQUIRE(session.start());
+    REQUIRE(session.object->getLayerCount() == 0);
+    CHECK_FALSE(session.editor->layers()->changeExposure(1, 1));
+    CHECK_FALSE(session.editor->layers()->changeExposure(1, -1));
+}
+
 TEST_CASE("Exposure + and - change the current Drawing and ripple later Drawings", "[Exposure]")
 {
     TestSession session;
