@@ -25,8 +25,9 @@ To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
   and `ready-for-human` tickets; list them as skipped in the final report.
 - **Integration branch:** create `integration/<milestone>` from `master`.
   Implementer subagents each work in their own worktree on a local
-  `ticket/<number>-<slug>` branch based on the integration branch; only the
-  integration branch is pushed.
+  `ticket/<number>-<slug>` branch cut from the local integration branch
+  (worktrees share refs; it can be ahead of origin); only the integration
+  branch is pushed.
 - **Commits:** one commit per ticket, message ending `Fixes #<number>`, with
   the ticket's test and its one-line `ChangeLog.md` entry in the same commit.
 - **Closing work:** open a **draft PR** from the integration branch into
@@ -40,8 +41,9 @@ To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
   mechanical work (merges, CI/config, docs, small well-specified fixes).
 - **Implementer prompts** stay short and point: ticket number, branch,
   `docs/CONVENTIONS.md`, files other agents are editing in parallel.
-  Implementers run local checks only; the orchestrator reads CI once per
-  merge and sends a red job's error back to the same implementer.
+  Implementers run local checks only; the orchestrator reads CI on the last
+  push of a batch (each push cancels the running CI) and sends a red job's
+  error back to the implementer of that commit.
 - **Conventions:** implementers end their report with at most 10 proposed
   convention bullets; the orchestrator folds the binding ones into
   `docs/CONVENTIONS.md`. Exploration notes and container facts go in the

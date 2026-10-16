@@ -1,4 +1,4 @@
-﻿/*
+/*
 
 JustAnimate - Traditional Animation Software
 

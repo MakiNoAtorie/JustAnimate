@@ -15,14 +15,12 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 ./build/pencil2d_tests "[ToolSettings]"           # one tag or test name
 ```
 
-- Keep output quiet: builds filtered to errors/warnings, tests to the
-  summary or failures.
 - Build with `-j2`, one build at a time per worktree. Stop only processes
   you started (by PID).
 - Re-run `cmake -S . -B build` after a change to any `*.cmake` file.
 - Warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON`, Qt 6.4
   (Linux) and 6.5.3 on GCC, Clang and MSVC: no Qt 6.5+ API, no
-  `QT_VERSION < 6` branches. CMake is the only build system.
+  `QT_VERSION < 6` branches.
 - `pencil2d_tests` does not compile all of `app/src`: build `pencil2d` too
   after an edit there.
 - CI runs the suite with ASan, UBSan and LSan (`-DJUSTANIMATE_SANITIZE=ON`).
@@ -31,12 +29,15 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `QT_QPA_PLATFORM_PLUGIN_PATH=%QTDIR%\plugins\platforms`.
 - Edit files with the Edit tool or a byte-level script: keep each file's
   line endings (`git ls-files --eol`). Git Bash `sed -i` drops CRLF.
+  PowerShell: commit with `git commit -F <scratch file>`.
 
 ## Tests
 
 - Catch2, in `tests/src/test_<area>.cpp`; register new files in
   `tests/tests.cmake`.
-- Every fix ships with a test that fails without it.
+- Every fix ships with a test you ran red on the old code (a compile
+  failure counts for new API). These rules beat Ponytail's; its markers
+  are `// shortcut:`.
 - Test at a public interface (`Editor`, `FileManager`, a tool, a manager).
 - Tests that touch `QSettings` restore the value they change.
 - Tests write files only under their own `QTemporaryDir`: several agents run

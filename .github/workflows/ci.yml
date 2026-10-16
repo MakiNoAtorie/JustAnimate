@@ -10,6 +10,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  guards:
+    name: Source guards
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: No UTF-8 BOM and no ponytail markers in C++ sources
+        run: |
+          if git ls-files -z '*.cpp' '*.h' | LC_ALL=C xargs -0 grep -l $'\xEF\xBB\xBF'; then exit 1; fi
+          if git grep -n 'ponytail:' -- '*.cpp' '*.h'; then exit 1; fi
+
   build:
     strategy:
       fail-fast: false

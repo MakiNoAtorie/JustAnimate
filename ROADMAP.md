@@ -68,7 +68,8 @@ least new code.
   accessibility, tablet calibration, anything the user asked for.
 
 **Checks we run** (the ponytail commands, used as process even without the plugin)
-- `ponytail-review` on every PR: findings in priority order correct → safe
+- `/code-review` on every integration PR (its Standards axis applies these
+  rules); rank findings in ponytail-review order: correct → safe
   → holds under load → tested → fast → lean; each finding needs a concrete
   failing case and the smallest fix; verdict "Ship" or "fix N first".
 - `ponytail-audit` of the whole repo before each milestone (first one: see
