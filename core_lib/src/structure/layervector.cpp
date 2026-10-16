@@ -72,14 +72,10 @@ void LayerVector::remapColors(const QMap<int, int>& mapping)
 
 void LayerVector::loadImageAtFrame(QString path, int frameNumber)
 {
-    if (keyExists(frameNumber))
-    {
-        removeKeyFrame(frameNumber);
-    }
     VectorImage* vecImg = new VectorImage;
     vecImg->setPos(frameNumber);
     vecImg->read(path);
-    addKeyFrame(frameNumber, vecImg);
+    loadKey(vecImg);
 }
 
 Status LayerVector::saveKeyFrameFile(KeyFrame* keyFrame, QString path)
