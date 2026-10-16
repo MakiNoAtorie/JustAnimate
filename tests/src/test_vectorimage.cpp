@@ -96,3 +96,42 @@ TEST_CASE("VectorImage fillSelectedPath")
     REQUIRE(vImage.getFirstAreaNumber(QPointF(50, 50)) >= 0);
     REQUIRE(vImage.getFirstAreaNumber(QPointF(200, 200)) == -1);
 }
+
+namespace {
+// Adds a one-curve vector frame at frame 1 coloured `colour`.
+void addCurve(LayerVector* layer, int colour)
+{
+    layer->addNewKeyFrameAt(1);
+    BezierCurve curve({ QPoint(50, 50), QPoint(100, 100) });
+    curve.setColorNumber(colour);
+    layer->getVectorImageAtFrame(1)->addCurve(curve, 1.0);
+}
+}
+
+TEST_CASE("Object importVectorColors remaps once")
+{
+    Object source;
+    for (int i = 0; i < 5; i++)
+        source.addColor(ColorRef(QColor(i * 40, 0, 0), QString("c%1").arg(i)));
+    LayerVector* layerA = source.addNewVectorLayer();
+    addCurve(layerA, 0);
+    BezierCurve second({ QPoint(0, 0), QPoint(9, 9) });
+    second.setColorNumber(2);
+    layerA->getVectorImageAtFrame(1)->addCurve(second, 1.0);
+    LayerVector* layerB = source.addNewVectorLayer();
+    addCurve(layerB, 2);
+
+    Object target;
+    target.addColor(ColorRef(Qt::white, "t0"));
+    target.addColor(ColorRef(Qt::black, "t1"));
+    QMap<int, int> imported;
+
+    target.importVectorColors(layerA, source, imported);
+    target.importVectorColors(layerB, source, imported);
+
+    VectorImage* img = layerA->getVectorImageAtFrame(1);
+    REQUIRE(target.getColor(img->curve(0).getColorNumber()).color == source.getColor(0).color);
+    REQUIRE(target.getColor(img->curve(1).getColorNumber()).color == source.getColor(2).color);
+    REQUIRE(target.getColor(layerB->getVectorImageAtFrame(1)->curve(0).getColorNumber()).color == source.getColor(2).color);
+    REQUIRE(target.getColorCount() == 4);
+}

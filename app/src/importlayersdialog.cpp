@@ -109,20 +109,7 @@ void ImportLayersDialog::importLayers()
 
         if (mImportLayer->type() == Layer::VECTOR)
         {
-            LayerVector* layerVector = static_cast<LayerVector*>(mImportLayer);
-            for (int i = 0; i < mImportObject->getColorCount(); i++) {
-                if (!layerVector->usesColor(i)) {
-                    continue;
-                }
-
-                if (!importedColors.contains(i)) {
-                    const ColorRef color = mImportObject->getColor(i);
-                    object->addColor(color);
-                    importedColors[i] = object->getColorCount() - 1;
-                }
-
-                layerVector->moveColor(i, importedColors[i]);
-            }
+            object->importVectorColors(static_cast<LayerVector*>(mImportLayer), *mImportObject, importedColors);
         }
 
         if (mImportLayer->type() == Layer::SOUND)

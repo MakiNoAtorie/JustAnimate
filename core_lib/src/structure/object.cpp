@@ -542,6 +542,26 @@ void Object::moveVectorColor(int start, int end)
     }
 }
 
+// Adds the source colours the layer uses (once per source index) and remaps the layer in one pass.
+void Object::importVectorColors(LayerVector* layer, const Object& source, QMap<int, int>& importedColors)
+{
+    QMap<int, int> mapping;
+    for (int i = 0; i < source.getColorCount(); i++)
+    {
+        if (!layer->usesColor(i))
+        {
+            continue;
+        }
+        if (!importedColors.contains(i))
+        {
+            addColor(source.getColor(i));
+            importedColors[i] = getColorCount() - 1;
+        }
+        mapping[i] = importedColors[i];
+    }
+    layer->remapColors(mapping);
+}
+
 void Object::addColorAtIndex(int index, const ColorRef& newColor)
 {
     mPalette.insert(index, newColor);
