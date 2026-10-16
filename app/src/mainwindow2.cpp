@@ -90,7 +90,8 @@ GNU General Public License for more details.
 #include "recentfilemenu.h"
 #include "shortcutfilter.h"
 #include "app_util.h"
-#include "presetdialog.h"
+#include "welcomedialog.h"
+#include "welcomehelper.h"
 #include "pegbaralignmentdialog.h"
 #include "autosaverbytime.h"
 
@@ -443,8 +444,19 @@ void MainWindow2::createMenus()
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
+    auto rippleEdit = [this](bool (LayerManager::*edit)())
+    {
+        if (!mEditor->layers()->currentLayer()->visible()) { ui->scribbleArea->showLayerNotVisibleWarning(); return; }
+        (mEditor->layers()->*edit)();
+    };
+    connect(ui->actionRipple_Insert_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleInsertFrame); });
+    connect(ui->actionRipple_Delete_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleRemoveFrame); });
     connect(ui->actionAdd_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::addExposureToSelectedFrames);
     connect(ui->actionSubtract_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::subtractExposureFromSelectedFrames);
+    connect(ui->actionHold_1s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(1, true); });
+    connect(ui->actionHold_2s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(2, true); });
+    connect(ui->actionHold_3s, &QAction::triggered, mCommands, [this] { mCommands->exposeSelectedFrames(3, true); });
+    connect(ui->actionClean_Exposure, &QAction::triggered, mCommands, &ActionCommands::cleanExposureOfSelectedFrames);
     connect(ui->actionNext_Frame, &QAction::triggered, mCommands, &ActionCommands::GotoNextFrame);
     connect(ui->actionPrevious_Frame, &QAction::triggered, mCommands, &ActionCommands::GotoPrevFrame);
     connect(ui->actionNext_KeyFrame, &QAction::triggered, mCommands, &ActionCommands::GotoNextKeyFrame);
@@ -463,6 +475,8 @@ void MainWindow2::createMenus()
     toolsActionGroup->addAction(ui->actionSelect);
     toolsActionGroup->addAction(ui->actionBrush);
     toolsActionGroup->addAction(ui->actionPolyline);
+    toolsActionGroup->addAction(ui->actionShape);
+    toolsActionGroup->addAction(ui->actionLassoFill);
     toolsActionGroup->addAction(ui->actionSmudge);
     toolsActionGroup->addAction(ui->actionPen);
     toolsActionGroup->addAction(ui->actionHand);
@@ -477,6 +491,8 @@ void MainWindow2::createMenus()
         else if (action == ui->actionSelect) mToolBox->setActiveTool(SELECT);
         else if (action == ui->actionBrush) mToolBox->setActiveTool(BRUSH);
         else if (action == ui->actionPolyline) mToolBox->setActiveTool(POLYLINE);
+        else if (action == ui->actionShape) mToolBox->setActiveTool(SHAPE);
+        else if (action == ui->actionLassoFill) mToolBox->setActiveTool(LASSOFILL);
         else if (action == ui->actionSmudge) mToolBox->setActiveTool(SMUDGE);
         else if (action == ui->actionPen) mToolBox->setActiveTool(PEN);
         else if (action == ui->actionHand) mToolBox->setActiveTool(HAND);
@@ -762,7 +778,13 @@ void MainWindow2::openStartupFile(const QString& filename)
         return;
     }
 
-    loadMostRecent() || tryLoadPreset();
+    PreferenceManager* prefs = mEditor->preference();
+    if (Welcome::showAtStartup(prefs->isOn(SETTING::SHOW_WELCOME_SCREEN), prefs->isOn(SETTING::ASK_FOR_PRESET), filename))
+    {
+        showWelcomeDialog();
+        return;
+    }
+    loadMostRecent() || newObjectFromPresets(prefs->getInt(SETTING::DEFAULT_PRESET));
 }
 
 void MainWindow2::openFile(const QString& filename)
@@ -887,6 +909,7 @@ bool MainWindow2::saveObject(QString strSavedFileName)
     QSettings settings(PENCIL2D, PENCIL2D);
     settings.setValue(LAST_PCLX_PATH, strSavedFileName);
 
+    Welcome::saveThumbnail(mEditor->object(), strSavedFileName, mEditor->currentFrame());
     mRecentFileMenu->addRecentFile(strSavedFileName);
     mRecentFileMenu->saveToDisk();
 
@@ -1168,7 +1191,7 @@ void MainWindow2::newObject()
 
 bool MainWindow2::newObjectFromPresets(int presetIndex)
 {
-    QString presetFilePath = PresetDialog::getPresetPath(presetIndex);
+    QString presetFilePath = Welcome::presetPath(presetIndex);
 
     if (presetFilePath.isEmpty())
     {
@@ -1212,23 +1235,52 @@ bool MainWindow2::tryLoadPreset()
 {
     if (!mEditor->preference()->isOn(SETTING::ASK_FOR_PRESET))
     {
-        int defaultPreset = mEditor->preference()->getInt(SETTING::DEFAULT_PRESET);
-        return newObjectFromPresets(defaultPreset);
+        return newObjectFromPresets(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET));
     }
+    showWelcomeDialog();
+    return true;
+}
 
-    PresetDialog* presetDialog = new PresetDialog(mEditor->preference(), this);
+void MainWindow2::showWelcomeDialog()
+{
+    auto* presetDialog = new WelcomeDialog(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET),
+                                           mRecentFileMenu->getRecentFiles(), this);
     presetDialog->setAttribute(Qt::WA_DeleteOnClose);
-    connect(presetDialog, &PresetDialog::finished, [=](int result)
+    connect(presetDialog, &WelcomeDialog::finished, [=](int result)
     {
         if (result != QDialog::Accepted)
         {
             return;
         }
 
-        int presetIndex = presetDialog->getPresetIndex();
+        if (presetDialog->browseRequested())
+        {
+            openDocument();
+            return;
+        }
+        if (!presetDialog->openPath().isEmpty())
+        {
+            openObject(presetDialog->openPath());
+            return;
+        }
+
+        if (presetDialog->templateIndex() >= 0)
+        {
+            if (Object* object = Welcome::newObjectFromTemplate(presetDialog->templateIndex()))
+            {
+                mEditor->setObject(object);
+                mEditor->setFps(mEditor->playback()->fps());
+                closeDialogs();
+                setWindowTitle(getWindowTitle());
+                return;
+            }
+        }
+
+        int presetIndex = presetDialog->presetIndex();
         if (presetDialog->shouldAlwaysUse())
         {
             mEditor->preference()->set(SETTING::ASK_FOR_PRESET, false);
+            mEditor->preference()->set(SETTING::SHOW_WELCOME_SCREEN, false);
             mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetIndex);
         }
         if (!newObjectFromPresets(presetIndex))
@@ -1237,7 +1289,6 @@ bool MainWindow2::tryLoadPreset()
         }
     });
     presetDialog->open();
-    return true;
 }
 
 void MainWindow2::closeDialogs()
@@ -1363,8 +1414,14 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionAdd_Frame->setShortcut(cmdKeySeq(CMD_ADD_FRAME));
     ui->actionDuplicate_Frame->setShortcut(cmdKeySeq(CMD_DUPLICATE_FRAME));
     ui->actionRemove_Frame->setShortcut(cmdKeySeq(CMD_REMOVE_FRAME));
+    ui->actionRipple_Insert_Frame->setShortcut(cmdKeySeq(CMD_RIPPLE_INSERT_FRAME));
+    ui->actionRipple_Delete_Frame->setShortcut(cmdKeySeq(CMD_RIPPLE_DELETE_FRAME));
     ui->actionAdd_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_ADD_FRAME_EXPOSURE));
     ui->actionSubtract_Frame_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_SUBTRACT_FRAME_EXPOSURE));
+    ui->actionHold_1s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_1S));
+    ui->actionHold_2s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_2S));
+    ui->actionHold_3s->setShortcut(cmdKeySeq(CMD_SELECTION_HOLD_3S));
+    ui->actionClean_Exposure->setShortcut(cmdKeySeq(CMD_SELECTION_CLEAN_EXPOSURE));
     ui->actionReverse_Frames_Order->setShortcut(cmdKeySeq(CMD_REVERSE_SELECTED_FRAMES));
     ui->actionRemove_Frames->setShortcut(cmdKeySeq(CMD_REMOVE_SELECTED_FRAMES));
     ui->actionMove_Frame_Backward->setShortcut(cmdKeySeq(CMD_MOVE_FRAME_BACKWARD));
@@ -1377,6 +1434,8 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionSelect->setShortcut(cmdKeySeq(CMD_TOOL_SELECT));
     ui->actionBrush->setShortcut(cmdKeySeq(CMD_TOOL_BRUSH));
     ui->actionPolyline->setShortcut(cmdKeySeq(CMD_TOOL_POLYLINE));
+    ui->actionShape->setShortcut(cmdKeySeq(CMD_TOOL_SHAPE));
+    ui->actionLassoFill->setShortcut(cmdKeySeq(CMD_TOOL_LASSOFILL));
     ui->actionSmudge->setShortcut(cmdKeySeq(CMD_TOOL_SMUDGE));
     ui->actionPen->setShortcut(cmdKeySeq(CMD_TOOL_PEN));
     ui->actionHand->setShortcut(cmdKeySeq(CMD_TOOL_HAND));

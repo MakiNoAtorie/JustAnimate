@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QFileInfo>
 #include <QImageWriter>
 #include <QPainterPath>
+#include <QThreadPool>
 #include "util.h"
 
 #include "blitrect.h"
@@ -128,14 +129,28 @@ BitmapImage* BitmapImage::clone() const
     return b;
 }
 
+static QImage readImageFile(const QString& path)
+{
+    return QImage(path).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+}
+
 void BitmapImage::loadFile()
 {
     if (!fileName().isEmpty() && !isLoaded())
     {
-        mImage = QImage(fileName()).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+        mImage = mPendingLoad.valid() ? mPendingLoad.get() : readImageFile(fileName());
         mBounds.setSize(mImage.size());
         mMinBound = false;
     }
+    mPendingLoad = {};
+}
+
+void BitmapImage::loadFileAsync()
+{
+    if (fileName().isEmpty() || isLoaded() || mPendingLoad.valid()) { return; }
+    auto promise = std::make_shared<std::promise<QImage>>();
+    mPendingLoad = promise->get_future().share();
+    workerPool()->start([promise, path = fileName()] { promise->set_value(readImageFile(path)); });
 }
 
 void BitmapImage::unloadFile()
@@ -143,6 +158,7 @@ void BitmapImage::unloadFile()
     if (isModified() == false && !fileName().isEmpty())
     {
         mImage = QImage();
+        mPendingLoad = {};
     }
 }
 
@@ -785,6 +801,7 @@ Status BitmapImage::writeFile(const QString& filename)
 {
     DebugDetails dd;
     dd << "BitmapImage::writeFile";
+    mPendingLoad = {}; // the file changes
     dd << QString("&nbsp;&nbsp;filename = ").append(filename);
 
     QImageWriter writer(filename);
@@ -865,7 +882,8 @@ bool BitmapImage::floodFill(BitmapImage** replaceImage,
                             const QPoint& point,
                             const QRgb& fillColor,
                             int tolerance,
-                            const int expandValue)
+                            const int expandValue,
+                            const int closeGaps)
 {
     // Fill region must be 1 pixel larger than the target image to fill regions on the edge connected only by transparent pixels
     const QRect& fillBounds = targetImage->mBounds.adjusted(-1, -1, 1, 1);
@@ -875,8 +893,32 @@ bool BitmapImage::floodFill(BitmapImage** replaceImage,
     // Square tolerance for use with compareColor
     tolerance = static_cast<int>(qPow(tolerance, 2));
 
+    // Dilate everything that differs from the seed colour so gaps up to closeGaps px seal
+    BitmapImage closedImage;
+    if (closeGaps > 0)
+    {
+        closedImage = *targetImage;
+        const QRgb seed = targetImage->constScanLine(point.x(), point.y());
+        const int radius = (closeGaps + 1) / 2;
+        QHash<QRgb, bool> cache;
+        const QRect& b = targetImage->mBounds;
+        for (int y = b.top(); y <= b.bottom(); y++)
+        {
+            for (int x = b.left(); x <= b.right(); x++)
+            {
+                const QRgb c = targetImage->constScanLine(x, y);
+                if (compareColor(c, seed, tolerance, &cache)) continue;
+                for (int dy = -radius; dy <= radius; dy++)
+                    for (int dx = -radius; dx <= radius; dx++)
+                        if ((dx || dy) && QPoint(x + dx, y + dy) != point &&
+                            compareColor(targetImage->constScanLine(x + dx, y + dy), seed, tolerance, &cache))
+                            closedImage.scanLine(x + dx, y + dy, c);
+            }
+        }
+    }
+
     QRect newBounds;
-    bool *filledPixels = floodFillPoints(targetImage, maxBounds, point, tolerance, newBounds);
+    bool *filledPixels = floodFillPoints(closeGaps > 0 ? &closedImage : targetImage, maxBounds, point, tolerance, newBounds);
 
     QRect translatedSearchBounds = newBounds.translated(-maxBounds.topLeft());
 

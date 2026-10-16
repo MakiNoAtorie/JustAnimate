@@ -23,6 +23,10 @@ GNU General Public License for more details.
 #include <QString>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
+#include <QThread>
+
+#include <atomic>
+#include <vector>
 
 TEST_CASE("closestCanonicalPath")
 {
@@ -201,4 +205,29 @@ TEST_CASE("validateDataPath")
         REQUIRE(!result.isEmpty());
     }
 #endif
+}
+
+TEST_CASE("parallelFor runs every index once on several capped workers", "[ParallelSave]")
+{
+    const int workers = parallelWorkerCount();
+    REQUIRE(workers >= 1);
+    REQUIRE(workers <= 8);
+    REQUIRE(workers <= QThread::idealThreadCount());
+
+    std::vector<std::atomic<int>> runs(64);
+    std::atomic<int> running{ 0 };
+    std::atomic<int> peak{ 0 };
+    parallelFor(static_cast<int>(runs.size()), [&](int i) {
+        const int now = ++running;
+        int p = peak;
+        while (now > p && !peak.compare_exchange_weak(p, now)) {}
+        // Hold the task a little so other workers overlap with it.
+        for (int t = 0; t < 200 && peak < 2; ++t) QThread::msleep(1);
+        ++runs[i];
+        --running;
+    });
+
+    for (const auto& r : runs) REQUIRE(r == 1);
+    REQUIRE(peak <= workers);
+    if (workers > 1) REQUIRE(peak >= 2);
 }

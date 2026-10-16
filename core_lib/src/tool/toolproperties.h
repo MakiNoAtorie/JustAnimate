@@ -557,6 +557,7 @@ struct BucketToolProperties: public ToolPropertiesBase
         FILLMODE_VALUE                  = 304,
         COLORTOLERANCE_ENABLED          = 305,
         FILLEXPAND_ENABLED              = 306,
+        FILLCLOSEGAPS_VALUE             = 307,
 
         END                             = 399,
     };
@@ -572,7 +573,8 @@ struct BucketToolProperties: public ToolPropertiesBase
             { FILLEXPAND_ENABLED,           "FillExpandEnabled"},
             { COLORTOLERANCE_ENABLED,       "ColorToleranceEnabled"},
             { FILLLAYERREFERENCEMODE_VALUE, "FillReferenceMode"},
-            { FILLMODE_VALUE,               "FillMode"}
+            { FILLMODE_VALUE,               "FillMode"},
+            { FILLCLOSEGAPS_VALUE,          "FillCloseGaps"}
         });
     }
 
@@ -587,6 +589,7 @@ struct BucketToolProperties: public ToolPropertiesBase
     int fillExpandAmount() const { return getInfo(FILLEXPAND_VALUE).intValue(); }
     int fillReferenceMode() const { return getInfo(FILLLAYERREFERENCEMODE_VALUE).intValue(); }
     int fillMode() const { return getInfo(FILLMODE_VALUE).intValue(); }
+    int fillCloseGaps() const { const PropertyInfo i = getInfo(FILLCLOSEGAPS_VALUE); return i.type() == PropertyInfo::INTEGER ? i.intValue() : 0; }
     bool colorToleranceEnabled() const { return getInfo(COLORTOLERANCE_ENABLED).boolValue(); }
     bool fillExpandEnabled() const { return getInfo(FILLEXPAND_ENABLED).boolValue(); }
 
@@ -657,6 +660,16 @@ struct TransformToolProperties: public ToolPropertiesBase
 
 private:
     ToolProperties mProperties;
+};
+
+// The shape tool keeps these in its StrokeToolProperties, next to the brush settings.
+struct ShapeToolProperties
+{
+    enum Type {
+        START               = 600,
+        SHAPEMODE_VALUE     = START, // 0 line, 1 rectangle, 2 ellipse, 3 polygon
+        END                 = 699,
+    };
 };
 
 #endif // TOOLPROPERTIES_H

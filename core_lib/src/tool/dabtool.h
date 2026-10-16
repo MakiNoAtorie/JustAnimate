@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "tiledbuffer.h"
 
 #include <QPen>
+#include <QPolygonF>
 #include <random>
 
 class Layer;
@@ -73,6 +74,9 @@ protected:
     /// Alpha of one dab in a spaced line, so the line reaches dabOpacity at any spacing;
     /// with flow per dab (Classic) it is dabOpacity and closer spacing builds up darker.
     qreal spacedDabOpacity(qreal pressure, qreal brushWidth) const;
+    /// Places dabs along these points as one full-pressure stroke, with both tapers.
+    /// Call after pointerPressEvent, which reads the stroke settings.
+    void dabPath(const QPolygonF& points);
 
     QPointF mLastBrushPoint{ 0, 0 };
     qreal mLastBrushPressure = 1.0;

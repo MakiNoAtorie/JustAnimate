@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QImage>
+#include <QImageWriter>
+#include <QPainter>
 #include "qminiz.h"
 #include "fileformat.h"
 #include "filemanager.h"
@@ -31,6 +33,8 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 #include "layersound.h"
 #include "soundclip.h"
+#include "playbackmanager.h"
+#include "testfixture.h"
 
 #include <memory>
 
@@ -542,6 +546,122 @@ TEST_CASE("FileManager atomic save", "[FileManager]")
     }
 }
 
+TEST_CASE("FileManager reports progress while it zips and unzips", "[FileManager][ZipThread]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString projectPath = testDir.filePath("busy.pclx");
+
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    for (int f = 1; f <= 20; ++f)
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f)); // a new layer starts with frame 1
+        layer->getBitmapImageAtFrame(f)->drawEllipse(QRectF(f, f, 20, 20), QPen(Qt::black, 2), QBrush(Qt::red),
+                                                     QPainter::CompositionMode_SourceOver, true);
+    }
+
+    FileManager fm;
+    int max = 0;
+    int last = 0;
+    bool reportedWhileZipping = false;
+    QObject::connect(&fm, &FileManager::progressRangeChanged, [&](int m) { max = m; });
+    QObject::connect(&fm, &FileManager::progressChanged, [&](int p) {
+        last = p;
+        // The UI repaints only from these signals, so they must keep coming while the archive is written.
+        if (QFile::exists(projectPath + ".tmp")) reportedWhileZipping = true;
+    });
+
+    REQUIRE(fm.save(obj.get(), projectPath).ok());
+    REQUIRE(reportedWhileZipping);
+    REQUIRE(last <= max);
+
+    SECTION("A save started from a progress signal fails and leaves the running save intact")
+    {
+        // The UI processes events on progress, so an autosave timer can fire mid-save.
+        FileManager nested;
+        bool nestedFailed = false;
+        QObject::connect(&fm, &FileManager::progressChanged, [&] {
+            if (QFile::exists(projectPath + ".tmp") && !nestedFailed)
+                nestedFailed = !nested.save(obj.get(), testDir.filePath("autosave.pclx")).ok();
+        });
+        REQUIRE(fm.save(obj.get(), projectPath).ok());
+        REQUIRE(nestedFailed);
+        REQUIRE_FALSE(QFile::exists(testDir.filePath("autosave.pclx")));
+    }
+
+    SECTION("A zip that fails on the worker thread leaves the original and no .tmp")
+    {
+        QFile file(projectPath);
+        REQUIRE(file.open(QFile::ReadOnly));
+        const QByteArray original = file.readAll();
+        file.close();
+
+        // A sound clip that points at a missing file fails inside MiniZ::compressFolder.
+        SoundClip* clip = new SoundClip;
+        clip->setFileName(QDir(obj->dataDir()).filePath("missing.wav"));
+        REQUIRE(obj->addNewSoundLayer()->addKeyFrame(1, clip));
+
+        const Status st = fm.save(obj.get(), projectPath);
+        REQUIRE(st.code() == Status::ERROR_MINIZ_FAIL);
+        REQUIRE_FALSE(QFile::exists(projectPath + ".tmp"));
+        REQUIRE(file.open(QFile::ReadOnly));
+        const bool unchanged = file.readAll() == original;
+        REQUIRE(unchanged);
+    }
+
+    FileManager loader;
+    int loadMax = 0;
+    int loadLast = 0;
+    QObject::connect(&loader, &FileManager::progressRangeChanged, [&](int m) { loadMax = m; });
+    QObject::connect(&loader, &FileManager::progressChanged, [&](int p) { loadLast = p; });
+    std::unique_ptr<Object> loaded(loader.load(projectPath));
+    REQUIRE(loaded != nullptr);
+    int keys = 0;
+    for (int i = 0; i < loaded->getLayerCount(); ++i)
+        keys = std::max(keys, loaded->getLayer(i)->keyFrameCount());
+    REQUIRE(keys == 20);
+    // One step per archive entry while unzipping, then one per frame loaded; the range covers both.
+    REQUIRE(loadLast >= 2 * 20);
+    REQUIRE(loadLast <= loadMax);
+}
+
+TEST_CASE("FileManager saves bitmap frames byte-identical to serial PNG encoding", "[FileManager][ParallelSave]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    const int frames = 40;
+    for (int f = 1; f <= frames; ++f)
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f)); // a new layer starts with frame 1
+        BitmapImage* image = layer->getBitmapImageAtFrame(f);
+        image->drawEllipse(QRectF(f * 3, f * 2, 20 + f, 30), QPen(Qt::black, 2), QBrush(QColor::fromHsv(f * 9, 200, 200)),
+                           QPainter::CompositionMode_SourceOver, true);
+        // Reference: the frame encoded alone, the same way BitmapImage::writeFile does.
+        image->autoCrop();
+        REQUIRE(QImageWriter(testDir.filePath(QString("serial%1.png").arg(f))).write(*image->image()));
+    }
+
+    FileManager fm;
+    REQUIRE(fm.save(obj.get(), testDir.filePath("frames.pclx")).ok());
+
+    for (int f = 1; f <= frames; ++f)
+    {
+        CAPTURE(f);
+        QFile saved(layer->getBitmapImageAtFrame(f)->fileName());
+        QFile serial(testDir.filePath(QString("serial%1.png").arg(f)));
+        REQUIRE(saved.open(QFile::ReadOnly));
+        REQUIRE(serial.open(QFile::ReadOnly));
+        const bool identical = (saved.readAll() == serial.readAll());
+        REQUIRE(identical);
+    }
+}
+
 TEST_CASE("FileManager autosave and crash recovery", "[FileManager]")
 {
     FileManager fm;
@@ -820,4 +940,117 @@ TEST_CASE("Empty Sound Frames")
             delete newObj;
         }
     }
+}
+
+TEST_CASE("Frame pool unloads far-away keyframes and keeps their pixels", "[FileManager]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString path1 = testDir.path() + "/a.pclx";
+    const QString path2 = testDir.path() + "/b.pclx";
+    const int frames = 200;
+    const QRgb red = qRgb(255, 0, 0);
+    const QRgb blue = qRgb(0, 0, 255);
+    FileManager fm;
+
+    {
+        std::unique_ptr<Object> o(new Object);
+        o->init();
+        o->addNewCameraLayer();
+        LayerBitmap* layer = o->addNewBitmapLayer();
+        for (int f = 1; f <= frames; ++f)
+        {
+            layer->addNewKeyFrameAt(f);
+            // Antialiased ellipse: its bounds keep a transparent margin, like a drawn stroke.
+            layer->getBitmapImageAtFrame(f)->drawEllipse(QRectF(0, 0, 20, 20), QPen(Qt::red, 4), QBrush(Qt::red),
+                                                         QPainter::CompositionMode_SourceOver, true);
+        }
+        REQUIRE(fm.save(o.get(), path1).ok());
+    }
+
+    // The default pool budget (1 GB) holds the whole project: only distance unloads frame 1.
+    std::unique_ptr<Object> o(fm.load(path1));
+    REQUIRE(o);
+    auto layer = static_cast<LayerBitmap*>(o->getLayer(1));
+    BitmapImage* first = layer->getBitmapImageAtFrame(1);
+    o->updateActiveFrames(1);
+    first->bounds(); // the canvas reads the bounds when it paints the frame
+    REQUIRE(first->isLoaded());
+    REQUIRE_FALSE(first->isModified()); // viewing a frame is no edit
+    o->updateActiveFrames(frames);
+    REQUIRE_FALSE(first->isLoaded());
+
+    // Edit after unload: the frame reloads, takes the edit and keeps it while far away.
+    first->drawRect(QRectF(8, 4, 4, 4), QPen(Qt::blue), QBrush(Qt::blue), QPainter::CompositionMode_SourceOver, false);
+    o->updateActiveFrames(1);
+    o->updateActiveFrames(frames);
+    REQUIRE(first->isLoaded());
+    REQUIRE(first->pixel(10, 6) == blue);
+
+    // Save after unload, to a new file: unloaded frames and the edit are all written.
+    REQUIRE_FALSE(layer->getBitmapImageAtFrame(2)->isLoaded());
+    REQUIRE(fm.save(o.get(), path2).ok());
+    o->updateActiveFrames(1);
+    o->updateActiveFrames(frames);
+    REQUIRE_FALSE(first->isLoaded()); // saved, so it can unload now
+    REQUIRE(first->pixel(10, 6) == blue);
+    o.reset();
+
+    std::unique_ptr<Object> o2(fm.load(path2));
+    REQUIRE(o2);
+    auto layer2 = static_cast<LayerBitmap*>(o2->getLayer(1));
+    // A frame's bounds are known only once loaded, so load before reading pixels.
+    auto pixelAt = [layer2](int f, int x, int y) { BitmapImage* b = layer2->getBitmapImageAtFrame(f); b->image(); return b->pixel(x, y); };
+    REQUIRE(pixelAt(1, 10, 6) == blue);
+    REQUIRE(pixelAt(1, 10, 16) == red);
+    for (int f = 2; f <= frames; ++f)
+        REQUIRE(pixelAt(f, 10, 16) == red);
+}
+
+TEST_CASE("Playback loads frames ahead of the playhead and keeps edits on the next loop", "[PlaybackCache]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    const QString path = testDir.path() + "/a.pclx";
+    const int frames = 80;
+    FileManager fm;
+    {
+        std::unique_ptr<Object> o(new Object);
+        o->init();
+        o->addNewCameraLayer();
+        LayerBitmap* layer = o->addNewBitmapLayer();
+        for (int f = 1; f <= frames; ++f)
+        {
+            layer->addNewKeyFrameAt(f);
+            layer->getBitmapImageAtFrame(f)->drawRect(QRectF(0, 0, 20, 20), QPen(Qt::red), QBrush(Qt::red),
+                                                      QPainter::CompositionMode_SourceOver, false);
+        }
+        REQUIRE(fm.save(o.get(), path).ok());
+    }
+
+    TestSession s(fm.load(path));
+    REQUIRE(s.object);
+    REQUIRE(s.start());
+    auto layer = static_cast<LayerBitmap*>(s.object->getLayer(1));
+    s.editor->playback()->play();
+    s.editor->scrubTo(1);
+    // Frame 12 is past the pool's own window of frame + 3: it is read on a worker, scrubTo does not wait for it.
+    BitmapImage* ahead = layer->getBitmapImageAtFrame(12);
+    REQUIRE_FALSE(ahead->isLoaded());
+    REQUIRE_FALSE(layer->getBitmapImageAtFrame(40)->isLoaded());
+
+    // Edit a preloaded frame while playing: the next loop shows the edit, not the file on disk.
+    BitmapImage* edited = layer->getBitmapImageAtFrame(8);
+    edited->drawRect(QRectF(4, 4, 4, 4), QPen(Qt::blue), QBrush(Qt::blue), QPainter::CompositionMode_SourceOver, false);
+    for (int f = 2; f <= 9; ++f)
+        s.editor->scrubTo(f);
+    REQUIRE(ahead->isLoaded()); // entered the pool's window
+    REQUIRE(ahead->pixel(5, 5) == qRgb(255, 0, 0));
+    for (int f = 10; f <= frames; ++f)
+        s.editor->scrubTo(f);
+    REQUIRE_FALSE(layer->getBitmapImageAtFrame(9)->isLoaded()); // unloaded, far from the playhead
+    s.editor->scrubTo(1);
+    REQUIRE(edited->pixel(5, 5) == qRgb(0, 0, 255));
+    REQUIRE(layer->getBitmapImageAtFrame(9)->pixel(5, 5) == qRgb(255, 0, 0)); // takes the worker's read
+    s.editor->playback()->stop();
 }

@@ -18,7 +18,10 @@ GNU General Public License for more details.
 #include "filemanager.h"
 #include "appinfo.h"
 
+#include <atomic>
+#include <chrono>
 #include <ctime>
+#include <future>
 #include <filesystem>
 #include <QDebug>
 #include <QDir>
@@ -89,6 +92,7 @@ Object* FileManager::load(const QString& sFileName)
             handleOpenProjectError(Status::ERROR_INVALID_XML_FILE, dd);
             return nullptr;
         } else {
+            mMaxProgressValue = mCurrentProgress;
             Status unzipStatus = unzip(sFileName, workingDirPath);
             dd.collect(unzipStatus.details());
 
@@ -106,7 +110,7 @@ Object* FileManager::load(const QString& sFileName)
     obj->setMainXMLFile(strMainXMLFile);
 
     int totalFileCount = QDir(strDataFolder).entryList(QDir::Files).size();
-    mMaxProgressValue = totalFileCount;
+    mMaxProgressValue = mCurrentProgress + totalFileCount;
     emit progressRangeChanged(mMaxProgressValue);
 
     QFile file(strMainXMLFile);
@@ -262,6 +266,17 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("Legacy .pcl projects can be opened but not saved. Save the project as .pclx."));
     }
 
+    // Progress handlers process events, so a timer can start a save while one runs on the same working folder.
+    static std::atomic<bool> sSaving{false};
+    if (sSaving.exchange(true))
+    {
+        dd << "Error: Another save is still running";
+        return Status(Status::FAIL, dd,
+                      tr("Save in Progress"),
+                      tr("Another save is still running. Please try again when it is done."));
+    }
+    OnScopeExit(sSaving = false);
+
     const int totalCount = object->totalKeyFrameCount();
     mMaxProgressValue = totalCount + 5;
     emit progressRangeChanged(mMaxProgressValue);
@@ -354,7 +369,9 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     QFile::remove(sTmpFile);
 
     dd << "Miniz: Zipping...";
-    Status stMiniz = MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx");
+    Status stMiniz = runArchiveJob([&](const MiniZ::Progress& progress) {
+        return MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx", progress);
+    });
     if (!stMiniz.ok())
     {
         QFile::remove(sTmpFile);
@@ -582,6 +599,33 @@ void FileManager::progressForward()
     emit progressChanged(mCurrentProgress);
 }
 
+Status FileManager::runArchiveJob(const std::function<Status(const std::function<void(int, int)>&)>& job)
+{
+    std::atomic<int> done{0};
+    std::atomic<int> total{0};
+    std::future<Status> future = std::async(std::launch::async, job, std::function<void(int, int)>([&](int d, int t) {
+        done = d;
+        total = t;
+    }));
+
+    // Signals stay on this thread: the UI repaints from them while the worker zips.
+    const int base = mCurrentProgress;
+    bool rangeExtended = false;
+    for (;;)
+    {
+        const bool finished = future.wait_for(std::chrono::milliseconds(16)) == std::future_status::ready;
+        if (!rangeExtended && total > 0)
+        {
+            rangeExtended = true;
+            mMaxProgressValue += total;
+            emit progressRangeChanged(mMaxProgressValue);
+        }
+        mCurrentProgress = base + (finished ? total.load() : done.load());
+        emit progressChanged(mCurrentProgress);
+        if (finished) return future.get();
+    }
+}
+
 bool FileManager::loadPalette(Object* obj)
 {
     FILEMANAGER_LOG("Load Palette..");
@@ -783,7 +827,9 @@ Status FileManager::unzip(const QString& strZipFile, const QString& strUnzipTarg
     // removes the previous directory first  - better approach
     removePFFTmpDirectory(strUnzipTarget);
 
-    Status s = MiniZ::uncompressFolder(strZipFile, strUnzipTarget);
+    Status s = runArchiveJob([&](const MiniZ::Progress& progress) {
+        return MiniZ::uncompressFolder(strZipFile, strUnzipTarget, progress);
+    });
 
     mstrLastTempFolder = strUnzipTarget;
     return s;

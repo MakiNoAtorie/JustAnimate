@@ -139,10 +139,10 @@ public:
      */
     bool newSelectionOfConnectedFrames(int position);
 
-    /** Add or subtract exposure from selected frames
-     * @param offset Any value above 0 for adding exposure and any value below 0 to subtract exposure
+    /** Changes the hold of each selected keyframe (the frames up to the next keyframe) and moves the later keyframes.
+     * @param value Frames to add (above 0) or subtract (below 0); with `hold`, the new hold length. A hold is at least 1.
      */
-    void setExposureForSelectedFrames(int offset);
+    void setExposureForSelectedFrames(int value, bool hold = false);
 
     /** Reverse order of selected frames
      * @return true if all frames were successfully reversed, otherwise will return false.

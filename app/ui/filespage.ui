@@ -91,6 +91,13 @@
         </attribute>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="showWelcomeCheckBox">
+        <property name="text">
+         <string>Show welcome screen at startup</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

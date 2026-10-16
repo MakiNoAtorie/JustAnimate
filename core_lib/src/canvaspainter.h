@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #define CANVASPAINTER_H
 
 #include <memory>
+#include <QBitArray>
+#include <QCache>
+#include <QVector>
 #include <QCoreApplication>
 #include <QObject>
 #include <QTransform>
@@ -45,9 +48,19 @@ struct CanvasPainterOptions
     LayerVisibility eLayerVisibility = LayerVisibility::RELATED;
     float fLayerVisibilityThreshold = 0.f;
     bool bOnionSkinMultiLayer = false;
+    // Cache the layers above the painted layer too (SETTING::FAST_RENDER_LAYERS_ABOVE).
+    bool bFastLayersAbove = false;
     float scaling = 1.0f;
     QPainter::CompositionMode cmBufferBlendMode = QPainter::CompositionMode_SourceOver;
     OnionSkinPainterOptions mOnionSkinOptions;
+};
+
+// Composite of a range of layers, filled in 64 px cells; another key or view empties it.
+struct LayerCellCache
+{
+    QBitArray cells; // one bit per cell, set when the cell is current
+    QVector<qint64> key;
+    QTransform view;
 };
 
 class CanvasPainter
@@ -69,6 +82,7 @@ public:
     void paint(const QRect& blitRect);
     void paintCached(const QRect& blitRect);
     void resetLayerCache();
+    int onionFramesTinted() const { return mOnionFramesTinted; }
 
 private:
 
@@ -86,6 +100,9 @@ private:
 
     void renderPostLayers(QPainter& painter, const QRect& blitRect);
     void renderPreLayers(QPainter& painter, const QRect& blitRect);
+    void updateCells(LayerCellCache& cache, QPixmap& pixmap, const QVector<qint64>& key, const QRect& blitRect,
+                     void (CanvasPainter::*render)(QPainter&, const QRect&));
+    QVector<qint64> layersKey(int startLayer, int endLayer) const;
 
     void paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startLayer, int endLayer);
 
@@ -93,7 +110,7 @@ private:
 
     void paintBitmapOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
     void paintVectorOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
-    void paintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPainter, int nFrame, bool colorize, qreal frameOpacity);
+    void tintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPainter, int nFrame, bool colorize, qreal frameOpacity);
 
     void paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
     void paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
@@ -121,8 +138,15 @@ private:
     QPixmap mPreLayersPixmap;
     QPixmap mCurrentLayerPixmap;
     QPixmap mOnionSkinPixmap;
-    bool mPreLayersPixmapCacheValid = false;
+    LayerCellCache mPreLayersCache;
+    LayerCellCache mPostLayersCache; // used only with bFastLayersAbove
     bool mPostLayersPixmapCacheValid = false;
+
+    // Tinted bitmap onion frames, cropped to their bounds, keyed by content; another view empties it.
+    struct OnionFrame { QPixmap pixmap; QPoint pos; };
+    QCache<QVector<qint64>, OnionFrame> mOnionCache{ 64 << 20 }; // cost in bytes
+    QTransform mOnionCacheView;
+    int mOnionFramesTinted = 0;
 
     // There's a considerable amount of overhead in simply allocating a QPointF on the fly.
     // Since we just need to draw it at 0,0, we might as well make a const value for that purpose

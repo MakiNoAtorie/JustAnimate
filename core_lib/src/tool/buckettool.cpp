@@ -47,6 +47,7 @@ void BucketTool::loadSettings()
     mPropertyUsed[BucketToolProperties::FILLEXPAND_ENABLED] = { Layer::BITMAP };
     mPropertyUsed[BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE] = { Layer::BITMAP };
     mPropertyUsed[BucketToolProperties::FILLMODE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[BucketToolProperties::FILLCLOSEGAPS_VALUE] = { Layer::BITMAP };
 
     QSettings pencilSettings(PENCIL2D, PENCIL2D);
 
@@ -59,6 +60,7 @@ void BucketTool::loadSettings()
     info[BucketToolProperties::FILLEXPAND_ENABLED] = true;
     info[BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE] = { 0, 1, 0 };
     info[BucketToolProperties::FILLMODE_VALUE] = { 0, 2, 0 };
+    info[BucketToolProperties::FILLCLOSEGAPS_VALUE] = { 0, 20, 0 };
 
     toolProperties().insertProperties(info);
     toolProperties().loadFrom(typeName(), pencilSettings);
@@ -225,6 +227,12 @@ void BucketTool::setFillReferenceMode(int referenceMode)
 {
     toolProperties().setBaseValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, referenceMode);
     emit fillReferenceModeChanged(referenceMode);
+}
+
+void BucketTool::setFillCloseGaps(int pixels)
+{
+    toolProperties().setBaseValue(BucketToolProperties::FILLCLOSEGAPS_VALUE, pixels);
+    emit fillCloseGapsChanged(pixels);
 }
 
 void BucketTool::setFillMode(int mode)

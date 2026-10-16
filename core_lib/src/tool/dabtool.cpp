@@ -283,6 +283,21 @@ void DabTool::dabSegment(const PenPoint& b)
     mLastBrushPressure = b.pressure;
 }
 
+void DabTool::dabPath(const QPolygonF& points)
+{
+    if (points.isEmpty()) return;
+    mStrokeLength = 0;
+    for (int i = 1; i < points.size(); ++i)
+        mStrokeLength += QLineF(points[i - 1], points[i]).length();
+    mStrokeEnding = true;
+    mBrushDistance = 0;
+    mDistanceToNextDab = 0;
+    mLastBrushPoint = points.first();
+    mLastBrushPressure = 1;
+    for (int i = 1; i < points.size(); ++i)
+        dabSegment({ points[i], 1, 0, QPointF() });
+}
+
 void DabTool::drawStroke()
 {
     StrokeTool::drawStroke();

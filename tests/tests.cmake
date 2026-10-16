@@ -11,8 +11,10 @@ set(TEST_HEADERS
 set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_benchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_canvaspainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_colormanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_defaultlayout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_welcomehelper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineparser.cpp
@@ -39,8 +41,10 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_eyedroppertool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_editorimport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_propertyinfo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_lassofilltool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shapetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_stroketool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tabletapi.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolsettings.cpp
@@ -87,6 +91,8 @@ add_executable(pencil2d_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basedockwidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basedockwidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.h

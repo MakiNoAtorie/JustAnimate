@@ -5,6 +5,26 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The welcome screen shows at every startup unless a file is opened from the command line; turn it off in Preferences > Files (4.3).
+- Timeline: Delete Frame (Ripple) removes one frame: inside a hold it shortens the hold, on a drawing it removes the drawing, and later frames move one frame left (3.4).
+- Shape tool: Esc, a tool switch or a layer change drops an unfinished polygon (2.3).
+- Playback reads the next 12 frames ahead of the playhead on worker threads while it draws the current one, so playing a large project is faster; edits made during playback show on the next loop (1.2).
+- Timeline Selection: Exposure 1s/2s/3s sets the hold of each selected drawing in one step, Clean Exposure removes drawings that repeat the one before, and exposure on long selections is fast (3.5).
+- Timeline: Insert Frame (Ripple) and Delete Frame (Ripple) shift every later frame of the layer, as one undo step (3.4).
+- The welcome screen offers project templates (HD, 4K, vertical, square, GIF) that set the canvas size and frame rate (4.3).
+- A welcome screen replaces the preset dialog: recent projects with thumbnails (missing files are marked), open, and new from a preset (4.3).
+- Canvas: onion skin frames are tinted once and reused, so scrubbing with onion skin on is faster (1.4).
+- Timeline: drag a box across layers to select frames on all of them, then drag to move them together as one undo step (3.4).
+- Keyframes more than 50 frames from the playhead are unloaded and reload from disk on demand, so large projects use much less RAM; frames with unsaved changes stay in memory (1.5).
+- Lasso fill tool (L): drag a freehand loop to fill it with the current color, on bitmap and vector layers (2.5).
+- Canvas: opt-in "Fast rendering of layers above" (Preferences > General) also caches the layers above the one you paint (1.3).
+- Saving and opening zip and unzip the project on a worker thread, so the progress bar keeps moving and the window keeps repainting; an autosave that fires during a save is skipped (1.6).
+- Shape tool polygon mode: click to add points; a double click or a click on the first point closes it, on bitmap and vector layers (2.3).
+- Shape tool (U): line, rectangle and ellipse on bitmap and vector layers; Shift constrains, Alt draws from the center; bitmap shapes use the tool's brush settings (2.3).
+- Canvas: the layers below the one you paint are cached in 64 px cells and redrawn only when they change, so repaints with many layers are faster (1.3).
+- Fill behind lines is the bucket's existing Behind blend mode; a test now checks it keeps antialiased line edges over the fill (2.6).
+- Saving encodes bitmap frames to PNG on up to 8 cores at once; the saved pixels are unchanged (1.6).
+- Bucket "close gaps" option: line gaps up to N px count as closed when filling (0 = off, default) (2.4).
 - Brush preset editor (New, Edit, Duplicate in the preset dock) edits every engine setting, the tip image, a per-preset pressure curve and the description with a live preview stroke (B8).
 - Brush presets: a default pack (HB and 2B pencil, G-pen, marker, soft airbrush, chalk, watercolour, hard and soft eraser) installs into the preset folder on first launch and never overwrites your presets (B8).
 - Brush presets export to and import from .jabrush files that carry the tip image; malformed or path-escaping files are rejected (B8).

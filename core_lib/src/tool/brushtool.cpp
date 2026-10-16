@@ -86,7 +86,8 @@ void BrushTool::loadSettings()
     toolProperties().loadFrom(typeName(), pencilSettings);
     migrateLineStabilization(pencilSettings);
 
-    if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
+    // Subclasses (the shape tool) must not consume the old brush keys.
+    if (type() == BRUSH && toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
         toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("brushWidth", 24.0).toReal());
         toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, pencilSettings.value("brushFeather", 48.0).toReal());
         toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, pencilSettings.value("brushPressure", true).toBool());

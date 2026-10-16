@@ -55,6 +55,8 @@ public:
     void penOn();
     void handOn();
     void polylineOn();
+    void shapeOn();
+    void lassoFillOn();
     void bucketOn();
     void eyedropperOn();
     void brushOn();

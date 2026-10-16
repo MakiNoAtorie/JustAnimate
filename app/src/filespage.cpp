@@ -24,7 +24,8 @@ GNU General Public License for more details.
 #include "errordialog.h"
 #include "filemanager.h"
 #include "pencilerror.h"
-#include "presetdialog.h"
+#include "welcomehelper.h"
+#include "preferencemanager.h"
 
 #include "ui_filespage.h"
 
@@ -41,6 +42,7 @@ FilesPage::FilesPage()
     connect(ui->askPresetRbtn, &QRadioButton::toggled, this, &FilesPage::askForPresetChange);
     connect(ui->loadLastActiveRbtn, &QRadioButton::toggled, this, &FilesPage::loadMostRecentChange);
     connect(ui->loadDefaultPresetRbtn, &QRadioButton::toggled, this, &FilesPage::loadDefaultPreset);
+    connect(ui->showWelcomeCheckBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::SHOW_WELCOME_SCREEN, on); });
     connect(ui->presetListWidget, &QListWidget::itemChanged, this, &FilesPage::presetNameChanged);
 
     auto spinBoxValueChange = static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged);
@@ -92,7 +94,7 @@ void FilesPage::addPreset()
 
     // 1. save the current object to the preset folder
     FileManager fm(this);
-    Status st = fm.save(mManager->object(), PresetDialog::getPresetPath(newPresetIndex));
+    Status st = fm.save(mManager->object(), Welcome::presetPath(newPresetIndex));
     if (!st.ok())
     {
         ErrorDialog errorDialog(st.title(),
@@ -135,7 +137,7 @@ void FilesPage::removePreset()
     for (QListWidgetItem* item : itemsToRemove)
     {
         int index = item->data(Qt::UserRole).toInt();
-        QFile presetFile(PresetDialog::getPresetPath(index));
+        QFile presetFile(Welcome::presetPath(index));
         presetFile.remove();
     }
 
@@ -217,6 +219,7 @@ void FilesPage::updateValues()
     ui->askPresetRbtn->setChecked(mManager->isOn(SETTING::ASK_FOR_PRESET));
     ui->loadDefaultPresetRbtn->setChecked(mManager->isOn(SETTING::LOAD_DEFAULT_PRESET));
     ui->loadLastActiveRbtn->setChecked(mManager->isOn(SETTING::LOAD_MOST_RECENT));
+    ui->showWelcomeCheckBox->setChecked(mManager->isOn(SETTING::SHOW_WELCOME_SCREEN));
 }
 
 void FilesPage::askForPresetChange(int b)

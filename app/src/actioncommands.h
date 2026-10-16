@@ -78,6 +78,11 @@ public:
     void reverseSelectedFrames();
     void addExposureToSelectedFrames();
     void subtractExposureFromSelectedFrames();
+    /** Adds `value` to the hold of each selected drawing, or sets the hold to `value` when `hold` is true.
+     *  With no frame selected, acts on the drawing at the current frame. */
+    void exposeSelectedFrames(int value, bool hold = false);
+    /** Removes selected drawings that repeat the drawing before them. With no frame selected, acts on the current layer. */
+    void cleanExposureOfSelectedFrames();
 
     // Layer
     Status addNewBitmapLayer();
@@ -103,8 +108,6 @@ public:
 
 private:
     void showSoundClipWarningIfNeeded();
-
-    void exposeSelectedFrames(int offset);
 
     Status convertSoundToWav(const QString& filePath);
 

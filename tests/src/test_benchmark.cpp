@@ -44,6 +44,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "object.h"
 #include "playbackmanager.h"
+#include "preferencemanager.h"
 #include "scribblearea.h"
 #include "stageprofiler.h"
 #include "stroketool.h"
@@ -51,8 +52,36 @@ GNU General Public License for more details.
 #include "toolmanager.h"
 #include "viewmanager.h"
 
+#ifdef Q_OS_WIN
+#define NOMINMAX
+#include <windows.h>
+#include <psapi.h>
+#endif
+
 namespace
 {
+
+// Highest resident set seen by sampleRam(); 0 on platforms without a reading.
+quint64 peakRamBytes = 0;
+
+void sampleRam()
+{
+    quint64 rss = 0;
+#if defined(Q_OS_WIN)
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
+        rss = pmc.WorkingSetSize;
+#elif defined(Q_OS_LINUX)
+    if (std::FILE* f = std::fopen("/proc/self/statm", "r"))
+    {
+        unsigned long size = 0, resident = 0;
+        if (std::fscanf(f, "%lu %lu", &size, &resident) == 2)
+            rss = quint64(resident) * 4096;
+        std::fclose(f);
+    }
+#endif
+    peakRamBytes = std::max(peakRamBytes, rss);
+}
 
 struct BenchConfig
 {
@@ -70,7 +99,8 @@ struct Scenario
     std::vector<double> ms;
 };
 
-QString createProject(const QString& dir, const BenchConfig& cfg)
+// Builds the project in memory (not timed) and saves it; saveMs gets the time of the save.
+QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs)
 {
     std::unique_ptr<Object> object(new Object);
     object->init();
@@ -91,7 +121,10 @@ QString createProject(const QString& dir, const BenchConfig& cfg)
 
     const QString path = dir + "/benchmark.pclx";
     FileManager fm;
+    QElapsedTimer t;
+    t.start();
     const Status st = fm.save(object.get(), path);
+    saveMs = t.nsecsElapsed() / 1e6;
     REQUIRE(st.ok());
     return path;
 }
@@ -177,15 +210,23 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
 {
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
-    const QString path = createProject(dir.path(), cfg);
-
     std::vector<Scenario> sc = {
+        { "save",         "file",   1 },
         { "open",         "file",   1 },
         { "scrub",        "frame",  cfg.frames },
         { "play",         "frame",  cfg.frames },
         { "draw pencil",  "stroke", cfg.strokes },
         { "draw brush",   "stroke", cfg.strokes },
+        { "draw top",     "stroke", cfg.strokes },
+        { "scrub onion",  "frame",  cfg.frames },
     };
+    QString path;
+    for (int rep = 0; rep < cfg.reps; ++rep)
+    {
+        double ms = 0;
+        path = createProject(dir.path(), cfg, ms);
+        sc[0].ms.push_back(ms);
+    }
 
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
@@ -194,7 +235,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
 
         t.start();
         const Status st = s.editor->openObject(path, [](int) {}, [](int) {});
-        sc[0].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[1].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(st.ok());
         REQUIRE(s.editor->object()->getLayerCount() == cfg.layers + 1);
 
@@ -206,8 +247,9 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         {
             s.editor->scrubTo(f);
             s.area->repaint();
+            sampleRam();
         }
-        sc[1].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[2].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(s.counter.paints == cfg.frames);
 
         // Play: playback state on, frames rendered back to back as fast as possible.
@@ -220,21 +262,43 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         {
             s.area->repaint();
             s.editor->scrubForward();
+            sampleRam();
         }
-        sc[2].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[3].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(s.counter.paints == cfg.frames);
         s.editor->playback()->stop();
         REQUIRE(s.editor->currentFrame() == cfg.frames + 1);
 
         t.start();
         drawStrokes(s, PENCIL, cfg.strokes);
-        sc[3].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[4].ms.push_back(t.nsecsElapsed() / 1e6);
         auto* layer = static_cast<LayerBitmap*>(s.editor->layers()->currentLayer());
         REQUIRE(layer->getBitmapImageAtFrame(1)->bounds().width() > 500); // the strokes landed
 
         t.start();
         drawStrokes(s, BRUSH, cfg.strokes);
-        sc[4].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[5].ms.push_back(t.nsecsElapsed() / 1e6);
+
+        // Pencil on the top layer: every other bitmap layer is below it.
+        s.editor->layers()->setCurrentLayer(cfg.layers);
+        t.start();
+        drawStrokes(s, PENCIL, cfg.strokes);
+        sc[6].ms.push_back(t.nsecsElapsed() / 1e6);
+
+        // Scrub again with tinted onion skin on both sides (default 5 frames each).
+        const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
+        for (SETTING o : { SETTING::PREV_ONION, SETTING::NEXT_ONION, SETTING::ONION_RED, SETTING::ONION_BLUE })
+            s.editor->preference()->set(o, true);
+        s.area->onObjectLoaded();
+        s.counter.paints = 0;
+        t.start();
+        for (int f = 1; f <= cfg.frames; ++f)
+        {
+            s.editor->scrubTo(f);
+            s.area->repaint();
+        }
+        sc[7].ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(s.counter.paints == cfg.frames);
     }
     return sc;
 }
@@ -251,6 +315,7 @@ void printResults(const BenchConfig& cfg, std::vector<Scenario>& sc)
         std::printf("%-12s %10.1f %10.1f %10.1f %8.2f ms/%s\n", s.name, median, s.ms.front(), s.ms.back(),
                     median / s.units, s.unit);
     }
+    std::printf("peak RAM during scrub and play: %.1f MB\n", peakRamBytes / (1024.0 * 1024.0));
     std::fflush(stdout);
 }
 
@@ -494,7 +559,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 5);
+    REQUIRE(sc.size() == 8);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

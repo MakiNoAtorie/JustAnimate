@@ -53,10 +53,13 @@ void BucketOptionsWidget::initUI()
 
     auto toleranceInfo = properties.getInfo(BucketToolProperties::COLORTOLERANCE_VALUE);
     auto expandInfo = properties.getInfo(BucketToolProperties::FILLEXPAND_VALUE);
+    auto closeGapsInfo = properties.getInfo(BucketToolProperties::FILLCLOSEGAPS_VALUE);
     auto thicknessInfo = properties.getInfo(BucketToolProperties::FILLTHICKNESS_VALUE);
 
     ui->colorToleranceSlider->init(tr("Color tolerance"), SpinSlider::GROWTH_TYPE::LINEAR, toleranceInfo.minInt(), toleranceInfo.maxInt());
     ui->expandSlider->init(tr("Expand fill"), SpinSlider::GROWTH_TYPE::LINEAR, expandInfo.minInt(), expandInfo.maxInt());
+    ui->closeGapsSlider->init(tr("Close gaps"), SpinSlider::GROWTH_TYPE::LINEAR, closeGapsInfo.minInt(), closeGapsInfo.maxInt());
+    ui->closeGapsSpinBox->setMaximum(closeGapsInfo.maxInt());
     ui->strokeThicknessSlider->init(tr("Stroke thickness"), SpinSlider::GROWTH_TYPE::LOG, thicknessInfo.minReal(), thicknessInfo.maxReal());
 
     ui->expandSpinBox->setMaximum(expandInfo.maxInt());
@@ -78,6 +81,7 @@ void BucketOptionsWidget::initUI()
 
     clearFocusOnFinished(ui->colorToleranceSpinbox);
     clearFocusOnFinished(ui->expandSpinBox);
+    clearFocusOnFinished(ui->closeGapsSpinBox);
 
     updatePropertyVisibility();
 }
@@ -98,6 +102,10 @@ void BucketOptionsWidget::updateUI()
 
     if (mBucketTool->isPropertyEnabled(BucketToolProperties::FILLEXPAND_VALUE)) {
         mBucketTool->setFillExpand(properties.fillExpandAmount());
+    }
+
+    if (mBucketTool->isPropertyEnabled(BucketToolProperties::FILLCLOSEGAPS_VALUE)) {
+        mBucketTool->setFillCloseGaps(properties.fillCloseGaps());
     }
 
     if (mBucketTool->isPropertyEnabled(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE)) {
@@ -133,6 +141,10 @@ void BucketOptionsWidget::makeConnectionsFromModelToUI()
 
     connect(mBucketTool, &BucketTool::fillExpandEnabledChanged, this, [=](bool enabled) {
        setFillExpandEnabled(enabled);
+    });
+
+    connect(mBucketTool, &BucketTool::fillCloseGapsChanged, this, [=](int value) {
+       setFillCloseGaps(value);
     });
 
     connect(mBucketTool, &BucketTool::fillReferenceModeChanged, this, [=](int value) {
@@ -173,6 +185,14 @@ void BucketOptionsWidget::makeConnectionsFromUIToModel()
         mBucketTool->setFillExpandEnabled(enabled);
     });
 
+    connect(ui->closeGapsSlider, &SpinSlider::valueChanged, [=](int value) {
+        mBucketTool->setFillCloseGaps(value);
+    });
+
+    connect(ui->closeGapsSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), [=](int value) {
+        mBucketTool->setFillCloseGaps(value);
+    });
+
     connect(ui->referenceLayerComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), [=](int value) {
         mBucketTool->setFillReferenceMode(value);
     });
@@ -200,6 +220,8 @@ void BucketOptionsWidget::updatePropertyVisibility()
     ui->expandCheckbox->setVisible(mBucketTool->isPropertyEnabled(BucketToolProperties::FILLEXPAND_ENABLED));
     ui->expandSlider->setVisible(mBucketTool->isPropertyEnabled(BucketToolProperties::FILLEXPAND_VALUE));
     ui->expandSpinBox->setVisible(mBucketTool->isPropertyEnabled(BucketToolProperties::FILLEXPAND_VALUE));
+    ui->closeGapsSlider->setVisible(mBucketTool->isPropertyEnabled(BucketToolProperties::FILLCLOSEGAPS_VALUE));
+    ui->closeGapsSpinBox->setVisible(mBucketTool->isPropertyEnabled(BucketToolProperties::FILLCLOSEGAPS_VALUE));
     ui->referenceLayerComboBox->setVisible(mBucketTool->isPropertyEnabled(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE));
     ui->referenceLayerDescLabel->setVisible(mBucketTool->isPropertyEnabled(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE));
     ui->blendModeComboBox->setVisible(mBucketTool->isPropertyEnabled(BucketToolProperties::FILLMODE_VALUE));
@@ -236,6 +258,15 @@ void BucketOptionsWidget::setFillExpandEnabled(bool enabled)
 {
     QSignalBlocker b(ui->expandCheckbox);
     ui->expandCheckbox->setChecked(enabled);
+}
+
+void BucketOptionsWidget::setFillCloseGaps(int value)
+{
+    QSignalBlocker b(ui->closeGapsSlider);
+    ui->closeGapsSlider->setValue(value);
+
+    QSignalBlocker b2(ui->closeGapsSpinBox);
+    ui->closeGapsSpinBox->setValue(value);
 }
 
 void BucketOptionsWidget::setFillExpand(int value)

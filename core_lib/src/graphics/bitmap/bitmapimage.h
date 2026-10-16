@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "keyframe.h"
 #include <QtMath>
 #include <QHash>
+#include <future>
 
 class TiledBuffer;
 
@@ -46,6 +47,8 @@ public:
 
     /** Loads the backing image data from disk and into memory if it exists but hasn't been loaded yet */
     void loadFile() override;
+    /** Starts reading the backing file on a worker thread; the next loadFile() takes the result */
+    void loadFileAsync();
 
     /** Unloads the image data from memory if there's valid backing data on disk and the latest state has been stored */
     void unloadFile() override;
@@ -92,7 +95,7 @@ public:
     void clear(QRect rectangle);
     void clear(QRectF rectangle) { clear(rectangle.toRect()); }
 
-    static bool floodFill(BitmapImage** replaceImage, const BitmapImage* targetImage, const QRect& cameraRect, const QPoint& point, const QRgb& fillColor, int tolerance, const int expandValue);
+    static bool floodFill(BitmapImage** replaceImage, const BitmapImage* targetImage, const QRect& cameraRect, const QPoint& point, const QRgb& fillColor, int tolerance, const int expandValue, const int closeGaps = 0);
     static bool* floodFillPoints(const BitmapImage* targetImage,
                                 const QRect& searchBounds,
                                 QPoint point,
@@ -190,6 +193,7 @@ protected:
 
 private:
     QImage mImage;
+    std::shared_future<QImage> mPendingLoad; // from loadFileAsync(); reset on load, unload and write
     QRect mBounds{0, 0, 0, 0};
 
     /** @see isMinimallyBounded() */

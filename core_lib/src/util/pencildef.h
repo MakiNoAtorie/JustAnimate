@@ -49,6 +49,8 @@ enum ToolType : int
     BUCKET,
     EYEDROPPER,
     BRUSH,
+    SHAPE,
+    LASSOFILL,
     TOOL_TYPE_COUNT
 };
 
@@ -173,11 +175,17 @@ const static int MaxFramesBound = 9999;
 #define CMD_ADD_FRAME "CmdAddFrame"
 #define CMD_DUPLICATE_FRAME "CmdDuplicateFrame"
 #define CMD_REMOVE_FRAME "CmdRemoveFrame"
+#define CMD_RIPPLE_INSERT_FRAME "CmdRippleInsertFrame"
+#define CMD_RIPPLE_DELETE_FRAME "CmdRippleDeleteFrame"
 #define CMD_REVERSE_SELECTED_FRAMES "CmdReverseSelectedFrames"
 #define CMD_REMOVE_SELECTED_FRAMES "CmdRemoveSelectedFrames"
 #define CMD_SELECTION_REPOSITION_FRAMES "CmdSelectionRepositionFrames"
 #define CMD_SELECTION_ADD_FRAME_EXPOSURE "CmdSelectionAddFrameExposure"
 #define CMD_SELECTION_SUBTRACT_FRAME_EXPOSURE "CmdSelectionSubtractFrameExposure"
+#define CMD_SELECTION_HOLD_1S "CmdSelectionHold1s"
+#define CMD_SELECTION_HOLD_2S "CmdSelectionHold2s"
+#define CMD_SELECTION_HOLD_3S "CmdSelectionHold3s"
+#define CMD_SELECTION_CLEAN_EXPOSURE "CmdSelectionCleanExposure"
 #define CMD_SELECTION_FLIP_HORIZONTAL "CmdSelectionFlipHorizontal"
 #define CMD_SELECTION_FLIP_VERTICAL "CmdSelectionFlipVertical"
 #define CMD_MOVE_FRAME_BACKWARD "CmdMoveFrameBackward"
@@ -186,6 +194,8 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOOL_SELECT "CmdToolSelect"
 #define CMD_TOOL_BRUSH "CmdToolBrush"
 #define CMD_TOOL_POLYLINE "CmdToolPolyline"
+#define CMD_TOOL_SHAPE "CmdToolShape"
+#define CMD_TOOL_LASSOFILL "CmdToolLassoFill"
 #define CMD_TOOL_SMUDGE "CmdToolSmudge"
 #define CMD_TOOL_PEN "CmdToolPen"
 #define CMD_TOOL_HAND "CmdToolHand"
@@ -256,6 +266,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_ROTATION_INCREMENT  "RotationIncrement"
 #define SETTING_SHOW_SELECTION_INFO "ShowSelectionInfo"
 #define SETTING_ASK_FOR_PRESET      "AskForPreset"
+#define SETTING_SHOW_WELCOME_SCREEN "ShowWelcomeScreen"
 #define SETTING_LOAD_MOST_RECENT    "LoadMostRecent"
 #define SETTING_LOAD_DEFAULT_PRESET "LoadDefaultPreset"
 #define SETTING_DEFAULT_PRESET      "DefaultPreset"
@@ -264,6 +275,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_INVERT_SCROLL_ZOOM_DIRECTION "InvertScrollZoomDirection"
 
 #define SETTING_ANTIALIAS        "Antialiasing"
+#define SETTING_FAST_RENDER_LAYERS_ABOVE "FastRenderLayersAbove"
 #define SETTING_SHOW_GRID        "ShowGrid"
 #define SETTING_COUNT            "Count"
 #define SETTING_SHADOW           "Shadow"

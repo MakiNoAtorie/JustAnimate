@@ -703,32 +703,48 @@ Status ActionCommands::addNewKey()
     return Status::OK;
 }
 
-void ActionCommands::exposeSelectedFrames(int offset)
+static bool anyFrameSelected(const Object* object)
+{
+    for (int i = 0; i < object->getLayerCount(); ++i)
+    {
+        if (object->getLayer(i)->hasAnySelectedFrames()) { return true; }
+    }
+    return false;
+}
+
+void ActionCommands::exposeSelectedFrames(int value, bool hold)
 {
     Layer* currentLayer = mEditor->layers()->currentLayer();
+    const bool hasSelectedFrames = anyFrameSelected(mEditor->object());
 
-    bool hasSelectedFrames = currentLayer->hasAnySelectedFrames();
-
-    // Functionality to be able to expose the current frame without selecting
-    // A:
+    // With no selection, expose the drawing at the current frame; it does not move.
     KeyFrame* key = currentLayer->getLastKeyFrameAtPosition(mEditor->currentFrame());
     if (!hasSelectedFrames) {
-
         if (key == nullptr) { return; }
         currentLayer->setFrameSelected(key->pos(), true);
     }
 
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
-    currentLayer->setExposureForSelectedFrames(offset);
-    mEditor->undoRedo()->record(saveStateId, offset > 0 ? tr("Add exposure") : tr("Subtract exposure"));
+    mEditor->layers()->setExposureForSelectedFrames(value, hold);
     emit mEditor->updateTimeLine();
-    emit mEditor->framesModified();
 
-    // Remember to deselect frame again so we don't show it being visually selected.
-    // B:
     if (!hasSelectedFrames) {
         currentLayer->setFrameSelected(key->pos(), false);
     }
+}
+
+void ActionCommands::cleanExposureOfSelectedFrames()
+{
+    LayerManager* layers = mEditor->layers();
+    const bool hasSelectedFrames = anyFrameSelected(mEditor->object());
+    if (!hasSelectedFrames) {
+        const int index = layers->currentLayerIndex();
+        layers->selectFrames(index, index, 1, layers->currentLayer()->getMaxKeyFramePosition());
+    }
+
+    layers->cleanExposureOfSelectedFrames();
+    emit mEditor->updateTimeLine();
+
+    if (!hasSelectedFrames) { layers->deselectAllFrames(); }
 }
 
 void ActionCommands::addExposureToSelectedFrames()
