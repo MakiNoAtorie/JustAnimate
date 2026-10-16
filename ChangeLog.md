@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Polyline, lasso fill and Delete selection on a held frame undo their new Drawing in the same step (#189).
 - Rough layers draw under the other layers on the canvas, wherever they sit in the layer list (#192).
 - Shortcuts page and Window menu say "Reset layout" and "Lock Panels" instead of "Reset Windows" and "Lock Windows" (#181).
 - Marking a cell away from the playhead no longer moves the playhead (#186).

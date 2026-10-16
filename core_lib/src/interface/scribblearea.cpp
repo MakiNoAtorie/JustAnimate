@@ -1667,6 +1667,9 @@ void ScribbleArea::deleteSelection()
         Layer* layer = mEditor->layers()->currentLayer();
         if (layer == nullptr) { return; }
 
+        const QString description = tr("Delete Selection", "Undo Step: clear the selection area.");
+        // A Drawing added for this delete undoes with it in one step.
+        const UndoMacro macro(mEditor->undoRedo(), description);
         handleDrawingOnEmptyFrame();
 
         const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
@@ -1684,7 +1687,7 @@ void ScribbleArea::deleteSelection()
             Q_CHECK_PTR(bitmapImage);
             bitmapImage->clear(selectMan->mySelectionRect());
         }
-        mEditor->undoRedo()->record(saveStateId, tr("Delete Selection", "Undo Step: clear the selection area."));
+        mEditor->undoRedo()->record(saveStateId, description);
         mEditor->setModified(mEditor->currentLayerIndex(), mEditor->currentFrame());
     }
 }

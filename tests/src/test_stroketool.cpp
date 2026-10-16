@@ -1656,6 +1656,59 @@ TEST_CASE("Pencil - a stroke on a held frame makes a new Drawing by default")
     }
 }
 
+TEST_CASE("Polyline lasso fill and Delete selection on a held frame undo their new Drawing in one step")
+{
+    const SettingsGuard settingsGuard({ SETTING_DRAW_ON_EMPTY_FRAME_ACTION });
+    pencilSettings().remove(SETTING_DRAW_ON_EMPTY_FRAME_ACTION);
+
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-30, -30, 60, 60), Qt::NoPen, QBrush(Qt::black),
+                                              QPainter::CompositionMode_Source, false);
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    editor->preference()->loadPrefs();
+    REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == CREATE_NEW_KEY);
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    editor->scrubTo(3);
+
+    SECTION("Polyline")
+    {
+        editor->tools()->setCurrentTool(POLYLINE);
+        const ToolSettingsGuard guard(editor->tools()->currentTool());
+        tap(area, origin + QPointF(-20, 0), 1.0);
+        tap(area, origin + QPointF(20, 0), 1.0);
+        QKeyEvent enter(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QApplication::sendEvent(area, &enter);
+    }
+
+    SECTION("Lasso fill")
+    {
+        editor->tools()->setCurrentTool(LASSOFILL);
+        tablet(area, QEvent::TabletPress, origin + QPointF(-20, -20), 1.0);
+        tablet(area, QEvent::TabletMove, origin + QPointF(20, -20), 1.0);
+        tablet(area, QEvent::TabletMove, origin + QPointF(20, 20), 1.0);
+        tablet(area, QEvent::TabletRelease, origin + QPointF(-20, 20), 1.0);
+    }
+
+    SECTION("Delete selection")
+    {
+        editor->select()->setSelection(QRectF(-10, -10, 20, 20));
+        area->deleteSelection();
+    }
+
+    REQUIRE(layer->keyExists(3));
+    undoAction->trigger();
+    CHECK_FALSE(layer->keyExists(3));
+    CHECK_FALSE(undoAction->isEnabled());
+}
+
 TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure width")
 {
     const SettingsGuard settingsGuard({ SETTING_PRESSURE_CURVE });
