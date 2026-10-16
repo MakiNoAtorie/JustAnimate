@@ -165,6 +165,8 @@ QVector<qint64> CanvasPainter::layersKey(int startLayer, int endLayer) const
         {
             key << qRound64(static_cast<VectorImage*>(frame)->getOpacity() * 1e6);
         }
+        const TweenState tween = layer->tweenStateAt(mFrameNumber);
+        key << qRound64(tween.tx * 1e6) << qRound64(tween.ty * 1e6) << qRound64(tween.rot * 1e6) << qRound64(tween.scale * 1e6);
     }
     return key;
 }
@@ -403,7 +405,9 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
     painter.setWorldMatrixEnabled(false);
 
     currentBitmapPainter.setOpacity(paintedImage->getOpacity() - (1.0-painter.opacity()));
+    currentBitmapPainter.setWorldTransform(layer->tweenStateAt(mFrameNumber).transform() * mViewTransform);
     currentBitmapPainter.drawImage(paintedImage->topLeft(), *paintedImage->image());
+    currentBitmapPainter.setWorldTransform(mViewTransform);
 
     if (isCurrentLayer && isDrawing)
     {
@@ -444,7 +448,9 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     // Paint existing vector image to the painter
     // Remember to adjust opacity based on additional opacity value from the keyframe
     currentVectorPainter.setOpacity(vectorImage->getOpacity() - (1.0-painter.opacity()));
+    currentVectorPainter.setWorldTransform(layer->tweenStateAt(mFrameNumber).transform() * mViewTransform);
     vectorImage->paintImage(currentVectorPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
+    currentVectorPainter.setWorldTransform(mViewTransform);
 
     if (isCurrentLayer && isDrawing) {
         currentVectorPainter.setCompositionMode(mOptions.cmBufferBlendMode);

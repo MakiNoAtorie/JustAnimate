@@ -21,6 +21,10 @@ GNU General Public License for more details.
 #include <QApplication>
 #include <QResizeEvent>
 #include <QColorDialog>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
 #include <QInputDialog>
 #include <QMenu>
 #include <QPainter>
@@ -184,6 +188,12 @@ void TimeLineCells::showCameraMenu(QPoint pos)
 
     const Layer* curLayer = mEditor->layers()->currentLayer();
     Q_ASSERT(curLayer);
+
+    if ((curLayer->type() == Layer::BITMAP || curLayer->type() == Layer::VECTOR) && curLayer->keyExists(frameNumber))
+    {
+        showTweenMenu(frameNumber, mapToGlobal(pos));
+        return;
+    }
 
     // only show menu if on camera layer and key exists
     if (curLayer->type() != Layer::CAMERA || !curLayer->keyExists(frameNumber))
@@ -434,6 +444,65 @@ void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
     }
     mEditor->object()->modification();
     updateContent();
+}
+
+void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
+{
+    const KeyFrame* key = mEditor->layers()->currentLayer()->getKeyFrameAt(frame);
+    bool tween = key->tween();
+    CameraEasingType easing = key->tweenEasing();
+    TweenState state = key->tweenState();
+
+    QMenu menu;
+    QAction* toggle = menu.addAction(tr("Tween to Next Key"));
+    toggle->setCheckable(true);
+    toggle->setChecked(tween);
+    QMenu* easingMenu = menu.addMenu(tr("Tween Easing"));
+    for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
+    {
+        QAction* action = easingMenu->addAction(getInterpolationText(static_cast<CameraEasingType>(i)));
+        action->setCheckable(true);
+        action->setChecked(static_cast<int>(easing) == i);
+        action->setData(i);
+    }
+    QAction* transform = menu.addAction(tr("Key Transform..."));
+    QAction* chosen = menu.exec(globalPos);
+    if (chosen == nullptr) { return; }
+
+    if (chosen == toggle)
+    {
+        tween = !tween;
+    }
+    else if (chosen == transform)
+    {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Key Transform"));
+        QFormLayout* form = new QFormLayout(&dialog);
+        auto spin = [&](const QString& label, qreal value, qreal min, qreal max) {
+            QDoubleSpinBox* box = new QDoubleSpinBox(&dialog);
+            box->setRange(min, max);
+            box->setDecimals(2);
+            box->setValue(value);
+            form->addRow(label, box);
+            return box;
+        };
+        QDoubleSpinBox* tx = spin(tr("Move X:"), state.tx, -100000, 100000);
+        QDoubleSpinBox* ty = spin(tr("Move Y:"), state.ty, -100000, 100000);
+        QDoubleSpinBox* rot = spin(tr("Rotation:"), state.rot, -3600, 3600);
+        QDoubleSpinBox* scale = spin(tr("Scale:"), state.scale, 0.01, 100);
+        QDialogButtonBox* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        form->addRow(buttons);
+        if (dialog.exec() != QDialog::Accepted) { return; }
+        state = TweenState{ tx->value(), ty->value(), rot->value(), scale->value() };
+    }
+    else if (chosen->data().isValid())
+    {
+        easing = static_cast<CameraEasingType>(chosen->data().toInt());
+        tween = true;
+    }
+    mEditor->layers()->setKeyTween(frame, tween, easing, state);
 }
 
 void TimeLineCells::paintTrack(QPainter& painter, const Layer* layer,

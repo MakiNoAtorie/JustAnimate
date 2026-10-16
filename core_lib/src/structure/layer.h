@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include "blendmode.h"
 
 class KeyFrame;
+struct TweenState;
 class Status;
 
 typedef std::function<void()> ProgressCallback;
@@ -117,6 +118,8 @@ public:
     bool moveKeyFrame(int position, int offset);
     KeyFrame* getKeyFrameAt(int position) const;
     KeyFrame* getLastKeyFrameAtPosition(int position) const;
+    /** The drawing state at a frame: the key's own, or interpolated to the next key when the key tweens. */
+    TweenState tweenStateAt(int frame) const;
     bool keyExistsWhichCovers(int frameNumber);
     KeyFrame *getKeyFrameWhichCovers(int frameNumber) const;
 
@@ -186,6 +189,9 @@ public:
 
 protected:
     virtual KeyFrame* createKeyFrame(int position) = 0;
+    /** Optional tween attributes of an <image> key element. */
+    static void writeKeyTween(QDomElement& image, const KeyFrame* key);
+    static void readKeyTween(const QDomElement& image, KeyFrame* key);
     bool loadKey(KeyFrame*);
 
 private:

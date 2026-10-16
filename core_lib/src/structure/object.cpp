@@ -755,8 +755,11 @@ void Object::paintImage(QPainter& painter,int frameNumber,
             }
         }
         if (!paint) { continue; }
+        painter.save();
+        painter.setTransform(layer->tweenStateAt(frameNumber).transform(), true);
         if (layer->blendMode() == BlendMode::Normal) { paint(painter); }
         else { drawBlendedLayer(painter, layer->blendMode(), paint); }
+        painter.restore();
     }
 }
 

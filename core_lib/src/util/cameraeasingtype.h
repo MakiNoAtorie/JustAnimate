@@ -63,5 +63,7 @@ enum class CameraEasingType {
 };
 
 QString getInterpolationText(CameraEasingType type);
+/** Maps linear progress 0..1 through the easing curve. */
+qreal easedProgress(CameraEasingType type, qreal percent);
 
 #endif // CAMERAEASINGTYPE_H
