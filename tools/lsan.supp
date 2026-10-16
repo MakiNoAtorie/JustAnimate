@@ -1,2 +1,3 @@
 leak:libpulse.so
 leak:libpulsecommon
+leak:libgstreamer-1.0.so
