@@ -49,6 +49,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_rotateviewtool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_scribblearea.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_settings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shapetool.cpp

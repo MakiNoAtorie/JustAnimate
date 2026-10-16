@@ -204,3 +204,11 @@ TEST_CASE("Saved shortcuts move R from the old rotate commands to the Rotate vie
     checkExistingShortcuts();
     CHECK(settings.value(clock).toString() == "Ctrl+R");
 }
+
+TEST_CASE("Default shortcuts: Ctrl+K opens Preferences and Ctrl+Shift+P opens Command search")
+{
+    QSettings preset(":resources/kb.ini", QSettings::IniFormat);
+    preset.beginGroup("shortcuts");
+    CHECK(findShortcutConflict(preset, "", QKeySequence("Ctrl+K")) == CMD_PREFERENCE);
+    CHECK(findShortcutConflict(preset, "", QKeySequence("Ctrl+Shift+P")) == CMD_COMMAND_SEARCH);
+}

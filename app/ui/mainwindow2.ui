@@ -127,6 +127,7 @@
     <addaction name="separator"/>
     <addaction name="menuPrepare_scanned_drawings"/>
     <addaction name="separator"/>
+    <addaction name="actionCommandSearch"/>
     <addaction name="actionPreference"/>
    </widget>
    <widget class="QMenu" name="menuView">
@@ -461,6 +462,11 @@
   <action name="actionClearFrame">
    <property name="text">
     <string>Clear Frame</string>
+   </property>
+  </action>
+  <action name="actionCommandSearch">
+   <property name="text">
+    <string>Command search...</string>
    </property>
   </action>
   <action name="actionPreference">

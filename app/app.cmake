@@ -52,6 +52,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutspage.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandsearch.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/spinslider.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/statusbar.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timecontrols.h
@@ -118,6 +119,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutspage.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/spinslider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/statusbar.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/strokeoptionswidget.cpp

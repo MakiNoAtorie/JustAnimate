@@ -98,6 +98,7 @@ public:
 
     void setOpacity(int opacity);
     void preferences();
+    void openCommandSearch();
 
     void openStartupFile(const QString& filename);
     void openFile(const QString& filename);

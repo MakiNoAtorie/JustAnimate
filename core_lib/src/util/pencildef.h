@@ -135,6 +135,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_CLEAR_FRAME "CmdClearFrame"
 #define CMD_PEGBAR_ALIGNMENT "CmdPegBarAlignment"
 #define CMD_PREFERENCE "CmdPreferences"
+#define CMD_COMMAND_SEARCH "CmdCommandSearch"
 #define CMD_RESET_WINDOWS "CmdResetWindows"
 #define CMD_LOCK_WINDOWS "CmdLockWindows"
 #define CMD_ZOOM_IN "CmdZoomIn"

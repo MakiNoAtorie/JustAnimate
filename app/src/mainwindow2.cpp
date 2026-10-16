@@ -92,6 +92,7 @@ GNU General Public License for more details.
 #include "layeropacitydialog.h"
 #include "recentfilemenu.h"
 #include "shortcutfilter.h"
+#include "commandsearch.h"
 #include "app_util.h"
 #include "welcomedialog.h"
 #include "welcomehelper.h"
@@ -396,6 +397,7 @@ void MainWindow2::createMenus()
     connect(ui->actionDeselect_All, &QAction::triggered, mCommands, &ActionCommands::deselectAll);
     connect(ui->actionReposition_Selected_Frames, &QAction::triggered, this, &MainWindow2::openRepositionDialog);
     connect(ui->actionPreference, &QAction::triggered, [=] { preferences(); });
+    connect(ui->actionCommandSearch, &QAction::triggered, this, &MainWindow2::openCommandSearch);
 
     //--- Layer Menu ---
     connect(ui->actionNew_Bitmap_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewBitmapLayer);
@@ -1246,6 +1248,13 @@ void MainWindow2::lockWidgets(bool shouldLock)
     }
 }
 
+void MainWindow2::openCommandSearch()
+{
+    CommandSearch* search = new CommandSearch(collectCommands(menuBar()), this);
+    search->setAttribute(Qt::WA_DeleteOnClose);
+    search->open();
+}
+
 void MainWindow2::preferences()
 {
     if (mPrefDialog)
@@ -1504,6 +1513,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionDeselect_All->setShortcut(cmdKeySeq(CMD_DESELECT_ALL));
     ui->actionPegbarAlignment->setShortcut(cmdKeySeq(CMD_PEGBAR_ALIGNMENT));
     ui->actionPreference->setShortcut(cmdKeySeq(CMD_PREFERENCE));
+    ui->actionCommandSearch->setShortcut(cmdKeySeq(CMD_COMMAND_SEARCH));
 
     // View menu
     ui->actionResetWindows->setShortcut(cmdKeySeq(CMD_RESET_WINDOWS));
@@ -1963,6 +1973,13 @@ void MainWindow2::createToolbars()
     perspectiveLinesAngleButton->setDefaultAction(ui->menuPerspectiveLinesAngle->menuAction());
     perspectiveLinesAngleButton->setPopupMode(QToolButton::InstantPopup);
     mCommandBar->addWidget(perspectiveLinesAngleButton);
+
+    CommandSearchField* searchField = new CommandSearchField(this);
+    connect(searchField, &CommandSearchField::activated, this, &MainWindow2::openCommandSearch);
+    QWidget* spacer = new QWidget(this);
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    mCommandBar->addWidget(spacer);
+    mCommandBar->addWidget(searchField);
 
     ui->menuWindows->insertAction(ui->actionStatusBar, mCommandBar->toggleViewAction());
 }
