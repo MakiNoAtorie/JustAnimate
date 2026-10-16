@@ -413,6 +413,24 @@ TEST_CASE("FileManager loads malformed project XML")
         REQUIRE(static_cast<Camera*>(cam->getKeyFrameAt(2))->scaling() == 1.0);
     }
 
+    SECTION("Camera easing out of range loads as linear")
+    {
+        FileManager fm;
+        std::unique_ptr<Object> obj(loadXmlString(fm,
+            "<!DOCTYPE PencilDocument><document><object>"
+            "  <layer name='Cam' id='4' visibility='1' type='5' width='800' height='600'>"
+            "    <camera frame='1' easing='-1'/>"
+            "    <camera frame='2' easing='9999'/>"
+            "    <camera frame='3' easing='2'/>"
+            "  </layer>"
+            "</object></document>"));
+
+        REQUIRE(obj != nullptr);
+        auto cam = static_cast<LayerCamera*>(obj->findLayerByName("Cam"));
+        REQUIRE(static_cast<Camera*>(cam->getKeyFrameAt(1))->getEasingType() == CameraEasingType::LINEAR);
+        REQUIRE(static_cast<Camera*>(cam->getKeyFrameAt(2))->getEasingType() == CameraEasingType::LINEAR);
+        REQUIRE(static_cast<Camera*>(cam->getKeyFrameAt(3))->getEasingType() == CameraEasingType::OUTQUAD);
+    }
     SECTION("Unknown element under document is skipped")
     {
         FileManager fm;
