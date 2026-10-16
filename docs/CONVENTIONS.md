@@ -39,8 +39,11 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Test at a public interface (`Editor`, `FileManager`, a tool, a manager;
   `MainWindow2` only for whole-UI sweeps such as `[Accessibility]`).
 - Settings go through `pencilSettings()` (`util/pencilsettings.h`) only,
-  never `QSettings(PENCIL2D, PENCIL2D)`. Tests restore what they change and
+  never `QSettings(PENCIL2D, PENCIL2D)`; it is one shared `QSettings&`.
+  Tests run on an empty temporary INI store, restore what they change and
   set up what they read.
+- Tests do not link QtTest: count signals with a lambda `connect`, not
+  `QSignalSpy`.
 - Tests write files only under their own `QTemporaryDir`: agents run suites in
   parallel on one machine.
 - Fixtures are stack objects or `unique_ptr`, and every `new` QObject in app
