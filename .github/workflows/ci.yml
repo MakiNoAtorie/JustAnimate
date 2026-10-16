@@ -83,6 +83,9 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest https://github.com/pencil2d/pencil2d-deps/releases/download/ffmpge-v4.1.1/ffmpeg-win64.zip -OutFile ffmpeg-win64.zip
+          $expected = '70FF7D439FF98EAF7055559E5E9D22E36892D3EB24D07E31C64307B875382178'
+          $actual = (Get-FileHash -Algorithm SHA256 ffmpeg-win64.zip).Hash
+          if ($actual -ne $expected) { throw "ffmpeg-win64.zip SHA-256 mismatch: expected $expected, got $actual" }
           Expand-Archive ffmpeg-win64.zip -DestinationPath ffmpeg
           "FFMPEG=$("$PWD\ffmpeg\ffmpeg.exe".Replace('\', '/'))" >> $env:GITHUB_ENV
 

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- CI: the Windows ffmpeg download is checked against a pinned SHA-256 and the job fails on a mismatch.
 - Fixes: after a vector paste the selection covers the pasted curves; non-Debug builds no longer print `qDebug()` output; removed the unused Doxyfile and `SETTING_COUNT` (#156).
 - Pen: a double tap needs two taps within 500 ms and 5 px, not three, and the window is a real 500 ms (#133).
 - Fixes: a held frame repaints the canvas from the cache instead of redrawing it on every repaint; an edit on its key still shows at once (#129).
