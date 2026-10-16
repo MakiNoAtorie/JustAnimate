@@ -24,6 +24,8 @@ GNU General Public License for more details.
 #include <QDesktopServices>
 #include <QStandardPaths>
 #include <QFileDialog>
+#include <QElapsedTimer>
+#include <QKeyEvent>
 
 #include "pencildef.h"
 #include "editor.h"
@@ -347,6 +349,9 @@ Status ActionCommands::exportMovie(bool isGif)
     desc.strCameraName = dialog->getSelectedCameraName();
     desc.loop = dialog->getLoop();
     desc.alpha = dialog->getTransparency();
+    desc.quality = dialog->getQuality();
+    desc.gifColors = dialog->getGifColors();
+    desc.gifDither = dialog->getGifDither();
 
     DoubleProgressDialog progressDlg(mParent);
     progressDlg.setWindowModality(Qt::WindowModal);
@@ -474,6 +479,14 @@ Status ActionCommands::exportImageSequence()
     int startFrame = dialog->getStartFrame();
     int endFrame  = dialog->getEndFrame();
 
+    if (dialog->getSpriteSheet() && !MovieExporter::mayOverwrite(strFilePath, [this, &strFilePath] {
+            return QMessageBox::question(mParent, APP_NAME,
+                       tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(strFilePath))) == QMessageBox::Yes;
+        }))
+    {
+        return Status::SAFE;
+    }
+
     QString sCameraLayerName = dialog->getCameraLayerName();
     LayerCamera* cameraLayer = static_cast<LayerCamera*>(mEditor->layers()->findLayerByName(sCameraLayerName, Layer::CAMERA));
 
@@ -483,7 +496,15 @@ Status ActionCommands::exportImageSequence()
     progress.setWindowModality(Qt::WindowModal);
     progress.show();
 
-    Status st = mEditor->object()->exportFrames(startFrame, endFrame,
+    Status st = Status::OK;
+    if (dialog->getSpriteSheet())
+    {
+        st = mEditor->object()->exportSpriteSheet(startFrame, endFrame, cameraLayer, exportSize, strFilePath,
+                                                  dialog->getSpriteSheetColumns(), useTransparency, true, &progress, 100);
+    }
+    else
+    {
+        st = mEditor->object()->exportFrames(startFrame, endFrame,
                                     cameraLayer,
                                     exportSize,
                                     strFilePath,
@@ -494,6 +515,8 @@ Status ActionCommands::exportImageSequence()
                                     true,
                                     &progress,
                                     100);
+    }
+    if (st == Status::CANCELED) { return Status::SAFE; }
 
     if (!st.ok())
     {
@@ -665,13 +688,49 @@ void ActionCommands::PlayStop()
     }
 }
 
+namespace
+{
+// Remembers whether the last key event was an auto-repeat. Qt sends ShortcutOverride before it triggers the action.
+class KeyRepeatWatcher : public QObject
+{
+public:
+    using QObject::QObject;
+    bool autoRepeat = false;
+    bool eventFilter(QObject* obj, QEvent* e) override
+    {
+        if (e->type() == QEvent::ShortcutOverride || e->type() == QEvent::KeyPress)
+        {
+            autoRepeat = static_cast<QKeyEvent*>(e)->isAutoRepeat();
+        }
+        else if (e->type() == QEvent::MouseButtonPress) { autoRepeat = false; }
+        return QObject::eventFilter(obj, e);
+    }
+};
+} // namespace
+
+// A held key repeats faster than the playback fps; drop the extra repeats so flipping keeps the project rate.
+static bool flipThrottled(Editor* editor)
+{
+    static KeyRepeatWatcher* watcher = [] {
+        auto* w = new KeyRepeatWatcher(qApp);
+        qApp->installEventFilter(w);
+        return w;
+    }();
+    static QElapsedTimer sinceFlip;
+    const bool skip = skipFrameStep(watcher->autoRepeat, sinceFlip.isValid() ? sinceFlip.elapsed() : -1, editor->playback()->fps());
+    if (!skip) { sinceFlip.start(); }
+    return skip;
+}
+
 void ActionCommands::GotoNextFrame()
 {
+    if (flipThrottled(mEditor)) { return; }
     mEditor->scrubForward();
 }
 
 void ActionCommands::GotoPrevFrame()
 {
+    if (flipThrottled(mEditor)) { return; }
     mEditor->scrubBackward();
 }
 
@@ -802,22 +861,9 @@ void ActionCommands::removeKey()
 
 void ActionCommands::duplicateLayer()
 {
-    LayerManager* layerMgr = mEditor->layers();
-    Layer* fromLayer = layerMgr->currentLayer();
+    Layer* fromLayer = mEditor->layers()->currentLayer();
     int currFrame = mEditor->currentFrame();
-
-    Layer* toLayer = layerMgr->createLayer(fromLayer->type(), tr("%1 (copy)", "Default duplicate layer name").arg(fromLayer->name()));
-    fromLayer->foreachKeyFrame([&] (KeyFrame* key) {
-        key = key->clone();
-        toLayer->addOrReplaceKeyFrame(key->pos(), key);
-        if (toLayer->type() == Layer::SOUND)
-        {
-            mEditor->sound()->processSound(static_cast<SoundClip*>(key));
-        }
-    });
-    if (!fromLayer->keyExists(1)) {
-        toLayer->removeKeyFrame(1);
-    }
+    mEditor->layers()->duplicateLayer(fromLayer, tr("%1 (copy)", "Default duplicate layer name").arg(fromLayer->name()));
     mEditor->scrubTo(currFrame);
 }
 

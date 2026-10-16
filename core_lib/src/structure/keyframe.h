@@ -22,8 +22,24 @@ GNU General Public License for more details.
 #include <vector>
 #include <memory>
 #include <QString>
+#include <QTransform>
 #include "pencilerror.h"
+#include "cameraeasingtype.h"
 class KeyFrameEventListener;
+
+/// A key's drawing state: translate, rotate (degrees) and uniform scale about the canvas origin, and opacity.
+struct TweenState
+{
+    qreal tx = 0;
+    qreal ty = 0;
+    qreal rot = 0;
+    qreal scale = 1;
+    qreal opacity = 1;
+
+    QTransform transform() const { return QTransform().translate(tx, ty).rotate(rot).scale(scale, scale); }
+    /// True when the transform is identity; opacity is not part of it.
+    bool isIdentity() const { return tx == 0 && ty == 0 && rot == 0 && scale == 1; }
+};
 
 
 class KeyFrame
@@ -44,6 +60,17 @@ public:
     void modification() { mIsModified = true; }
     void setModified(bool b) { mIsModified = b; }
     bool isModified() const { return mIsModified; }
+
+    /** With tween on, the frames this key holds interpolate its state to the next key's. */
+    bool tween() const { return mTween; }
+    void setTween(bool tween) { mTween = tween; }
+    CameraEasingType tweenEasing() const { return mTweenEasing; }
+    void setTweenEasing(CameraEasingType easing) { mTweenEasing = easing; }
+    TweenState tweenState() const { return mTweenState; }
+    void setTweenState(const TweenState& state) { mTweenState = state; }
+    /** The key's image opacity, saved as the <image> opacity attribute. */
+    qreal getOpacity() const { return mTweenState.opacity; }
+    void setOpacity(qreal opacity) { mTweenState.opacity = opacity; }
 
     QString fileName() const { return mAttachedFileName; }
     void    setFileName(QString strFileName) { mAttachedFileName = strFileName; }
@@ -69,6 +96,9 @@ private:
     int mFrame = -1;
     int mLength = 1;
     bool mIsModified = true;
+    bool mTween = false;
+    CameraEasingType mTweenEasing = CameraEasingType::LINEAR;
+    TweenState mTweenState;
     QString mAttachedFileName;
 
     std::vector<KeyFrameEventListener*> mEventListeners;

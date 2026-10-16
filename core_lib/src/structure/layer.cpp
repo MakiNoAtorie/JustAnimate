@@ -699,6 +699,8 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     layerTag.setAttribute("type", type());
     // Optional: only written when off, so older versions still read the file.
     if (!onionSkin()) { layerTag.setAttribute("onion", 0); }
+    if (blendMode() != BlendMode::Normal) { layerTag.setAttribute("blend", static_cast<int>(blendMode())); }
+    if (groupId() != 0) { layerTag.setAttribute("group", groupId()); }
     return layerTag;
 }
 
@@ -712,4 +714,54 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     setName(elem.attribute("name", "untitled"));
     setVisible(elem.attribute("visibility", "1").toInt());
     setOnionSkin(elem.attribute("onion", "1").toInt());
+    const int blend = elem.attribute("blend", "0").toInt();
+    setBlendMode(blend >= 0 && blend < kBlendModeCount ? static_cast<BlendMode>(blend) : BlendMode::Normal);
+    setGroupId(elem.attribute("group", "0").toInt());
+}
+
+TweenState Layer::tweenStateAt(int frame) const
+{
+    const KeyFrame* key = getLastKeyFrameAtPosition(frame);
+    if (key == nullptr) { return TweenState(); }
+    const TweenState a = key->tweenState();
+    const int next = getNextKeyFramePosition(key->pos());
+    if (!key->tween() || frame == key->pos() || next <= frame) { return a; }
+
+    const TweenState b = getKeyFrameAt(next)->tweenState();
+    const qreal t = easedProgress(key->tweenEasing(), qreal(frame - key->pos()) / (next - key->pos()));
+    auto lerp = [t](qreal from, qreal to) { return from + (to - from) * t; };
+    return TweenState{ lerp(a.tx, b.tx), lerp(a.ty, b.ty), lerp(a.rot, b.rot), lerp(a.scale, b.scale), lerp(a.opacity, b.opacity) };
+}
+
+void Layer::writeKeyTween(QDomElement& image, const KeyFrame* key)
+{
+    // Optional: only written when set, so older versions still read the file.
+    if (key->tween())
+    {
+        image.setAttribute("tween", 1);
+        image.setAttribute("easing", static_cast<int>(key->tweenEasing()));
+    }
+    const TweenState s = key->tweenState();
+    if (s.tx != 0) { image.setAttribute("tx", s.tx); }
+    if (s.ty != 0) { image.setAttribute("ty", s.ty); }
+    if (s.rot != 0) { image.setAttribute("rot", s.rot); }
+    if (s.scale != 1) { image.setAttribute("scale", s.scale); }
+}
+
+void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
+{
+    if (key == nullptr) { return; }
+    // Untrusted file: an out-of-range or non-finite value loads as the default.
+    auto number = [&image](const char* name, qreal fallback) {
+        bool ok = false;
+        const qreal v = image.attribute(name).toDouble(&ok);
+        return ok && qIsFinite(v) ? v : fallback;
+    };
+    key->setTween(image.attribute("tween", "0").toInt() == 1);
+    const int easing = image.attribute("easing", "0").toInt();
+    const bool validEasing = easing >= 0 && easing <= static_cast<int>(CameraEasingType::OUTINBOUNCE);
+    key->setTweenEasing(validEasing ? static_cast<CameraEasingType>(easing) : CameraEasingType::LINEAR);
+    const qreal scale = number("scale", 1);
+    key->setTweenState(TweenState{ number("tx", 0), number("ty", 0), number("rot", 0), scale > 0 ? scale : 1,
+                                   qBound(0.0, number("opacity", 1), 1.0) });
 }

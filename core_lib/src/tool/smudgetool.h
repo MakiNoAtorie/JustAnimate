@@ -18,39 +18,37 @@ GNU General Public License for more details.
 #ifndef SMUDGETOOL_H
 #define SMUDGETOOL_H
 
-#include "stroketool.h"
+#include "dabtool.h"
 
-class SmudgeTool : public StrokeTool
+/// Smudge preset of the brush engine on bitmap layers; moves curve vertices on vector layers.
+class SmudgeTool : public DabTool
 {
     Q_OBJECT
 public:
-    explicit SmudgeTool(QObject* parent = 0);
+    explicit SmudgeTool(QObject* parent = nullptr);
 
     ToolType type() const override;
 
     ToolProperties& toolProperties() override { return mSettings.toolProperties(); }
     const StrokeToolProperties& strokeToolProperties() const override { return mSettings; }
 
-    uint toolMode;  // 0=normal/smooth 1=smudge - todo: move to basetool? could be useful
     void loadSettings() override;
     QCursor cursor() override;
 
-    void pointerPressEvent(PointerEvent *) override;
-    void pointerReleaseEvent(PointerEvent *) override;
-    void pointerMoveEvent(PointerEvent *) override;
-
-    bool keyPressEvent(QKeyEvent *) override;
-    bool keyReleaseEvent(QKeyEvent *) override;
-
-    void drawStroke();
+    void pointerPressEvent(PointerEvent*) override;
+    void pointerReleaseEvent(PointerEvent*) override;
+    void pointerMoveEvent(PointerEvent*) override;
 
 protected:
     bool emptyFrameActionEnabled() override;
+    void drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip) override;
+    QPen vectorPreviewPen() override { return QPen(); }
+    void finishVectorStroke(Layer*) override {}
+    // The prediction line shows the front colour, which a smudge does not paint.
+    bool showsPrediction() const override { return false; }
 
 private:
-
     QPointF offsetFromPressPos();
-    QPointF mLastBrushPoint;
 
     StrokeToolProperties mSettings;
 };

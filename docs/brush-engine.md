@@ -1,8 +1,8 @@
 # Brush engine
 
-Rules for Pencil, Brush and Eraser dabs, tips and presets. Read before you
-edit `dabtool.*`, `tiledbuffer.*`, `stroketool.*`, `toolproperties.h`,
-`brushpresets.*` or the preset dock and editor.
+Rules for Pencil, Brush, Eraser and Smudge dabs, tips and presets. Read
+before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
+`toolproperties.h`, `brushpresets.*` or the preset dock and editor.
 
 ## Strokes and dabs
 
@@ -30,6 +30,25 @@ edit `dabtool.*`, `tiledbuffer.*`, `stroketool.*`, `toolproperties.h`,
   (`ScribbleArea::setWashOpacity` on every press); with wash off the
   SourceOver loop is unchanged.
 
+## Smudge
+
+- The Smudge tool is a `DabTool` preset on bitmap layers (vector layers keep
+  vertex moving). Its dabs go only through `TiledBuffer::smudgeDab`: sample
+  the mean premultiplied colour within the sample radius, mix it into the
+  colour bucket (`mixSmudgeColor`, kept part = smudge length), mix the front
+  colour in by colour rate, then `compositeSmudge` moves pixels toward that
+  colour, alpha included. Kubelka-Munk mixing (`SMUDGE_MIX_VALUE = 134`,
+  "SmudgeMix": 0 light, 1 pigment) runs only inside `mixSmudgeColor`, through
+  `spectralMix` (`spectralmix.*`, a port of spectral.js; keep its MIT notice,
+  never Mixbox): colour weighted by amount x alpha, alpha mixed linearly.
+  Row-band parallelism goes only in `compositeSmudge`
+  (dab box >= 256K px, bands >= 64 rows; it fetches tile `bits()` before
+  `parallelFor`, since a detach on a worker thread is a data race).
+- Smudge reads the canvas every dab, so it never queues dabs for
+  `flushDabs`. A smudge stroke seeds each new tile with the layer pixels
+  (`setSmudgeSource`) and the buffer replaces the layer
+  (`CompositionMode_Source`) in the preview and on commit.
+
 ## Settings
 
 - The global pressure curve is the only brush setting in `PreferenceManager`
@@ -53,6 +72,10 @@ edit `dabtool.*`, `tiledbuffer.*`, `stroketool.*`, `toolproperties.h`,
   quantized field to the `DabMask` cache key. The default tip keeps the old
   fast path so golden hashes do not change. `DabTool::drawDab` takes the tip
   from `dabTip(direction)`; subclasses pass it through unchanged.
+- Grain (`BrushTip::grainMode`) is not part of the `DabMask` key:
+  `TiledBuffer::grainMask` multiplies a copy of the cached mask per dab.
+  Paper grain samples canvas pixels; moving grain samples pixels from the
+  dab's integer origin. The texture is generated with integer math only.
 - Tip angles are degrees, counter-clockwise on screen (canvas y points down).
 - Brush tip files (.gbr, PNG) are untrusted: bound every header field and
   check data length against file size before reading. A tip image is a

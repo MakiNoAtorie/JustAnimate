@@ -26,4 +26,9 @@ void hideQuestionMark(QDialog& dlg);
 void setMenuActionChecked(QAction* action, bool checked);
 void bindPreferenceSetting(QAction* action, PreferenceManager*, const SETTING&);
 
+/** True when a frame step must be dropped: a held key repeats faster than the playback fps, so a repeat
+ *  that comes less than one frame after the last step is skipped. A single tap always steps.
+ *  `msSinceStep` is -1 before the first step. */
+bool skipFrameStep(bool autoRepeat, long long msSinceStep, int fps);
+
 #endif // APP_UTIL_H

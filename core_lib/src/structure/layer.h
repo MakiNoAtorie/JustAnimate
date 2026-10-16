@@ -25,8 +25,10 @@ GNU General Public License for more details.
 #include <QString>
 #include <QDomElement>
 #include "pencilerror.h"
+#include "blendmode.h"
 
 class KeyFrame;
+struct TweenState;
 class Status;
 
 typedef std::function<void()> ProgressCallback;
@@ -61,6 +63,11 @@ public:
     void setVisible(bool b) { mVisible = b; }
     bool onionSkin() const { return mOnionSkin; }
     void setOnionSkin(bool b) { mOnionSkin = b; }
+    BlendMode blendMode() const { return mBlendMode; }
+    void setBlendMode(BlendMode mode) { mBlendMode = mode; }
+    /** Id of the LayerGroup in Object that holds this layer, 0 for none */
+    int groupId() const { return mGroupId; }
+    void setGroupId(int groupId) { mGroupId = groupId; }
 
     /** Get selected keyframe positions sorted by position */
     QList<int> selectedKeyFramesPositions() const { return mSelectedFrames_byPosition; }
@@ -114,6 +121,8 @@ public:
     bool moveKeyFrame(int position, int offset);
     KeyFrame* getKeyFrameAt(int position) const;
     KeyFrame* getLastKeyFrameAtPosition(int position) const;
+    /** The drawing state at a frame: the key's own, or interpolated to the next key when the key tweens. */
+    TweenState tweenStateAt(int frame) const;
     bool keyExistsWhichCovers(int frameNumber);
     KeyFrame *getKeyFrameWhichCovers(int frameNumber) const;
 
@@ -183,6 +192,9 @@ public:
 
 protected:
     virtual KeyFrame* createKeyFrame(int position) = 0;
+    /** Optional tween attributes of an <image> key element. */
+    static void writeKeyTween(QDomElement& image, const KeyFrame* key);
+    static void readKeyTween(const QDomElement& image, KeyFrame* key);
     bool loadKey(KeyFrame*);
 
 private:
@@ -192,6 +204,8 @@ private:
     int        mId = 0;
     bool       mVisible = true;
     bool       mOnionSkin = true;
+    BlendMode  mBlendMode = BlendMode::Normal;
+    int mGroupId = 0;
     QString    mName;
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;

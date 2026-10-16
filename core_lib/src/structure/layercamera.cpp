@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "layercamera.h"
 
 #include <QSettings>
-#include <QEasingCurve>
 
 #include "camera.h"
 #include "pencildef.h"
@@ -111,7 +110,7 @@ QTransform LayerCamera::getViewAtFrame(int frameNumber) const
     double frame2 = camera2->pos();
 
     // interpolation
-    qreal percent = getInterpolationPercent(camera1->getEasingType(), (frameNumber - frame1) / (frame2 - frame1));
+    qreal percent = easedProgress(camera1->getEasingType(), (frameNumber - frame1) / (frame2 - frame1));
     auto lerp = [](double f1, double f2, double percent) -> double
     {
         return f1 * (1.0 - percent) + f2 * percent;
@@ -173,7 +172,7 @@ void LayerCamera::linearInterpolateTransform(Camera* cam)
     double frame2 = camera2->pos();
 
     // interpolation
-    qreal percent = getInterpolationPercent(camera1->getEasingType(), (frameNumber - frame1)/ (frame2 - frame1));
+    qreal percent = easedProgress(camera1->getEasingType(), (frameNumber - frame1) / (frame2 - frame1));
 
     auto lerp = [](double f1, double f2, double percent) -> double
     {
@@ -195,58 +194,6 @@ void LayerCamera::linearInterpolateTransform(Camera* cam)
     cam->translate(dx, dy);
     cam->rotate(r);
     cam->scale(s);
-}
-
-qreal LayerCamera::getInterpolationPercent(CameraEasingType type, qreal percent) const
-{
-    QEasingCurve easing;
-
-    switch (type)
-    {
-    case CameraEasingType::LINEAR : easing.setType(QEasingCurve::Linear); break;
-    case CameraEasingType::INQUAD : easing.setType(QEasingCurve::InQuad); break;
-    case CameraEasingType::OUTQUAD : easing.setType(QEasingCurve::OutQuad); break;
-    case CameraEasingType::INOUTQUAD : easing.setType(QEasingCurve::InOutQuad); break;
-    case CameraEasingType::OUTINQUAD : easing.setType(QEasingCurve::OutInQuad); break;
-    case CameraEasingType::INCUBIC : easing.setType(QEasingCurve::InCubic); break;
-    case CameraEasingType::OUTCUBIC : easing.setType(QEasingCurve::OutCubic); break;
-    case CameraEasingType::INOUTCUBIC : easing.setType(QEasingCurve::InOutCubic); break;
-    case CameraEasingType::OUTINCUBIC : easing.setType(QEasingCurve::OutInCubic); break;
-    case CameraEasingType::INQUART : easing.setType(QEasingCurve::InQuart); break;
-    case CameraEasingType::OUTQUART : easing.setType(QEasingCurve::OutQuart); break;
-    case CameraEasingType::INOUTQUART : easing.setType(QEasingCurve::InOutQuart); break;
-    case CameraEasingType::OUTINQUART : easing.setType(QEasingCurve::OutInQuart); break;
-    case CameraEasingType::INQUINT : easing.setType(QEasingCurve::InQuint); break;
-    case CameraEasingType::OUTQUINT : easing.setType(QEasingCurve::OutQuint); break;
-    case CameraEasingType::INOUTQUINT : easing.setType(QEasingCurve::InOutQuint); break;
-    case CameraEasingType::OUTINQUINT : easing.setType(QEasingCurve::OutInQuint); break;
-    case CameraEasingType::INSINE : easing.setType(QEasingCurve::InSine); break;
-    case CameraEasingType::OUTSINE : easing.setType(QEasingCurve::OutSine); break;
-    case CameraEasingType::INOUTSINE : easing.setType(QEasingCurve::InOutSine); break;
-    case CameraEasingType::OUTINSINE: easing.setType(QEasingCurve::OutInSine); break;
-    case CameraEasingType::INEXPO : easing.setType(QEasingCurve::InExpo); break;
-    case CameraEasingType::OUTEXPO : easing.setType(QEasingCurve::OutExpo); break;
-    case CameraEasingType::INOUTEXPO : easing.setType(QEasingCurve::InOutExpo); break;
-    case CameraEasingType::OUTINEXPO: easing.setType(QEasingCurve::OutInExpo); break;
-    case CameraEasingType::INCIRC : easing.setType(QEasingCurve::InCirc); break;
-    case CameraEasingType::OUTCIRC : easing.setType(QEasingCurve::OutCirc); break;
-    case CameraEasingType::INOUTCIRC : easing.setType(QEasingCurve::InOutCirc); break;
-    case CameraEasingType::OUTINCIRC: easing.setType(QEasingCurve::OutInCirc); break;
-    case CameraEasingType::INELASTIC: easing.setType(QEasingCurve::InElastic); break;
-    case CameraEasingType::OUTELASTIC: easing.setType(QEasingCurve::OutElastic); break;
-    case CameraEasingType::INOUTELASTIC: easing.setType(QEasingCurve::InOutElastic); break;
-    case CameraEasingType::OUTINELASTIC: easing.setType(QEasingCurve::OutInElastic); break;
-    case CameraEasingType::INBACK: easing.setType(QEasingCurve::InBack); break;
-    case CameraEasingType::OUTBACK: easing.setType(QEasingCurve::OutBack); break;
-    case CameraEasingType::INOUTBACK: easing.setType(QEasingCurve::InOutBack); break;
-    case CameraEasingType::OUTINBACK: easing.setType(QEasingCurve::OutInBack); break;
-    case CameraEasingType::INBOUNCE: easing.setType(QEasingCurve::InBounce); break;
-    case CameraEasingType::OUTBOUNCE: easing.setType(QEasingCurve::OutBounce); break;
-    case CameraEasingType::INOUTBOUNCE: easing.setType(QEasingCurve::InOutBounce); break;
-    case CameraEasingType::OUTINBOUNCE: easing.setType(QEasingCurve::OutInBounce); break;
-    default: Q_UNREACHABLE(); break;
-    }
-    return easing.valueForProgress(percent);
 }
 
 QPointF LayerCamera::getBezierPoint(const QPointF& first, const QPointF& last, const QPointF& pathPoint, qreal percent) const

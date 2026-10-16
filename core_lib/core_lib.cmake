@@ -13,6 +13,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapbucket.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapimage.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tile.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/spectralmix.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tiledbuffer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/bezierarea.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/beziercurve.h
@@ -99,6 +100,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/onionskinpainteroptions.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/onionskinpaintstate.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/painterutils.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blendmode.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/appinfo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pencildef.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pencilerror.h
@@ -117,6 +119,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapbucket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tile.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/spectralmix.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tiledbuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/bezierarea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/beziercurve.cpp
@@ -197,6 +200,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/pointerevent.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/transform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/util.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blendmode.cpp
 )
 
 # Platform-specific sources

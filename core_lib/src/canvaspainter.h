@@ -105,6 +105,11 @@ private:
     QVector<qint64> layersKey(int startLayer, int endLayer) const;
 
     void paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startLayer, int endLayer);
+    void paintLayer(QPainter& painter, const QRect& blitRect, int index);
+    /// Paints layers first..last with drawWithOpacity, so the group fades as one image.
+    void paintGroup(QPainter& painter, const QRect& blitRect, int first, int last, qreal opacity);
+    /// Layers painted with the current layer: its whole group when the group is translucent.
+    QPair<int, int> currentRange() const;
 
     void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection) const;
 
@@ -114,6 +119,8 @@ private:
 
     void paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
     void paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
+    /// Draws mCurrentLayerPixmap onto painter within blitRect, blended with mode.
+    void drawLayerPixmap(QPainter& painter, const QRect& blitRect, BlendMode mode);
 
     CanvasPainterOptions mOptions;
 

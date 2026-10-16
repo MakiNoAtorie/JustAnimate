@@ -5,6 +5,21 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Fixes: a stroke on a moved (tweened) key lands where it is drawn, Duplicate Layer keeps the blend mode, a single Next/Previous Frame tap always steps, and marker names show on the timeline ruler.
+- Layer groups: right-click a member to show or hide the group or set its opacity; the group fades as one image, on the canvas and in export (3.7).
+- Layer groups: right-click a layer to make, join or leave a group; click the arrow to collapse it; a collapsed group drags as a block. Files still open in Pencil2D (3.7).
+- Smudge: Pigment mixing option blends colours like paint (blue and yellow make green), via a port of spectral.js (B7).
+- Tween to Next Key also fades the key's opacity to the next key's on the frames it holds, on the canvas and in export (3.3).
+- Export: image sequences keep alpha with the Transparency option, and a new Sprite sheet option writes all frames into one PNG grid (row-major, columns choosable, default ceil(sqrt(n))) (3.12).
+- Layer blend modes use SSE2 on x86-64, with the same pixels as before (3.8).
+- Large smudge dabs (256K px and up) composite in row bands on all cores, about 3x faster at 800 px (B7).
+- Smudge runs in the brush engine with a colour bucket, smudge length, sample radius and colour rate, and can smear transparency; the old smudge loop and its Alt liquify mode are gone (B7).
+- Timeline: right-click a bitmap or vector key to set its Key Transform (move, rotate, scale) and turn on Tween to Next Key with a camera easing curve; the frames it holds show the in-between transform on the canvas and in export (3.3).
+- Export: MP4 and WebM quality presets (low/medium/high) and GIF palette options (max colours, dither on/off) in the movie exporter (3.12).
+- Playback: loop or ping-pong over the playback range, speed 0.5x/1x/2x in the timeline controls, and held Next/Previous Frame keys flip at the project fps; ping-pong is saved with the project (3.11).
+- Brush grain: a paper texture fixed to the canvas or moving with each dab, with scale, contrast and brightness (B6).
+- Layers can blend with Multiply, Screen, Overlay or Add: right-click a bitmap or vector layer in the timeline and choose Blend Mode; the mode is saved in the project and can be undone (3.8).
+- Timeline: right-click the frame ruler to add, rename, recolor or remove a named marker on the current frame; markers are saved with the project (3.6).
 - The welcome screen shows at every startup unless a file is opened from the command line; turn it off in Preferences > Files (4.3).
 - Timeline: Delete Frame (Ripple) removes one frame: inside a hold it shortens the hold, on a drawing it removes the drawing, and later frames move one frame left (3.4).
 - Shape tool: Esc, a tool switch or a layer change drops an unfinished polygon (2.3).

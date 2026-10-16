@@ -19,9 +19,17 @@ GNU General Public License for more details.
 #define EDITORSTATE_H
 
 #include <QColor>
+#include <QMap>
+#include <QString>
 #include <QTransform>
 #include "pencildef.h"
 
+
+struct FrameMarker
+{
+    QString name;
+    QColor color;
+};
 
 class ObjectData
 {
@@ -47,6 +55,9 @@ public:
     void setLooping(bool b) { mIsLoop = b; }
     bool isLooping() const { return mIsLoop; }
 
+    void setPingPong(bool b) { mIsPingPong = b; }
+    bool isPingPong() const { return mIsPingPong; }
+
     void setRangedPlayback(bool b) { mIsRangedPlayback = b; }
     bool isRangedPlayback() const { return mIsRangedPlayback; }
 
@@ -56,7 +67,12 @@ public:
     void setMarkOutFrameNumber(int n) { mMarkOutFrame = n; }
     int  getMarkOutFrameNumber() const { return mMarkOutFrame; }
 
+    void setMarker(int frame, const FrameMarker& m) { mMarkers.insert(frame, m); }
+    void removeMarker(int frame) { mMarkers.remove(frame); }
+    const QMap<int, FrameMarker>& markers() const { return mMarkers; }
+
 private:
+    QMap<int, FrameMarker> mMarkers;
     int mCurrentFrame = 1;
     QColor mCurrentColor{ 0, 0, 0, 255 };
     int mCurrentLayer = 0;
@@ -66,6 +82,7 @@ private:
     // playback manager
     int  mFps = 12;
     bool mIsLoop = false;
+    bool mIsPingPong = false;
     bool mIsRangedPlayback = false;
     int  mMarkInFrame = 1;
     int  mMarkOutFrame = 10;

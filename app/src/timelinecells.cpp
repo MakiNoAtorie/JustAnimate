@@ -17,8 +17,15 @@ GNU General Public License for more details.
 
 #include "timelinecells.h"
 
+#include <QActionGroup>
 #include <QApplication>
 #include <QResizeEvent>
+#include <QColorDialog>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDoubleSpinBox>
+#include <QFontMetrics>
+#include <QFormLayout>
 #include <QInputDialog>
 #include <QMenu>
 #include <QPainter>
@@ -111,34 +118,18 @@ void TimeLineCells::setFrameSize(int size)
 
 int TimeLineCells::getLayerNumber(int y) const
 {
-    int layerNumber = mLayerOffset + (y - mOffsetY) / mLayerHeight;
+    if (y < mOffsetY) { return -1; }
 
-    int totalLayerCount = mEditor->object()->getLayerCount();
-
-    // Layers numbers are displayed in descending order
-    // The last row is layer 0
-    if (layerNumber <= totalLayerCount)
-        layerNumber = (totalLayerCount - 1) - layerNumber;
-    else
-        layerNumber = 0;
-
-    if (y < mOffsetY)
+    // Rows show layers in descending order and skip folded group members
+    const Object* object = mEditor->object();
+    int row = mLayerOffset + (y - mOffsetY) / mLayerHeight;
+    for (int i = object->getLayerCount() - 1; i >= 0; --i)
     {
-        layerNumber = -1;
+        if (object->isLayerFolded(i)) { continue; }
+        if (row-- == 0) { return i; }
     }
-
-    if (layerNumber >= totalLayerCount)
-    {
-        layerNumber = totalLayerCount;
-    }
-
-    //If the mouse release event if fired with mouse off the frame of the application
-    // mEditor->object()->getLayerCount() doesn't return the correct value.
-    if (layerNumber < -1)
-    {
-        layerNumber = -1;
-    }
-    return layerNumber;
+    // The row just below the last layer is -1, rows further down are layer 0
+    return row == 0 ? -1 : 0;
 }
 
 int TimeLineCells::getInbetweenLayerNumber(int y) const {
@@ -157,7 +148,13 @@ int TimeLineCells::getInbetweenLayerNumber(int y) const {
 
 int TimeLineCells::getLayerY(int layerNumber) const
 {
-    return mOffsetY + (mEditor->object()->getLayerCount() - 1 - layerNumber - mLayerOffset)*mLayerHeight;
+    const Object* object = mEditor->object();
+    int row = std::min(0, object->getLayerCount() - 1 - layerNumber);
+    for (int i = object->getLayerCount() - 1; i > layerNumber; --i)
+    {
+        if (!object->isLayerFolded(i)) { ++row; }
+    }
+    return mOffsetY + (row - mLayerOffset) * mLayerHeight;
 }
 
 void TimeLineCells::updateFrame(int frameNumber)
@@ -182,6 +179,12 @@ void TimeLineCells::showCameraMenu(QPoint pos)
 
     const Layer* curLayer = mEditor->layers()->currentLayer();
     Q_ASSERT(curLayer);
+
+    if ((curLayer->type() == Layer::BITMAP || curLayer->type() == Layer::VECTOR) && curLayer->keyExists(frameNumber))
+    {
+        showTweenMenu(frameNumber, mapToGlobal(pos));
+        return;
+    }
 
     // only show menu if on camera layer and key exists
     if (curLayer->type() != Layer::CAMERA || !curLayer->keyExists(frameNumber))
@@ -238,7 +241,7 @@ void TimeLineCells::drawContent()
     Q_ASSERT(object != nullptr);
     for (int i = 0; i < object->getLayerCount(); i++)
     {
-        if (i == mEditor->layers()->currentLayerIndex())
+        if (i == mEditor->layers()->currentLayerIndex() || object->isLayerFolded(i))
         {
             continue;
         }
@@ -388,6 +391,126 @@ void TimeLineCells::paintTicks(QPainter& painter, const QPalette& palette) const
             painter.drawText(QPoint(lineX + incr, 15), QString::number(i + 1));
         }
     }
+
+    // Markers: colour bar under the ruler, and the name right of it when it fits before the next marker.
+    const auto& markers = mEditor->object()->data()->markers();
+    QFont nameFont = painter.font();
+    nameFont.setPixelSize(9);
+    const QFontMetrics nameMetrics(nameFont);
+    painter.save();
+    painter.setFont(nameFont);
+    for (auto it = markers.constBegin(); it != markers.constEnd(); ++it)
+    {
+        const int barX = getFrameX(it.key() - 1);
+        painter.fillRect(barX, 16, mFrameSize, 4, it.value().color);
+
+        const auto next = std::next(it);
+        const int textX = barX + mFrameSize + 2;
+        const int limit = (next == markers.constEnd()) ? width() : getFrameX(next.key() - 1) - 2;
+        const int textWidth = nameMetrics.horizontalAdvance(it.value().name);
+        if (it.value().name.isEmpty() || textX + textWidth > limit) { continue; }
+        const QRect textRect(textX, mOffsetY - 2 - nameMetrics.height(), textWidth, nameMetrics.height());
+        painter.fillRect(textRect, palette.color(QPalette::Base));
+        painter.setPen(palette.color(QPalette::Text));
+        painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, it.value().name);
+    }
+    painter.restore();
+}
+
+void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
+{
+    ObjectData* data = mEditor->object()->data();
+    const int frame = mEditor->currentFrame();
+    const bool has = data->markers().contains(frame);
+
+    QMenu menu;
+    QAction* add = menu.addAction(has ? tr("Rename Marker...") : tr("Add Marker..."));
+    QAction* color = has ? menu.addAction(tr("Change Marker Color...")) : nullptr;
+    QAction* remove = has ? menu.addAction(tr("Remove Marker")) : nullptr;
+    QAction* chosen = menu.exec(globalPos);
+    if (chosen == nullptr) return;
+
+    FrameMarker m = data->markers().value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
+    if (chosen == add)
+    {
+        bool ok = false;
+        const QString name = QInputDialog::getText(this, tr("Marker"), tr("Name:"), QLineEdit::Normal, m.name, &ok);
+        if (!ok) return;
+        m.name = name;
+        data->setMarker(frame, m);
+    }
+    else if (chosen == color)
+    {
+        const QColor c = QColorDialog::getColor(m.color, this);
+        if (!c.isValid()) return;
+        m.color = c;
+        data->setMarker(frame, m);
+    }
+    else if (chosen == remove)
+    {
+        data->removeMarker(frame);
+    }
+    mEditor->object()->modification();
+    updateContent();
+}
+
+void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
+{
+    const KeyFrame* key = mEditor->layers()->currentLayer()->getKeyFrameAt(frame);
+    bool tween = key->tween();
+    CameraEasingType easing = key->tweenEasing();
+    TweenState state = key->tweenState();
+
+    QMenu menu;
+    QAction* toggle = menu.addAction(tr("Tween to Next Key"));
+    toggle->setCheckable(true);
+    toggle->setChecked(tween);
+    QMenu* easingMenu = menu.addMenu(tr("Tween Easing"));
+    for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
+    {
+        QAction* action = easingMenu->addAction(getInterpolationText(static_cast<CameraEasingType>(i)));
+        action->setCheckable(true);
+        action->setChecked(static_cast<int>(easing) == i);
+        action->setData(i);
+    }
+    QAction* transform = menu.addAction(tr("Key Transform..."));
+    QAction* chosen = menu.exec(globalPos);
+    if (chosen == nullptr) { return; }
+
+    if (chosen == toggle)
+    {
+        tween = !tween;
+    }
+    else if (chosen == transform)
+    {
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Key Transform"));
+        QFormLayout* form = new QFormLayout(&dialog);
+        auto spin = [&](const QString& label, qreal value, qreal min, qreal max) {
+            QDoubleSpinBox* box = new QDoubleSpinBox(&dialog);
+            box->setRange(min, max);
+            box->setDecimals(2);
+            box->setValue(value);
+            form->addRow(label, box);
+            return box;
+        };
+        QDoubleSpinBox* tx = spin(tr("Move X:"), state.tx, -100000, 100000);
+        QDoubleSpinBox* ty = spin(tr("Move Y:"), state.ty, -100000, 100000);
+        QDoubleSpinBox* rot = spin(tr("Rotation:"), state.rot, -3600, 3600);
+        QDoubleSpinBox* scale = spin(tr("Scale:"), state.scale, 0.01, 100);
+        QDialogButtonBox* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        form->addRow(buttons);
+        if (dialog.exec() != QDialog::Accepted) { return; }
+        state = TweenState{ tx->value(), ty->value(), rot->value(), scale->value(), state.opacity };
+    }
+    else if (chosen->data().isValid())
+    {
+        easing = static_cast<CameraEasingType>(chosen->data().toInt());
+        tween = true;
+    }
+    mEditor->layers()->setKeyTween(frame, tween, easing, state);
 }
 
 void TimeLineCells::paintTrack(QPainter& painter, const Layer* layer,
@@ -618,7 +741,18 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
     {
         painter.setPen(palette.color(QPalette::Text));
     }
-    painter.drawText(QPoint(45, y + (2 * height) / 3), layer->name());
+    QString name = layer->name();
+    const Object* object = mEditor->object();
+    if (const LayerGroup* group = object->findLayerGroup(layer->groupId()))
+    {
+        QString groupName = group->name;
+        if (!group->visible) { groupName += tr(" (hidden)"); }
+        else if (group->opacity < 1.0) { groupName += QString(" %1%").arg(qRound(group->opacity * 100)); }
+        if (object->getLayer(object->layerGroupRange(group->id).second) != layer) { name = "    " + name; }
+        else if (group->collapsed) { name = QChar(0x25B8) + QString(" ") + groupName; }
+        else { name = QChar(0x25BE) + QString(" ") + groupName + " / " + name; }
+    }
+    painter.drawText(QPoint(45, y + (2 * height) / 3), name);
 }
 
 void TimeLineCells::paintSelection(QPainter& painter, int x, int y, int width, int height) const
@@ -840,9 +974,17 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     case TIMELINE_CELL_TYPE::Layers:
         if (layerNumber != -1 && layerNumber < mEditor->object()->getLayerCount())
         {
+            const Layer* clicked = mEditor->object()->getLayer(layerNumber);
+            const LayerGroup* clickedGroup = mEditor->object()->findLayerGroup(clicked->groupId());
             if (event->pos().x() < 15)
             {
                 mEditor->switchVisibilityOfLayer(layerNumber);
+            }
+            else if (clickedGroup && event->button() == Qt::LeftButton && event->pos().x() < 57 && event->pos().x() >= 45 &&
+                     mEditor->object()->layerGroupRange(clickedGroup->id).second == layerNumber)
+            {
+                // The arrow in front of the group name
+                mEditor->layers()->setLayerGroupCollapsed(clickedGroup->id, !clickedGroup->collapsed);
             }
             else if (mEditor->currentLayerIndex() != layerNumber)
             {
@@ -851,13 +993,84 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             }
             if (event->pos().x() >= 15 && event->button() == Qt::RightButton)
             {
+                Layer* layer = mEditor->object()->getLayer(layerNumber);
                 QMenu menu;
                 QAction* onion = menu.addAction(tr("Onion Skin"));
                 onion->setCheckable(true);
-                onion->setChecked(mEditor->object()->getLayer(layerNumber)->onionSkin());
-                if (menu.exec(event->globalPosition().toPoint()) == onion)
+                onion->setChecked(layer->onionSkin());
+                if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
+                {
+                    QMenu* blend = menu.addMenu(tr("Blend Mode"));
+                    QActionGroup* group = new QActionGroup(blend);
+                    for (int mode = 0; mode < kBlendModeCount; ++mode)
+                    {
+                        QAction* action = blend->addAction(QCoreApplication::translate("BlendMode", kBlendModeNames[mode]));
+                        action->setCheckable(true);
+                        action->setChecked(static_cast<int>(layer->blendMode()) == mode);
+                        action->setData(mode);
+                        group->addAction(action);
+                    }
+                }
+                menu.addSeparator();
+                QAction* newGroup = nullptr;
+                QAction* ungroup = nullptr;
+                QAction* collapse = nullptr;
+                QAction* groupVisible = nullptr;
+                QAction* groupOpacity = nullptr;
+                if (clickedGroup == nullptr) { newGroup = menu.addAction(tr("New Group")); }
+                QMenu* addTo = menu.addMenu(tr("Add to Group"));
+                for (const LayerGroup& g : mEditor->object()->layerGroups())
+                {
+                    if (g.id != layer->groupId() && mEditor->object()->layerGroupRange(g.id).first >= 0)
+                    {
+                        addTo->addAction(g.name)->setData(g.id);
+                    }
+                }
+                addTo->setEnabled(!addTo->isEmpty());
+                if (clickedGroup)
+                {
+                    ungroup = menu.addAction(tr("Remove from Group"));
+                    collapse = menu.addAction(clickedGroup->collapsed ? tr("Expand Group") : tr("Collapse Group"));
+                    groupVisible = menu.addAction(tr("Show Group"));
+                    groupVisible->setCheckable(true);
+                    groupVisible->setChecked(clickedGroup->visible);
+                    groupOpacity = menu.addAction(tr("Group Opacity..."));
+                }
+                QAction* chosen = menu.exec(event->globalPosition().toPoint());
+                if (chosen == onion)
                 {
                     mEditor->switchOnionSkinOfLayer(layerNumber);
+                }
+                else if (chosen && chosen == newGroup)
+                {
+                    mEditor->layers()->createLayerGroup(layer);
+                }
+                else if (chosen && chosen == ungroup)
+                {
+                    mEditor->layers()->removeLayerFromGroup(layer);
+                }
+                else if (chosen && chosen == collapse)
+                {
+                    mEditor->layers()->setLayerGroupCollapsed(clickedGroup->id, !clickedGroup->collapsed);
+                }
+                else if (chosen && chosen == groupVisible)
+                {
+                    mEditor->layers()->setLayerGroupVisible(clickedGroup->id, groupVisible->isChecked());
+                }
+                else if (chosen && chosen == groupOpacity)
+                {
+                    bool ok = false;
+                    const int percent = QInputDialog::getInt(this, tr("Group Opacity"), tr("Opacity (%):"),
+                                                             qRound(clickedGroup->opacity * 100), 0, 100, 1, &ok);
+                    if (ok) { mEditor->layers()->setLayerGroupOpacity(clickedGroup->id, percent / 100.0); }
+                }
+                else if (chosen && chosen->parent() == addTo)
+                {
+                    mEditor->layers()->addLayerToGroup(layer, chosen->data().toInt());
+                }
+                else if (chosen && chosen->data().isValid())
+                {
+                    mEditor->layers()->setBlendMode(layer, static_cast<BlendMode>(chosen->data().toInt()));
                 }
             }
         }
@@ -874,6 +1087,11 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
         }
         break;
     case TIMELINE_CELL_TYPE::Tracks:
+        if (event->button() == Qt::RightButton && mStartY < 20)
+        {
+            showMarkerMenu(event->globalPosition().toPoint());
+            return;
+        }
         if (event->button() == Qt::MiddleButton)
         {
             mLastFrameNumber = getFrameNumber(event->pos().x());
@@ -1091,17 +1309,7 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
         mToLayer = getInbetweenLayerNumber(event->pos().y());
         if (mToLayer != mFromLayer && mToLayer > -1 && mToLayer < mEditor->layers()->count())
         {
-            // Bubble the from layer up or down to the to layer
-            if (mToLayer < mFromLayer) // bubble up
-            {
-                for (int i = mFromLayer - 1; i >= mToLayer; i--)
-                    mEditor->swapLayers(i, i + 1);
-            }
-            else // bubble down
-            {
-                for (int i = mFromLayer + 1; i <= mToLayer; i++)
-                    mEditor->swapLayers(i, i - 1);
-            }
+            mEditor->layers()->moveLayer(mFromLayer, mToLayer);
         }
     }
 

@@ -76,7 +76,6 @@ protected:
 
 private:
     void linearInterpolateTransform(Camera*);
-    qreal getInterpolationPercent(CameraEasingType type, qreal percent) const;
     QPointF getBezierPoint(const QPointF& first, const QPointF& last, const QPointF& pathPoint, qreal percent) const;
 
     int mFieldW = 800;

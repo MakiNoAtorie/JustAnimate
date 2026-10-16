@@ -54,6 +54,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 
 - Follow the ground rules and lean rules in `ROADMAP.md`.
 - File format: new XML attributes are optional; old files must still load.
+  Decided homes for new project data: `docs/file-format.md`.
 - Undo: every edit records through `UndoRedoManager` (`createState` after
   `handleDrawingOnEmptyFrame()`, then `record` on every path; layer
   add/remove through `recordLayerAdd/Remove`). Commands address frames by
@@ -70,6 +71,16 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - CPU-parallel loops use `parallelFor` (`util.h`, at most 8 threads). Tasks
   touch only their own item; signals and progress stay on the calling thread.
   Never call `QThreadPool::waitForDone` on a shared pool: it deletes threads.
+  Fetch `QImage::bits()` before the loop: a detach on a worker is a race.
+- Layer blending goes through `blendPixels` (`util/blendmode.*`); its SIMD
+  path stays byte-exact to `blendPixelsScalar`. A key's drawing state at a
+  frame comes only from `Layer::tweenStateAt`; state that varies inside a
+  hold joins `layersKey` and skips the `ScribbleArea` frame cache.
+- Layer order and group edits record through
+  `LayerManager::commitLayerArrangement`; timeline rows map through
+  `getLayerNumber`/`getLayerY` (folded group rows are skipped). Rendering
+  asks `Object::isLayerVisible(layer)` so group visibility applies; group
+  opacity applies to the group composite, never to member opacity.
 - Code that runs in a crash handler uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
   renames it over the target only after a successful write.
@@ -94,11 +105,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `objectName`s are stable keys.
 - App files compiled into a test are listed in both `app/app.cmake` and
   `tests/tests.cmake`.
-- Tool property ids: bucket `FILLCLOSEGAPS_VALUE = 307` ("FillCloseGaps",
-  px, 0 = off). Fill behind lines is the existing Behind blend mode.
-  New tools append to `ToolType` before `TOOL_TYPE_COUNT`: `SHAPE`, then
-  `LASSOFILL`. `ShapeToolProperties` ids 600–699 (`SHAPEMODE_VALUE = 600`,
-  "ShapeMode": 0 line, 1 rectangle, 2 ellipse, 3 polygon); lasso fill 700–799.
+- New tools append to `ToolType` before `TOOL_TYPE_COUNT`.
 - Speed-ups: Release `benchmark` target, before/after back to back on the
   same machine, numbers in the commit message; a kept attempt that is not
   outside noise goes to `docs/rejected-optimizations.md` instead. Caches
@@ -113,11 +120,6 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   modified. Memory claims use the benchmark's peak RAM line. Playback
   preloads frames ahead through `Object::preloadFrames`, with a look-ahead
   below the 50-frame unload distance.
-- Opt-in fast mode: `SETTING::FAST_RENDER_LAYERS_ABOVE`, key
-  `"FastRenderLayersAbove"`, default off.
-- Welcome screen logic lives in `Welcome::` free functions
-  (`app/src/welcomehelper.*`). Thumbnails go to `QStandardPaths::CacheLocation/
-  thumbnails/<sha1 of canonical path>.png` after a successful save.
 - A timeline frame selection can span layers: clear it with
   `LayerManager::deselectAllFrames`. Multi-layer frame edits go through
   `LayerManager`, one `createState(type, layer)` per layer in one `UndoMacro`.

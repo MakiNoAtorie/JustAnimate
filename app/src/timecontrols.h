@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include <QToolButton>
 #include <QSpinBox>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QLabel>
 
 class Editor;
@@ -81,6 +82,8 @@ private:
     QPushButton* mJumpToEndButton = nullptr;
     QPushButton* mJumpToStartButton = nullptr;
     QPushButton* mLoopButton = nullptr;
+    QCheckBox* mPingPongCheckBox = nullptr;
+    QComboBox* mSpeedBox = nullptr;
     QPushButton* mSoundButton = nullptr;
     QPushButton* mSoundScrubButton = nullptr;
     QSpinBox*    mFpsBox = nullptr;

@@ -25,6 +25,9 @@ class LayerBitmap;
 class LayerVector;
 class LayerCamera;
 class LayerSound;
+struct TweenState;
+struct LayerArrangement;
+enum class CameraEasingType;
 
 
 class LayerManager : public BaseManager
@@ -59,6 +62,29 @@ public:
     void insertLayer(int index, Layer* layer);
     Status renameLayer(Layer*, const QString& newName);
     void notifyLayerChanged(Layer*);
+    /** Sets how the layer composites over the layers below it. One undo step. */
+    void setBlendMode(Layer* layer, BlendMode mode);
+    /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */
+    void setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state);
+
+    /** Makes a new group that holds the layer. Returns its id, or 0 when the layer is already in a group. One undo step. */
+    int createLayerGroup(Layer* layer);
+    /** Moves the layer from its group, if any, to just above the top member of the group. One undo step. */
+    void addLayerToGroup(Layer* layer, int groupId);
+    /** Takes the layer out of its group and moves it above the group when it is between two members. One undo step. */
+    void removeLayerFromGroup(Layer* layer);
+    /** Hides or shows the rows of the group's members in the timeline. View state: not recorded for undo. */
+    void setLayerGroupCollapsed(int groupId, bool collapsed);
+    /** Shows or hides all members of the group. One undo step. */
+    void setLayerGroupVisible(int groupId, bool visible);
+    /** Sets the opacity (0 to 1) the group's composite draws with. One undo step. */
+    void setLayerGroupOpacity(int groupId, qreal opacity);
+    /** Moves the layer at `from` to just above the layer at `to` (below it when `to` is lower). A member of an expanded
+     *  group stays in its group; a collapsed group moves as a block; nothing moves into a group or below the bottom
+     *  camera layer. One undo step. Returns false when nothing moves. */
+    bool moveLayer(int from, int to);
+    /** Sets the layer order and groups, keeping each group's collapsed state. For undo. */
+    void applyLayerArrangement(const LayerArrangement& arrangement);
 
     void gotoNextLayer();
     void gotoPreviouslayer();
@@ -69,6 +95,8 @@ public:
     LayerVector* createVectorLayer(const QString& strLayerName);
     LayerCamera* createCameraLayer(const QString& strLayerName);
     LayerSound*  createSoundLayer(const QString& strLayerName);
+    /** Adds a copy of `from` with its keys and blend mode on top, as the current layer. */
+    Layer* duplicateLayer(Layer* from, const QString& name);
 
     // KeyFrame Management
     int lastFrameAtFrame(int frameIndex);
@@ -114,6 +142,7 @@ signals:
 private:
     int getIndex(Layer*) const;
     void recordLayerAdd(const Layer* layer);
+    bool commitLayerArrangement(const LayerArrangement& after, const QString& description);
 
     int mLastCameraLayerIdx = 0;
 };

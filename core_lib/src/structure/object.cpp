@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #include "object.h"
 #include "appinfo.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <QDomDocument>
 #include <QTextStream>
 #include <QProgressDialog>
@@ -28,6 +31,7 @@ GNU General Public License for more details.
 #include <QDateTime>
 #include <QImageWriter>
 #include <QRegularExpression>
+#include <QSet>
 
 #include "layer.h"
 #include "layerbitmap.h"
@@ -75,6 +79,18 @@ QDomElement Object::saveXML(QDomDocument& doc) const
         QDomElement layerTag = layer->createDomElement(doc);
         objectTag.appendChild(layerTag);
     }
+    // Pencil2D reads only <layer> children and skips these.
+    for (const LayerGroup& group : mLayerGroups)
+    {
+        if (layerGroupRange(group.id).first < 0) { continue; } // emptied by a layer delete
+        QDomElement groupTag = doc.createElement("layerGroup");
+        groupTag.setAttribute("id", group.id);
+        groupTag.setAttribute("name", group.name);
+        if (group.collapsed) { groupTag.setAttribute("collapsed", 1); }
+        if (!group.visible) { groupTag.setAttribute("visibility", 0); }
+        if (group.opacity != 1.0) { groupTag.setAttribute("opacity", group.opacity); }
+        objectTag.appendChild(groupTag);
+    }
     return objectTag;
 }
 
@@ -90,6 +106,17 @@ bool Object::loadXML(const QDomElement& docElem, ProgressCallback progressForwar
     for (QDomNode node = docElem.firstChild(); !node.isNull(); node = node.nextSibling())
     {
         QDomElement element = node.toElement(); // try to convert the node to an element.
+        if (element.tagName() == "layerGroup")
+        {
+            LayerGroup group;
+            group.id = element.attribute("id").toInt();
+            group.name = element.attribute("name");
+            group.collapsed = element.attribute("collapsed", "0").toInt();
+            group.visible = element.attribute("visibility", "1").toInt();
+            group.opacity = qBound(0.0, element.attribute("opacity", "1").toDouble(), 1.0);
+            if (group.id > 0 && findLayerGroup(group.id) == nullptr) { mLayerGroups.append(group); }
+            continue;
+        }
         if (element.tagName() != "layer")
         {
             continue;
@@ -117,7 +144,94 @@ bool Object::loadXML(const QDomElement& docElem, ProgressCallback progressForwar
         mLayers.append(newLayer);
         newLayer->loadDomElement(element, dataDirPath, progressForward);
     }
+    // Untrusted file: group members must be contiguous, so a member after its group's first run loads ungrouped.
+    QSet<int> endedGroups;
+    int previous = 0;
+    for (Layer* layer : mLayers)
+    {
+        if (findLayerGroup(layer->groupId()) == nullptr) { layer->setGroupId(0); }
+        if (layer->groupId() != previous && previous != 0) { endedGroups.insert(previous); }
+        if (endedGroups.contains(layer->groupId())) { layer->setGroupId(0); }
+        previous = layer->groupId();
+    }
     return true;
+}
+
+LayerGroup* Object::findLayerGroup(int groupId)
+{
+    return const_cast<LayerGroup*>(static_cast<const Object*>(this)->findLayerGroup(groupId));
+}
+
+const LayerGroup* Object::findLayerGroup(int groupId) const
+{
+    for (const LayerGroup& group : mLayerGroups)
+    {
+        if (group.id == groupId) { return &group; }
+    }
+    return nullptr;
+}
+
+int Object::getUniqueLayerGroupID() const
+{
+    int id = 1;
+    for (const LayerGroup& group : mLayerGroups) { id = std::max(id, group.id + 1); }
+    return id;
+}
+
+QPair<int, int> Object::layerGroupRange(int groupId) const
+{
+    QPair<int, int> range(-1, -1);
+    for (int i = 0; groupId != 0 && i < mLayers.size(); ++i)
+    {
+        if (mLayers[i]->groupId() != groupId) { continue; }
+        if (range.first < 0) { range.first = i; }
+        range.second = i;
+    }
+    return range;
+}
+
+bool Object::isLayerFolded(int index) const
+{
+    const Layer* layer = getLayer(index);
+    if (layer == nullptr) { return false; }
+    const LayerGroup* group = findLayerGroup(layer->groupId());
+    return group && group->collapsed && layerGroupRange(group->id).second != index;
+}
+
+bool Object::isLayerVisible(const Layer* layer) const
+{
+    const LayerGroup* group = findLayerGroup(layer->groupId());
+    return layer->visible() && (group == nullptr || group->visible);
+}
+
+LayerArrangement Object::layerArrangement() const
+{
+    LayerArrangement a;
+    for (const Layer* layer : mLayers)
+    {
+        a.layerIds << layer->id();
+        a.groupIds << layer->groupId();
+    }
+    a.groups = mLayerGroups;
+    return a;
+}
+
+void Object::setLayerArrangement(const LayerArrangement& a)
+{
+    QList<Layer*> ordered;
+    for (int i = 0; i < a.layerIds.size(); ++i)
+    {
+        Layer* layer = findLayerById(a.layerIds[i]);
+        if (layer == nullptr) { continue; }
+        layer->setGroupId(a.groupIds[i]);
+        ordered << layer;
+    }
+    for (Layer* layer : mLayers)
+    {
+        if (!ordered.contains(layer)) { ordered << layer; }
+    }
+    mLayers = ordered;
+    mLayerGroups = a.groups;
 }
 
 LayerBitmap* Object::addNewBitmapLayer()
@@ -385,6 +499,7 @@ bool Object::addLayer(Layer* layer)
         return false;
     }
     layer->setId(getUniqueLayerID());
+    layer->setGroupId(0); // the group belongs to the object the layer came from
     mLayers.append(layer);
     return true;
 }
@@ -726,38 +841,51 @@ void Object::paintImage(QPainter& painter,int frameNumber,
         painter.setWorldMatrixEnabled(true);
     }
 
-    for (Layer* layer : mLayers)
+    auto paintLayer = [&](QPainter& target, Layer* layer)
     {
-        if (!layer->visible())
-        {
-            continue;
-        }
+        if (!isLayerVisible(layer)) { return; }
 
-        painter.setOpacity(1.0);
-
+        std::function<void(QPainter&)> paint;
         if (layer->type() == Layer::BITMAP)
         {
-
-            LayerBitmap* layerBitmap = static_cast<LayerBitmap*>(layer);
-            BitmapImage* bitmap = layerBitmap->getLastBitmapImageAtFrame(frameNumber);
+            BitmapImage* bitmap = static_cast<LayerBitmap*>(layer)->getLastBitmapImageAtFrame(frameNumber);
             if (bitmap)
             {
-                painter.setOpacity(bitmap->getOpacity());
-                bitmap->paintImage(painter);
+                paint = [bitmap](QPainter& p) { bitmap->paintImage(p); };
             }
-
         }
-        // paints the vector images
         if (layer->type() == Layer::VECTOR)
         {
-            LayerVector* layerVector = static_cast<LayerVector*>(layer);
-            VectorImage* vec = layerVector->getLastVectorImageAtFrame(frameNumber);
+            VectorImage* vec = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(frameNumber);
             if (vec)
             {
-                painter.setOpacity(vec->getOpacity());
-                vec->paintImage(painter, *this, false, false, antialiasing);
+                paint = [this, vec, antialiasing](QPainter& p) { vec->paintImage(p, *this, false, false, antialiasing); };
             }
         }
+        if (!paint) { return; }
+        const TweenState tween = layer->tweenStateAt(frameNumber);
+        target.save();
+        target.setOpacity(tween.opacity);
+        target.setTransform(tween.transform(), true);
+        if (layer->blendMode() == BlendMode::Normal) { paint(target); }
+        else { drawBlendedLayer(target, layer->blendMode(), paint); }
+        target.restore();
+    };
+
+    for (int i = 0; i < mLayers.size(); ++i)
+    {
+        const LayerGroup* group = findLayerGroup(mLayers[i]->groupId());
+        if (group == nullptr || group->opacity >= 1.0)
+        {
+            paintLayer(painter, mLayers[i]);
+            continue;
+        }
+        const int first = i;
+        i = layerGroupRange(group->id).second;
+        if (!group->visible || group->opacity <= 0.0) { continue; }
+        drawWithOpacity(painter, group->opacity, [&](QPainter& p) {
+            for (int j = first; j <= i; ++j) { paintLayer(p, mLayers[j]); }
+        });
     }
 }
 
@@ -902,7 +1030,48 @@ Status Object::exportFrames(int frameStart, int frameEnd,
     return Status::OK;
 }
 
-Status Object::exportIm(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, const QString& filePath, const QString& format, bool antialiasing, bool transparency) const
+Object::SpriteSheetGrid Object::spriteSheetGrid(int frameCount, int columns)
+{
+    SpriteSheetGrid grid;
+    const int n = std::max(frameCount, 1);
+    grid.columns = columns > 0 ? std::min(columns, n) : static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n))));
+    grid.rows = (n + grid.columns - 1) / grid.columns;
+    return grid;
+}
+
+Status Object::exportSpriteSheet(int frameStart, int frameEnd, const LayerCamera* cameraLayer, QSize frameSize, const QString& filePath,
+                                 int columns, bool transparency, bool antialiasing, QProgressDialog* progress, int progressMax) const
+{
+    Q_ASSERT(cameraLayer);
+    const int count = frameEnd - frameStart + 1;
+    const SpriteSheetGrid grid = spriteSheetGrid(count, columns);
+    QImage sheet(frameSize.width() * grid.columns, frameSize.height() * grid.rows, QImage::Format_ARGB32_Premultiplied);
+    sheet.fill(transparency ? QColor(Qt::transparent) : QColor(Qt::white));
+
+    for (int i = 0; i < count; ++i)
+    {
+        if (progress != nullptr)
+        {
+            progress->setValue((i + 1) * progressMax / count);
+            QApplication::processEvents();
+            if (progress->wasCanceled()) { return Status::CANCELED; }
+        }
+        const int frame = frameStart + i;
+        QPainter painter(&sheet);
+        painter.drawImage(grid.cell(i, frameSize).topLeft(),
+                          renderFrame(frame, cameraLayer->getViewAtFrame(frame), cameraLayer->getViewSize(), frameSize, antialiasing, transparency));
+    }
+
+    QImageWriter writer(filePath, "PNG");
+    if (writer.write(sheet)) { return Status::OK; }
+    DebugDetails dd;
+    dd << "Object::exportSpriteSheet";
+    dd << QString("&nbsp;&nbsp;filePath: ").append(filePath);
+    dd << QString("&nbsp;&nbsp;Error: %1 (code %2)").arg(writer.errorString()).arg(static_cast<int>(writer.error()));
+    return Status(Status::FAIL, dd);
+}
+
+QImage Object::renderFrame(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, bool antialiasing, bool transparency) const
 {
     QImage imageToExport(exportSize, QImage::Format_ARGB32_Premultiplied);
 
@@ -919,7 +1088,12 @@ Status Object::exportIm(int frame, const QTransform& view, QSize cameraSize, QSi
     painter.setWindow(QRect(0, 0, cameraSize.width(), cameraSize.height()));
 
     paintImage(painter, frame, false, antialiasing);
+    return imageToExport;
+}
 
+Status Object::exportIm(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, const QString& filePath, const QString& format, bool antialiasing, bool transparency) const
+{
+    const QImage imageToExport = renderFrame(frame, view, cameraSize, exportSize, antialiasing, transparency);
     QImageWriter writer(filePath, format.toStdString().c_str());
     bool b = writer.write(imageToExport);
     if (b) {

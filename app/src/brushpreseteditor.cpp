@@ -284,6 +284,14 @@ QString BrushPresetEditor::settingLabel(int key, const QString& identifier)
     case StrokeToolProperties::DAB_COUNT_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Dabs per step");
     case StrokeToolProperties::TAPER_START_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Start taper");
     case StrokeToolProperties::TAPER_END_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "End taper");
+    case StrokeToolProperties::GRAIN_MODE_VALUE: return tr("Grain (0 off, 1 paper, 2 moving)");
+    case StrokeToolProperties::GRAIN_SCALE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain scale");
+    case StrokeToolProperties::GRAIN_CONTRAST_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain contrast");
+    case StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain brightness");
+    case StrokeToolProperties::SMUDGE_LENGTH_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge length");
+    case StrokeToolProperties::SMUDGE_RADIUS_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge sample radius");
+    case StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge colour rate");
+    case StrokeToolProperties::SMUDGE_MIX_VALUE: return tr("Smudge mixing (0 light, 1 pigment)");
     case StrokeToolProperties::FLOW_PER_DAB_ENABLED: return tr("Flow per dab (Classic)");
     default: return identifier;
     }

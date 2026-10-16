@@ -543,3 +543,62 @@ void LayerAddRemoveCommand::detach()
     editor()->getScribbleArea()->onLayerChanged();
     emit editor()->updateTimeLine();
 }
+
+LayerBlendModeCommand::LayerBlendModeCommand(int layerId, BlendMode oldMode, BlendMode newMode,
+                                             const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), oldMode(oldMode), newMode(newMode)
+{
+    setText(description);
+}
+
+void LayerBlendModeCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(oldMode);
+}
+
+void LayerBlendModeCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(newMode);
+}
+
+void LayerBlendModeCommand::apply(BlendMode mode)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    layer->setBlendMode(mode);
+    editor()->layers()->notifyLayerChanged(layer);
+}
+
+LayerArrangementCommand::LayerArrangementCommand(const LayerArrangement& before, const LayerArrangement& after,
+                                                 const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), before(before), after(after)
+{
+    setText(description);
+}
+
+void LayerArrangementCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void LayerArrangementCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void LayerArrangementCommand::apply(const LayerArrangement& arrangement)
+{
+    editor()->layers()->applyLayerArrangement(arrangement);
+}

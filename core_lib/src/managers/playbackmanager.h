@@ -39,6 +39,10 @@ public:
 
     bool isPlaying();
     bool isLooping() { return mIsLooping; }
+    bool isPingPong() const { return mIsPingPong; }
+    double speed() const { return mSpeed; }
+    int frameIntervalMs() const;
+    void advance();
     void setCheckForSoundsHalfway(bool newCheck) { mCheckForSoundsHalfway = newCheck; }
 
     void play();
@@ -60,6 +64,8 @@ public:
 
     void setFps(int fps);
     void setLooping(bool isLoop);
+    void setPingPong(bool b);
+    void setSpeed(double speed);
     void enableRangedPlayback(bool b);
     void setRangedStartFrame(int frame);
     void setRangedEndFrame(int frame);
@@ -73,6 +79,8 @@ private slots:
 signals:
     void fpsChanged(int fps);
     void loopStateChanged(bool b);
+    void pingPongChanged(bool b);
+    void speedChanged(double speed);
     void rangedPlaybackStateChanged(bool b);
     void playStateChanged(bool isPlaying);
 
@@ -89,6 +97,9 @@ private:
     void updateEndFrame();
 
     bool mIsLooping = false;
+    bool mIsPingPong = false;
+    bool mIsReversing = false;
+    double mSpeed = 1.0;
     bool mIsPlaySound = true;
 
     bool mIsRangedPlayback = false;

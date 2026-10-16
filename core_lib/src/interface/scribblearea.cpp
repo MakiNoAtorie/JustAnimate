@@ -798,6 +798,9 @@ void ScribbleArea::paintBitmapBuffer()
         case ERASER:
             cm = QPainter::CompositionMode_DestinationOut;
             break;
+        case SMUDGE:
+            cm = QPainter::CompositionMode_Source;
+            break;
         case BRUSH:
         case PEN:
         case PENCIL:
@@ -805,7 +808,8 @@ void ScribbleArea::paintBitmapBuffer()
         default: //nothing
             break;
         }
-        targetImage->paste(&mTiledBuffer, cm);
+        // The stroke is drawn in canvas space; map it into the space of the key.
+        targetImage->paste(&mTiledBuffer, cm, layer->tweenStateAt(frameNumber).transform().inverted());
     }
 
     QRect rect = mEditor->view()->mapCanvasToScreen(mTiledBuffer.bounds()).toRect();
@@ -884,7 +888,16 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         // --- we retrieve the canvas from the cache; we create it if it doesn't exist
         const int frameNumber = mEditor->layers()->lastFrameAtFrame(currentFrame);
 
-        if (frameNumber < 0)
+        // The frame cache is keyed by key position: a transformed or in-between frame skips it (CanvasPainter caches by content).
+        bool transformed = false;
+        for (int i = 0; i < mEditor->object()->getLayerCount() && !transformed; ++i)
+        {
+            const Layer* layer = mEditor->object()->getLayer(i);
+            const KeyFrame* key = layer->getLastKeyFrameAtPosition(currentFrame);
+            transformed = !layer->tweenStateAt(currentFrame).isIdentity() || (key && key->tween() && key->pos() != currentFrame);
+        }
+
+        if (frameNumber < 0 || transformed)
         {
             drawCanvas(currentFrame, event->rect());
         }
@@ -1117,7 +1130,13 @@ void ScribbleArea::prepCanvas(int frame)
     o.eLayerVisibility = mLayerVisibility;
     o.fLayerVisibilityThreshold = mPrefs->getFloat(SETTING::LAYER_VISIBILITY_THRESHOLD);
     o.scaling = mEditor->view()->scaling();
-    o.cmBufferBlendMode = mEditor->tools()->currentTool()->type() == ToolType::ERASER ? QPainter::CompositionMode_DestinationOut : QPainter::CompositionMode_SourceOver;
+    switch (mEditor->tools()->currentTool()->type())
+    {
+    case ToolType::ERASER: o.cmBufferBlendMode = QPainter::CompositionMode_DestinationOut; break;
+    // Smudge tiles hold the layer pixels they change.
+    case ToolType::SMUDGE: o.cmBufferBlendMode = QPainter::CompositionMode_Source; break;
+    default: o.cmBufferBlendMode = QPainter::CompositionMode_SourceOver; break;
+    }
 
     mCanvasPainter.setOnionSkinOptions(onionSkinOptions());
     mCanvasPainter.setOptions(o);
@@ -1140,26 +1159,6 @@ void ScribbleArea::drawCanvas(int frame, QRect rect)
     mCameraPainter.paint(rect);
 }
 
-void ScribbleArea::setGaussianGradient(QGradient &gradient, QColor color, qreal opacity, qreal offset)
-{
-    if (offset < 0) { offset = 0; }
-    if (offset > 100) { offset = 100; }
-
-    int r = color.red();
-    int g = color.green();
-    int b = color.blue();
-    qreal a = color.alphaF();
-
-    int mainColorAlpha = qRound(a * 255 * opacity);
-
-    // the more feather (offset), the more softness (opacity)
-    int alphaAdded = qRound((mainColorAlpha * offset) / 100);
-
-    gradient.setColorAt(0.0, QColor(r, g, b, mainColorAlpha - alphaAdded));
-    gradient.setColorAt(1.0, QColor(r, g, b, 0));
-    gradient.setColorAt(1.0 - (offset / 100.0), QColor(r, g, b, mainColorAlpha - alphaAdded));
-}
-
 void ScribbleArea::drawPath(QPainterPath path, QPen pen, QBrush brush, QPainter::CompositionMode cm)
 {
     mTiledBuffer.drawPath(mEditor->view()->mapScreenToCanvas(path), pen, brush, cm, mPrefs->isOn(SETTING::ANTIALIAS));
@@ -1180,6 +1179,18 @@ void ScribbleArea::drawBrush(QPointF thePoint, qreal brushWidth, qreal mOffset, 
 {
     // Without feather the dab is solid fillColor and ignores opacity.
     mTiledBuffer.drawDab(thePoint, brushWidth, usingFeather ? mOffset : 0, fillColor, usingFeather ? opacity : 1.0, useAA, tip);
+}
+
+void ScribbleArea::smudgeDab(QPointF point, qreal width, qreal feather, QColor color, qreal opacity, const BrushTip& tip,
+                             const SmudgeSettings& smudge)
+{
+    if (!mTiledBuffer.isSmudging())
+    {
+        BitmapImage* image = currentBitmapImage(mEditor->layers()->currentLayer());
+        if (image == nullptr) return; // the first frame can be deleted while drawing
+        mTiledBuffer.setSmudgeSource(*image->image(), image->topLeft());
+    }
+    mTiledBuffer.smudgeDab(point, width, feather, color, opacity, false, tip, smudge);
 }
 
 void ScribbleArea::drawPolyline(QPainterPath path, QPen pen, bool useAA)
@@ -1250,75 +1261,6 @@ void ScribbleArea::prepOverlays(int frame)
 
     ViewManager* vm = mEditor->view();
     mOverlayPainter.setViewTransform(vm->getView());
-}
-
-void ScribbleArea::blurBrush(BitmapImage *bmiSource_, QPointF srcPoint_, QPointF thePoint_, qreal brushWidth_, qreal mOffset_, qreal opacity_)
-{
-    QRadialGradient radialGrad(thePoint_, 0.5 * brushWidth_);
-    setGaussianGradient(radialGrad, QColor(255, 255, 255, 127), opacity_, mOffset_);
-
-    QRectF srcRect(srcPoint_.x() - 0.5 * brushWidth_, srcPoint_.y() - 0.5 * brushWidth_, brushWidth_, brushWidth_);
-    QRectF trgRect(thePoint_.x() - 0.5 * brushWidth_, thePoint_.y() - 0.5 * brushWidth_, brushWidth_, brushWidth_);
-
-    BitmapImage bmiSrcClip = bmiSource_->copy(srcRect.toAlignedRect());
-    BitmapImage bmiTmpClip = bmiSrcClip; // TODO: find a shorter way
-
-    bmiTmpClip.drawRect(srcRect, Qt::NoPen, radialGrad, QPainter::CompositionMode_Source, true);
-    bmiSrcClip.bounds().moveTo(trgRect.topLeft().toPoint());
-    bmiTmpClip.paste(&bmiSrcClip, QPainter::CompositionMode_SourceIn);
-    mTiledBuffer.drawImage(*bmiTmpClip.image(), bmiTmpClip.bounds(), QPainter::CompositionMode_SourceOver, mPrefs->isOn(SETTING::ANTIALIAS));
-}
-
-void ScribbleArea::liquifyBrush(BitmapImage *bmiSource_, QPointF srcPoint_, QPointF thePoint_, qreal brushWidth_, qreal mOffset_, qreal opacity_)
-{
-    QPointF delta = (thePoint_ - srcPoint_); // increment vector
-    QRectF trgRect(thePoint_.x() - 0.5 * brushWidth_, thePoint_.y() - 0.5 * brushWidth_, brushWidth_, brushWidth_);
-
-    QRadialGradient radialGrad(thePoint_, 0.5 * brushWidth_);
-    setGaussianGradient(radialGrad, QColor(255, 255, 255, 255), opacity_, mOffset_);
-
-    // Create gradient brush
-    BitmapImage bmiTmpClip;
-    bmiTmpClip.drawRect(trgRect, Qt::NoPen, radialGrad, QPainter::CompositionMode_Source, mPrefs->isOn(SETTING::ANTIALIAS));
-
-    // Slide texture/pixels of the source image
-    qreal factor, factorGrad;
-
-    for (int yb = bmiTmpClip.top(); yb < bmiTmpClip.bottom(); yb++)
-    {
-        for (int xb = bmiTmpClip.left(); xb < bmiTmpClip.right(); xb++)
-        {
-            QColor color;
-            color.setRgba(bmiTmpClip.pixel(xb, yb));
-            factorGrad = color.alphaF(); // any from r g b a is ok
-
-            int xa = xb - factorGrad * delta.x();
-            int ya = yb - factorGrad * delta.y();
-
-            color.setRgba(bmiSource_->pixel(xa, ya));
-            factor = color.alphaF();
-
-            if (factor > 0.0)
-            {
-                color.setRed(color.red() / factor);
-                color.setGreen(color.green() / factor);
-                color.setBlue(color.blue() / factor);
-                color.setAlpha(255); // Premultiplied color
-
-                color.setRed(color.red()*factorGrad);
-                color.setGreen(color.green()*factorGrad);
-                color.setBlue(color.blue()*factorGrad);
-                color.setAlpha(255 * factorGrad); // Premultiplied color
-
-                bmiTmpClip.setPixel(xb, yb, color.rgba());
-            }
-            else
-            {
-                bmiTmpClip.setPixel(xb, yb, qRgba(255, 255, 255, 0));
-            }
-        }
-    }
-    mTiledBuffer.drawImage(*bmiTmpClip.image(), bmiTmpClip.bounds(), QPainter::CompositionMode_SourceOver, mPrefs->isOn(SETTING::ANTIALIAS));
 }
 
 /************************************************************************************/

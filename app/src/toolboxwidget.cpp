@@ -98,7 +98,7 @@ void ToolBoxWidget::initUI()
             "Set color from the stage<br>[ALT] for instant access" )
         .arg( GetToolTips( CMD_TOOL_EYEDROPPER ) ) );
     ui->smudgeButton->setToolTip( tr( "Smudge Tool (%1):<br>Edit polyline/curves<br>"
-            "Liquify bitmap pixels<br> (%1)+[Alt]: Smooth" )
+            "Smudge bitmap pixels" )
         .arg( GetToolTips( CMD_TOOL_SMUDGE ) ) );
 
     ui->pencilButton->setWhatsThis( tr( "Pencil Tool (%1)" )

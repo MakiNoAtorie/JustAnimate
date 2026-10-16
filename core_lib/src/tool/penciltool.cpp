@@ -59,6 +59,10 @@ void PencilTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::DAB_COUNT_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_MODE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_SCALE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::FLOW_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::OPACITY_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::WASH_ENABLED] = { Layer::BITMAP };
@@ -147,6 +151,7 @@ void PencilTool::paintVectorStroke(Layer* layer)
     curve.setColorNumber(mEditor->color()->frontColorNumber());
     VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
     if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
+    mapCurveToKey(curve);
     vectorImage->addCurve(curve, qAbs(mEditor->view()->scaling()), false);
 
     if (mSettings.fillContourEnabled())

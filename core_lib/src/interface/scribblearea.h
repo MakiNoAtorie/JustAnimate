@@ -54,7 +54,6 @@ class ScribbleArea : public QWidget
     Q_OBJECT
 
     friend class MoveTool;
-    friend class SmudgeTool;
     friend class BucketTool;
 
 public:
@@ -172,12 +171,12 @@ public:
     void drawPencil(QPointF thePoint, qreal brushWidth, qreal fixedBrushFeather, QColor fillColor, qreal opacity, const BrushTip& tip = {});
     void drawBrush(QPointF thePoint, qreal brushWidth, qreal offset, QColor fillColor, qreal opacity, bool usingFeather = true, bool useAA = false, const BrushTip& tip = {});
     void setWashOpacity(qreal opacity) { mTiledBuffer.setWashOpacity(opacity); }
-    void blurBrush(BitmapImage *bmiSource_, QPointF srcPoint_, QPointF thePoint_, qreal brushWidth_, qreal offset_, qreal opacity_);
-    void liquifyBrush(BitmapImage *bmiSource_, QPointF srcPoint_, QPointF thePoint_, qreal brushWidth_, qreal offset_, qreal opacity_);
+    /** One smudge dab on the current bitmap frame; the first dab of a stroke starts the smudge buffer. */
+    void smudgeDab(QPointF point, qreal width, qreal feather, QColor color, qreal opacity, const BrushTip& tip,
+                   const SmudgeSettings& smudge);
 
     void paintBitmapBuffer();
     void clearDrawingBuffer();
-    void setGaussianGradient(QGradient &gradient, QColor color, qreal opacity, qreal offset);
 
     void pointerPressEvent(PointerEvent*);
     void pointerMoveEvent(PointerEvent*);

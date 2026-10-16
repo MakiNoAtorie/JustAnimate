@@ -236,6 +236,39 @@ static Object* loadXmlString(FileManager& fm, const QString& xml)
     return fm.load(tmpFile.fileName());
 }
 
+TEST_CASE("FileManager frame markers round-trip and are optional")
+{
+    QTemporaryDir testDir;
+    REQUIRE(testDir.isValid());
+    const QString path = testDir.filePath("markers.pclx");
+    FileManager fm;
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    obj->addNewCameraLayer();
+
+    SECTION("A file without markers loads with none")
+    {
+        REQUIRE(fm.save(obj.get(), path).ok());
+        std::unique_ptr<Object> loaded(fm.load(path));
+        REQUIRE(loaded != nullptr);
+        REQUIRE(loaded->data()->markers().isEmpty());
+    }
+
+    SECTION("Markers survive save and load")
+    {
+        obj->data()->setMarker(3, { "key", QColor("#ff0000") });
+        obj->data()->setMarker(7, { "breakdown", QColor("#00ff00") });
+        REQUIRE(fm.save(obj.get(), path).ok());
+        std::unique_ptr<Object> loaded(fm.load(path));
+        REQUIRE(loaded != nullptr);
+        const auto& m = loaded->data()->markers();
+        REQUIRE(m.size() == 2);
+        REQUIRE(m.value(3).name == "key");
+        REQUIRE(m.value(3).color == QColor("#ff0000"));
+        REQUIRE(m.value(7).name == "breakdown");
+    }
+}
+
 TEST_CASE("FileManager loads malformed project XML")
 {
     SECTION("XML comment inside projectdata")

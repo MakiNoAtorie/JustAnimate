@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 
 #include "painterutils.h"
+#include "blendmode.h"
 
 namespace
 {
@@ -95,7 +96,8 @@ void CanvasPainter::ignoreTransformedSelection()
 
 void CanvasPainter::paintCached(const QRect& blitRect)
 {
-    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, mCurrentLayerIndex - 1), blitRect, &CanvasPainter::renderPreLayers);
+    const QPair<int, int> range = currentRange();
+    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, range.first - 1), blitRect, &CanvasPainter::renderPreLayers);
 
     QPainter mainPainter;
     initializePainter(mainPainter, mCanvas, blitRect);
@@ -103,11 +105,23 @@ void CanvasPainter::paintCached(const QRect& blitRect)
     mainPainter.drawPixmap(mPointZero, mPreLayersPixmap);
     mainPainter.setWorldMatrixEnabled(true);
 
-    paintCurrentFrame(mainPainter, blitRect, mCurrentLayerIndex, mCurrentLayerIndex);
+    paintCurrentFrame(mainPainter, blitRect, range.first, range.second);
 
+    // A blend layer needs every layer below it as backdrop, so the layers above paint straight onto the canvas.
+    bool blendAbove = false;
+    for (int i = range.second + 1; i < mObject->getLayerCount(); ++i)
+    {
+        blendAbove |= mObject->getLayer(i)->blendMode() != BlendMode::Normal;
+    }
+
+    if (blendAbove)
+    {
+        renderPostLayers(mainPainter, blitRect);
+        return;
+    }
     if (mOptions.bFastLayersAbove)
     {
-        updateCells(mPostLayersCache, mPostLayersPixmap, layersKey(mCurrentLayerIndex + 1, mObject->getLayerCount() - 1),
+        updateCells(mPostLayersCache, mPostLayersPixmap, layersKey(range.second + 1, mObject->getLayerCount() - 1),
                     blitRect, &CanvasPainter::renderPostLayers);
     }
     else if (!mPostLayersPixmapCacheValid)
@@ -139,19 +153,21 @@ QVector<qint64> CanvasPainter::layersKey(int startLayer, int endLayer) const
     {
         Layer* layer = mObject->getLayer(i);
         KeyFrame* frame = layer->getLastKeyFrameAtPosition(mFrameNumber);
-        key << qint64(quintptr(layer)) << layer->visible() << qint64(quintptr(frame));
-        if (!layer->visible() || frame == nullptr) { continue; }
+        const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
+        const bool visible = mObject->isLayerVisible(layer);
+        key << qint64(quintptr(layer)) << visible << int(layer->blendMode()) << qint64(quintptr(frame))
+            << qRound64((group ? group->opacity : 1.0) * 1e6);
+        if (!visible || frame == nullptr) { continue; }
         if (layer->type() == Layer::BITMAP)
         {
             auto* image = static_cast<BitmapImage*>(frame);
             const QPoint topLeft = image->topLeft();
             // QImage::cacheKey changes on every write to the image.
-            key << topLeft.x() << topLeft.y() << image->image()->cacheKey() << qRound64(image->getOpacity() * 1e6);
+            key << topLeft.x() << topLeft.y() << image->image()->cacheKey();
         }
-        else if (layer->type() == Layer::VECTOR)
-        {
-            key << qRound64(static_cast<VectorImage*>(frame)->getOpacity() * 1e6);
-        }
+        const TweenState tween = layer->tweenStateAt(mFrameNumber);
+        key << qRound64(tween.tx * 1e6) << qRound64(tween.ty * 1e6) << qRound64(tween.rot * 1e6) << qRound64(tween.scale * 1e6)
+            << qRound64(tween.opacity * 1e6);
     }
     return key;
 }
@@ -184,7 +200,7 @@ void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QV
     }
     if (stale.isEmpty()) { return; }
 
-    // ponytail: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
+    // shortcut: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
     QPainter painter;
     initializePainter(painter, pixmap, stale);
     (this->*render)(painter, stale);
@@ -212,7 +228,7 @@ void CanvasPainter::renderPreLayers(QPainter& painter, const QRect& blitRect)
 {
     if (mOptions.eLayerVisibility != LayerVisibility::CURRENTONLY || mObject->getLayer(mCurrentLayerIndex)->type() == Layer::CAMERA)
     {
-        paintCurrentFrame(painter, blitRect, 0, mCurrentLayerIndex - 1);
+        paintCurrentFrame(painter, blitRect, 0, currentRange().first - 1);
     }
 
     paintOnionSkin(painter, blitRect);
@@ -223,7 +239,7 @@ void CanvasPainter::renderPostLayers(QPainter& painter, const QRect& blitRect)
 {
     if (mOptions.eLayerVisibility != LayerVisibility::CURRENTONLY || mObject->getLayer(mCurrentLayerIndex)->type() == Layer::CAMERA)
     {
-        paintCurrentFrame(painter, blitRect, mCurrentLayerIndex + 1, mObject->getLayerCount() - 1);
+        paintCurrentFrame(painter, blitRect, currentRange().second + 1, mObject->getLayerCount() - 1);
     }
 }
 
@@ -246,6 +262,7 @@ void CanvasPainter::paint(const QRect& blitRect)
 
 void CanvasPainter::paintOnionSkinOnLayer(QPainter& painter, const QRect& blitRect, Layer* layer)
 {
+    if (!mObject->isLayerVisible(layer)) { return; }
     mOnionSkinSubPainter.paint(painter, layer, mOnionSkinPainterOptions, mFrameNumber, [&] (OnionSkinPaintState state, int onionFrameNumber) {
         if (state == OnionSkinPaintState::PREV) {
             switch (layer->type())
@@ -389,8 +406,11 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
 
     painter.setWorldMatrixEnabled(false);
 
-    currentBitmapPainter.setOpacity(paintedImage->getOpacity() - (1.0-painter.opacity()));
+    const TweenState tween = layer->tweenStateAt(mFrameNumber);
+    currentBitmapPainter.setOpacity(tween.opacity - (1.0-painter.opacity()));
+    currentBitmapPainter.setWorldTransform(tween.transform() * mViewTransform);
     currentBitmapPainter.drawImage(paintedImage->topLeft(), *paintedImage->image());
+    currentBitmapPainter.setWorldTransform(mViewTransform);
 
     if (isCurrentLayer && isDrawing)
     {
@@ -407,7 +427,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
         paintTransformedSelection(currentBitmapPainter, paintedImage, mSelection);
     }
 
-    painter.drawPixmap(mPointZero, mCurrentLayerPixmap);
+    drawLayerPixmap(painter, blitRect, layer->blendMode());
 }
 
 void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer)
@@ -430,8 +450,11 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
 
     // Paint existing vector image to the painter
     // Remember to adjust opacity based on additional opacity value from the keyframe
-    currentVectorPainter.setOpacity(vectorImage->getOpacity() - (1.0-painter.opacity()));
+    const TweenState tween = layer->tweenStateAt(mFrameNumber);
+    currentVectorPainter.setOpacity(tween.opacity - (1.0-painter.opacity()));
+    currentVectorPainter.setWorldTransform(tween.transform() * mViewTransform);
     vectorImage->paintImage(currentVectorPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
+    currentVectorPainter.setWorldTransform(mViewTransform);
 
     if (isCurrentLayer && isDrawing) {
         currentVectorPainter.setCompositionMode(mOptions.cmBufferBlendMode);
@@ -446,7 +469,20 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     painter.setWorldMatrixEnabled(false);
     painter.setTransform(QTransform());
 
-    painter.drawPixmap(mPointZero, mCurrentLayerPixmap);
+    drawLayerPixmap(painter, blitRect, layer->blendMode());
+}
+
+void CanvasPainter::drawLayerPixmap(QPainter& painter, const QRect& blitRect, BlendMode mode)
+{
+    if (mode == BlendMode::Normal)
+    {
+        painter.drawPixmap(mPointZero, mCurrentLayerPixmap);
+        return;
+    }
+    const qreal dpr = mCurrentLayerPixmap.devicePixelRatioF();
+    const QRect rect = QRectF(QPointF(blitRect.topLeft()) * dpr, QSizeF(blitRect.size()) * dpr).toAlignedRect()
+                       & mCurrentLayerPixmap.rect();
+    if (!rect.isEmpty()) { drawBlended(painter, mCurrentLayerPixmap.copy(rect).toImage(), rect.topLeft(), mode); }
 }
 
 void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection) const
@@ -492,27 +528,56 @@ void CanvasPainter::paintCurrentFrame(QPainter& painter, const QRect& blitRect, 
 {
     painter.setOpacity(1.0);
 
-    bool isCameraLayer = mObject->getLayer(mCurrentLayerIndex)->type() == Layer::CAMERA;
-
     for (int i = startLayer; i <= endLayer; ++i)
     {
-        Layer* layer = mObject->getLayer(i);
-
-        if (!layer->visible())
+        const LayerGroup* group = mObject->findLayerGroup(mObject->getLayer(i)->groupId());
+        if (group == nullptr || group->opacity >= 1.0)
+        {
+            paintLayer(painter, blitRect, i);
             continue;
-
-        if (mOptions.eLayerVisibility == LayerVisibility::RELATED && !isCameraLayer)
-        {
-            painter.setOpacity(calculateRelativeOpacityForLayer(mCurrentLayerIndex, i, mOptions.fLayerVisibilityThreshold));
         }
-        bool isCurrentLayer = mCurrentLayerIndex == i;
-
-        CANVASPAINTER_LOG("  Render Layer[%d] %s", i, layer->name());
-        switch (layer->type())
-        {
-        case Layer::BITMAP: { paintCurrentBitmapFrame(painter, blitRect, layer, isCurrentLayer); break; }
-        case Layer::VECTOR: { paintCurrentVectorFrame(painter, blitRect, layer, isCurrentLayer); break; }
-        default: break;
-        }
+        const int first = i;
+        i = std::min(endLayer, mObject->layerGroupRange(group->id).second);
+        if (group->visible && group->opacity > 0.0) { paintGroup(painter, blitRect, first, i, group->opacity); }
     }
+}
+
+void CanvasPainter::paintLayer(QPainter& painter, const QRect& blitRect, int index)
+{
+    Layer* layer = mObject->getLayer(index);
+    if (!mObject->isLayerVisible(layer)) { return; }
+
+    if (mOptions.eLayerVisibility == LayerVisibility::RELATED && mObject->getLayer(mCurrentLayerIndex)->type() != Layer::CAMERA)
+    {
+        painter.setOpacity(calculateRelativeOpacityForLayer(mCurrentLayerIndex, index, mOptions.fLayerVisibilityThreshold));
+    }
+    const bool isCurrentLayer = mCurrentLayerIndex == index;
+
+    CANVASPAINTER_LOG("  Render Layer[%d] %s", index, layer->name());
+    switch (layer->type())
+    {
+    case Layer::BITMAP: { paintCurrentBitmapFrame(painter, blitRect, layer, isCurrentLayer); break; }
+    case Layer::VECTOR: { paintCurrentVectorFrame(painter, blitRect, layer, isCurrentLayer); break; }
+    default: break;
+    }
+}
+
+void CanvasPainter::paintGroup(QPainter& painter, const QRect& blitRect, int first, int last, qreal opacity)
+{
+    drawWithOpacity(painter, opacity, [&](QPainter& groupPainter) {
+        for (int i = first; i <= last; ++i)
+        {
+            groupPainter.setOpacity(1.0);
+            paintLayer(groupPainter, blitRect, i);
+        }
+    });
+}
+
+QPair<int, int> CanvasPainter::currentRange() const
+{
+    const Layer* layer = mObject->getLayer(mCurrentLayerIndex);
+    const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
+    const bool currentOnly = mOptions.eLayerVisibility == LayerVisibility::CURRENTONLY && layer->type() != Layer::CAMERA;
+    if (group == nullptr || group->opacity >= 1.0 || currentOnly) { return { mCurrentLayerIndex, mCurrentLayerIndex }; }
+    return mObject->layerGroupRange(group->id);
 }

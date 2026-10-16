@@ -49,6 +49,7 @@ GNU General Public License for more details.
 #include "stageprofiler.h"
 #include "stroketool.h"
 #include "testfixture.h"
+#include "tiledbuffer.h"
 #include "toolmanager.h"
 #include "viewmanager.h"
 
@@ -219,6 +220,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "draw brush",   "stroke", cfg.strokes },
         { "draw top",     "stroke", cfg.strokes },
         { "scrub onion",  "frame",  cfg.frames },
+        { "play blend",   "frame",  cfg.frames },
     };
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
@@ -285,20 +287,40 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         drawStrokes(s, PENCIL, cfg.strokes);
         sc[6].ms.push_back(t.nsecsElapsed() / 1e6);
 
-        // Scrub again with tinted onion skin on both sides (default 5 frames each).
-        const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
-        for (SETTING o : { SETTING::PREV_ONION, SETTING::NEXT_ONION, SETTING::ONION_RED, SETTING::ONION_BLUE })
-            s.editor->preference()->set(o, true);
+        {
+            // Scrub again with tinted onion skin on both sides (default 5 frames each).
+            const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
+            for (SETTING o : { SETTING::PREV_ONION, SETTING::NEXT_ONION, SETTING::ONION_RED, SETTING::ONION_BLUE })
+                s.editor->preference()->set(o, true);
+            s.area->onObjectLoaded();
+            s.counter.paints = 0;
+            t.start();
+            for (int f = 1; f <= cfg.frames; ++f)
+            {
+                s.editor->scrubTo(f);
+                s.area->repaint();
+            }
+            sc[7].ms.push_back(t.nsecsElapsed() / 1e6);
+            REQUIRE(s.counter.paints == cfg.frames);
+        }
+
+        // Play again with every bitmap layer above the bottom one blended (multiply, screen, overlay, add).
+        const BlendMode modes[] = { BlendMode::Multiply, BlendMode::Screen, BlendMode::Overlay, BlendMode::Add };
+        for (int l = 2; l <= cfg.layers; ++l)
+            s.editor->object()->getLayer(l)->setBlendMode(modes[l % 4]);
         s.area->onObjectLoaded();
+        s.editor->scrubTo(1);
+        s.editor->playback()->play();
         s.counter.paints = 0;
         t.start();
         for (int f = 1; f <= cfg.frames; ++f)
         {
-            s.editor->scrubTo(f);
             s.area->repaint();
+            s.editor->scrubForward();
         }
-        sc[7].ms.push_back(t.nsecsElapsed() / 1e6);
+        sc[8].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(s.counter.paints == cfg.frames);
+        s.editor->playback()->stop();
     }
     return sc;
 }
@@ -559,7 +581,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 8);
+    REQUIRE(sc.size() == 9);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);
@@ -803,4 +825,45 @@ TEST_CASE("Brush replay: dabs per second at 256 and 4 screen px", "[.dabrate]")
     StageProfiler::enabled() = wasOn;
     StageProfiler::reset();
     std::fflush(stdout);
+}
+
+// Smudge dabs straight on a TiledBuffer over seeded noise; 800 px dabs are above the parallel threshold.
+static void benchSmudgeDabs()
+{
+    QImage source(2048, 2048, QImage::Format_ARGB32_Premultiplied);
+    std::mt19937 rng(7);
+    for (int y = 0; y < source.height(); ++y)
+    {
+        QRgb* row = reinterpret_cast<QRgb*>(source.scanLine(y));
+        for (int x = 0; x < source.width(); ++x)
+        {
+            const quint32 v = rng();
+            const int a = int(v >> 24);
+            row[x] = qRgba(int(v & 0xff) * a / 255, int((v >> 8) & 0xff) * a / 255, int((v >> 16) & 0xff) * a / 255, a);
+        }
+    }
+    for (int size : { 300, 800 })
+    {
+        const int dabs = 200;
+        std::vector<double> ms;
+        for (int rep = 0; rep < 5; ++rep)
+        {
+            TiledBuffer buffer;
+            buffer.setSmudgeSource(source, QPoint(0, 0));
+            QElapsedTimer t;
+            t.start();
+            for (int i = 0; i < dabs; ++i)
+                buffer.smudgeDab(QPointF(500 + i * 4.5, 1000 + (i % 7) * 3), size, 30, QColor(200, 40, 40), 0.8, true,
+                                 BrushTip(), SmudgeSettings());
+            ms.push_back(t.nsecsElapsed() / 1e6);
+        }
+        std::sort(ms.begin(), ms.end());
+        std::printf("smudge %d px: median %.1f ms per %d dabs (%.1f-%.1f)\n", size, ms[2], dabs, ms.front(), ms.back());
+    }
+    std::fflush(stdout);
+}
+
+TEST_CASE("Brush replay: smudge dabs at 300 and 800 px", "[.smudgerate]")
+{
+    benchSmudgeDabs();
 }

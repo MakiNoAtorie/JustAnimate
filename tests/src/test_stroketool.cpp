@@ -15,6 +15,8 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <algorithm>
+
 #include <QAction>
 #include <QApplication>
 #include <QIcon>
@@ -433,6 +435,51 @@ TEST_CASE("Pencil, Brush and Eraser - a tap paints a dab and a vector stroke edi
         else
             CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() == curves + 1);
     }
+}
+
+TEST_CASE("Pencil - a stroke on a translated key lands where it was drawn")
+{
+    TestSession s;
+    LayerBitmap* bitmap = s.object->addNewBitmapLayer();
+    LayerVector* vector = s.object->addNewVectorLayer();
+    TweenState moved;
+    moved.tx = 40;
+    bitmap->getKeyFrameAt(1)->setTweenState(moved);
+    vector->getKeyFrameAt(1)->setTweenState(moved);
+
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(PENCIL);
+    const ToolSettingsGuard guard(editor->tools()->currentTool());
+    static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(6);
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+
+    editor->layers()->setCurrentLayer(bitmap);
+    stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+    editor->layers()->setCurrentLayer(vector);
+    stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+
+    // Canvas (0, 0) is image pixel (100, 50).
+    vector->setVisible(false);
+    QImage image(200, 100, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setWorldTransform(QTransform::fromTranslate(100, 50));
+    s.object->paintImage(painter, 1, false, true);
+    painter.end();
+    CHECK(qAlpha(image.pixel(100, 50)) > 0);
+    CHECK(qAlpha(image.pixel(140, 50)) == 0);
+
+    // In key space the stroke sits 40 px left of where it was drawn.
+    VectorImage* vimage = vector->getVectorImageAtFrame(1);
+    const int curve = vimage->getLastCurveNumber();
+    REQUIRE(curve >= 0);
+    CHECK(vimage->getVertex(curve, -1).x() == Approx(-50).margin(3)); // the curve origin
+    CHECK(vimage->getVertex(curve, vimage->getCurveSize(curve) - 1).x() < -30 + 3);
 }
 
 TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
@@ -950,4 +997,162 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
         CHECK(flat < 6);
         CHECK(turned > 8);
     }
+}
+
+TEST_CASE("DabTool - grain is fixed to the paper or moves with each dab and replays the same")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 1; f <= 9; ++f) layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setFeather(1); // solid to 99% of the radius
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    const QPoint p = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint();
+    const QPoint shift(3, 5);
+    auto tapAt = [&](int frame, QPoint offset) {
+        editor->scrubTo(frame);
+        tap(area, editor->view()->mapCanvasToScreen(QPointF(p + offset)), 1.0);
+    };
+    auto alphaAt = [&](int frame, QPoint canvas) {
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(frame);
+        return qAlpha(bitmap->image()->pixel(canvas - bitmap->topLeft()));
+    };
+    // Alpha values on a 10x10 block inside both dabs, from canvas point p + offset.
+    auto block = [&](int frame, QPoint offset) {
+        std::vector<int> v;
+        for (int y = -5; y < 5; ++y)
+            for (int x = -5; x < 5; ++x)
+                v.push_back(alphaAt(frame, p + offset + QPoint(x, y)));
+        return v;
+    };
+    auto distinct = [](std::vector<int> v) {
+        std::sort(v.begin(), v.end());
+        return int(std::unique(v.begin(), v.end()) - v.begin());
+    };
+
+    tapAt(1, QPoint());
+    CHECK(distinct(block(1, QPoint())) == 1);
+    const int plain = alphaAt(1, p);
+
+    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 1);
+    tapAt(2, QPoint());
+    tapAt(3, shift);
+    INFO("paper grain levels " << distinct(block(2, QPoint())));
+    CHECK(distinct(block(2, QPoint())) > 10);
+    CHECK(block(2, QPoint()) == block(3, QPoint())); // fixed to the canvas
+
+    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 2);
+    tapAt(4, QPoint());
+    tapAt(5, shift);
+    CHECK(distinct(block(4, QPoint())) > 10);
+    CHECK(block(4, QPoint()) == block(5, shift)); // moves with the dab
+    CHECK(block(4, QPoint()) != block(5, QPoint()));
+
+    // Contrast 0 flattens the grain to its mid level; brightness lifts it.
+    brush->setDynamic(StrokeToolProperties::GRAIN_CONTRAST_VALUE, 0);
+    tapAt(6, QPoint());
+    CHECK(distinct(block(6, QPoint())) == 1);
+    CHECK(alphaAt(6, p) == Approx(plain / 2.0).margin(2));
+    brush->setDynamic(StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, 100);
+    tapAt(7, QPoint());
+    CHECK(alphaAt(7, p) == plain);
+
+    // A seeded jittered stroke with grain replays the same.
+    brush->setDynamic(StrokeToolProperties::GRAIN_CONTRAST_VALUE, 100);
+    brush->setDynamic(StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, 0);
+    brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 50);
+    for (int frame : { 8, 9 })
+    {
+        editor->scrubTo(frame);
+        brush->seedRandom(7);
+        stroke(area, QPointF(100, 300), QPointF(500, 300), 1.0);
+    }
+    CHECK(*layer->getBitmapImageAtFrame(8)->image() == *layer->getBitmapImageAtFrame(9)->image());
+}
+
+TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 1; f <= 4; ++f) layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(SMUDGE);
+    StrokeTool* smudge = static_cast<StrokeTool*>(editor->tools()->getTool(SMUDGE));
+    const ToolSettingsGuard guard(smudge);
+    smudge->setWidth(20);
+    smudge->setFeather(48); // a hard opaque dab repaints its own last colour at any length
+    smudge->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    // Opaque red left of canvas x = 0, transparent right of it.
+    auto prepare = [&](int frame) {
+        editor->scrubTo(frame);
+        layer->getBitmapImageAtFrame(frame)->drawRect(QRectF(-100, -50, 100, 100), Qt::NoPen, QBrush(Qt::red),
+                                                      QPainter::CompositionMode_Source, false);
+    };
+    auto pixel = [&](int frame, QPoint canvas) { return layer->getBitmapImageAtFrame(frame)->pixel(canvas); };
+    auto drag = [&](QPointF from, QPointF to) {
+        stroke(area, editor->view()->mapCanvasToScreen(from), editor->view()->mapCanvasToScreen(to), 1.0);
+    };
+
+    // A long smudge length carries red far into the empty part; length 0 much less.
+    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+    prepare(1);
+    drag(QPointF(-30, 0), QPointF(40, 0));
+    const QRgb carried = pixel(1, QPoint(20, 0));
+    INFO("carried alpha " << qAlpha(carried));
+    CHECK(qAlpha(carried) > 60);
+    CHECK(qRed(qUnpremultiply(carried)) > 200);
+    CHECK(qBlue(carried) == 0);
+    REQUIRE(undoAction->isEnabled());
+    undoAction->trigger();
+    CHECK(qAlpha(pixel(1, QPoint(20, 0))) == 0);
+    REQUIRE(redoAction->isEnabled());
+    redoAction->trigger();
+    CHECK(pixel(1, QPoint(20, 0)) == carried);
+
+    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 0);
+    prepare(2);
+    drag(QPointF(-30, 0), QPointF(40, 0));
+    CHECK(qAlpha(pixel(2, QPoint(20, 0))) < qAlpha(carried) / 2);
+
+    // Smudge smears transparency into paint too: it lowers alpha, not only adds.
+    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+    prepare(3);
+    drag(QPointF(40, 0), QPointF(-40, 0));
+    CHECK(qAlpha(pixel(3, QPoint(-20, 0))) < 200);
+    CHECK(qAlpha(pixel(3, QPoint(-20, 40))) == 255); // outside the dabs
+
+    // Full colour rate paints the front colour, like a wet brush.
+    smudge->setDynamic(StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE, 100);
+    editor->color()->setFrontColor(Qt::blue);
+    prepare(4);
+    drag(QPointF(20, 200), QPointF(80, 200));
+    const QRgb painted = pixel(4, QPoint(50, 200));
+    CHECK(qAlpha(painted) > 250);
+    CHECK(qBlue(painted) == qAlpha(painted));
+    CHECK(qRed(painted) + qGreen(painted) == 0);
 }

@@ -69,7 +69,9 @@ public:
     BitmapImage copy();
     BitmapImage copy(QRect rectangle);
     void paste(BitmapImage*, QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver);
-    void paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver);
+    /// Pastes the buffer mapped through `toImage`, from canvas space into the space of this image.
+    void paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver,
+               const QTransform& toImage = QTransform());
 
     void moveTopLeft(QPoint point);
     void moveTopLeft(QPointF point) { moveTopLeft(point.toPoint()); }
@@ -136,8 +138,6 @@ public:
      */
     bool isMinimallyBounded() const { return mMinBound; }
     void enableAutoCrop(bool b) { mEnableAutoCrop = b; }
-    void setOpacity(qreal opacity) { mOpacity = opacity; }
-    qreal getOpacity() const { return mOpacity; }
 
     Status writeFile(const QString& filename);
 
@@ -204,7 +204,6 @@ private:
     const int COLORDIFF = 5;      // difference in color values to decide color
     const int GRAYSCALEDIFF = 15; // difference in grasycale values to decide color
 
-    qreal mOpacity = 1.0;
 };
 
 #endif

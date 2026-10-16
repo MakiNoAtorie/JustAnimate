@@ -22,6 +22,8 @@ GNU General Public License for more details.
 #include <QObject>
 #include <QList>
 #include <QColor>
+#include <QImage>
+#include <QRect>
 #include "layer.h"
 #include "colorref.h"
 #include "pencilerror.h"
@@ -37,6 +39,28 @@ class LayerSound;
 class ObjectData;
 class ActiveFramePool;
 
+/// A named set of adjacent layers. Members point to it with Layer::groupId. One level, no nesting.
+struct LayerGroup
+{
+    int id = 0;
+    QString name;
+    bool collapsed = false;
+    bool visible = true;
+    qreal opacity = 1.0;
+    bool operator==(const LayerGroup& o) const
+    {
+        return id == o.id && name == o.name && collapsed == o.collapsed && visible == o.visible && opacity == o.opacity;
+    }
+};
+
+/// Layer order (bottom first), the group of each layer and the group list. Undo state of group edits and reorders.
+struct LayerArrangement
+{
+    QList<int> layerIds;
+    QList<int> groupIds;
+    QList<LayerGroup> groups;
+    bool operator==(const LayerArrangement& o) const { return layerIds == o.layerIds && groupIds == o.groupIds && groups == o.groups; }
+};
 
 class Object final
 {
@@ -134,6 +158,21 @@ public:
     void deleteLayer(Layer*);
     bool addLayer(Layer* layer);
 
+    const QList<LayerGroup>& layerGroups() const { return mLayerGroups; }
+    LayerGroup* findLayerGroup(int groupId);
+    const LayerGroup* findLayerGroup(int groupId) const;
+    void addLayerGroup(const LayerGroup& group) { mLayerGroups.append(group); }
+    int getUniqueLayerGroupID() const;
+    /** Lowest and highest layer index of the group's members, or {-1, -1} when it has none */
+    QPair<int, int> layerGroupRange(int groupId) const;
+    /** True for a member of a collapsed group other than its top member: the timeline shows no row for it */
+    bool isLayerFolded(int index) const;
+    /** True when the layer and its group, if any, are visible */
+    bool isLayerVisible(const Layer* layer) const;
+    LayerArrangement layerArrangement() const;
+    /** Reorders the listed layers and sets their groups. Unlisted layers keep their order above them. */
+    void setLayerArrangement(const LayerArrangement& arrangement);
+
     template<typename T>
     std::vector<T*> getLayersByType() const
     {
@@ -150,6 +189,22 @@ public:
     // these functions need to be moved to somewhere...
     Status exportFrames(int frameStart, int frameEnd, const LayerCamera* cameraLayer, QSize exportSize, QString filePath, QString format,
                       bool transparency, bool exportKeyframesOnly, const QString& layerName, bool antialiasing, QProgressDialog* progress, int progressMax) const;
+
+    // Frames in one PNG: row-major grid in frame order. columns <= 0 means ceil(sqrt(n)).
+    struct SpriteSheetGrid
+    {
+        int columns = 1;
+        int rows = 1;
+        QRect cell(int index, const QSize& frame) const
+        {
+            return QRect(QPoint((index % columns) * frame.width(), (index / columns) * frame.height()), frame);
+        }
+    };
+    QImage renderFrame(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, bool antialiasing, bool transparency) const;
+    static SpriteSheetGrid spriteSheetGrid(int frameCount, int columns);
+    // Writes nothing when canceled through progress.
+    Status exportSpriteSheet(int frameStart, int frameEnd, const LayerCamera* cameraLayer, QSize frameSize, const QString& filePath,
+                             int columns, bool transparency, bool antialiasing, QProgressDialog* progress, int progressMax) const;
 
     Status exportIm(int frameStart, const QTransform& view, QSize cameraSize, QSize exportSize, const QString& filePath, const QString& format, bool antialiasing, bool transparency) const;
 
@@ -178,6 +233,7 @@ private:
     QString mMainXMLFile;    //< the location of main.xml
 
     QList<Layer*> mLayers;
+    QList<LayerGroup> mLayerGroups;
     bool modified = false;
 
     QList<ColorRef> mPalette;

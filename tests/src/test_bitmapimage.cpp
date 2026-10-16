@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "bitmapimage.h"
 #include "tile.h"
 #include "tiledbuffer.h"
+#include <climits>
 #include <QElapsedTimer>
 #include <QTemporaryDir>
 #include <QThread>
@@ -754,6 +755,67 @@ TEST_CASE("TiledBuffer drawDab: large dabs render on worker threads with the sam
     CHECK(threaded == serial);
     if (QThread::idealThreadCount() > 1)
         CHECK(workers > 1);
+}
+
+TEST_CASE("TiledBuffer smudgeDab: large dabs composite in row bands with the same pixels as serial")
+{
+    QImage source(1100, 1100, QImage::Format_ARGB32_Premultiplied);
+    quint32 seed = 1;
+    for (int y = 0; y < source.height(); ++y)
+        for (int x = 0; x < source.width(); ++x)
+        {
+            seed = seed * 1664525u + 1013904223u;
+            const int a = int(seed >> 24);
+            source.setPixel(x, y, qRgba(int((seed >> 4) & 0xff) * a / 255, int((seed >> 12) & 0xff) * a / 255, x % 256 * a / 255, a));
+        }
+    auto smudge = [&](TiledBuffer& buffer) {
+        buffer.setSmudgeSource(source, QPoint(0, 0));
+        for (int i = 0; i < 3; ++i) // 900 px dabs: about 810K px each, above the threshold
+            buffer.smudgeDab(QPointF(530 + i * 17.25, 540 - i * 9.5), 900, 40, QColor(30, 200, 90), 0.7, true, BrushTip(),
+                             SmudgeSettings());
+        BitmapImage image(QRect(0, 0, 1100, 1100), Qt::transparent);
+        image.paste(&buffer, QPainter::CompositionMode_Source);
+        return *image.image();
+    };
+    TiledBuffer banded;
+    const QImage threaded = smudge(banded);
+    const int workers = banded.lastSmudgeWorkers();
+    TiledBuffer one;
+    one.setParallelSmudgeMinPixels(INT_MAX);
+    const QImage serial = smudge(one);
+
+    REQUIRE(serial != source);
+    CHECK(one.lastSmudgeWorkers() == 1);
+    CHECK(threaded == serial);
+    if (QThread::idealThreadCount() > 1)
+        CHECK(workers > 1);
+}
+
+TEST_CASE("TiledBuffer smudgeDab: wet mode mixes blue and yellow paint to green")
+{
+    QImage source(64, 64, QImage::Format_ARGB32_Premultiplied);
+    source.fill(qRgb(0, 0, 255));
+    auto mixed = [&](bool wet) {
+        TiledBuffer buffer;
+        buffer.setSmudgeSource(source, QPoint(0, 0));
+        SmudgeSettings smudge;
+        smudge.colorRate = 0.5f;
+        smudge.wet = wet;
+        buffer.smudgeDab(QPointF(32, 32), 20, 0, QColor(255, 255, 0), 1.0, false, BrushTip(), smudge);
+        BitmapImage image(QRect(0, 0, 64, 64), Qt::transparent);
+        image.paste(&buffer, QPainter::CompositionMode_Source);
+        return image.image()->pixel(32, 32);
+    };
+    const QRgb linear = mixed(false);
+    INFO("linear " << qRed(linear) << " " << qGreen(linear) << " " << qBlue(linear));
+    CHECK(qAbs(qRed(linear) - qGreen(linear)) < 8);
+    CHECK(qAbs(qGreen(linear) - qBlue(linear)) < 8);
+
+    const QRgb wet = mixed(true);
+    INFO("wet " << qRed(wet) << " " << qGreen(wet) << " " << qBlue(wet));
+    CHECK(qAlpha(wet) == 255);
+    CHECK(qGreen(wet) > qRed(wet) + 40);
+    CHECK(qGreen(wet) > qBlue(wet) + 40);
 }
 
 TEST_CASE("TiledBuffer: cleared tiles go to a pool that stays under its cap and comes back clean")

@@ -20,19 +20,24 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandlineparser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineparser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movieexporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_spritesheet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_inputsmoother.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerbitmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layercamera.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layergroup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layermanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layersound.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layervector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_object.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_onionskin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pegbaraligner.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_playbackmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pointerevent.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_filemanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_emergencysave.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_blendmode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tween.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapbucket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_brushpresets.cpp

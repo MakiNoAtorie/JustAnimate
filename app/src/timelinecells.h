@@ -96,6 +96,8 @@ private:
     int getLayerY(int layerNumber) const;
     int getFrameX(int frameNumber) const;
     int getFrameNumber(int x) const;
+    void showMarkerMenu(const QPoint& globalPos);
+    void showTweenMenu(int frame, const QPoint& globalPos);
 
     void onDidLeaveWidget();
 

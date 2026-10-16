@@ -18,6 +18,11 @@ GNU General Public License for more details.
 #include "exportmoviedialog.h"
 #include "ui_exportmovieoptions.h"
 #include "util.h"
+#include <QComboBox>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QSpinBox>
 
 ExportMovieDialog::ExportMovieDialog(QWidget *parent, Mode mode, FileType fileType) :
     ImportExportDialog(parent, mode, fileType),
@@ -38,6 +43,22 @@ ExportMovieDialog::ExportMovieDialog(QWidget *parent, Mode mode, FileType fileTy
     policy = ui->unevenHeightLabel->sizePolicy();
     policy.setRetainSizeWhenHidden(true);
     ui->unevenHeightLabel->setSizePolicy(policy);
+
+    mQualityCombo = new QComboBox;
+    mQualityCombo->addItems({ tr("Low"), tr("Medium"), tr("High") });
+    mQualityCombo->setCurrentIndex(static_cast<int>(MovieQuality::Medium));
+    mColorsSpin = new QSpinBox;
+    mColorsSpin->setRange(3, 256);
+    mColorsSpin->setValue(256);
+    mDitherCheck = new QCheckBox(tr("Dither"));
+    mDitherCheck->setChecked(true);
+    auto* encodeBox = new QGroupBox(tr("Quality"));
+    auto* encodeLayout = new QHBoxLayout(encodeBox);
+    encodeLayout->addWidget(mQualityCombo);
+    encodeLayout->addWidget(new QLabel(tr("Colors")));
+    encodeLayout->addWidget(mColorsSpin);
+    encodeLayout->addWidget(mDitherCheck);
+    ui->verticalLayout->addWidget(encodeBox);
 
     connect(this, &ExportMovieDialog::filePathsChanged, this, &ExportMovieDialog::onFilePathsChanged);
     connect(ui->widthSpinBox, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &ExportMovieDialog::validateResolution);
@@ -118,6 +139,21 @@ int ExportMovieDialog::getEndFrame()
     return ui->endSpinBox->value();
 }
 
+MovieQuality ExportMovieDialog::getQuality() const
+{
+    return static_cast<MovieQuality>(mQualityCombo->currentIndex());
+}
+
+int ExportMovieDialog::getGifColors() const
+{
+    return mColorsSpin->value();
+}
+
+bool ExportMovieDialog::getGifDither() const
+{
+    return mDitherCheck->isChecked();
+}
+
 bool ExportMovieDialog::getLoop()
 {
     return ui->loopCheckBox->isChecked();
@@ -139,6 +175,10 @@ void ExportMovieDialog::onFilePathsChanged(QStringList filePaths)
         ui->loopCheckBox->setChecked(false);
     }
     ui->transparencyCheckBox->setEnabled(supportsTransparency(filePath));
+    const bool isGif = filePath.endsWith(".gif", Qt::CaseInsensitive);
+    mQualityCombo->setEnabled(filePath.endsWith(".mp4", Qt::CaseInsensitive) || filePath.endsWith(".webm", Qt::CaseInsensitive));
+    mColorsSpin->setEnabled(isGif);
+    mDitherCheck->setEnabled(isGif);
     validateResolution();
 }
 
