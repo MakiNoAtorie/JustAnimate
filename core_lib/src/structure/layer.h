@@ -66,6 +66,9 @@ public:
     void setOnionSkin(bool b) { mOnionSkin = b; }
     BlendMode blendMode() const { return mBlendMode; }
     void setBlendMode(BlendMode mode) { mBlendMode = mode; }
+    /** A Rough layer paints tinted and faded on the canvas and never exports. */
+    bool isRough() const { return mRough; }
+    void setRough(bool b) { mRough = b; }
     /** Id of the LayerGroup in Object that holds this layer, 0 for none */
     int groupId() const { return mGroupId; }
     void setGroupId(int groupId) { mGroupId = groupId; }
@@ -207,6 +210,7 @@ private:
     bool       mVisible = true;
     bool       mOnionSkin = true;
     BlendMode  mBlendMode = BlendMode::Normal;
+    bool       mRough = false;
     int mGroupId = 0;
     QString    mName;
 

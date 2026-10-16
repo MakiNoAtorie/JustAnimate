@@ -65,6 +65,7 @@ public:
     void notifyLayerChanged(Layer*);
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
+    void setRough(Layer* layer, bool rough);
     /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */
     void setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state);
     /** Sets the Mark of the current layer's Drawing shown at frame as one undo step. */

@@ -410,6 +410,11 @@ void UndoRedoManager::recordLayerBlendMode(int layerId, BlendMode oldMode, Blend
     pushCommand(new LayerBlendModeCommand(layerId, oldMode, newMode, description, editor()));
 }
 
+void UndoRedoManager::recordLayerRough(int layerId, bool rough, const QString& description)
+{
+    pushCommand(new LayerRoughCommand(layerId, rough, description, editor()));
+}
+
 void UndoRedoManager::recordLayerArrangement(const LayerArrangement& before, const QString& description)
 {
     const LayerArrangement after = object()->layerArrangement();

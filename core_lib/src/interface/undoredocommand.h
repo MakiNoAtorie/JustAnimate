@@ -295,6 +295,21 @@ private:
     BlendMode newMode = BlendMode::Normal;
 };
 
+class LayerRoughCommand : public UndoRedoCommand
+{
+public:
+    LayerRoughCommand(int layerId, bool rough, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(bool value);
+
+    int layerId = 0;
+    bool rough = false;
+};
+
 /// Undo and redo of a layer reorder or a layer group edit.
 class LayerArrangementCommand : public UndoRedoCommand
 {

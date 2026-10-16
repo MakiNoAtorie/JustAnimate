@@ -896,6 +896,17 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
         else { name = QChar(0x25BE) + QString(" ") + groupName + " / " + name; }
     }
     painter.drawText(QPoint(kLayerNameLeft, y + (2 * height) / 3), name);
+    if (layer->isRough())
+    {
+        QFont tagFont = painter.font();
+        tagFont.setPointSizeF(tagFont.pointSizeF() * 0.75);
+        tagFont.setBold(true);
+        const int tagLeft = kLayerNameLeft + painter.fontMetrics().horizontalAdvance(name) + 6;
+        painter.save();
+        painter.setFont(tagFont);
+        painter.drawText(QPoint(tagLeft, y + (2 * height) / 3), tr("ROUGH"));
+        painter.restore();
+    }
 }
 
 void TimeLineCells::paintSelection(QPainter& painter, int x, int y, int width, int height) const
@@ -1180,8 +1191,12 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                     lockAlpha->setCheckable(true);
                     lockAlpha->setChecked(static_cast<LayerBitmap*>(layer)->lockAlpha());
                 }
+                QAction* rough = nullptr;
                 if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
                 {
+                    rough = menu.addAction(tr("Rough Layer"));
+                    rough->setCheckable(true);
+                    rough->setChecked(layer->isRough());
                     QMenu* blend = menu.addMenu(tr("Blend Mode"));
                     QActionGroup* group = new QActionGroup(blend);
                     for (int mode = 0; mode < kBlendModeCount; ++mode)
@@ -1223,6 +1238,10 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 {
                     static_cast<LayerBitmap*>(layer)->setLockAlpha(lockAlpha->isChecked());
                     mEditor->object()->modification();
+                }
+                else if (chosen && chosen == rough)
+                {
+                    mEditor->layers()->setRough(layer, rough->isChecked());
                 }
                 else if (chosen && chosen == newGroup)
                 {

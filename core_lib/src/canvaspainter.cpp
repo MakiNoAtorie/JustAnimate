@@ -155,7 +155,7 @@ QVector<qint64> CanvasPainter::layersKey(int startLayer, int endLayer) const
         KeyFrame* frame = layer->getLastKeyFrameAtPosition(mFrameNumber);
         const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
         const bool visible = mObject->isLayerVisible(layer);
-        key << qint64(quintptr(layer)) << visible << int(layer->blendMode()) << qint64(quintptr(frame))
+        key << qint64(quintptr(layer)) << visible << int(layer->blendMode()) << layer->isRough() << qint64(quintptr(frame))
             << qRound64((group ? group->opacity : 1.0) * 1e6);
         if (!visible || frame == nullptr) { continue; }
         if (layer->type() == Layer::BITMAP)
@@ -398,6 +398,15 @@ void CanvasPainter::tintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPai
     }
 }
 
+// Recolours the painted layer pixels in one faded blue, keeping their coverage.
+static void tintRough(QPainter& layerPainter, const QRect& blitRect)
+{
+    layerPainter.setWorldMatrixEnabled(false);
+    layerPainter.setOpacity(1.0);
+    layerPainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    layerPainter.fillRect(blitRect, QColor(107, 143, 201, 96));
+}
+
 void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer)
 {
     LayerBitmap* bitmapLayer = static_cast<LayerBitmap*>(layer);
@@ -434,6 +443,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
         paintTransformedSelection(currentBitmapPainter, paintedImage, mSelection, tween.transform() * mViewTransform);
     }
 
+    if (layer->isRough()) { tintRough(currentBitmapPainter, blitRect); }
     drawLayerPixmap(painter, blitRect, layer->blendMode());
 }
 
@@ -476,6 +486,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     painter.setWorldMatrixEnabled(false);
     painter.setTransform(QTransform());
 
+    if (layer->isRough()) { tintRough(currentVectorPainter, blitRect); }
     drawLayerPixmap(painter, blitRect, layer->blendMode());
 }
 

@@ -185,6 +185,8 @@ public:
 
     /** Records that the blend mode of the layer with the given id changed from oldMode. */
     void recordLayerBlendMode(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description);
+    /** Records that the layer with the given id became Rough (or stopped being Rough). */
+    void recordLayerRough(int layerId, bool rough, const QString& description);
     /** Records a change of layer order or groups from `before` to the current arrangement */
     void recordLayerArrangement(const LayerArrangement& before, const QString& description);
 

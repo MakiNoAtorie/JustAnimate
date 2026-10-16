@@ -227,6 +227,9 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     Layer* to = createLayer(from->type(), name);
     if (to == nullptr) { return nullptr; }
     to->setBlendMode(from->blendMode());
+    to->setVisible(from->visible());
+    to->setOnionSkin(from->onionSkin());
+    to->setRough(from->isRough());
     if (to->type() == Layer::BITMAP)
     {
         static_cast<LayerBitmap*>(to)->setLockAlpha(static_cast<LayerBitmap*>(from)->lockAlpha());
@@ -433,6 +436,14 @@ void LayerManager::setBlendMode(Layer* layer, BlendMode mode)
     const BlendMode oldMode = layer->blendMode();
     layer->setBlendMode(mode);
     editor()->undoRedo()->recordLayerBlendMode(layer->id(), oldMode, mode, tr("Blend Mode"));
+    notifyLayerChanged(layer);
+}
+
+void LayerManager::setRough(Layer* layer, bool rough)
+{
+    if (layer == nullptr || layer->isRough() == rough) { return; }
+    layer->setRough(rough);
+    editor()->undoRedo()->recordLayerRough(layer->id(), rough, tr("Rough Layer"));
     notifyLayerChanged(layer);
 }
 
