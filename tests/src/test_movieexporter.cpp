@@ -1,4 +1,4 @@
-/*
+﻿/*
 
 JustAnimate - Traditional Animation Software
 
@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 
 #include "movieexporter.h"
@@ -83,5 +84,48 @@ TEST_CASE("MovieExporter::mayOverwrite")
     {
         REQUIRE(MovieExporter::mayOverwrite(makeFile(dir), yes));
         REQUIRE(asked == 1);
+    }
+}
+
+TEST_CASE("MovieExporter export presets")
+{
+    SECTION("quality presets map to ffmpeg args")
+    {
+        REQUIRE(MovieExporter::qualityArgs("a.mp4", MovieQuality::Low) == QStringList({ "-crf", "28" }));
+        REQUIRE(MovieExporter::qualityArgs("a.MP4", MovieQuality::High) == QStringList({ "-crf", "18" }));
+        REQUIRE(MovieExporter::qualityArgs("a.webm", MovieQuality::Medium) == QStringList({ "-crf", "32", "-b:v", "0" }));
+        REQUIRE(MovieExporter::qualityArgs("a.gif", MovieQuality::High).isEmpty());
+    }
+
+    SECTION("gif palette options map to filter args")
+    {
+        REQUIRE(MovieExporter::gifFilter(16, false) == "[0:v]palettegen=max_colors=16 [p]; [0:v][p] paletteuse=dither=none");
+        REQUIRE(MovieExporter::gifFilter(999, true).contains("max_colors=256"));
+        REQUIRE(MovieExporter::gifFilter(1, true).contains("max_colors=3"));
+        REQUIRE(MovieExporter::gifFilter(64, true).contains("dither=sierra2_4a"));
+    }
+
+    SECTION("ffmpeg writes a valid file per preset")
+    {
+        const QString ffmpeg = QStandardPaths::findExecutable("ffmpeg");
+        if (ffmpeg.isEmpty()) { WARN("ffmpeg not installed: skipping encode check"); return; }
+
+        QTemporaryDir dir;
+        auto run = [&](const QString& name, const QStringList& extra) {
+            QStringList args = { "-f", "lavfi", "-i", "testsrc=size=64x64:rate=6:duration=1" };
+            args << extra << "-y" << dir.filePath(name);
+            REQUIRE(MovieExporter::executeFFmpeg(ffmpeg, args, [](int) { return true; }).ok());
+            return QFileInfo(dir.filePath(name)).size();
+        };
+        auto mp4 = [&](MovieQuality q) {
+            return run(QString("q%1.mp4").arg(int(q)), QStringList({ "-pix_fmt", "yuv420p" }) + MovieExporter::qualityArgs("x.mp4", q));
+        };
+        REQUIRE(mp4(MovieQuality::Low) > 0);
+        REQUIRE(mp4(MovieQuality::Low) < mp4(MovieQuality::High));
+
+        auto gif = [&](int colors, bool dither) {
+            return run(QString("c%1%2.gif").arg(colors).arg(dither), { "-filter_complex", MovieExporter::gifFilter(colors, dither) });
+        };
+        REQUIRE(gif(4, false) != gif(256, true));
     }
 }

@@ -6,6 +6,8 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Layer blend modes use SSE2 on x86-64, with the same pixels as before (3.8).
+- Smudge runs in the brush engine with a colour bucket, smudge length, sample radius and colour rate, and can smear transparency; the old smudge loop and its Alt liquify mode are gone (B7).
+- Export: MP4 and WebM quality presets (low/medium/high) and GIF palette options (max colours, dither on/off) in the movie exporter (3.12).
 - Playback: loop or ping-pong over the playback range, speed 0.5x/1x/2x in the timeline controls, and held Next/Previous Frame keys flip at the project fps; ping-pong is saved with the project (3.11).
 - Brush grain: a paper texture fixed to the canvas or moving with each dab, with scale, contrast and brightness (B6)
 - Layers can blend with Multiply, Screen, Overlay or Add: right-click a bitmap or vector layer in the timeline and choose Blend Mode; the mode is saved in the project and can be undone (3.8).

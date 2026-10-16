@@ -1,8 +1,8 @@
 # Brush engine
 
-Rules for Pencil, Brush and Eraser dabs, tips and presets. Read before you
-edit `dabtool.*`, `tiledbuffer.*`, `stroketool.*`, `toolproperties.h`,
-`brushpresets.*` or the preset dock and editor.
+Rules for Pencil, Brush, Eraser and Smudge dabs, tips and presets. Read
+before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
+`toolproperties.h`, `brushpresets.*` or the preset dock and editor.
 
 ## Strokes and dabs
 
@@ -29,6 +29,20 @@ edit `dabtool.*`, `tiledbuffer.*`, `stroketool.*`, `toolproperties.h`,
   flow, as before v0.3. Wash mode is per stroke
   (`ScribbleArea::setWashOpacity` on every press); with wash off the
   SourceOver loop is unchanged.
+
+## Smudge
+
+- The Smudge tool is a `DabTool` preset on bitmap layers (vector layers keep
+  vertex moving). Its dabs go only through `TiledBuffer::smudgeDab`: sample
+  the mean premultiplied colour within the sample radius, mix it into the
+  colour bucket (`mixSmudgeColor`, kept part = smudge length), mix the front
+  colour in by colour rate, then `compositeSmudge` moves pixels toward that
+  colour, alpha included. Kubelka-Munk mixing replaces only
+  `mixSmudgeColor`; row-band parallelism goes only in `compositeSmudge`.
+- Smudge reads the canvas every dab, so it never queues dabs for
+  `flushDabs`. A smudge stroke seeds each new tile with the layer pixels
+  (`setSmudgeSource`) and the buffer replaces the layer
+  (`CompositionMode_Source`) in the preview and on commit.
 
 ## Settings
 

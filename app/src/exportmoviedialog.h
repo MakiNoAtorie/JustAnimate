@@ -20,6 +20,10 @@ GNU General Public License for more details.
 
 #include "importexportdialog.h"
 #include <QCheckBox>
+#include "movieexporter.h"
+
+class QComboBox;
+class QSpinBox;
 
 namespace Ui {
 class ExportMovieOptions;
@@ -47,8 +51,14 @@ public:
     int getEndFrame();
 
     bool getLoop();
+    MovieQuality getQuality() const;
+    int getGifColors() const;
+    bool getGifDither() const;
 
 private:
+    QComboBox* mQualityCombo = nullptr;
+    QSpinBox* mColorsSpin = nullptr;
+    QCheckBox* mDitherCheck = nullptr;
     void frameCheckboxClicked(bool checked);
     void onFilePathsChanged(QStringList filePaths);
 

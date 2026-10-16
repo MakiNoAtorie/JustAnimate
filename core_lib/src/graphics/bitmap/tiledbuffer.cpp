@@ -76,6 +76,7 @@ Tile* TiledBuffer::getTileFromIndex(const TileIndex& tileIndex)
             // Coverage mode colourizes the whole image later, so only the image path clears it.
             if (!mCoverageMode) selectedTile->clear();
         }
+        if (mSmudging) selectedTile->load(mSmudgeSource, mSmudgeTopLeft);
         if (mCoverageMode)
         {
             selectedTile->coverage().assign(UNIFORM_TILE_SIZE * UNIFORM_TILE_SIZE, 0);
@@ -194,6 +195,14 @@ const std::vector<quint8>& grainTexture()
         return out;
     }();
     return texture;
+}
+
+// The colour-mix step of smudge: t = 0 gives a, 1 gives b, linear in premultiplied RGBA.
+std::array<float, 4> mixSmudgeColor(const std::array<float, 4>& a, const std::array<float, 4>& b, float t)
+{
+    std::array<float, 4> out;
+    for (int i = 0; i < 4; ++i) out[i] = a[i] + (b[i] - a[i]) * t;
+    return out;
 }
 }
 
@@ -634,7 +643,7 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
 {
     StageScope stage(StageProfiler::DabMask);
     feather = qBound(0.0, feather, 100.0);
-    // Same centre alpha as ScribbleArea::setGaussianGradient.
+    // Feather lowers the centre alpha by its percentage.
     const bool wash = mWashOpacity < 1;
     const quint32 washWeight = wash ? quint32(qBound(0, qRound(255 * opacity), 255)) : 0;
     if (wash && washWeight == 0) return;
@@ -695,6 +704,134 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
     }
     if (timed) mDabNsPerPixel = 0.9 * mDabNsPerPixel + 0.1 * (timer.nsecsElapsed() / pixels);
     if (!inlineDab) mQueuedDabs.push_back(dab);
+}
+
+void TiledBuffer::setSmudgeSource(const QImage& image, QPoint topLeft)
+{
+    endCoverage();
+    mSmudging = true;
+    mSmudgeSource = image;
+    mSmudgeTopLeft = topLeft;
+    mSmudgeBucketEmpty = true;
+}
+
+std::array<float, 4> TiledBuffer::sampleSmudge(QPointF center, qreal radius)
+{
+    const QRect box = QRectF(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius).toAlignedRect();
+    const float cx = float(center.x());
+    const float cy = float(center.y());
+    const float r2 = float(radius * radius);
+    quint64 sum[4] = {};
+    quint64 count = 0;
+    const qreal tileSize = UNIFORM_TILE_SIZE;
+    for (int tileY = qFloor(box.top() / tileSize); tileY <= qFloor(box.bottom() / tileSize); tileY++) {
+        for (int tileX = qFloor(box.left() / tileSize); tileX <= qFloor(box.right() / tileSize); tileX++) {
+            const Tile* tile = mTiles.value({tileX, tileY}, nullptr);
+            if (!tile) continue;
+            const QRect area = box & tile->bounds();
+            for (int y = area.top(); y <= area.bottom(); ++y)
+            {
+                const QRgb* d = reinterpret_cast<const QRgb*>(tile->image().constScanLine(y - tile->pos().y())) - tile->pos().x();
+                const float dy = y + 0.5f - cy;
+                for (int x = area.left(); x <= area.right(); ++x)
+                {
+                    const float dx = x + 0.5f - cx;
+                    if (dx * dx + dy * dy > r2) continue;
+                    sum[0] += qRed(d[x]);
+                    sum[1] += qGreen(d[x]);
+                    sum[2] += qBlue(d[x]);
+                    sum[3] += qAlpha(d[x]);
+                    ++count;
+                }
+            }
+        }
+    }
+    std::array<float, 4> mean{};
+    if (count == 0) return mean;
+    for (int i = 0; i < 4; ++i) mean[i] = float(sum[i]) / (255.0f * float(count));
+    return mean;
+}
+
+void TiledBuffer::compositeSmudge(const DabMask& mask, const QRect& rect, quint32 src, quint32 weight)
+{
+    const qreal tileSize = UNIFORM_TILE_SIZE;
+    for (int tileY = qFloor(rect.top() / tileSize); tileY <= qFloor(rect.bottom() / tileSize); tileY++) {
+        for (int tileX = qFloor(rect.left() / tileSize); tileX <= qFloor(rect.right() / tileSize); tileX++) {
+            Tile* tile = mTiles.value({tileX, tileY});
+            const QRect area = rect & tile->bounds();
+            const QPoint tilePos = tile->pos();
+            QImage& image = tile->image();
+            for (int y = area.top(); y <= area.bottom(); ++y)
+            {
+                QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
+                const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (area.left() - rect.left());
+                for (int k = 0, w = area.width(); k < w; ++k)
+                {
+                    const int a = int(mul255(weight, m[k]));
+                    if (a == 0) continue;
+                    // Rounds up toward src, so light repeated dabs still reach it.
+                    int c[4];
+                    for (int i = 0; i < 4; ++i)
+                    {
+                        const int dc = int(d[k] >> (8 * i)) & 0xff;
+                        const int delta = (int(src >> (8 * i)) & 0xff) - dc;
+                        c[i] = dc + (delta * a + (delta > 0 ? 254 : -254)) / 255;
+                    }
+                    // Keep premultiplied: no colour channel above alpha.
+                    d[k] = (quint32(c[3]) << 24) | (quint32(qMin(c[2], c[3])) << 16) |
+                           (quint32(qMin(c[1], c[3])) << 8) | quint32(qMin(c[0], c[3]));
+                }
+            }
+        }
+    }
+}
+
+void TiledBuffer::smudgeDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing,
+                            const BrushTip& tip, const SmudgeSettings& smudge)
+{
+    StageScope stage(StageProfiler::DabMask);
+    endCoverage();
+    feather = qBound(0.0, feather, 100.0);
+    // Same centre alpha as drawDab.
+    const int mainAlpha = qRound(255 * qBound(0.0, opacity, 1.0));
+    const int weight = mainAlpha - qRound(mainAlpha * feather / 100);
+    if (weight <= 0) return;
+
+    const int qx = qRound(center.x() * 4);
+    const int qy = qRound(center.y() * 4);
+    const QPoint origin(qFloor(qx / 4.0), qFloor(qy / 4.0));
+    const DabMask* mask = &dabMask(diameter, feather, qx - origin.x() * 4, qy - origin.y() * 4, antialiasing, tip);
+    DabMask grained;
+    if (tip.grainMode != 0)
+    {
+        grained = grainMask(*mask, origin, tip);
+        mask = &grained;
+    }
+    const QRect rect = mask->rect.translated(origin);
+    if (rect.isEmpty()) return;
+
+    // Every point is within 0.71 px of a pixel centre, so the sample is never empty.
+    const qreal radius = qMax(0.75, 0.5 * diameter * smudge.radius);
+    const QRect area = rect | QRectF(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius).toAlignedRect();
+    const qreal tileSize = UNIFORM_TILE_SIZE;
+    for (int tileY = qFloor(area.top() / tileSize); tileY <= qFloor(area.bottom() / tileSize); tileY++) {
+        for (int tileX = qFloor(area.left() / tileSize); tileX <= qFloor(area.right() / tileSize); tileX++) {
+            mTileBounds.extend(getTileFromIndex({tileX, tileY})->bounds());
+        }
+    }
+
+    // Pick up what lies under the dab, then paint what the bucket holds.
+    const std::array<float, 4> sample = sampleSmudge(center, radius);
+    mSmudgeBucket = mSmudgeBucketEmpty ? sample : mixSmudgeColor(sample, mSmudgeBucket, smudge.length);
+    mSmudgeBucketEmpty = false;
+    const float alpha = float(color.alphaF());
+    const std::array<float, 4> paint = mixSmudgeColor(
+        mSmudgeBucket, { float(color.redF()) * alpha, float(color.greenF()) * alpha, float(color.blueF()) * alpha, alpha },
+        smudge.colorRate);
+    auto to8 = [](float v) { return quint32(qBound(0, qRound(v * 255), 255)); };
+    const quint32 a = to8(paint[3]);
+    const quint32 src = (a << 24) | (qMin(to8(paint[0]), a) << 16) | (qMin(to8(paint[1]), a) << 8) | qMin(to8(paint[2]), a);
+    compositeSmudge(*mask, rect, src, quint32(weight));
 }
 
 void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPainter::CompositionMode cm, bool antialiasing) {
@@ -793,6 +930,9 @@ void TiledBuffer::clear()
 
     mTileBounds = BlitRect();
     mCoverageMode = false;
+    mSmudging = false;
+    mSmudgeSource = QImage();
+    mSmudgeBucketEmpty = true;
 }
 
 QPoint TiledBuffer::getTilePos(const TileIndex& index) const
