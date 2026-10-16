@@ -192,7 +192,7 @@ void TimeLine::initUI()
     timeLineContent->setLayout(lay);
     setWidget(timeLineContent);
 
-    mScrollingStoppedTimer = new QTimer();
+    mScrollingStoppedTimer = new QTimer(this);
     mScrollingStoppedTimer->setSingleShot(true);
 
     setWindowFlags(Qt::WindowStaysOnTopHint);
