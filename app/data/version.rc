@@ -13,7 +13,7 @@
 #define RC_APP_VERSION_STR "0.0.0.0"
 #endif
 
-IDI_ICON1 ICON "pencil2d.ico"
+IDI_ICON1 ICON "justanimate.ico"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     RC_APP_VERSION

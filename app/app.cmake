@@ -214,11 +214,9 @@ set(APP_TRANSLATIONS
 
 # Platform-specific source files and configuration
 if(APPLE)
-    set(MACOSX_BUNDLE_ICON_FILE pencil2d.icns)
+    set(MACOSX_BUNDLE_ICON_FILE justanimate.icns)
     set(MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/app/data/Info.plist)
-    set(APP_ICON_MACOSX ${CMAKE_CURRENT_SOURCE_DIR}/app/data/pencil2d.icns
-                        ${CMAKE_CURRENT_SOURCE_DIR}/app/data/icons/mac_pcl_icon.icns
-                        ${CMAKE_CURRENT_SOURCE_DIR}/app/data/icons/mac_pclx_icon.icns)
+    set(APP_ICON_MACOSX ${CMAKE_CURRENT_SOURCE_DIR}/app/data/justanimate.icns)
     set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
     set(PLATFORM_SOURCES ${CORE_LIB_OBJCXX_SOURCES} ${APP_ICON_MACOSX})
 elseif(WIN32)
@@ -338,8 +336,8 @@ if(UNIX AND NOT APPLE)
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/io.github.makinoatorie.JustAnimate.desktop
             DESTINATION share/applications)
     
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/app/data/io.github.makinoatorie.JustAnimate.png
-            DESTINATION share/icons/hicolor/256x256/apps)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/app/data/hicolor/
+            DESTINATION share/icons/hicolor)
 
     if(JUSTANIMATE_FFMPEG)
         install(PROGRAMS ${JUSTANIMATE_FFMPEG} DESTINATION bin/plugins RENAME ffmpeg)
@@ -369,3 +367,8 @@ else()
         install(CODE "execute_process(COMMAND codesign --force --deep --sign - \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/JustAnimate.app\" COMMAND_ERROR_IS_FATAL ANY)")
     endif()
 endif()
+
+# Regenerates every packaged icon from app/data/icons/justanimate.svg:
+#   cmake --build build --target make_icons && build/make_icons .
+add_executable(make_icons EXCLUDE_FROM_ALL ${CMAKE_CURRENT_SOURCE_DIR}/tools/make-icons.cpp)
+target_link_libraries(make_icons PRIVATE Qt6::Gui Qt6::Svg)

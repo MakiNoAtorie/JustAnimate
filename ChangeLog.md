@@ -7,6 +7,7 @@ the original Pencil2D history is kept below for reference.
 
 - Sound preview matches export: a looped range restarts its sound on the first frame, a sound always starts from its beginning at its key even after scrubbing, and a loop no longer starts a later sound early (#136).
 - Brush grain: pick one of five bundled CC0 paper textures (ambientCG) next to the generated one, in the tool options and in presets (#86).
+- New JustAnimate app and file icons (.ico, .icns, Linux PNGs, window icon, About logo) generated from one SVG by `make_icons` (#25).
 - Brush presets belong to a tool: the Brush Presets panel lists only the eraser's presets (Hard Eraser, Soft Eraser) or the drawing tools' presets, and applying one never changes another tool (#172).
 - Colour wheel: follows a dock resize smoothly by scaling its last image and rebuilding once the resize stops (#173).
 - Brush preset editor: a pressure curve locked by Use the global pressure curve is painted in the disabled colour, ignores the mouse and its tooltip says how to unlock it (#171).

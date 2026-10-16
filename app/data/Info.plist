@@ -14,7 +14,7 @@
 				<string>pcl</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
-			<string>mac_pcl_icon.icns</string>
+			<string>justanimate.icns</string>
 			<key>CFBundleTypeName</key>
 			<string>Pencil2D Animation File</string>
 			<key>CFBundleTypeRole</key>
@@ -32,7 +32,7 @@
 				<string>pclx</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
-			<string>mac_pclx_icon.icns</string>
+			<string>justanimate.icns</string>
 			<key>CFBundleTypeName</key>
 			<string>New Pencil2D Animation File</string>
 			<key>CFBundleTypeRole</key>
@@ -48,7 +48,7 @@
 	<key>CFBundleExecutable</key>
 	<string>JustAnimate</string>
 	<key>CFBundleIconFile</key>
-	<string>pencil2d.icns</string>
+	<string>justanimate.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.makinoatorie.JustAnimate</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -81,7 +81,7 @@
 			<key>UTTypeDescription</key>
 			<string>Pencil2D Animation File</string>
 			<key>UTTypeIconFile</key>
-			<string>mac_pcl_icon.icns</string>
+			<string>justanimate.icns</string>
 			<key>UTTypeIdentifier</key>
 			<string>org.pencil2d.pcl</string>
 			<key>UTTypeTagSpecification</key>
@@ -100,7 +100,7 @@
 			<key>UTTypeDescription</key>
 			<string>New Pencil2D Animation File</string>
 			<key>UTTypeIconFile</key>
-			<string>mac_pclx_icon.icns</string>
+			<string>justanimate.icns</string>
 			<key>UTTypeIdentifier</key>
 			<string>org.pencil2d.pclx</string>
 			<key>UTTypeTagSpecification</key>

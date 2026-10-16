@@ -1,0 +1,17 @@
+<!-- JustAnimate app and file icon. Original artwork made for this project (v1.2 design session, issue #25); licensed under the project licence, GPL-2.0. Regenerate all icons: build target make_icons, then run it with the repo root. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#e0457b"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <!-- onion-skinned frames behind the current one -->
+  <rect x="44" y="76" width="112" height="128" rx="18" fill="#fff" opacity=".28" transform="rotate(-10 100 140)"/>
+  <rect x="62" y="64" width="112" height="128" rx="18" fill="#fff" opacity=".5" transform="rotate(-4 118 128)"/>
+  <!-- current frame -->
+  <rect x="84" y="52" width="120" height="136" rx="18" fill="#fff"/>
+  <!-- play mark drawn as a pen stroke -->
+  <path d="M126 90 L126 150 L172 120 Z" fill="none" stroke="#d0406e" stroke-width="14" stroke-linejoin="round"/>
+</svg>

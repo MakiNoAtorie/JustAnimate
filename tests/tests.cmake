@@ -65,6 +65,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_importlayersdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_checkupdatesdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_appicon.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_prefsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_accessibility.cpp
 )
@@ -105,6 +106,8 @@ target_precompile_headers(pencil2d_tests PRIVATE
 set_target_properties(pencil2d_tests PROPERTIES
     AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/app/ui
 )
+
+target_compile_definitions(pencil2d_tests PRIVATE JUSTANIMATE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Link libraries
 target_link_libraries(pencil2d_tests PRIVATE
