@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "bitmapimage.h"
 #include "tile.h"
 #include "tiledbuffer.h"
+#include <climits>
 #include <QElapsedTimer>
 #include <QTemporaryDir>
 #include <QThread>
@@ -751,6 +752,40 @@ TEST_CASE("TiledBuffer drawDab: large dabs render on worker threads with the sam
     const QImage serial = draw(oneByOne, true);
 
     REQUIRE(qAlpha(serial.pixel(800, 800)) > 0);
+    CHECK(threaded == serial);
+    if (QThread::idealThreadCount() > 1)
+        CHECK(workers > 1);
+}
+
+TEST_CASE("TiledBuffer smudgeDab: large dabs composite in row bands with the same pixels as serial")
+{
+    QImage source(1100, 1100, QImage::Format_ARGB32_Premultiplied);
+    quint32 seed = 1;
+    for (int y = 0; y < source.height(); ++y)
+        for (int x = 0; x < source.width(); ++x)
+        {
+            seed = seed * 1664525u + 1013904223u;
+            const int a = int(seed >> 24);
+            source.setPixel(x, y, qRgba(int((seed >> 4) & 0xff) * a / 255, int((seed >> 12) & 0xff) * a / 255, x % 256 * a / 255, a));
+        }
+    auto smudge = [&](TiledBuffer& buffer) {
+        buffer.setSmudgeSource(source, QPoint(0, 0));
+        for (int i = 0; i < 3; ++i) // 900 px dabs: about 810K px each, above the threshold
+            buffer.smudgeDab(QPointF(530 + i * 17.25, 540 - i * 9.5), 900, 40, QColor(30, 200, 90), 0.7, true, BrushTip(),
+                             SmudgeSettings());
+        BitmapImage image(QRect(0, 0, 1100, 1100), Qt::transparent);
+        image.paste(&buffer, QPainter::CompositionMode_Source);
+        return *image.image();
+    };
+    TiledBuffer banded;
+    const QImage threaded = smudge(banded);
+    const int workers = banded.lastSmudgeWorkers();
+    TiledBuffer one;
+    one.setParallelSmudgeMinPixels(INT_MAX);
+    const QImage serial = smudge(one);
+
+    REQUIRE(serial != source);
+    CHECK(one.lastSmudgeWorkers() == 1);
     CHECK(threaded == serial);
     if (QThread::idealThreadCount() > 1)
         CHECK(workers > 1);

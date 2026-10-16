@@ -49,6 +49,7 @@ GNU General Public License for more details.
 #include "stageprofiler.h"
 #include "stroketool.h"
 #include "testfixture.h"
+#include "tiledbuffer.h"
 #include "toolmanager.h"
 #include "viewmanager.h"
 
@@ -803,4 +804,45 @@ TEST_CASE("Brush replay: dabs per second at 256 and 4 screen px", "[.dabrate]")
     StageProfiler::enabled() = wasOn;
     StageProfiler::reset();
     std::fflush(stdout);
+}
+
+// Smudge dabs straight on a TiledBuffer over seeded noise; 800 px dabs are above the parallel threshold.
+static void benchSmudgeDabs()
+{
+    QImage source(2048, 2048, QImage::Format_ARGB32_Premultiplied);
+    std::mt19937 rng(7);
+    for (int y = 0; y < source.height(); ++y)
+    {
+        QRgb* row = reinterpret_cast<QRgb*>(source.scanLine(y));
+        for (int x = 0; x < source.width(); ++x)
+        {
+            const quint32 v = rng();
+            const int a = int(v >> 24);
+            row[x] = qRgba(int(v & 0xff) * a / 255, int((v >> 8) & 0xff) * a / 255, int((v >> 16) & 0xff) * a / 255, a);
+        }
+    }
+    for (int size : { 300, 800 })
+    {
+        const int dabs = 200;
+        std::vector<double> ms;
+        for (int rep = 0; rep < 5; ++rep)
+        {
+            TiledBuffer buffer;
+            buffer.setSmudgeSource(source, QPoint(0, 0));
+            QElapsedTimer t;
+            t.start();
+            for (int i = 0; i < dabs; ++i)
+                buffer.smudgeDab(QPointF(500 + i * 4.5, 1000 + (i % 7) * 3), size, 30, QColor(200, 40, 40), 0.8, true,
+                                 BrushTip(), SmudgeSettings());
+            ms.push_back(t.nsecsElapsed() / 1e6);
+        }
+        std::sort(ms.begin(), ms.end());
+        std::printf("smudge %d px: median %.1f ms per %d dabs (%.1f-%.1f)\n", size, ms[2], dabs, ms.front(), ms.back());
+    }
+    std::fflush(stdout);
+}
+
+TEST_CASE("Brush replay: smudge dabs at 300 and 800 px", "[.smudgerate]")
+{
+    benchSmudgeDabs();
 }

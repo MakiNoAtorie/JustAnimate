@@ -123,6 +123,10 @@ public:
 
     /** Threads that rendered the last batch of queued dabs; 0 if none was queued. */
     int lastDabWorkers() const { return mLastDabWorkers; }
+    /** Threads that composited the last smudge dab. */
+    int lastSmudgeWorkers() const { return mLastSmudgeWorkers; }
+    /** Smudge dabs with at least this many pixels in their box composite in row bands on all cores. */
+    void setParallelSmudgeMinPixels(int pixels) { mParallelSmudgeMinPixels = pixels; }
 
 signals:
     void tileUpdated(TiledBuffer* tiledBuffer, Tile* tile);
@@ -198,6 +202,8 @@ private:
     QPoint mSmudgeTopLeft;
     std::array<float, 4> mSmudgeBucket{}; // premultiplied RGBA, 0..1
     bool mSmudgeBucketEmpty = true;
+    int mLastSmudgeWorkers = 0;
+    int mParallelSmudgeMinPixels = 256 * 1024; // smaller dabs lose to thread start-up (JustPaint, ROADMAP B7)
 };
 
 #endif // TILEDBUFFER_H
