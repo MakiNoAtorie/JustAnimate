@@ -62,6 +62,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/theme.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_importlayersdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_prefsearch.cpp
 )
 
 # App sources under test (the dialog and what it links against)
@@ -76,6 +77,8 @@ set(TEST_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/filedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/app_util.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/prefsearch.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/prefsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/importlayersdialog.ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/errordialog.ui
 )
