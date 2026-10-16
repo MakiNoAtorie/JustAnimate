@@ -5,6 +5,8 @@
 #include <QApplication>
 #include <QDockWidget>
 #include <QMainWindow>
+#include <QMenu>
+#include <QMenuBar>
 #include <QMouseEvent>
 #include <QSettings>
 #include <QTemporaryDir>
@@ -14,6 +16,7 @@
 #include "defaultlayout.h"
 #include "mainwindow2.h"
 #include "pencildef.h"
+#include "spinslider.h"
 #include "testfixture.h"
 
 namespace
@@ -202,4 +205,91 @@ TEST_CASE("MainWindow2 docks every Panel over an old saved state", "[DockLayout]
         QApplication::sendEvent(title, &dbl);
         CHECK(!panel->isFloating());
     }
+}
+
+TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayout]")
+{
+    QSettings& settings = pencilSettings();
+    const SettingsGuard guard({SETTING_WINDOW_STATE, SETTING_WINDOW_GEOMETRY, SETTING_LAYOUT_VERSION, SETTING_WORKSPACE_CURRENT,
+                               "Workspace/State/Animate"});
+    settings.remove(SETTING_WINDOW_STATE);
+    settings.remove("Workspace/State/Animate");
+    settings.remove(SETTING_WORKSPACE_CURRENT);
+
+    MainWindow2 window;
+    window.resize(1366, 768);
+    window.show();
+    QApplication::processEvents();
+
+    const auto dock = [&window](const char* name) { return window.findChild<QDockWidget*>(name); };
+    const auto checkArrangement = [&]
+    {
+        CHECK(window.dockWidgetArea(dock("ToolOption")) == Qt::TopDockWidgetArea);
+        CHECK(window.dockWidgetArea(dock("ToolBox")) == Qt::LeftDockWidgetArea);
+        for (const char* name : {"BrushPresets", "ColorWheel", "ColorPalette", "Color Inspector"})
+        {
+            INFO(name);
+            CHECK(window.dockWidgetArea(dock(name)) == Qt::RightDockWidgetArea);
+        }
+        CHECK(window.tabifiedDockWidgets(dock("ColorPalette")).contains(dock("Color Inspector")));
+        CHECK(window.dockWidgetArea(dock("TimeLine")) == Qt::BottomDockWidgetArea);
+        CHECK(window.tabifiedDockWidgets(dock("TimeLine")).contains(dock("Onion Skin")));
+        CHECK(!dock("ToolOption")->isFloating());
+    };
+    checkArrangement();
+
+    // Size, then opacity, then the rest: in a row at the top, in a column at a side
+    QDockWidget* toolSettings = dock("ToolOption");
+    const auto at = [toolSettings](const char* name)
+    {
+        QWidget* w = toolSettings->findChild<QWidget*>(name);
+        return w->mapTo(toolSettings, QPoint(0, 0));
+    };
+    const auto othersAfterOpacity = [&](bool row)
+    {
+        const QPoint opacity = at("opacitySlider");
+        for (SpinSlider* slider : toolSettings->findChildren<SpinSlider*>())
+        {
+            const QString name = slider->objectName();
+            if (!slider->isVisible() || name == "sizeSlider" || name == "opacitySlider") { continue; }
+            const QPoint p = slider->mapTo(toolSettings, QPoint(0, 0));
+            INFO(name.toStdString());
+            CHECK((row ? p.x() > opacity.x() : p.y() > opacity.y()));
+        }
+    };
+    CHECK(at("opacitySlider").x() > at("sizeSlider").x());
+    CHECK(at("opacitySlider").y() == at("sizeSlider").y());
+    othersAfterOpacity(true);
+    CHECK(toolSettings->height() < 100);
+
+    window.addDockWidget(Qt::LeftDockWidgetArea, toolSettings);
+    QApplication::processEvents();
+    CHECK(at("opacitySlider").y() > at("sizeSlider").y());
+    othersAfterOpacity(false);
+
+    toolSettings->setFloating(true);
+    QApplication::processEvents();
+    CHECK(at("opacitySlider").y() > at("sizeSlider").y());
+
+    // Window > Layout lists the Layouts and Reset layout, which returns Tool settings to the strip
+    QMenu* layoutMenu = nullptr;
+    for (QMenu* menu : window.menuBar()->findChildren<QMenu*>())
+    {
+        if (menu->title() == "Layout") { layoutMenu = menu; }
+    }
+    REQUIRE(layoutMenu);
+    QStringList entries;
+    QAction* reset = nullptr;
+    for (QAction* a : layoutMenu->actions())
+    {
+        if (a->isSeparator()) { continue; }
+        entries << a->text();
+        if (a->text() == "Reset layout") { reset = a; }
+    }
+    CHECK(entries == QStringList{"Draw", "Animate", "Ink", "Reset layout"});
+    REQUIRE(reset);
+    reset->trigger();
+    QApplication::processEvents();
+    checkArrangement();
+    CHECK(at("opacitySlider").y() == at("sizeSlider").y());
 }

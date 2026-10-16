@@ -26,6 +26,7 @@ namespace Ui
 }
 
 class BaseWidget;
+class QBoxLayout;
 class Editor;
 class BaseTool;
 class BucketOptionsWidget;
@@ -53,6 +54,7 @@ public slots:
 private:
     void setWidgetVisibility(BaseWidget* widget, bool visible);
     void updateUIForTool(BaseTool* tool);
+    void updateOrientation();
 
 private:
     Ui::ToolOptions* ui = nullptr;
@@ -61,6 +63,7 @@ private:
     CameraOptionsWidget* mCameraOptionsWidget = nullptr;
     StrokeOptionsWidget* mStrokeOptionsWidget = nullptr;
     TransformOptionsWidget* mTransformOptionsWidget = nullptr;
+    QList<QBoxLayout*> mColumnLayouts;
 };
 
 #endif // TOOLOPTIONDOCKWIDGET_H

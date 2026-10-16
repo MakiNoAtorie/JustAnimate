@@ -636,7 +636,7 @@ void MainWindow2::createMenus()
     }
     winMenu->insertSeparator(ui->menuToolbars->menuAction());
 
-    QMenu* workspaceMenu = new QMenu(tr("Workspace"), winMenu);
+    QMenu* workspaceMenu = new QMenu(tr("Layout"), winMenu);
     auto* workspaceGroup = new QActionGroup(this);
     QSettings& workspaceSettings = pencilSettings();
     for (const QString& name : workspaceNames())
@@ -648,6 +648,8 @@ void MainWindow2::createMenus()
         workspaceGroup->addAction(a);
     }
     connect(workspaceGroup, &QActionGroup::triggered, this, [this](QAction* a) { switchToWorkspace(a->data().toString()); });
+    workspaceMenu->addSeparator();
+    workspaceMenu->addAction(ui->actionResetWindows);
     winMenu->insertMenu(ui->menuToolbars->menuAction(), workspaceMenu);
     connect(ui->actionResetWindows, &QAction::triggered, this, &MainWindow2::resetAndDockAllSubWidgets);
     connect(ui->actionLockWindows, &QAction::toggled, this, &MainWindow2::lockWidgets);
@@ -1267,7 +1269,8 @@ void MainWindow2::resetAndDockAllSubWidgets()
 
 DefaultDockLayout MainWindow2::dockLayout() const
 {
-    return {{mToolBox, mToolOptions, mBrushPresets, mOnionSkinWidget}, {mColorBox, mColorInspector, mColorPalette}, mTimeLine};
+    return {mToolOptions, {mToolBox}, {mBrushPresets, mColorBox, mColorPalette}, mTimeLine,
+            {{mColorPalette, mColorInspector}, {mTimeLine, mOnionSkinWidget}}};
 }
 
 QSize MainWindow2::availableScreenSize() const

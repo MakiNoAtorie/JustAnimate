@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Exposure: + and − lengthen or shorten the current Drawing and move the later Drawings with it, dragging a cell's right edge does the same, and ripple insert and delete get Ctrl+F7 and Ctrl+F5 (#188).
+- Layout: new default Layout with Tool settings as a strip under the toolbars (a column when docked at a side), Brush presets and colours on the right, Onion skin as a tab next to the timeline; Window > Layout lists Draw, Animate, Ink and Reset layout (#181).
 - Panels: every Panel starts docked; the first v1.2 start drops old saved Layouts once, a floating Panel no longer stays above other programs, and double-clicking its title docks it back (#180).
 - Timeline: mark a Drawing as Key, Breakdown or Inbetween (Alt+K, Alt+B, Alt+I, Alt+0 clears, or the cell menu); each Mark shows as a shape in its cell and saves with the project (#186).
 - Appearance: Tabler icons in one colour that follows Light and Dark, sharp at any display scale; the active tool is filled with the Accent colour (#179).

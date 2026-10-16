@@ -69,6 +69,27 @@
     </layout>
    </item>
    <item>
+    <layout class="QHBoxLayout" name="horizontalLayoutOpacity">
+     <item>
+      <widget class="SpinSlider" name="opacitySlider" native="true">
+       <property name="toolTip">
+        <string>Set the alpha of the stroke</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="washBox">
+       <property name="toolTip">
+        <string>Keep overlapping dabs at or below the stroke opacity</string>
+       </property>
+       <property name="text">
+        <string>Wash</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="SpinSlider" name="featherSlider" native="true">
@@ -166,27 +187,6 @@
       <string>Set the alpha of each dab; overlapping dabs build up</string>
      </property>
     </widget>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayoutOpacity">
-     <item>
-      <widget class="SpinSlider" name="opacitySlider" native="true">
-       <property name="toolTip">
-        <string>Set the alpha of the stroke</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="washBox">
-       <property name="toolTip">
-        <string>Keep overlapping dabs at or below the stroke opacity</string>
-       </property>
-       <property name="text">
-        <string>Wash</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,0,1">

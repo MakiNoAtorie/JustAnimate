@@ -2,6 +2,7 @@
 #define DEFAULTLAYOUT_H
 
 #include <QList>
+#include <QPair>
 #include <QSize>
 #include <QString>
 #include <QStringList>
@@ -15,9 +16,12 @@ class QSettings;
 
 struct DefaultDockLayout
 {
+    QDockWidget* top = nullptr;
     QList<QDockWidget*> left;
     QList<QDockWidget*> right;
     QDockWidget* bottom = nullptr;
+    // Each second dock goes in a tab behind its first dock.
+    QList<QPair<QDockWidget*, QDockWidget*>> tabs;
 };
 
 // Docks every widget in its default area and sizes the areas for a screen of the given size.

@@ -19,6 +19,8 @@ GNU General Public License for more details.
 
 #include <QSettings>
 #include <QDebug>
+#include <QBoxLayout>
+#include <QMainWindow>
 
 #include "cameraoptionswidget.h"
 #include "bucketoptionswidget.h"
@@ -36,7 +38,7 @@ GNU General Public License for more details.
 
 ToolOptionWidget::ToolOptionWidget(QWidget* parent) : BaseDockWidget(parent)
 {
-    setWindowTitle(tr("Options", "Window title of tool option panel like pen width, feather etc.."));
+    setWindowTitle(tr("Tool settings", "Window title of tool option panel like pen width, feather etc.."));
 
     QWidget* innerWidget = new QWidget;
     setWidget(innerWidget);
@@ -64,6 +66,14 @@ void ToolOptionWidget::initUI()
     ui->scrollAreaWidgetContents->layout()->addWidget(mStrokeOptionsWidget);
     ui->scrollAreaWidgetContents->layout()->addWidget(mTransformOptionsWidget);
     ui->scrollAreaWidgetContents->layout()->addItem(new QSpacerItem(0, 0, QSizePolicy::MinimumExpanding, QSizePolicy::Expanding));
+
+    for (QBoxLayout* layout : ui->scrollAreaWidgetContents->findChildren<QBoxLayout*>())
+    {
+        if (layout->direction() == QBoxLayout::TopToBottom && !layout->objectName().isEmpty()) { mColumnLayouts << layout; }
+    }
+    connect(this, &QDockWidget::dockLocationChanged, this, &ToolOptionWidget::updateOrientation);
+    connect(this, &QDockWidget::topLevelChanged, this, &ToolOptionWidget::updateOrientation);
+    updateOrientation();
 
     makeConnectionToEditor(editor());
     updateUI();
@@ -99,6 +109,21 @@ void ToolOptionWidget::updateUIForTool(BaseTool* tool)
     setWidgetVisibility(mCameraOptionsWidget, tool->type() == CAMERA);
     setWidgetVisibility(mStrokeOptionsWidget, editor()->tools()->isStrokeTool(tool));
     setWidgetVisibility(mTransformOptionsWidget, editor()->tools()->isTransformTool(tool));
+}
+
+void ToolOptionWidget::updateOrientation()
+{
+    // A row in the top or bottom dock area; a column at a side or floating
+    auto* window = qobject_cast<QMainWindow*>(parentWidget());
+    const Qt::DockWidgetArea area = window ? window->dockWidgetArea(this) : Qt::NoDockWidgetArea;
+    const bool row = !isFloating() && (area == Qt::TopDockWidgetArea || area == Qt::BottomDockWidgetArea);
+    for (QBoxLayout* layout : mColumnLayouts)
+    {
+        layout->setDirection(row ? QBoxLayout::LeftToRight : QBoxLayout::TopToBottom);
+        // Tall items such as forms start at the top of the strip, so its first line shows
+        for (int i = 0; i < layout->count(); ++i) { layout->itemAt(i)->setAlignment(row ? Qt::AlignTop : Qt::Alignment()); }
+        layout->invalidate();
+    }
 }
 
 void ToolOptionWidget::onLayerChanged(int layerIndex)

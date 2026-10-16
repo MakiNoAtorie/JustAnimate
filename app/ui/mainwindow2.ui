@@ -331,7 +331,6 @@
       <string>Toolbars</string>
      </property>
     </widget>
-    <addaction name="actionResetWindows"/>
     <addaction name="actionLockWindows"/>
     <addaction name="separator"/>
     <addaction name="menuToolbars"/>
@@ -478,7 +477,7 @@
   </action>
   <action name="actionResetWindows">
    <property name="text">
-    <string>Reset Windows</string>
+    <string>Reset layout</string>
    </property>
   </action>
   <action name="actionZoom_In">
