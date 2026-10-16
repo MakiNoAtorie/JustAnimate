@@ -728,7 +728,7 @@ TweenState Layer::tweenStateAt(int frame) const
     const TweenState b = getKeyFrameAt(next)->tweenState();
     const qreal t = easedProgress(key->tweenEasing(), qreal(frame - key->pos()) / (next - key->pos()));
     auto lerp = [t](qreal from, qreal to) { return from + (to - from) * t; };
-    return TweenState{ lerp(a.tx, b.tx), lerp(a.ty, b.ty), lerp(a.rot, b.rot), lerp(a.scale, b.scale) };
+    return TweenState{ lerp(a.tx, b.tx), lerp(a.ty, b.ty), lerp(a.rot, b.rot), lerp(a.scale, b.scale), lerp(a.opacity, b.opacity) };
 }
 
 void Layer::writeKeyTween(QDomElement& image, const KeyFrame* key)
@@ -759,5 +759,6 @@ void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
     const int easing = image.attribute("easing", "0").toInt();
     const bool validEasing = easing >= 0 && easing <= static_cast<int>(CameraEasingType::OUTINBOUNCE);
     key->setTweenEasing(validEasing ? static_cast<CameraEasingType>(easing) : CameraEasingType::LINEAR);
-    key->setTweenState(TweenState{ number("tx", 0), number("ty", 0), number("rot", 0), number("scale", 1) });
+    key->setTweenState(TweenState{ number("tx", 0), number("ty", 0), number("rot", 0), number("scale", 1),
+                                   qBound(0.0, number("opacity", 1), 1.0) });
 }

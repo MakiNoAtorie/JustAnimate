@@ -887,11 +887,13 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         // --- we retrieve the canvas from the cache; we create it if it doesn't exist
         const int frameNumber = mEditor->layers()->lastFrameAtFrame(currentFrame);
 
-        // The frame cache is keyed by key position: a transformed frame skips it (CanvasPainter caches by content).
+        // The frame cache is keyed by key position: a transformed or in-between frame skips it (CanvasPainter caches by content).
         bool transformed = false;
         for (int i = 0; i < mEditor->object()->getLayerCount() && !transformed; ++i)
         {
-            transformed = !mEditor->object()->getLayer(i)->tweenStateAt(currentFrame).isIdentity();
+            const Layer* layer = mEditor->object()->getLayer(i);
+            const KeyFrame* key = layer->getLastKeyFrameAtPosition(currentFrame);
+            transformed = !layer->tweenStateAt(currentFrame).isIdentity() || (key && key->tween() && key->pos() != currentFrame);
         }
 
         if (frameNumber < 0 || transformed)

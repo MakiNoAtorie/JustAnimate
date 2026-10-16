@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Smudge: Pigment mixing option blends colours like paint (blue and yellow make green), via a port of spectral.js (B7).
+- Tween to Next Key also fades the key's opacity to the next key's on the frames it holds, on the canvas and in export (3.3).
 - Export: image sequences keep alpha with the Transparency option, and a new Sprite sheet option writes all frames into one PNG grid (row-major, columns choosable, default ceil(sqrt(n))) (3.12).
 - Layer blend modes use SSE2 on x86-64, with the same pixels as before (3.8).
 - Large smudge dabs (256K px and up) composite in row bands on all cores, about 3x faster at 800 px (B7).

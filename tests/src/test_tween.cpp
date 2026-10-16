@@ -121,6 +121,43 @@ TEST_CASE("In-between frames render with the tweened transform", "[Tween]")
     CHECK(exportFrame(held.get(), 3).pixel(30, 20) == kRed);
 }
 
+TEST_CASE("A tweened key interpolates its opacity to the next key", "[Tween]")
+{
+    auto object = tweenedSquare(true);
+    object->getLayer(0)->getKeyFrameAt(5)->setOpacity(0);
+    CHECK(object->getLayer(0)->tweenStateAt(1).opacity == 1);
+    CHECK(object->getLayer(0)->tweenStateAt(3).opacity == Approx(0.5));
+    CHECK(object->getLayer(0)->tweenStateAt(5).opacity == 0);
+    for (const QImage& image : { exportFrame(object.get(), 3), canvasFrame(object.get(), 3) })
+    {
+        CHECK(qAlpha(image.pixel(30 + 10, 20)) == Approx(128).margin(2));
+    }
+
+    auto held = tweenedSquare(false);
+    held->getLayer(0)->getKeyFrameAt(5)->setOpacity(0);
+    CHECK(held->getLayer(0)->tweenStateAt(3).opacity == 1);
+    CHECK(qAlpha(exportFrame(held.get(), 3).pixel(30, 20)) == 255);
+}
+
+TEST_CASE("An opacity tween round-trips through save and load", "[Tween]")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString path = dir.filePath("opacity.pclx");
+    auto object = tweenedSquare(true);
+    object->getLayer(0)->getKeyFrameAt(1)->setOpacity(0.8);
+    object->getLayer(0)->getKeyFrameAt(5)->setOpacity(0.2);
+    FileManager fm;
+    REQUIRE(fm.save(object.get(), path).ok());
+    std::unique_ptr<Object> loaded(fm.load(path));
+    REQUIRE(loaded != nullptr);
+
+    const Layer* layer = loaded->findLayerById(object->getLayer(0)->id());
+    REQUIRE(layer->getKeyFrameAt(1)->getOpacity() == Approx(0.8));
+    REQUIRE(layer->getKeyFrameAt(5)->getOpacity() == Approx(0.2));
+    REQUIRE(layer->tweenStateAt(3).opacity == Approx(0.5));
+}
+
 TEST_CASE("Tween attributes round-trip through save and load", "[Tween]")
 {
     QTemporaryDir dir;

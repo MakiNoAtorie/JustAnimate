@@ -159,14 +159,11 @@ QVector<qint64> CanvasPainter::layersKey(int startLayer, int endLayer) const
             auto* image = static_cast<BitmapImage*>(frame);
             const QPoint topLeft = image->topLeft();
             // QImage::cacheKey changes on every write to the image.
-            key << topLeft.x() << topLeft.y() << image->image()->cacheKey() << qRound64(image->getOpacity() * 1e6);
-        }
-        else if (layer->type() == Layer::VECTOR)
-        {
-            key << qRound64(static_cast<VectorImage*>(frame)->getOpacity() * 1e6);
+            key << topLeft.x() << topLeft.y() << image->image()->cacheKey();
         }
         const TweenState tween = layer->tweenStateAt(mFrameNumber);
-        key << qRound64(tween.tx * 1e6) << qRound64(tween.ty * 1e6) << qRound64(tween.rot * 1e6) << qRound64(tween.scale * 1e6);
+        key << qRound64(tween.tx * 1e6) << qRound64(tween.ty * 1e6) << qRound64(tween.rot * 1e6) << qRound64(tween.scale * 1e6)
+            << qRound64(tween.opacity * 1e6);
     }
     return key;
 }
@@ -404,8 +401,9 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
 
     painter.setWorldMatrixEnabled(false);
 
-    currentBitmapPainter.setOpacity(paintedImage->getOpacity() - (1.0-painter.opacity()));
-    currentBitmapPainter.setWorldTransform(layer->tweenStateAt(mFrameNumber).transform() * mViewTransform);
+    const TweenState tween = layer->tweenStateAt(mFrameNumber);
+    currentBitmapPainter.setOpacity(tween.opacity - (1.0-painter.opacity()));
+    currentBitmapPainter.setWorldTransform(tween.transform() * mViewTransform);
     currentBitmapPainter.drawImage(paintedImage->topLeft(), *paintedImage->image());
     currentBitmapPainter.setWorldTransform(mViewTransform);
 
@@ -447,8 +445,9 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
 
     // Paint existing vector image to the painter
     // Remember to adjust opacity based on additional opacity value from the keyframe
-    currentVectorPainter.setOpacity(vectorImage->getOpacity() - (1.0-painter.opacity()));
-    currentVectorPainter.setWorldTransform(layer->tweenStateAt(mFrameNumber).transform() * mViewTransform);
+    const TweenState tween = layer->tweenStateAt(mFrameNumber);
+    currentVectorPainter.setOpacity(tween.opacity - (1.0-painter.opacity()));
+    currentVectorPainter.setWorldTransform(tween.transform() * mViewTransform);
     vectorImage->paintImage(currentVectorPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
     currentVectorPainter.setWorldTransform(mViewTransform);
 
