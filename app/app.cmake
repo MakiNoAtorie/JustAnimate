@@ -46,6 +46,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pencil2d.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/predefinedsetmodel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/preferencesdialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/prefsearch.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomedialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.h
@@ -112,6 +113,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pencil2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/predefinedsetmodel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/preferencesdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/prefsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.cpp

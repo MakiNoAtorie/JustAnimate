@@ -21,6 +21,7 @@ GNU General Public License for more details.
 
 class PreferenceManager;
 class QListWidgetItem;
+class QLineEdit;
 
 namespace Ui {
 class PreferencesDialog;
@@ -39,6 +40,7 @@ public:
 
 public slots:
     void changePage(QListWidgetItem* current, QListWidgetItem* previous);
+    void search(const QString& query);
 
 signals:
     void windowOpacityChange(int);
@@ -52,6 +54,9 @@ protected:
     void closeEvent(QCloseEvent*) override;
 
 private:
+    void addTooltips();
+
+    QLineEdit* mSearchEdit = nullptr;
     Ui::PreferencesDialog* ui = nullptr;
 
     PreferenceManager* mPrefManager = nullptr;
