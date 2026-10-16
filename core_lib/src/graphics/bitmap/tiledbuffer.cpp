@@ -199,6 +199,35 @@ const std::vector<quint8>& grainTexture()
     return texture;
 }
 
+const char* const kGrainNames[TiledBuffer::grainTextureCount] = {
+    QT_TRANSLATE_NOOP("GrainTexture", "Generated"), QT_TRANSLATE_NOOP("GrainTexture", "Fine paper"),
+    QT_TRANSLATE_NOOP("GrainTexture", "Crumpled"),  QT_TRANSLATE_NOOP("GrainTexture", "Laid paper"),
+    QT_TRANSLATE_NOOP("GrainTexture", "Creased"),   QT_TRANSLATE_NOOP("GrainTexture", "Mottled"),
+};
+
+// Index 0 is the generated texture; a bundled image that fails to load leaves its slot empty.
+const std::vector<quint8>& grainTextureData(int index)
+{
+    static const std::vector<std::vector<quint8>> all = [] {
+        std::vector<std::vector<quint8>> v(TiledBuffer::grainTextureCount);
+        v[0] = grainTexture();
+        for (int i = 1; i < TiledBuffer::grainTextureCount; ++i)
+        {
+            QImage image(QStringLiteral(":/textures/paper-%1.png").arg(i));
+            if (image.width() != kGrainSize || image.height() != kGrainSize) continue;
+            image = image.convertToFormat(QImage::Format_Grayscale8);
+            for (int y = 0; y < kGrainSize; ++y)
+            {
+                const uchar* line = image.constScanLine(y);
+                v[i].insert(v[i].end(), line, line + kGrainSize);
+            }
+        }
+        return v;
+    }();
+    const std::vector<quint8>& data = all[qBound(0, index, TiledBuffer::grainTextureCount - 1)];
+    return data.empty() ? all[0] : data;
+}
+
 // The colour-mix step of smudge: t = 0 gives a, 1 gives b, premultiplied RGBA.
 // Linear by default; wet mixes colour as pigment (Kubelka-Munk) and alpha linearly.
 std::array<float, 4> mixSmudgeColor(const std::array<float, 4>& a, const std::array<float, 4>& b, float t, bool wet)
@@ -408,9 +437,19 @@ Status loadBrushTipImage(const QString& fileName, QImage& mask)
     return Status::OK;
 }
 
+const char* TiledBuffer::grainTextureName(int index)
+{
+    return kGrainNames[qBound(0, index, grainTextureCount - 1)];
+}
+
+bool TiledBuffer::grainTextureLoaded(int index)
+{
+    return index == 0 || &grainTextureData(index) != &grainTextureData(0);
+}
+
 TiledBuffer::DabMask TiledBuffer::grainMask(const DabMask& mask, QPoint origin, const BrushTip& tip)
 {
-    const std::vector<quint8>& texture = grainTexture();
+    const std::vector<quint8>& texture = grainTextureData(tip.grainTexture);
     constexpr int wrap = kGrainSize - 1;
     // Paper grain samples canvas pixels; moving grain samples pixels relative to the dab.
     const QPoint anchor = (tip.grainMode == 1) ? origin : QPoint();

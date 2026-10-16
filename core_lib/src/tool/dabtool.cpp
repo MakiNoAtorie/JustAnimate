@@ -225,6 +225,7 @@ BrushTip DabTool::dabTip(QPointF direction) const
     tip.aspect = p.tipAspect() / 100.0;
     tip.angle = p.tipAngle();
     tip.image = mTipImage;
+    tip.grainTexture = p.grainTexture();
     tip.grainMode = p.grainMode();
     tip.grainScale = p.grainScale() / 100.0f;
     tip.grainContrast = p.grainContrast() / 100.0f;

@@ -75,7 +75,10 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
 - Grain (`BrushTip::grainMode`) is not part of the `DabMask` key:
   `TiledBuffer::grainMask` multiplies a copy of the cached mask per dab.
   Paper grain samples canvas pixels; moving grain samples pixels from the
-  dab's integer origin. The texture is generated with integer math only.
+  dab's integer origin. `GrainTexture` 0 is generated with integer math
+  only; 1.. are the 256x256 PNGs in `core_lib/data/textures` (sources and
+  CC0 licence in `SOURCES.md`). A new texture is a file, a qrc line, a name in
+  `kGrainNames` and a bigger `grainTextureCount`.
 - Tip angles are degrees, counter-clockwise on screen (canvas y points down).
 - Brush tip files (.gbr, PNG) are untrusted: bound every header field and
   check data length against file size before reading. A tip image is a

@@ -5,6 +5,7 @@
 #include "pencilsettings.h"
 #include "basetool.h"
 #include "stroketool.h"
+#include "tiledbuffer.h"
 #include "polylinetool.h"
 #include "shapetool.h"
 #include "util.h"
@@ -99,8 +100,17 @@ void StrokeOptionsWidget::initUI()
     connect(mGrainModeCombo, &QComboBox::activated, this, [this](int mode) {
         mCurrentTool->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, mode);
     });
+    // Item index is the GrainTexture value.
+    mGrainTextureCombo = new QComboBox(mDynamicsBox);
+    for (int i = 0; i < TiledBuffer::grainTextureCount; ++i)
+        mGrainTextureCombo->addItem(QCoreApplication::translate("GrainTexture", TiledBuffer::grainTextureName(i)));
+    mGrainTextureCombo->setToolTip(tr("Grain texture"));
+    addRow(tr("Grain texture"), mGrainTextureCombo);
+    connect(mGrainTextureCombo, &QComboBox::activated, this, [this](int index) {
+        mCurrentTool->setDynamic(StrokeToolProperties::GRAIN_TEXTURE_VALUE, index);
+    });
     // Item index is the SmudgeMix value.
-    mSmudgeMixCombo = new QComboBox(mDynamicsBox);
+    mSmudgeMixCombo =new QComboBox(mDynamicsBox);
     mSmudgeMixCombo->addItems({ tr("Light"), tr("Pigment") });
     mSmudgeMixCombo->setToolTip(tr("How smudge mixes colours"));
     addRow(tr("Smudge mixing"), mSmudgeMixCombo);
@@ -397,6 +407,7 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
         mDynamicsBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SCATTER_VALUE));
         for (const auto& [type, box] : mDynamicsSpinBoxes)
             box->setVisible(tool->isPropertyEnabled(type));
+        mGrainTextureCombo->setVisible(tool->isPropertyEnabled(StrokeToolProperties::GRAIN_TEXTURE_VALUE));
         mSmudgeMixCombo->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SMUDGE_MIX_VALUE));
         for (QLabel* label : mDynamicsBox->findChildren<QLabel*>())
             label->setVisible(!label->buddy()->isHidden());
@@ -488,6 +499,8 @@ void StrokeOptionsWidget::updateDynamics()
     }
     QSignalBlocker b(mGrainModeCombo);
     mGrainModeCombo->setCurrentIndex(p.grainMode());
+    QSignalBlocker b3(mGrainTextureCombo);
+    mGrainTextureCombo->setCurrentIndex(p.grainTexture());
     QSignalBlocker b2(mSmudgeMixCombo);
     mSmudgeMixCombo->setCurrentIndex(p.smudgeMix());
 }

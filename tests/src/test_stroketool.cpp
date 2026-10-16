@@ -45,6 +45,7 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "selectionmanager.h"
 #include "stageprofiler.h"
+#include "tiledbuffer.h"
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "undoredomanager.h"
@@ -1274,6 +1275,55 @@ TEST_CASE("DabTool - grain is fixed to the paper or moves with each dab and repl
         stroke(area, QPointF(100, 300), QPointF(500, 300), 1.0);
     }
     CHECK(*layer->getBitmapImageAtFrame(8)->image() == *layer->getBitmapImageAtFrame(9)->image());
+}
+
+TEST_CASE("DabTool - every bundled grain texture loads and shapes the grain")
+{
+    constexpr int count = TiledBuffer::grainTextureCount;
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 1; f <= count; ++f) layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+    brush->setWidth(40);
+    brush->setFeather(1);
+    brush->setPressureEnabled(false);
+    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 1);
+
+    // The property range is the list the options panel shows.
+    CHECK(brush->strokeToolProperties().getInfo(StrokeToolProperties::GRAIN_TEXTURE_VALUE).maxInt() == count - 1);
+
+    const QPoint p = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint();
+    std::vector<std::vector<int>> blocks;
+    for (int i = 0; i < count; ++i)
+    {
+        CHECK(TiledBuffer::grainTextureLoaded(i));
+        CHECK(QByteArray(TiledBuffer::grainTextureName(i)).size() > 0);
+        brush->setDynamic(StrokeToolProperties::GRAIN_TEXTURE_VALUE, i);
+        CHECK(brush->strokeToolProperties().grainTexture() == i);
+        editor->scrubTo(i + 1);
+        tap(area, editor->view()->mapCanvasToScreen(QPointF(p)), 1.0);
+        BitmapImage* bitmap = layer->getBitmapImageAtFrame(i + 1);
+        std::vector<int> v;
+        for (int y = -10; y < 10; ++y)
+            for (int x = -10; x < 10; ++x)
+                v.push_back(qAlpha(bitmap->image()->pixel(p + QPoint(x, y) - bitmap->topLeft())));
+        std::vector<int> sorted = v;
+        std::sort(sorted.begin(), sorted.end());
+        CHECK(std::unique(sorted.begin(), sorted.end()) - sorted.begin() > 10);
+        blocks.push_back(v);
+    }
+    for (int i = 1; i < count; ++i) CHECK(blocks[i] != blocks[0]);
 }
 
 TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")

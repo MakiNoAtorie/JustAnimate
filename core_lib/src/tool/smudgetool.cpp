@@ -56,7 +56,8 @@ void SmudgeTool::loadSettings()
                           StrokeToolProperties::SCATTER_VALUE, StrokeToolProperties::ANGLE_JITTER_VALUE,
                           StrokeToolProperties::DAB_COUNT_VALUE, StrokeToolProperties::TAPER_START_VALUE,
                           StrokeToolProperties::TAPER_END_VALUE, StrokeToolProperties::GRAIN_MODE_VALUE,
-                          StrokeToolProperties::GRAIN_SCALE_VALUE, StrokeToolProperties::GRAIN_CONTRAST_VALUE,
+                          StrokeToolProperties::GRAIN_TEXTURE_VALUE, StrokeToolProperties::GRAIN_SCALE_VALUE,
+                          StrokeToolProperties::GRAIN_CONTRAST_VALUE,
                           StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, StrokeToolProperties::SMUDGE_LENGTH_VALUE,
                           StrokeToolProperties::SMUDGE_RADIUS_VALUE, StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE,
                           StrokeToolProperties::SMUDGE_MIX_VALUE })

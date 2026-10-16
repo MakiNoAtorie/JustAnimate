@@ -2,6 +2,13 @@
     <qresource prefix="/">
         <file>resources/kb.ini</file>
     </qresource>
+    <qresource prefix="/textures">
+        <file alias="paper-1.png">textures/paper-1.png</file>
+        <file alias="paper-2.png">textures/paper-2.png</file>
+        <file alias="paper-3.png">textures/paper-3.png</file>
+        <file alias="paper-4.png">textures/paper-4.png</file>
+        <file alias="paper-5.png">textures/paper-5.png</file>
+    </qresource>
     <qresource prefix="/brushpresets">
         <file alias="2B Pencil.json">brushpresets/2B Pencil.json</file>
         <file alias="Chalk.json">brushpresets/Chalk.json</file>

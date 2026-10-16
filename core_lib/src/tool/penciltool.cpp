@@ -61,6 +61,7 @@ void PencilTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_MODE_VALUE] = { Layer::BITMAP };
+    mPropertyUsed[StrokeToolProperties::GRAIN_TEXTURE_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_SCALE_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { Layer::BITMAP };

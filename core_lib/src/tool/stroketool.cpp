@@ -93,6 +93,7 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::TAPER_START_VALUE] = { 0, 1000, 0 };
     info[StrokeToolProperties::TAPER_END_VALUE] = { 0, 1000, 0 };
     info[StrokeToolProperties::GRAIN_MODE_VALUE] = { 0, 2, 0 };
+    info[StrokeToolProperties::GRAIN_TEXTURE_VALUE] = { 0, TiledBuffer::grainTextureCount - 1, 0 };
     info[StrokeToolProperties::GRAIN_SCALE_VALUE] = { 25, 800, 100 };
     info[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { 0, 400, 100 };
     info[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { -100, 100, 0 };
