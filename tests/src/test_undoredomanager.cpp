@@ -171,6 +171,38 @@ TEST_CASE("UndoRedoManager: frame and layer edits flag the project as unsaved")
     }
 }
 
+TEST_CASE("UndoRedoManager: undo and redo refresh the modified state")
+{
+    TestSession session;
+    session.object->addNewBitmapLayer();
+    session.start();
+    UndoRedoManager* undoRedo = session.editor->undoRedo();
+
+    QObject parent;
+    QAction* undoAction = undoRedo->createUndoAction(&parent, QIcon());
+    QAction* redoAction = undoRedo->createRedoAction(&parent, QIcon());
+
+    undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
+    undoRedo->markSaved();
+    undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
+    REQUIRE(undoRedo->hasUnsavedChanges());
+
+    int updated = 0;
+    int recorded = 0;
+    QObject::connect(undoRedo, &UndoRedoManager::didUpdateUndoStack, &parent, [&] { updated++; });
+    QObject::connect(undoRedo, &UndoRedoManager::didRecordEdit, &parent, [&] { recorded++; });
+
+    undoAction->trigger();
+    REQUIRE(updated > 0);
+    REQUIRE_FALSE(undoRedo->hasUnsavedChanges());
+
+    updated = 0;
+    redoAction->trigger();
+    REQUIRE(updated > 0);
+    REQUIRE(undoRedo->hasUnsavedChanges());
+    REQUIRE(recorded == 0);
+}
+
 TEST_CASE("Editor: each edit counts once toward autosave")
 {
     TestSession session;
