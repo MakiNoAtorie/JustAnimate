@@ -93,7 +93,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   group opacity applies to the group composite only.
 - Crash-handler code uses static buffers only.
 - Saving goes through `FileManager::save`, which writes `<name>.tmp` and
-  renames it over the target only after a successful write.
+  renames it over the target only after a successful write. Movie export
+  goes through `MovieExporter::writeThenReplace`; ffmpeg pipe writes only
+  through `executeFFMpegPipe`, bounded by `bytesToWrite()`.
 - Zip and unzip run through `FileManager::runArchiveJob` (worker thread;
   the caller emits progress). One `FileManager::save` at a time.
 - `.gitignore` ignores `*.rc`; add a `!` exception for a resource file you

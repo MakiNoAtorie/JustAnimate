@@ -6,7 +6,11 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Fixes: swap layers, Import Layers, camera drags and resets, and sound import are each one undo step (#150).
+- Save: a sound clip whose file is missing is saved without audio and named in a warning (`<layer> frame <n>`) instead of failing the save (#166).
+- Export: a sound clip whose file is missing is left out of the movie and named in a warning (`<layer> frame <n>`) instead of failing the export (#167).
 - Fixes: Import Layers keeps each vector curve and area on its source colour instead of remapping colours one after another (#134).
+- Export: a failed or cancelled movie export no longer deletes the movie it was to overwrite; export writes a temporary file and replaces the target only on success (#154).
+- Fixes: a stroke after an arrow-key selection nudge applies the nudge first instead of tripping an assert, and each nudge is one undo step (#164).
 - Speed: hovering with the camera tool no longer clears the canvas caches on every mouse move (#132).
 - Export: movie and GIF export keep at most 4 unwritten frames in the ffmpeg pipe instead of queueing up to all frames in memory (#138).
 - Undo: a bucket drag that fills several regions is one undo step, and redo restores every fill (#148).

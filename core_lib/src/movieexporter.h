@@ -19,7 +19,6 @@ GNU General Public License for more details.
 
 #include <functional>
 #include <QCoreApplication>
-#include <QDateTime>
 #include <QString>
 #include <QSize>
 #include <QTemporaryDir>
@@ -59,15 +58,21 @@ public:
                std::function<void(float)> minorProgress,
                std::function<void(QString)> progressMessage);
     QString error();
+    // "<layer> frame <n>" of each sound clip the last run left out because its file is missing.
+    QStringList skippedClips() const { return mSkippedClips; }
+
+    struct AudioMix { QStringList args; QStringList skipped; };
+    // ffmpeg args that mix the visible sound clips into outPath; args is empty when no clip has a file.
+    static AudioMix audioMix(const Object* obj, int startFrame, int endFrame, int fps, const QString& outPath);
 
     void cancel() { mCanceled = true; }
 
     // The maximum number of sound frames that can be successfully rendered
     static const int MAX_SOUND_FRAMES = 63;
 
-    // After a failed run: deletes the output unless it is the file from before the run, unchanged.
-    // An invalid modifiedBefore means there was no file.
-    static void discardPartialOutput(const QString& path, const QDateTime& modifiedBefore, qint64 sizeBefore);
+    // Calls write with a temporary path next to target (same extension) and renames it over
+    // target only if write succeeds; otherwise removes it and leaves target unchanged.
+    static Status writeThenReplace(const QString& target, const std::function<Status(const QString&)>& write);
     // True if path is free or confirm() accepts overwriting it.
     static bool mayOverwrite(const QString& path, const std::function<bool()>& confirm);
 
@@ -95,6 +100,7 @@ private:
     QTemporaryDir mTempDir;
     QString mTempWorkDir;
     ExportMovieDesc mDesc;
+    QStringList mSkippedClips;
     bool mCanceled = false;
     qint64 mPeakQueuedBytes = 0;
 };

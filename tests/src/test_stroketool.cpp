@@ -40,6 +40,7 @@ GNU General Public License for more details.
 #include "preferencemanager.h"
 #include "pressurecurve.h"
 #include "scribblearea.h"
+#include "selectionmanager.h"
 #include "stageprofiler.h"
 #include "testfixture.h"
 #include "toolmanager.h"
@@ -482,6 +483,66 @@ TEST_CASE("Pencil - a stroke on a translated key lands where it was drawn")
     REQUIRE(curve >= 0);
     CHECK(vimage->getVertex(curve, -1).x() == Approx(-50).margin(3)); // the curve origin
     CHECK(vimage->getVertex(curve, vimage->getCurveSize(curve) - 1).x() < -30 + 3);
+}
+
+TEST_CASE("Pen - a stroke after an arrow-key nudge applies the nudge first")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(PEN);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    layer->getBitmapImageAtFrame(1)->setPixel(10, 20, qRgba(0, 0, 0, 255));
+    editor->select()->setSelection(QRectF(0, 0, 40, 40), true);
+    auto pixelAt = [&](int x) { return qAlpha(layer->getBitmapImageAtFrame(1)->pixel(x, 20)) != 0; };
+    auto nudgeRight = [&]
+    {
+        QKeyEvent e(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+        QApplication::sendEvent(area, &e);
+    };
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+
+    SECTION("Undo restores the position before the nudge")
+    {
+        nudgeRight();
+        REQUIRE_FALSE(editor->select()->selectionTransform().isIdentity());
+        undoAction->trigger();
+        CHECK(editor->select()->selectionTransform().isIdentity());
+        CHECK(pixelAt(10));
+        CHECK_FALSE(pixelAt(11));
+    }
+
+    SECTION("A stroke paints with an identity selection transform")
+    {
+        nudgeRight();
+        tablet(area, QEvent::TabletPress, screen(QPointF(200, 200)), 1.0);
+        tablet(area, QEvent::TabletMove, screen(QPointF(250, 200)), 1.0);
+        area->grab(); // paints while drawing: asserts on a pending selection transform
+        tablet(area, QEvent::TabletRelease, screen(QPointF(250, 200)), 1.0);
+
+        CHECK(editor->select()->selectionTransform().isIdentity());
+        CHECK_FALSE(pixelAt(10));
+        CHECK(pixelAt(11));
+    }
+
+    SECTION("Enter applies the nudge")
+    {
+        nudgeRight();
+        QKeyEvent e(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+        QApplication::sendEvent(area, &e);
+        CHECK_FALSE(editor->select()->somethingSelected());
+        CHECK_FALSE(pixelAt(10));
+        CHECK(pixelAt(11));
+    }
 }
 
 TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")

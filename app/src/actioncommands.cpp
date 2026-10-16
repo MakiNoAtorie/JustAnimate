@@ -392,6 +392,11 @@ Status ActionCommands::exportMovie(bool isGif)
 
     if (st.ok())
     {
+        if (!ex.skippedClips().isEmpty())
+        {
+            QMessageBox::warning(mParent, APP_NAME,
+                                 tr("These sound clips were left out of the movie because their files are missing:\n%1").arg(ex.skippedClips().join('\n')));
+        }
         if (QFile::exists(strMoviePath))
         {
             if (isGif) {

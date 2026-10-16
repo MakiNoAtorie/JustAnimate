@@ -132,6 +132,14 @@ Status LayerSound::saveKeyFrameFile(KeyFrame* key, QString path)
         return Status::SAFE;
     }
 
+    if (!QFile::exists(key->fileName()))
+    {
+        // A missing clip file must not fail the save: save the clip without audio.
+        qWarning() << "LayerSound::saveKeyFrameFile: missing sound file" << key->fileName() << "at frame" << key->pos();
+        key->setFileName("");
+        return Status::SAFE;
+    }
+
     QFileInfo info(key->fileName());
     QString sDestFileLocation = QDir(path).filePath(info.fileName());
     QFileInfo projectFileLocation(sDestFileLocation);
@@ -159,6 +167,11 @@ Status LayerSound::saveKeyFrameFile(KeyFrame* key, QString path)
     }
     key->setFileName(sDestFileLocation);
     return Status::OK;
+}
+
+QString LayerSound::clipLabel(const KeyFrame* clip) const
+{
+    return QString("%1 frame %2").arg(name()).arg(clip->pos());
 }
 
 KeyFrame* LayerSound::createKeyFrame(int position)
