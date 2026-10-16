@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include <QSettings>
 #include <QDebug>
+#include "pencilsettings.h"
 
 PreferenceManager::PreferenceManager(Editor* editor) : BaseManager(editor, __FUNCTION__)
 {
@@ -46,7 +47,7 @@ Status PreferenceManager::save(Object*)
 
 void PreferenceManager::loadPrefs()
 {
-    QSettings settings( PENCIL2D, PENCIL2D );
+    QSettings& settings = pencilSettings();
 
     // Display
     set(SETTING::GRID,                     settings.value(SETTING_SHOW_GRID,              false).toBool());
@@ -202,7 +203,7 @@ QString PreferenceManager::getString(SETTING option)
 
 void PreferenceManager::set(SETTING option, QString value)
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     switch (option)
     {
     case SETTING::BACKGROUND_STYLE:
@@ -237,7 +238,7 @@ void PreferenceManager::set(SETTING option, QString value)
 
 void PreferenceManager::set(SETTING option, float value)
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     switch(option)
     {
     case SETTING::LAYER_VISIBILITY_THRESHOLD:
@@ -260,7 +261,7 @@ void PreferenceManager::set(SETTING option, float value)
 
 void PreferenceManager::set(SETTING option, int value)
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     switch (option)
     {
     case SETTING::WINDOW_OPACITY:
@@ -380,7 +381,7 @@ void PreferenceManager::set(SETTING option, int value)
 //
 void PreferenceManager::set(SETTING option, bool value)
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     switch (option)
     {
     case SETTING::SHOW_STATUS_BAR:

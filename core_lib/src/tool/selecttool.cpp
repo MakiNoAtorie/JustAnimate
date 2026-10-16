@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include "toolmanager.h"
 #include "selectionmanager.h"
 #include "undoredomanager.h"
+#include "pencilsettings.h"
 
 SelectTool::SelectTool(QObject* parent) : TransformTool(parent)
 {
@@ -32,7 +33,7 @@ SelectTool::SelectTool(QObject* parent) : TransformTool(parent)
 
 void SelectTool::loadSettings()
 {
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     QHash<int, PropertyInfo> info;
 
@@ -40,10 +41,10 @@ void SelectTool::loadSettings()
 
     info[TransformToolProperties::SHOWSELECTIONINFO_ENABLED] = false;
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
 
-    if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, pencilSettings.value("ShowSelectionInfo", false).toBool());
+    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
+        toolProperties().setBaseValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
     }
 }
 

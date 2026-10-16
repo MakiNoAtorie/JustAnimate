@@ -47,6 +47,7 @@ GNU General Public License for more details.
 #include "timeline.h"
 
 #include "cameracontextmenu.h"
+#include "pencilsettings.h"
 
 TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYPE type) : QWidget(parent)
 {
@@ -1468,7 +1469,7 @@ void TimeLineCells::editLayerProperties(LayerCamera* cameraLayer) const
     {
         mEditor->layers()->renameLayer(cameraLayer, name);
     }
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(SETTING_FIELD_W, dialog.getWidth());
     settings.setValue(SETTING_FIELD_H, dialog.getHeight());
     cameraLayer->setViewRect(QRect(-dialog.getWidth() / 2, -dialog.getHeight() / 2, dialog.getWidth(), dialog.getHeight()));

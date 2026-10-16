@@ -565,7 +565,7 @@ void MainWindow2::createMenus()
 
     QMenu* workspaceMenu = new QMenu(tr("Workspace"), winMenu);
     auto* workspaceGroup = new QActionGroup(this);
-    QSettings workspaceSettings(PENCIL2D, PENCIL2D);
+    QSettings& workspaceSettings = pencilSettings();
     for (const QString& name : workspaceNames())
     {
         QAction* a = workspaceMenu->addAction(QCoreApplication::translate("Workspace", name.toUtf8().constData()));
@@ -857,7 +857,7 @@ bool MainWindow2::openObject(const QString& strFilePath)
         return false;
     }
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(LAST_PCLX_PATH, mEditor->object()->filePath());
 
     // Add to recent file list, but only if we are
@@ -944,7 +944,7 @@ bool MainWindow2::saveObject(QString strSavedFileName)
 
     mEditor->clearTemporary();
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(LAST_PCLX_PATH, strSavedFileName);
 
     Welcome::saveThumbnail(mEditor->object(), strSavedFileName, mEditor->currentFrame());
@@ -1180,7 +1180,7 @@ void MainWindow2::preferences()
 
 void MainWindow2::resetAndDockAllSubWidgets()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.remove(SETTING_WINDOW_GEOMETRY);
     settings.remove(SETTING_WINDOW_STATE);
     resetCurrentWorkspace(this, dockLayout(), availableScreenSize(), settings);
@@ -1203,7 +1203,7 @@ void MainWindow2::applyDefaultDockLayout()
 
 void MainWindow2::switchToWorkspace(const QString& name)
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     switchWorkspace(this, dockLayout(), availableScreenSize(), settings, name);
 }
 
@@ -1260,7 +1260,7 @@ bool MainWindow2::loadMostRecent()
         return false;
     }
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     QString myPath = settings.value(LAST_PCLX_PATH, QVariant("")).toString();
     if (myPath.isEmpty() || !QFile::exists(myPath))
     {
@@ -1338,7 +1338,7 @@ void MainWindow2::closeDialogs()
 
 void MainWindow2::readSettings()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     QVariant winGeometry = settings.value(SETTING_WINDOW_GEOMETRY);
     restoreGeometry(winGeometry.toByteArray());
@@ -1355,7 +1355,7 @@ void MainWindow2::readSettings()
 
 void MainWindow2::writeSettings()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(SETTING_WINDOW_GEOMETRY, saveGeometry());
     settings.setValue(SETTING_WINDOW_STATE, saveState());
     saveCurrentWorkspace(this, settings);

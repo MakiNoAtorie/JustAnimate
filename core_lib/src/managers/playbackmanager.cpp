@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "soundclip.h"
 #include "toolmanager.h"
+#include "pencilsettings.h"
 
 
 PlaybackManager::PlaybackManager(Editor* editor) : BaseManager(editor, __FUNCTION__)
@@ -52,7 +53,7 @@ bool PlaybackManager::init()
     connect(mScrubTimer, &QTimer::timeout, this, &PlaybackManager::stopScrubPlayback);
     mSoundclipsToPLay.clear();
 
-    QSettings settings (PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     mFps = settings.value(SETTING_FPS).toInt();
     mMsecSoundScrub = settings.value(SETTING_SOUND_SCRUB_MSEC).toInt();
     if (mMsecSoundScrub == 0) { mMsecSoundScrub = 100; }
@@ -141,7 +142,7 @@ void PlaybackManager::playFlipRoll()
     int start = editor()->currentFrame();
     int tmp = start;
     mFlipList.clear();
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     mFlipRollMax = settings.value(SETTING_FLIP_ROLL_DRAWINGS).toInt();
     for (int i = 0; i < mFlipRollMax; i++)
     {
@@ -191,7 +192,7 @@ void PlaybackManager::playFlipInBetween()
         return;
     }
     // run the flip in-between...
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     mFlipInbetweenInterval = settings.value(SETTING_FLIP_INBETWEEN_MSEC).toInt();
 
     mFlipTimer->setInterval(mFlipInbetweenInterval);
@@ -240,7 +241,7 @@ void PlaybackManager::setFps(int fps)
     if (mFps != fps)
     {
         mFps = fps;
-        QSettings settings (PENCIL2D, PENCIL2D);
+        QSettings& settings = pencilSettings();
         settings.setValue(SETTING_FPS, fps);
         emit fpsChanged(mFps);
 

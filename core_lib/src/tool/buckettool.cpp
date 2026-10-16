@@ -32,6 +32,7 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 #include "editor.h"
 #include "scribblearea.h"
+#include "pencilsettings.h"
 
 
 BucketTool::BucketTool(QObject* parent) : BaseTool(parent)
@@ -49,7 +50,7 @@ void BucketTool::loadSettings()
     mPropertyUsed[BucketToolProperties::FILLMODE_VALUE] = { Layer::BITMAP };
     mPropertyUsed[BucketToolProperties::FILLCLOSEGAPS_VALUE] = { Layer::BITMAP };
 
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     QHash<int, PropertyInfo> info;
 
@@ -63,24 +64,24 @@ void BucketTool::loadSettings()
     info[BucketToolProperties::FILLCLOSEGAPS_VALUE] = { 0, 20, 0 };
 
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
 
-    if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(BucketToolProperties::FILLTHICKNESS_VALUE, pencilSettings.value("fillThickness", 4.0).toReal());
-        toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_VALUE, pencilSettings.value("Tolerance", 32).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_ENABLED, pencilSettings.value("BucketToleranceEnabled", false).toBool());
-        toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_VALUE, pencilSettings.value("BucketFillExpand", 2).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_ENABLED, pencilSettings.value("BucketFillExpandEnabled", true).toBool());
-        toolProperties().setBaseValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, pencilSettings.value("BucketFillReferenceMode", 0).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::FILLMODE_VALUE, pencilSettings.value("FillMode", 0).toInt());
+    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
+        toolProperties().setBaseValue(BucketToolProperties::FILLTHICKNESS_VALUE, settings.value("fillThickness", 4.0).toReal());
+        toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_VALUE, settings.value("Tolerance", 32).toInt());
+        toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_ENABLED, settings.value("BucketToleranceEnabled", false).toBool());
+        toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_VALUE, settings.value("BucketFillExpand", 2).toInt());
+        toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_ENABLED, settings.value("BucketFillExpandEnabled", true).toBool());
+        toolProperties().setBaseValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, settings.value("BucketFillReferenceMode", 0).toInt());
+        toolProperties().setBaseValue(BucketToolProperties::FILLMODE_VALUE, settings.value("FillMode", 0).toInt());
 
-        pencilSettings.remove("fillThickness");
-        pencilSettings.remove("Tolerance");
-        pencilSettings.remove("BucketToleranceEnabled");
-        pencilSettings.remove("BucketFillExpand");
-        pencilSettings.remove("BucketFillExpandEnabled");
-        pencilSettings.remove("BucketFillReferenceMode");
-        pencilSettings.remove("FillMode");
+        settings.remove("fillThickness");
+        settings.remove("Tolerance");
+        settings.remove("BucketToleranceEnabled");
+        settings.remove("BucketFillExpand");
+        settings.remove("BucketFillExpandEnabled");
+        settings.remove("BucketFillReferenceMode");
+        settings.remove("FillMode");
     }
 }
 

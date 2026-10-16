@@ -42,6 +42,7 @@ GNU General Public License for more details.
 #include "testfixture.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
+#include "pencilsettings.h"
 
 TEST_CASE("UndoRedoManager: undo/redo of Remove frame")
 {
@@ -988,7 +989,7 @@ TEST_CASE("UndoRedoManager: an old undo system preference is ignored")
     // A settings file written before the legacy undo system was removed can hold this key.
     const char* oldKey = "NewUndoRedoOn";
     const SettingsGuard guard({ oldKey });
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue(oldKey, false);
     settings.sync();
 

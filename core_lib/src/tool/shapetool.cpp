@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "vectorimage.h"
 #include "viewmanager.h"
+#include "pencilsettings.h"
 
 ShapeTool::ShapeTool(QObject* parent) : BrushTool(parent)
 {
@@ -54,7 +55,7 @@ void ShapeTool::loadSettings()
         mPropertyUsed.remove(p);
     mPropertyUsed[ShapeToolProperties::SHAPEMODE_VALUE] = { Layer::BITMAP, Layer::VECTOR };
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     toolProperties().insertProperties({ { ShapeToolProperties::SHAPEMODE_VALUE, PropertyInfo(LINE, POLYGON, RECTANGLE) } });
     toolProperties().loadFrom(typeName(), settings);
 
