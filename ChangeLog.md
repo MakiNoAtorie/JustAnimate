@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Undo: bucket clicks that fill nothing, smudge clicks on an empty vector frame and strokes released by another device no longer leak an image copy each (#123).
+- Fixes: the camera tool Reset Scale button resets scale to 1 and keeps rotation (#131).
 - Settings: every access goes through pencilSettings(), and the test suite uses its own empty INI file instead of the real app settings (#168).
 - Fixes: undo and redo update the title-bar and status-bar modified marker, so undoing back to the saved state shows the file as saved (#149).
 - Translations: all .ts files re-synced with the current strings (obsolete entries kept) and the fork translation workflow is documented in docs/translations.md.
