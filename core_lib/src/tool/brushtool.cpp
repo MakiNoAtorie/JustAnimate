@@ -163,6 +163,7 @@ void BrushTool::paintVectorStroke(Layer* layer)
         curve.setColorNumber(mEditor->color()->frontColorNumber());
 
         VectorImage* vectorImage = static_cast<VectorImage*>(layer->getLastKeyFrameAtPosition(mEditor->currentFrame()));
+        mapCurveToKey(curve);
         vectorImage->addCurve(curve, mEditor->view()->scaling(), false);
 
         if (vectorImage->isAnyCurveSelected() || mEditor->select()->somethingSelected())

@@ -808,7 +808,8 @@ void ScribbleArea::paintBitmapBuffer()
         default: //nothing
             break;
         }
-        targetImage->paste(&mTiledBuffer, cm);
+        // The stroke is drawn in canvas space; map it into the space of the key.
+        targetImage->paste(&mTiledBuffer, cm, layer->tweenStateAt(frameNumber).transform().inverted());
     }
 
     QRect rect = mEditor->view()->mapCanvasToScreen(mTiledBuffer.bounds()).toRect();

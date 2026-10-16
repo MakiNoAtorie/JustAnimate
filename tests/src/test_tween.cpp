@@ -242,6 +242,15 @@ TEST_CASE("Untrusted tween attributes load as defaults", "[Tween]")
     const KeyFrame* key = loaded.getKeyFrameAt(1);
     REQUIRE(key->tweenEasing() == CameraEasingType::LINEAR);
     REQUIRE(key->tweenState().scale == 1);
+
+    for (const char* scale : { "0", "-2" })
+    {
+        CAPTURE(scale);
+        image.setAttribute("scale", scale);
+        LayerVector zero(1);
+        zero.loadDomElement(layerElem, QString(), [] {});
+        CHECK(zero.getKeyFrameAt(1)->tweenState().scale == 1);
+    }
 }
 
 TEST_CASE("A key tween change undoes and redoes", "[Tween]")

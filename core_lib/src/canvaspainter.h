@@ -106,7 +106,7 @@ private:
 
     void paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startLayer, int endLayer);
     void paintLayer(QPainter& painter, const QRect& blitRect, int index);
-    /// Paints layers first..last over a copy of the backdrop in mGroupPixmap, then draws it back with group opacity.
+    /// Paints layers first..last with drawWithOpacity, so the group fades as one image.
     void paintGroup(QPainter& painter, const QRect& blitRect, int first, int last, qreal opacity);
     /// Layers painted with the current layer: its whole group when the group is translucent.
     QPair<int, int> currentRange() const;
@@ -144,7 +144,6 @@ private:
     QPixmap mPostLayersPixmap;
     QPixmap mPreLayersPixmap;
     QPixmap mCurrentLayerPixmap;
-    QPixmap mGroupPixmap;
     QPixmap mOnionSkinPixmap;
     LayerCellCache mPreLayersCache;
     LayerCellCache mPostLayersCache; // used only with bFastLayersAbove

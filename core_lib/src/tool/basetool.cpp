@@ -24,6 +24,8 @@ GNU General Public License for more details.
 #include "strokeinterpolator.h"
 #include "pointerevent.h"
 #include "layermanager.h"
+#include "keyframe.h"
+#include "beziercurve.h"
 
 QString BaseTool::TypeName(ToolType type)
 {
@@ -139,4 +141,16 @@ bool BaseTool::isDrawingTool()
 bool BaseTool::isActive() const
 {
     return false;
+}
+
+void BaseTool::mapCurveToKey(BezierCurve& curve) const
+{
+    const Layer* layer = mEditor->layers()->currentLayer();
+    if (layer == nullptr) { return; }
+    const TweenState tween = layer->tweenStateAt(mEditor->currentFrame());
+    if (tween.isIdentity()) { return; }
+    // BezierCurve::transform moves only selected vertices; a new curve is not selected.
+    curve.setSelected(true);
+    curve.transform(tween.transform().inverted());
+    curve.setSelected(false);
 }

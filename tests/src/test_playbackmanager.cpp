@@ -17,8 +17,12 @@ GNU General Public License for more details.
 
 #include <memory>
 #include <vector>
+#include <QDir>
+#include <QFile>
 #include <QTemporaryDir>
+#include "app_util.h"
 #include "editor.h"
+#include "fileformat.h"
 #include "filemanager.h"
 #include "object.h"
 #include "playbackmanager.h"
@@ -115,6 +119,9 @@ TEST_CASE("PlaybackManager ping-pong is saved and optional")
         pb->setPingPong(true);
         pb->save(s.object);
         REQUIRE(fm.save(s.object, path).ok());
+        QFile mainXml(QDir(s.object->workingDir()).filePath(PFF_XML_FILE_NAME));
+        REQUIRE(mainXml.open(QIODevice::ReadOnly));
+        CHECK(mainXml.readAll().count("<pingPong") == 1);
         std::unique_ptr<Object> loaded(fm.load(path));
         REQUIRE(loaded != nullptr);
         REQUIRE(loaded->data()->isPingPong());
@@ -122,4 +129,14 @@ TEST_CASE("PlaybackManager ping-pong is saved and optional")
         REQUIRE(pb->load(loaded.get()).ok());
         REQUIRE(pb->isPingPong());
     }
+}
+
+TEST_CASE("A held frame step key flips at the project fps and single taps always flip", "[PlaybackManager]")
+{
+    // At 10 fps one flip lasts 100 ms.
+    CHECK_FALSE(skipFrameStep(false, 10, 10)); // a tap right after a flip
+    CHECK_FALSE(skipFrameStep(false, -1, 10));
+    CHECK(skipFrameStep(true, 10, 10));       // a repeat inside the flip
+    CHECK_FALSE(skipFrameStep(true, 100, 10));
+    CHECK_FALSE(skipFrameStep(true, -1, 10)); // no flip yet
 }

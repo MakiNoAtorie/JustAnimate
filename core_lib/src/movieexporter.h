@@ -1,4 +1,4 @@
-﻿/*
+/*
 
 Pencil2D - Traditional Animation Software
 Copyright (C) 2012-2020 Matthew Chiawen Chang

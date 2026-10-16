@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <QStandardPaths>
 #include <QFileDialog>
 #include <QElapsedTimer>
+#include <QKeyEvent>
 
 #include "pencildef.h"
 #include "editor.h"
@@ -687,13 +688,38 @@ void ActionCommands::PlayStop()
     }
 }
 
+namespace
+{
+// Remembers whether the last key event was an auto-repeat. Qt sends ShortcutOverride before it triggers the action.
+class KeyRepeatWatcher : public QObject
+{
+public:
+    using QObject::QObject;
+    bool autoRepeat = false;
+    bool eventFilter(QObject* obj, QEvent* e) override
+    {
+        if (e->type() == QEvent::ShortcutOverride || e->type() == QEvent::KeyPress)
+        {
+            autoRepeat = static_cast<QKeyEvent*>(e)->isAutoRepeat();
+        }
+        else if (e->type() == QEvent::MouseButtonPress) { autoRepeat = false; }
+        return QObject::eventFilter(obj, e);
+    }
+};
+} // namespace
+
 // A held key repeats faster than the playback fps; drop the extra repeats so flipping keeps the project rate.
 static bool flipThrottled(Editor* editor)
 {
+    static KeyRepeatWatcher* watcher = [] {
+        auto* w = new KeyRepeatWatcher(qApp);
+        qApp->installEventFilter(w);
+        return w;
+    }();
     static QElapsedTimer sinceFlip;
-    const bool tooSoon = sinceFlip.isValid() && sinceFlip.elapsed() < 1000 / qMax(1, editor->playback()->fps());
-    if (!tooSoon) { sinceFlip.start(); }
-    return tooSoon;
+    const bool skip = skipFrameStep(watcher->autoRepeat, sinceFlip.isValid() ? sinceFlip.elapsed() : -1, editor->playback()->fps());
+    if (!skip) { sinceFlip.start(); }
+    return skip;
 }
 
 void ActionCommands::GotoNextFrame()
@@ -835,22 +861,9 @@ void ActionCommands::removeKey()
 
 void ActionCommands::duplicateLayer()
 {
-    LayerManager* layerMgr = mEditor->layers();
-    Layer* fromLayer = layerMgr->currentLayer();
+    Layer* fromLayer = mEditor->layers()->currentLayer();
     int currFrame = mEditor->currentFrame();
-
-    Layer* toLayer = layerMgr->createLayer(fromLayer->type(), tr("%1 (copy)", "Default duplicate layer name").arg(fromLayer->name()));
-    fromLayer->foreachKeyFrame([&] (KeyFrame* key) {
-        key = key->clone();
-        toLayer->addOrReplaceKeyFrame(key->pos(), key);
-        if (toLayer->type() == Layer::SOUND)
-        {
-            mEditor->sound()->processSound(static_cast<SoundClip*>(key));
-        }
-    });
-    if (!fromLayer->keyExists(1)) {
-        toLayer->removeKeyFrame(1);
-    }
+    mEditor->layers()->duplicateLayer(fromLayer, tr("%1 (copy)", "Default duplicate layer name").arg(fromLayer->name()));
     mEditor->scrubTo(currFrame);
 }
 

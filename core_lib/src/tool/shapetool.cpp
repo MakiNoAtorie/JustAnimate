@@ -218,6 +218,7 @@ void ShapeTool::finishShape(const QPolygonF& points, PointerEvent* event)
             curve.setVariableWidth(false);
             curve.setColorNumber(mEditor->color()->frontColorNumber());
             image->deselectAll();
+            mapCurveToKey(curve);
             image->addCurve(curve, mEditor->view()->scaling(), false);
         }
     }

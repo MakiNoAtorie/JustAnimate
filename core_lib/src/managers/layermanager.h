@@ -95,6 +95,8 @@ public:
     LayerVector* createVectorLayer(const QString& strLayerName);
     LayerCamera* createCameraLayer(const QString& strLayerName);
     LayerSound*  createSoundLayer(const QString& strLayerName);
+    /** Adds a copy of `from` with its keys and blend mode on top, as the current layer. */
+    Layer* duplicateLayer(Layer* from, const QString& name);
 
     // KeyFrame Management
     int lastFrameAtFrame(int frameIndex);

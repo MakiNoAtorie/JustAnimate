@@ -28,6 +28,8 @@ GNU General Public License for more details.
 #include "bitmapimage.h"
 #include "vectorimage.h"
 #include "scribblearea.h"
+#include "soundclip.h"
+#include "soundmanager.h"
 
 #include <algorithm>
 
@@ -218,6 +220,23 @@ Layer* LayerManager::createLayer(Layer::LAYER_TYPE type, const QString& strLayer
     recordLayerAdd(layer);
 
     return layer;
+}
+
+Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
+{
+    Layer* to = createLayer(from->type(), name);
+    if (to == nullptr) { return nullptr; }
+    to->setBlendMode(from->blendMode());
+    from->foreachKeyFrame([&](KeyFrame* key) {
+        key = key->clone();
+        to->addOrReplaceKeyFrame(key->pos(), key);
+        if (to->type() == Layer::SOUND)
+        {
+            editor()->sound()->processSound(static_cast<SoundClip*>(key));
+        }
+    });
+    if (!from->keyExists(1)) { to->removeKeyFrame(1); }
+    return to;
 }
 
 LayerBitmap* LayerManager::createBitmapLayer(const QString& strLayerName)

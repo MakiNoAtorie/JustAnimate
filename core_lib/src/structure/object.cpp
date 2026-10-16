@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include <QDateTime>
 #include <QImageWriter>
 #include <QRegularExpression>
+#include <QSet>
 
 #include "layer.h"
 #include "layerbitmap.h"
@@ -143,9 +144,15 @@ bool Object::loadXML(const QDomElement& docElem, ProgressCallback progressForwar
         mLayers.append(newLayer);
         newLayer->loadDomElement(element, dataDirPath, progressForward);
     }
+    // Untrusted file: group members must be contiguous, so a member after its group's first run loads ungrouped.
+    QSet<int> endedGroups;
+    int previous = 0;
     for (Layer* layer : mLayers)
     {
         if (findLayerGroup(layer->groupId()) == nullptr) { layer->setGroupId(0); }
+        if (layer->groupId() != previous && previous != 0) { endedGroups.insert(previous); }
+        if (endedGroups.contains(layer->groupId())) { layer->setGroupId(0); }
+        previous = layer->groupId();
     }
     return true;
 }

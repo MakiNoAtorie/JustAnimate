@@ -333,6 +333,7 @@ void PolylineTool::endPolyline(QList<QPointF> points)
 
         VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
         if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
+        mapCurveToKey(curve);
         vectorImage->addCurve(curve, mEditor->view()->scaling());
     }
     if (layer->type() == Layer::BITMAP)

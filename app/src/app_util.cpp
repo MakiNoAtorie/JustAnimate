@@ -19,6 +19,11 @@ GNU General Public License for more details.
 #include <QDialog>
 #include "preferencemanager.h"
 
+bool skipFrameStep(bool autoRepeat, long long msSinceStep, int fps)
+{
+    return autoRepeat && msSinceStep >= 0 && msSinceStep < 1000 / qMax(1, fps);
+}
+
 void hideQuestionMark(QDialog& dlg)
 {
     dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);

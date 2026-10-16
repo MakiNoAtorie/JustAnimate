@@ -223,7 +223,7 @@ void drawWithOpacity(QPainter& painter, qreal opacity, const std::function<void(
 void drawBlendedLayer(QPainter& painter, BlendMode mode, const std::function<void(QPainter&)>& paint)
 {
     QPaintDevice* device = painter.device();
-    // ponytail: a full device-size buffer per blend layer; clip to the layer bounds if export gets slow.
+    // shortcut: a full device-size buffer per blend layer; clip to the layer bounds if export gets slow.
     QImage layer(device->width(), device->height(), QImage::Format_ARGB32_Premultiplied);
     layer.setDevicePixelRatio(device->devicePixelRatioF());
     layer.fill(Qt::transparent);

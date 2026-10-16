@@ -189,7 +189,7 @@ std::array<float, 3> spectralMix(const std::array<float, 3>& a, float weightA, c
         const double r = km((ks(ra[i]) * ca + ks(rb[i]) * cb) / (ca + cb));
         for (int c = 0; c < 3; ++c) rgb[c] += toRgb[c][i] * r;
     }
-    // ponytail: clips out-of-gamut results; spectral.js maps them in OKLab, port that if hues shift visibly.
+    // shortcut: clips out-of-gamut results; spectral.js maps them in OKLab, port that if hues shift visibly.
     return { float(compand(std::clamp(rgb[0], 0.0, 1.0))), float(compand(std::clamp(rgb[1], 0.0, 1.0))),
              float(compand(std::clamp(rgb[2], 0.0, 1.0))) };
 }

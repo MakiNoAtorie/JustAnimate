@@ -163,3 +163,21 @@ TEST_CASE("Layer::setCurrentLayer(index)") {
 
     }
 }
+
+TEST_CASE("Duplicate Layer copies the keys and the blend mode", "[LayerManager]")
+{
+    TestSession s;
+    LayerBitmap* from = s.object->addNewBitmapLayer();
+    from->setName("Ink");
+    from->setBlendMode(BlendMode::Multiply);
+    from->addNewKeyFrameAt(3);
+    REQUIRE(s.start());
+
+    Layer* copy = s.editor->layers()->duplicateLayer(from, "Ink (copy)");
+    REQUIRE(copy != nullptr);
+    CHECK(copy->name() == "Ink (copy)");
+    CHECK(copy->blendMode() == BlendMode::Multiply);
+    CHECK(copy->keyExists(1));
+    CHECK(copy->keyExists(3));
+    CHECK(copy->getKeyFrameAt(3) != from->getKeyFrameAt(3));
+}

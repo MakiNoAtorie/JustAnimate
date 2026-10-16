@@ -498,13 +498,6 @@ QDomElement FileManager::saveProjectData(const ObjectData* data, QDomDocument& x
         rootTag.appendChild(tagPingPong);
     }
 
-    if (data->isPingPong())
-    {
-        QDomElement tagPingPong = xmlDoc.createElement("pingPong");
-        tagPingPong.setAttribute("value", "true");
-        rootTag.appendChild(tagPingPong);
-    }
-
     QDomElement tagRangedPlayback = xmlDoc.createElement("isRangedPlayback");
     tagRangedPlayback.setAttribute("value", data->isRangedPlayback() ? "true" : "false");
     rootTag.appendChild(tagRangedPlayback);

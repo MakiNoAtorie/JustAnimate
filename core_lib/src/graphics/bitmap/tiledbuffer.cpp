@@ -451,7 +451,7 @@ TiledBuffer::DabMask TiledBuffer::imageDabMask(const QImage& image, float width,
     QImage src = image.convertToFormat(QImage::Format_Alpha8);
     if (width <= 0 || src.isNull()) return mask;
     // Box-halve large images first, so bilinear sampling does not skip pixels.
-    // ponytail: halves on every new mask, keep a mip chain per image if big tips build masks slowly.
+    // shortcut: halves on every new mask, keep a mip chain per image if big tips build masks slowly.
     while (src.width() >= 2 * width && src.width() > 1 && src.height() > 1)
     {
         QImage half(src.width() / 2, src.height() / 2, QImage::Format_Alpha8);

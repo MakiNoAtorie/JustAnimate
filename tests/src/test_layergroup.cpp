@@ -300,6 +300,36 @@ TEST_CASE("Group opacity fades the composite of its layers", "[LayerGroup]")
     CHECK(qRed(exportImage(half.get()).pixel(30, 30)) == 0);
 }
 
+TEST_CASE("A group split by another group in a file loads as one contiguous run", "[LayerGroup]")
+{
+    QTemporaryFile file;
+    REQUIRE(file.open());
+    QTextStream(&file) << "<!DOCTYPE PencilDocument><document><object>"
+                          "<layerGroup id='1' name='G1' opacity='0.5'/><layerGroup id='2' name='G2'/>"
+                          "<layer name='A' id='1' visibility='1' type='1' group='1'></layer>"
+                          "<layer name='B' id='2' visibility='1' type='1' group='2'></layer>"
+                          "<layer name='C' id='3' visibility='1' type='1' group='1'></layer>"
+                          "<layer name='D' id='4' visibility='1' type='1' group='2'></layer>"
+                          "</object></document>";
+    file.close();
+
+    FileManager fm;
+    std::unique_ptr<Object> object(fm.load(file.fileName()));
+    REQUIRE(object != nullptr);
+    CHECK(arrangement(object.get()) == "A* B* C D Camera Layer");
+
+    // B is not in G1, so G1's half opacity must not fade it.
+    LayerBitmap* b = static_cast<LayerBitmap*>(object->getLayer(1));
+    b->addNewKeyFrameAt(1);
+    b->getBitmapImageAtFrame(1)->drawRect(QRectF(-5, -5, 10, 10), Qt::NoPen, QBrush(Qt::red), QPainter::CompositionMode_Source, false);
+    CHECK(qAlpha(exportImage(object.get()).pixel(30, 30)) == 255);
+    for (int painted = 0; painted < 4; ++painted)
+    {
+        INFO("painted layer " << painted);
+        CHECK(qAlpha(canvasImage(object.get(), painted).pixel(30, 30)) == 255);
+    }
+}
+
 TEST_CASE("Group visibility and opacity changes undo and redo", "[LayerGroup]")
 {
     TestSession session;

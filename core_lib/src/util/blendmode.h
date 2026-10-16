@@ -32,6 +32,17 @@ enum class BlendMode
     Add = 4,
 };
 
+/// Number of blend modes. A file value outside [0, kBlendModeCount) loads as Normal.
+constexpr int kBlendModeCount = 5;
+static_assert(static_cast<int>(BlendMode::Add) + 1 == kBlendModeCount, "kBlendModeCount follows the last mode");
+
+/// Menu names by BlendMode value. Translate with QCoreApplication::translate("BlendMode", name).
+constexpr const char* kBlendModeNames[kBlendModeCount] = { QT_TRANSLATE_NOOP("BlendMode", "Normal"),
+                                                           QT_TRANSLATE_NOOP("BlendMode", "Multiply"),
+                                                           QT_TRANSLATE_NOOP("BlendMode", "Screen"),
+                                                           QT_TRANSLATE_NOOP("BlendMode", "Overlay"),
+                                                           QT_TRANSLATE_NOOP("BlendMode", "Add") };
+
 /** Blends `count` premultiplied ARGB32 source pixels onto `dst` in place.
  *  Uses SSE2 on x86-64 and gives the same bytes as blendPixelsScalar. */
 void blendPixels(BlendMode mode, quint32* dst, const quint32* src, int count);

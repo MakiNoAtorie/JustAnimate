@@ -102,6 +102,7 @@ void LassoFillTool::fill()
             curve.setInvisibility(true);
             curve.setVariableWidth(false);
             curve.setColorNumber(mEditor->color()->frontColorNumber());
+            mapCurveToKey(curve);
             image->addCurve(curve, qAbs(mEditor->view()->scaling()), false);
             // Use every vertex: fillContour drops the point nearest the first curve's vertex 0.
             const int c = image->getLastCurveNumber();

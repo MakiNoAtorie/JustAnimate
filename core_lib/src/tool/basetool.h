@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include "layer.h"
 
 class QPixmap;
+class BezierCurve;
 class Editor;
 class ScribbleArea;
 class QEnterEvent;
@@ -104,6 +105,8 @@ signals:
 
 protected:
     Editor* editor() { return mEditor; }
+    /// Maps a new curve from canvas space into the space of the current key, which the key's tween state moves.
+    void mapCurveToKey(BezierCurve& curve) const;
     QHash<int, QSet<Layer::LAYER_TYPE>> mPropertyUsed;
 
     Editor* mEditor = nullptr;

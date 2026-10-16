@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QFontMetrics>
 #include <QFormLayout>
 #include <QInputDialog>
 #include <QMenu>
@@ -391,12 +392,29 @@ void TimeLineCells::paintTicks(QPainter& painter, const QPalette& palette) const
         }
     }
 
-    // Markers: colour bar under the ruler
+    // Markers: colour bar under the ruler, and the name right of it when it fits before the next marker.
     const auto& markers = mEditor->object()->data()->markers();
+    QFont nameFont = painter.font();
+    nameFont.setPixelSize(9);
+    const QFontMetrics nameMetrics(nameFont);
+    painter.save();
+    painter.setFont(nameFont);
     for (auto it = markers.constBegin(); it != markers.constEnd(); ++it)
     {
-        painter.fillRect(getFrameX(it.key() - 1), 16, mFrameSize, 4, it.value().color);
+        const int barX = getFrameX(it.key() - 1);
+        painter.fillRect(barX, 16, mFrameSize, 4, it.value().color);
+
+        const auto next = std::next(it);
+        const int textX = barX + mFrameSize + 2;
+        const int limit = (next == markers.constEnd()) ? width() : getFrameX(next.key() - 1) - 2;
+        const int textWidth = nameMetrics.horizontalAdvance(it.value().name);
+        if (it.value().name.isEmpty() || textX + textWidth > limit) { continue; }
+        const QRect textRect(textX, mOffsetY - 2 - nameMetrics.height(), textWidth, nameMetrics.height());
+        painter.fillRect(textRect, palette.color(QPalette::Base));
+        painter.setPen(palette.color(QPalette::Text));
+        painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, it.value().name);
     }
+    painter.restore();
 }
 
 void TimeLineCells::showMarkerMenu(const QPoint& globalPos)
@@ -984,10 +1002,9 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 {
                     QMenu* blend = menu.addMenu(tr("Blend Mode"));
                     QActionGroup* group = new QActionGroup(blend);
-                    const QString names[] = { tr("Normal"), tr("Multiply"), tr("Screen"), tr("Overlay"), tr("Add") };
-                    for (int mode = 0; mode < 5; ++mode)
+                    for (int mode = 0; mode < kBlendModeCount; ++mode)
                     {
-                        QAction* action = blend->addAction(names[mode]);
+                        QAction* action = blend->addAction(QCoreApplication::translate("BlendMode", kBlendModeNames[mode]));
                         action->setCheckable(true);
                         action->setChecked(static_cast<int>(layer->blendMode()) == mode);
                         action->setData(mode);

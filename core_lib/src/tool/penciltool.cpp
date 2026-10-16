@@ -151,6 +151,7 @@ void PencilTool::paintVectorStroke(Layer* layer)
     curve.setColorNumber(mEditor->color()->frontColorNumber());
     VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
     if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
+    mapCurveToKey(curve);
     vectorImage->addCurve(curve, qAbs(mEditor->view()->scaling()), false);
 
     if (mSettings.fillContourEnabled())

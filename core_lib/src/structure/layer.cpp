@@ -715,7 +715,7 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     setVisible(elem.attribute("visibility", "1").toInt());
     setOnionSkin(elem.attribute("onion", "1").toInt());
     const int blend = elem.attribute("blend", "0").toInt();
-    setBlendMode(blend >= 0 && blend <= static_cast<int>(BlendMode::Add) ? static_cast<BlendMode>(blend) : BlendMode::Normal);
+    setBlendMode(blend >= 0 && blend < kBlendModeCount ? static_cast<BlendMode>(blend) : BlendMode::Normal);
     setGroupId(elem.attribute("group", "0").toInt());
 }
 
@@ -761,6 +761,7 @@ void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
     const int easing = image.attribute("easing", "0").toInt();
     const bool validEasing = easing >= 0 && easing <= static_cast<int>(CameraEasingType::OUTINBOUNCE);
     key->setTweenEasing(validEasing ? static_cast<CameraEasingType>(easing) : CameraEasingType::LINEAR);
-    key->setTweenState(TweenState{ number("tx", 0), number("ty", 0), number("rot", 0), number("scale", 1),
+    const qreal scale = number("scale", 1);
+    key->setTweenState(TweenState{ number("tx", 0), number("ty", 0), number("rot", 0), scale > 0 ? scale : 1,
                                    qBound(0.0, number("opacity", 1), 1.0) });
 }

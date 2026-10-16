@@ -48,8 +48,6 @@ void CanvasPainter::reset()
     mPostLayersPixmap = QPixmap(mCanvas.size());
     mPreLayersPixmap = QPixmap(mCanvas.size());
     mCurrentLayerPixmap = QPixmap(mCanvas.size());
-    mGroupPixmap = QPixmap(mCanvas.size());
-    mGroupPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
     mOnionSkinPixmap = QPixmap(mCanvas.size());
     mPreLayersPixmap.fill(Qt::transparent);
     mPreLayersCache.cells.clear();
@@ -202,7 +200,7 @@ void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QV
     }
     if (stale.isEmpty()) { return; }
 
-    // ponytail: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
+    // shortcut: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
     QPainter painter;
     initializePainter(painter, pixmap, stale);
     (this->*render)(painter, stale);
@@ -566,31 +564,13 @@ void CanvasPainter::paintLayer(QPainter& painter, const QRect& blitRect, int ind
 
 void CanvasPainter::paintGroup(QPainter& painter, const QRect& blitRect, int first, int last, qreal opacity)
 {
-    QPainter groupPainter;
-    initializePainter(groupPainter, mGroupPixmap, blitRect);
-    // Every canvas painter paints on a QPixmap.
-    const qreal dpr = mGroupPixmap.devicePixelRatioF();
-    const QRect rect = QRectF(QPointF(blitRect.topLeft()) * dpr, QSizeF(blitRect.size()) * dpr).toAlignedRect() & mGroupPixmap.rect();
-    if (rect.isEmpty()) { return; }
-    QPixmap backdrop = static_cast<QPixmap*>(painter.device())->copy(rect);
-    backdrop.setDevicePixelRatio(dpr);
-    groupPainter.setWorldMatrixEnabled(false);
-    groupPainter.drawPixmap(QPointF(rect.topLeft()) / dpr, backdrop);
-    groupPainter.setWorldMatrixEnabled(true);
-    for (int i = first; i <= last; ++i)
-    {
-        groupPainter.setOpacity(1.0);
-        paintLayer(groupPainter, blitRect, i);
-    }
-    groupPainter.end();
-
-    painter.save();
-    painter.setWorldMatrixEnabled(false);
-    // Source with an opacity interpolates between the group and the backdrop.
-    painter.setCompositionMode(QPainter::CompositionMode_Source);
-    painter.setOpacity(opacity);
-    painter.drawPixmap(mPointZero, mGroupPixmap);
-    painter.restore();
+    drawWithOpacity(painter, opacity, [&](QPainter& groupPainter) {
+        for (int i = first; i <= last; ++i)
+        {
+            groupPainter.setOpacity(1.0);
+            paintLayer(groupPainter, blitRect, i);
+        }
+    });
 }
 
 QPair<int, int> CanvasPainter::currentRange() const

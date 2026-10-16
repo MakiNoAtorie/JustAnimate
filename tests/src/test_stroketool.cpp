@@ -437,6 +437,51 @@ TEST_CASE("Pencil, Brush and Eraser - a tap paints a dab and a vector stroke edi
     }
 }
 
+TEST_CASE("Pencil - a stroke on a translated key lands where it was drawn")
+{
+    TestSession s;
+    LayerBitmap* bitmap = s.object->addNewBitmapLayer();
+    LayerVector* vector = s.object->addNewVectorLayer();
+    TweenState moved;
+    moved.tx = 40;
+    bitmap->getKeyFrameAt(1)->setTweenState(moved);
+    vector->getKeyFrameAt(1)->setTweenState(moved);
+
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(PENCIL);
+    const ToolSettingsGuard guard(editor->tools()->currentTool());
+    static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(6);
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+
+    editor->layers()->setCurrentLayer(bitmap);
+    stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+    editor->layers()->setCurrentLayer(vector);
+    stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+
+    // Canvas (0, 0) is image pixel (100, 50).
+    vector->setVisible(false);
+    QImage image(200, 100, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setWorldTransform(QTransform::fromTranslate(100, 50));
+    s.object->paintImage(painter, 1, false, true);
+    painter.end();
+    CHECK(qAlpha(image.pixel(100, 50)) > 0);
+    CHECK(qAlpha(image.pixel(140, 50)) == 0);
+
+    // In key space the stroke sits 40 px left of where it was drawn.
+    VectorImage* vimage = vector->getVectorImageAtFrame(1);
+    const int curve = vimage->getLastCurveNumber();
+    REQUIRE(curve >= 0);
+    CHECK(vimage->getVertex(curve, -1).x() == Approx(-50).margin(3)); // the curve origin
+    CHECK(vimage->getVertex(curve, vimage->getCurveSize(curve) - 1).x() < -30 + 3);
+}
+
 TEST_CASE("Vector tools - undo/redo of a moved vertex and of a fill")
 {
     TestSession session;
@@ -1060,6 +1105,7 @@ TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
 
     // Opaque red left of canvas x = 0, transparent right of it.
     auto prepare = [&](int frame) {
@@ -1084,6 +1130,9 @@ TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
     REQUIRE(undoAction->isEnabled());
     undoAction->trigger();
     CHECK(qAlpha(pixel(1, QPoint(20, 0))) == 0);
+    REQUIRE(redoAction->isEnabled());
+    redoAction->trigger();
+    CHECK(pixel(1, QPoint(20, 0)) == carried);
 
     smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 0);
     prepare(2);

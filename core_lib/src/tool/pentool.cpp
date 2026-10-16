@@ -239,6 +239,7 @@ void PenTool::paintVectorStroke(Layer* layer)
     auto pLayerVector = static_cast<LayerVector*>(layer);
     VectorImage* vectorImage = pLayerVector->getLastVectorImageAtFrame(mEditor->currentFrame());
     if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
+    mapCurveToKey(curve);
     vectorImage->addCurve(curve, mEditor->view()->scaling(), false);
 
     if (vectorImage->isAnyCurveSelected() || mEditor->select()->somethingSelected())

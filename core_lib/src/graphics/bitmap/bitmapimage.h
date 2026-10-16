@@ -69,7 +69,9 @@ public:
     BitmapImage copy();
     BitmapImage copy(QRect rectangle);
     void paste(BitmapImage*, QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver);
-    void paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver);
+    /// Pastes the buffer mapped through `toImage`, from canvas space into the space of this image.
+    void paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver,
+               const QTransform& toImage = QTransform());
 
     void moveTopLeft(QPoint point);
     void moveTopLeft(QPointF point) { moveTopLeft(point.toPoint()); }

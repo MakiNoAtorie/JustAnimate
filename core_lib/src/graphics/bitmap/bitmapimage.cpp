@@ -221,21 +221,23 @@ void BitmapImage::paste(BitmapImage* bitmapImage, QPainter::CompositionMode cm)
     modification();
 }
 
-void BitmapImage::paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm)
+void BitmapImage::paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm, const QTransform& toImage)
 {
     StageScope stage(StageProfiler::BufferPaste);
     if(tiledBuffer->bounds().width() <= 0 || tiledBuffer->bounds().height() <= 0)
     {
         return;
     }
-    extend(tiledBuffer->bounds());
+    extend(toImage.mapRect(QRectF(tiledBuffer->bounds())).toAlignedRect());
 
     QPainter painter(image());
 
     painter.setCompositionMode(cm);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    painter.setTransform(toImage * QTransform::fromTranslate(-mBounds.left(), -mBounds.top()));
     auto const tiles = tiledBuffer->tiles();
     for (const Tile* item : tiles) {
-        painter.drawImage(item->pos() - mBounds.topLeft(), item->image());
+        painter.drawImage(item->pos(), item->image());
     }
     painter.end();
 
