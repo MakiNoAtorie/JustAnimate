@@ -327,14 +327,8 @@
     <property name="title">
      <string>Windows</string>
     </property>
-    <widget class="QMenu" name="menuToolbars">
-     <property name="title">
-      <string>Toolbars</string>
-     </property>
-    </widget>
     <addaction name="actionLockWindows"/>
     <addaction name="separator"/>
-    <addaction name="menuToolbars"/>
     <addaction name="actionStatusBar"/>
    </widget>
    <addaction name="menuFile"/>

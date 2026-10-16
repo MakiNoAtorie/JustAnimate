@@ -5,6 +5,8 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Command bar: one bar under the menu bar replaces the Main, View and Overlay toolbars with the same commands; Window > Command bar hides and shows it (#182).
+
 - Exposure: + and − lengthen or shorten the current Drawing and move the later Drawings with it, dragging a cell's right edge does the same, and ripple insert and delete get Ctrl+F7 and Ctrl+F5 (#188).
 - Layout: new default Layout with Tool settings as a strip under the toolbars (a column when docked at a side), Brush presets and colours on the right, Onion skin as a tab next to the timeline; Window > Layout lists Draw, Animate, Ink and Reset layout (#181).
 - View: R selects a Rotate View tool (drag to turn the view, Reset View in Tool settings); Z and R no longer rotate in 15° steps, and the view angle stays between -180° and 180° (#174).

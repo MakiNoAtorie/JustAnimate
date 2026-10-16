@@ -179,9 +179,7 @@ private:
     BrushPresetDock*      mBrushPresets = nullptr;
     QAction*              mRadialToolAction = nullptr;
     QAction*              mPresetPickerAction = nullptr;
-    QToolBar*             mMainToolbar = nullptr;
-    QToolBar*             mViewToolbar = nullptr;
-    QToolBar*             mOverlayToolbar = nullptr;
+    QToolBar*             mCommandBar = nullptr;
 
     PegBarAlignmentDialog* mPegAlign = nullptr;
     RepositionFramesDialog* mReposDialog = nullptr;
@@ -195,7 +193,6 @@ private:
 private:
     ActionCommands* mCommands = nullptr;
     QList<BaseDockWidget*> mDockWidgets;
-    QList<QToolBar*> mToolbars;
 
     QIcon mStartIcon;
     QIcon mStopIcon;

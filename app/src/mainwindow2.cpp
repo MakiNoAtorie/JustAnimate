@@ -212,8 +212,8 @@ MainWindow2::MainWindow2(QWidget* parent) :
     mCommands->setCore(mEditor);
 
     createDockWidgets();
-    createMenus();
     createToolbars();
+    createMenus();
     setupKeyboardShortcuts();
     // A shortcut mid-stroke can land the stroke on another frame, layer or tool.
     (new ShortcutFilter(ui->scribbleArea, this))->installOnActions(this);
@@ -635,9 +635,9 @@ void MainWindow2::createMenus()
     for (QAction* action : actions)
     {
         action->setMenuRole(QAction::NoRole);
-        winMenu->insertAction(ui->menuToolbars->menuAction(), action);
+        winMenu->insertAction(mCommandBar->toggleViewAction(), action);
     }
-    winMenu->insertSeparator(ui->menuToolbars->menuAction());
+    winMenu->insertSeparator(mCommandBar->toggleViewAction());
 
     QMenu* workspaceMenu = new QMenu(tr("Layout"), winMenu);
     auto* workspaceGroup = new QActionGroup(this);
@@ -653,7 +653,7 @@ void MainWindow2::createMenus()
     connect(workspaceGroup, &QActionGroup::triggered, this, [this](QAction* a) { switchToWorkspace(a->data().toString()); });
     workspaceMenu->addSeparator();
     workspaceMenu->addAction(ui->actionResetWindows);
-    winMenu->insertMenu(ui->menuToolbars->menuAction(), workspaceMenu);
+    winMenu->insertMenu(mCommandBar->toggleViewAction(), workspaceMenu);
     connect(ui->actionResetWindows, &QAction::triggered, this, &MainWindow2::resetAndDockAllSubWidgets);
     connect(ui->actionLockWindows, &QAction::toggled, this, &MainWindow2::lockWidgets);
     bindPreferenceSetting(ui->actionLockWindows, prefs, SETTING::LAYOUT_LOCK);
@@ -1929,55 +1929,29 @@ bool MainWindow2::startProjectRecovery(const QString recoverPath)
 
 void MainWindow2::createToolbars()
 {
-    mMainToolbar = addToolBar(tr("Main Toolbar"));
-    mMainToolbar->setObjectName("mMainToolbar");
-    mMainToolbar->addAction(ui->actionNew);
-    mMainToolbar->addAction(ui->actionOpen);
-    mMainToolbar->addAction(ui->actionSave);
-    mMainToolbar->addSeparator();
-    mMainToolbar->addAction(ui->actionUndo);
-    mMainToolbar->addAction(ui->actionRedo);
-    mMainToolbar->addSeparator();
-    mMainToolbar->addAction(ui->actionCut);
-    mMainToolbar->addAction(ui->actionCopy);
-    mMainToolbar->addAction(ui->actionPaste);
-    mMainToolbar->addAction(ui->actionClearFrame);
-
-    mViewToolbar = addToolBar(tr("View Toolbar"));
-    mViewToolbar->setObjectName("mViewToolbar");
-    mViewToolbar->addAction(ui->actionZoom_In);
-    mViewToolbar->addAction(ui->actionZoom_Out);
-    mViewToolbar->addAction(ui->actionReset_View);
-    mViewToolbar->addSeparator();
-    mViewToolbar->addAction(ui->actionHorizontal_Flip);
-    mViewToolbar->addAction(ui->actionVertical_Flip);
-    mViewToolbar->addSeparator();
-    mViewToolbar->addAction(ui->actionShowInvisibleLines);
-    mViewToolbar->addAction(ui->actionShowOutlinesOnly);
-
-    mOverlayToolbar = addToolBar(tr("Overlay Toolbar"));
-    mOverlayToolbar->setObjectName("mOverlayToolbar");
-    mOverlayToolbar->addAction(ui->actionGrid);
-    mOverlayToolbar->addAction(ui->actionCenter);
-    mOverlayToolbar->addAction(ui->actionThirds);
-    mOverlayToolbar->addAction(ui->actionGoldenRatio);
-    mOverlayToolbar->addAction(ui->actionSafeAreas);
-    mOverlayToolbar->addAction(ui->actionOnePointPerspective);
-    mOverlayToolbar->addAction(ui->actionTwoPointPerspective);
-    mOverlayToolbar->addAction(ui->actionThreePointPerspective);
-    mOverlayToolbar->setIconSize(QSize(22,22));
-    mViewToolbar->setIconSize(QSize(22,22));
-    mMainToolbar->setIconSize(QSize(22,22));
+    mCommandBar = addToolBar(tr("Command bar"));
+    mCommandBar->setObjectName("CommandBar");
+    mCommandBar->setIconSize(QSize(22,22));
+    const std::initializer_list<QAction*> groups[] = {
+        { ui->actionNew, ui->actionOpen, ui->actionSave },
+        { ui->actionUndo, ui->actionRedo },
+        { ui->actionCut, ui->actionCopy, ui->actionPaste, ui->actionClearFrame },
+        { ui->actionZoom_In, ui->actionZoom_Out, ui->actionReset_View },
+        { ui->actionHorizontal_Flip, ui->actionVertical_Flip },
+        { ui->actionShowInvisibleLines, ui->actionShowOutlinesOnly },
+        { ui->actionGrid, ui->actionCenter, ui->actionThirds, ui->actionGoldenRatio, ui->actionSafeAreas,
+          ui->actionOnePointPerspective, ui->actionTwoPointPerspective, ui->actionThreePointPerspective },
+    };
+    for (const auto& group : groups)
+    {
+        if (!mCommandBar->actions().isEmpty()) { mCommandBar->addSeparator(); }
+        mCommandBar->addActions(group);
+    }
 
     QToolButton* perspectiveLinesAngleButton = new QToolButton(this);
     perspectiveLinesAngleButton->setDefaultAction(ui->menuPerspectiveLinesAngle->menuAction());
     perspectiveLinesAngleButton->setPopupMode(QToolButton::InstantPopup);
-    mOverlayToolbar->addWidget(perspectiveLinesAngleButton);
+    mCommandBar->addWidget(perspectiveLinesAngleButton);
 
-    mToolbars = { mMainToolbar, mViewToolbar, mOverlayToolbar };
-
-    for (QToolBar* tb : mToolbars)
-    {
-        ui->menuToolbars->addAction(tb->toggleViewAction());
-    }
+    ui->menuWindows->insertAction(ui->actionStatusBar, mCommandBar->toggleViewAction());
 }

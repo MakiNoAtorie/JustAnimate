@@ -7,6 +7,7 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QToolBar>
 #include <QMouseEvent>
 #include <QSettings>
 #include <QTemporaryDir>
@@ -292,4 +293,39 @@ TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayo
     QApplication::processEvents();
     checkArrangement();
     CHECK(at("opacitySlider").y() == at("sizeSlider").y());
+}
+
+TEST_CASE("MainWindow2 has one Command bar that the Window menu hides and shows", "[DockLayout]")
+{
+    MainWindow2 window;
+    window.show();
+    QApplication::processEvents();
+
+    const QList<QToolBar*> bars = window.findChildren<QToolBar*>(QString(), Qt::FindDirectChildrenOnly);
+    REQUIRE(bars.size() == 1);
+    QToolBar* bar = bars.first();
+    CHECK(bar->objectName() == "CommandBar");
+
+    // Main, View and Overlay commands in that order, a separator between groups
+    QStringList names;
+    for (QAction* a : bar->actions())
+        names << (a->isSeparator() ? QString("|") : a->objectName());
+    CHECK(names.mid(0, 4) == QStringList({"actionNew", "actionOpen", "actionSave", "|"}));
+    CHECK(names.indexOf("actionUndo") < names.indexOf("actionCut"));
+    CHECK(names.indexOf("actionCut") < names.indexOf("actionZoom_In"));
+    CHECK(names.indexOf("actionZoom_In") < names.indexOf("actionGrid"));
+    CHECK(names.count("|") == 6);
+
+    QAction* toggle = bar->toggleViewAction();
+    CHECK(window.findChild<QMenu*>("menuWindows")->actions().contains(toggle));
+    CHECK(toggle->text() == "Command bar");
+    toggle->trigger();
+    QApplication::processEvents();
+    CHECK(!bar->isVisible());
+    const QByteArray hidden = window.saveState();
+    toggle->trigger();
+    QApplication::processEvents();
+    CHECK(bar->isVisible());
+    CHECK(window.restoreState(hidden));
+    CHECK(!bar->isVisible());
 }
