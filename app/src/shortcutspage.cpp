@@ -77,6 +77,7 @@ bool ShortcutsPage::filter(const QString& query)
 
 void ShortcutsPage::tableItemClicked( const QModelIndex& modelIndex )
 {
+    if (!modelIndex.isValid()) { return; }
     int row = modelIndex.row();
 
     // extract action name

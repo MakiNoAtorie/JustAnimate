@@ -2,6 +2,7 @@
 
 #include "prefsearch.h"
 #include "preferencesdialog.h"
+#include "pencilsettings.h"
 
 #include <QLabel>
 #include <QStandardItemModel>
@@ -19,6 +20,8 @@ TEST_CASE("PrefSearch finds options by name", "[PrefSearch]")
 
 TEST_CASE("PreferencesDialog search highlights unnamed labels and filters shortcuts", "[PrefSearch]")
 {
+    // Same default-shortcut setup the app does at startup: a clean machine has none.
+    checkExistingShortcuts();
     PreferencesDialog dialog(nullptr);
     QLabel* unnamed = nullptr;
     for (QLabel* l : dialog.findChildren<QLabel*>())
