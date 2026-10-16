@@ -160,6 +160,11 @@ void SoundClip::stop()
     }
 }
 
+bool SoundClip::isPlaying() const
+{
+    return mPlayer && mPlayer->isPlaying();
+}
+
 int64_t SoundClip::duration() const
 {
     return mDuration;

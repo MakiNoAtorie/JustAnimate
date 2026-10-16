@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Fixes: a sound clip restored by undo or redo plays again, and deleting a sound layer stops its playing clips (#151).
 - Fixes: the polyline, bucket and other drawing tools apply a pending selection transform before they paint, so a debug build no longer asserts (#165).
 - Fixes: swap layers, Import Layers, camera drags and resets, and sound import are each one undo step (#150).
 - Save: a sound clip whose file is missing is saved without audio and named in a warning (`<layer> frame <n>`) instead of failing the save (#166).

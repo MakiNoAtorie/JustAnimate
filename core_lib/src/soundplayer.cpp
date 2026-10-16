@@ -76,6 +76,7 @@ void SoundPlayer::play()
     if (mMediaPlayer)
     {
         mMediaPlayer->play();
+        mPlaying = true;
     }
 }
 
@@ -84,6 +85,7 @@ void SoundPlayer::pause()
     if (mMediaPlayer)
     {
         mMediaPlayer->pause();
+        mPlaying = false;
     }
 }
 
@@ -92,7 +94,13 @@ void SoundPlayer::stop()
     if (mMediaPlayer)
     {
         mMediaPlayer->stop();
+        mPlaying = false;
     }
+}
+
+bool SoundPlayer::isPlaying() const
+{
+    return mPlaying;
 }
 
 int64_t SoundPlayer::duration()
@@ -117,6 +125,11 @@ void SoundPlayer::makeConnections()
     connect(mMediaPlayer, &QMediaPlayer::errorOccurred, this, [](QMediaPlayer::Error err, const QString&)
     {
         qDebug() << "MediaPlayer Error: " << err;
+    });
+
+    connect(mMediaPlayer, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState state)
+    {
+        if (state == QMediaPlayer::StoppedState) { mPlaying = false; }
     });
 
     connect(mMediaPlayer, &QMediaPlayer::durationChanged, [this](qint64 duration)
