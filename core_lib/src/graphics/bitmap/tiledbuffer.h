@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QHash>
 #include <QImage>
 #include <QSemaphore>
+#include <array>
 #include <deque>
 #include <vector>
 
@@ -60,6 +61,14 @@ struct BrushTip
     float grainBrightness = 0;  // -1..1, added to the grain level
 };
 
+/** Smudge dab settings, each 0..1. */
+struct SmudgeSettings
+{
+    float length = 0.5f; // part of the colour bucket kept at each dab
+    float radius = 0.5f; // sample radius as a part of the dab radius
+    float colorRate = 0; // part of the paint colour in each dab
+};
+
 /** Loads a brush tip mask from a GIMP .gbr file or an image file such as PNG.
  *  An image with alpha paints its opaque dark parts; one without alpha paints its dark parts. */
 Status loadBrushTipImage(const QString& fileName, QImage& mask);
@@ -80,12 +89,20 @@ public:
     /** Draws a brush with the specified parameters to the tiled buffer */
     void drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush brush, QPainter::CompositionMode cm, bool antialiasing);
     /** Draws a dab with SourceOver: full alpha inside 1 - feather/100 of the radius, then a linear fade.
-     *  feather is 0..100 and also lowers the centre alpha, like ScribbleArea::setGaussianGradient.
+     *  feather is 0..100 and also lowers the centre alpha by that percentage.
      *  diameter is the tip width; tip sets the shape. */
     void drawDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing,
                  const BrushTip& tip = {});
     /** Below 1, drawDab moves pixels toward this alpha by its opacity and never past it (wash). */
     void setWashOpacity(qreal opacity) { mWashOpacity = opacity; }
+    /** Smudge stroke: new tiles start as a copy of image at topLeft, so the tiles replace the layer
+     *  pixels (CompositionMode_Source). clear() ends it and empties the colour bucket. */
+    void setSmudgeSource(const QImage& image, QPoint topLeft);
+    bool isSmudging() const { return mSmudging; }
+    /** One smudge dab: mixes the pixels under the dab into the colour bucket, then paints the
+     *  bucket mixed with color by colorRate. Call setSmudgeSource first. */
+    void smudgeDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing,
+                   const BrushTip& tip, const SmudgeSettings& smudge);
     /** Draws a path with the specified parameters to the tiled buffer */
     void drawPath(QPainterPath path, QPen pen, QBrush brush,
                   QPainter::CompositionMode cm, bool antialiasing);
@@ -171,6 +188,16 @@ private:
     int mLastDabWorkers = 0;
     double mDabNsPerPixel = 1.0; // rolling mean of inline dab time
     qreal mWashOpacity = 1.0;
+
+    /** Moves the pixels under mask toward src by weight / 255 times the mask, alpha too. */
+    void compositeSmudge(const DabMask& mask, const QRect& rect, quint32 src, quint32 weight);
+    /** Mean premultiplied colour in a circle, 0..1 per channel; tiles must cover the circle. */
+    std::array<float, 4> sampleSmudge(QPointF center, qreal radius);
+    bool mSmudging = false;
+    QImage mSmudgeSource;
+    QPoint mSmudgeTopLeft;
+    std::array<float, 4> mSmudgeBucket{}; // premultiplied RGBA, 0..1
+    bool mSmudgeBucketEmpty = true;
 };
 
 #endif // TILEDBUFFER_H
