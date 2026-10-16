@@ -23,6 +23,8 @@ GNU General Public License for more details.
 #include "viewmanager.h"
 
 #include "layersound.h"
+#include "soundclip.h"
+#include "soundmanager.h"
 #include "layerbitmap.h"
 #include "layervector.h"
 #include "layer.h"
@@ -30,6 +32,12 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "scribblearea.h"
 #include "undoredocommand.h"
+
+// A copied SoundClip has no player: give a restored clip its own.
+static void attachSoundPlayer(Editor* editor, Layer* layer, KeyFrame* key)
+{
+    if (layer->type() == Layer::SOUND) { editor->sound()->processSound(static_cast<SoundClip*>(key)); }
+}
 
 UndoRedoCommand::UndoRedoCommand(Editor* editor, QUndoCommand* parent) : QUndoCommand(parent)
 {
@@ -71,7 +79,9 @@ void KeyFrameRemoveCommand::undo()
 
     // The layer keeps its last keyframe on removal, so the position can be occupied.
     KeyFrame* restoredKeyFrame = undoKeyFrame->clone();
-    if (!layer->addKeyFrame(undoKeyFrame->pos(), restoredKeyFrame)) {
+    if (layer->addKeyFrame(undoKeyFrame->pos(), restoredKeyFrame)) {
+        attachSoundPlayer(editor(), layer, restoredKeyFrame);
+    } else {
         delete restoredKeyFrame;
     }
 
@@ -192,7 +202,9 @@ void KeyFramePasteCommand::redo()
     if (isFirstRedo()) { setFirstRedo(false); return; }
 
     KeyFrame* key = pastedKeyFrame->clone();
-    if (!layer->addKeyFrame(pastedKeyFrame->pos(), key)) {
+    if (layer->addKeyFrame(pastedKeyFrame->pos(), key)) {
+        attachSoundPlayer(editor(), layer, key);
+    } else {
         delete key;
     }
 
@@ -615,4 +627,46 @@ void LayerArrangementCommand::redo()
 void LayerArrangementCommand::apply(const LayerArrangement& arrangement)
 {
     editor()->layers()->applyLayerArrangement(arrangement);
+}
+
+CameraModifyCommand::CameraModifyCommand(const std::vector<std::unique_ptr<KeyFrame>>& before,
+                                         const std::vector<std::unique_ptr<Camera>>& after,
+                                         int layerId, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId)
+{
+    for (const auto& key : before) { this->before.emplace_back(static_cast<Camera*>(key->clone())); }
+    for (const auto& cam : after) { this->after.emplace_back(cam->clone()); }
+    setText(description);
+}
+
+void CameraModifyCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void CameraModifyCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void CameraModifyCommand::apply(const std::vector<std::unique_ptr<Camera>>& cameras)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return setObsolete(true); }
+
+    for (const auto& saved : cameras)
+    {
+        Camera* cam = static_cast<Camera*>(layer->getKeyFrameAt(saved->pos()));
+        if (cam == nullptr) { continue; }
+        cam->assign(*saved);
+        cam->setPathControlPointMoved(saved->pathControlPointMoved());
+    }
+    editor()->view()->forceUpdateViewTransform();
+    emit editor()->frameModified(editor()->currentFrame());
 }
