@@ -130,7 +130,7 @@ int Layer::getPreviousFrameNumber(int position, bool isAbsolute, const MarkFilte
     else
         prevNumber = position - 1;
 
-    while (isAbsolute && prevNumber < position && !filter.isEmpty() && !filter.passes(getKeyFrameAt(prevNumber)))
+    while (isAbsolute && prevNumber < position && !filter.passes(getKeyFrameAt(prevNumber)))
     {
         position = prevNumber;
         prevNumber = getPreviousKeyFramePosition(position);
@@ -151,7 +151,7 @@ int Layer::getNextFrameNumber(int position, bool isAbsolute, const MarkFilter& f
     else
         nextNumber = position + 1;
 
-    while (isAbsolute && nextNumber > position && !filter.isEmpty() && !filter.passes(getKeyFrameAt(nextNumber)))
+    while (isAbsolute && nextNumber > position && !filter.passes(getKeyFrameAt(nextNumber)))
     {
         position = nextNumber;
         nextNumber = getNextKeyFramePosition(position);

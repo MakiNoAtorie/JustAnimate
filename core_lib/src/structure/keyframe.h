@@ -111,23 +111,25 @@ private:
     std::vector<KeyFrameEventListener*> mEventListeners;
 };
 
-/// A set of Marks that onion skin and Flip follow. An empty filter passes every Drawing.
+/// A set of Marks that onion skin and Flip follow. A default filter passes every Drawing;
+/// a filter with a set of Marks, even an empty set, passes only Drawings with a Mark in it.
 class MarkFilter
 {
 public:
     MarkFilter() = default;
-    MarkFilter(std::initializer_list<Mark> marks) { for (Mark m : marks) { set(m, true); } }
-    static MarkFilter fromInt(int bits) { MarkFilter f; f.mBits = static_cast<unsigned>(bits); return f; }
+    MarkFilter(std::initializer_list<Mark> marks) : mAll(false) { for (Mark m : marks) { set(m, true); } }
+    static MarkFilter fromInt(int bits) { MarkFilter f; f.mAll = false; f.mBits = static_cast<unsigned>(bits); return f; }
     int toInt() const { return static_cast<int>(mBits); }
 
-    void set(Mark mark, bool on) { mBits = on ? (mBits | bit(mark)) : (mBits & ~bit(mark)); }
+    void set(Mark mark, bool on) { mAll = false; mBits = on ? (mBits | bit(mark)) : (mBits & ~bit(mark)); }
     bool contains(Mark mark) const { return mBits & bit(mark); }
-    bool isEmpty() const { return mBits == 0; }
-    bool passes(const KeyFrame* key) const { return isEmpty() || contains(key->mark()); }
+    bool passesAll() const { return mAll; }
+    bool passes(const KeyFrame* key) const { return mAll || contains(key->mark()); }
 
 private:
     static unsigned bit(Mark mark) { return 1u << static_cast<unsigned>(mark); }
     unsigned mBits = 0;
+    bool mAll = true;
 };
 
 class KeyFrameEventListener

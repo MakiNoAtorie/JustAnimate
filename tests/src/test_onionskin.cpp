@@ -216,7 +216,7 @@ TEST_CASE("Marked drawings onion skin shows only Drawings that pass the Mark fil
     CHECK(image.pixelColor(150, 100) == empty); // the Inbetween
 
     prefs->set(SETTING::ONION_TYPE, QString("absolute"));
-    REQUIRE(prefs->markFilter().isEmpty());
+    REQUIRE(prefs->markFilter().passesAll());
     image = area->grab().toImage();
     CHECK(image.pixelColor(50, 100) != empty);
     CHECK(image.pixelColor(150, 100) != empty);

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Marked drawings onion skin and Flip with no Mark ticked show no Drawing instead of every Drawing (#187).
 - Command search opens once per click on the Command bar field, and no longer reopens when focus returns to the field (#183).
 - Windows installer registers .pclx and .pcl so a double-click opens them in JustAnimate with its file icon; uninstall removes it (#152).
 - Windows package built with Qt 6.8 keeps the Qt DLLs next to justanimate.exe instead of in bin/ (#155).

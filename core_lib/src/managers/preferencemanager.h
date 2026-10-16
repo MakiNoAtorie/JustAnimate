@@ -51,7 +51,7 @@ public:
     int     getInt(SETTING option);
     float getFloat(SETTING option);
 
-    /// The Mark filter onion skin and Flip share: the saved Marks in Marked drawings mode, else empty.
+    /// The Mark filter onion skin and Flip share: the saved Marks in Marked drawings mode, else one that passes every Drawing.
     MarkFilter markFilter();
 
 signals:

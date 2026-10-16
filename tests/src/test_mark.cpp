@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "layervector.h"
 #include "object.h"
+#include "preferencemanager.h"
 #include "testfixture.h"
 #include "undoredomanager.h"
 
@@ -144,7 +145,7 @@ TEST_CASE("A Mark filter passes only Drawings with a Mark in the set", "[Mark]")
     inbetween.setMark(Mark::Inbetween);
 
     MarkFilter filter;
-    REQUIRE(filter.isEmpty());
+    REQUIRE(filter.passesAll());
     for (const KeyFrame* k : { &none, &key, &breakdown, &inbetween }) { CHECK(filter.passes(k)); }
 
     filter.set(Mark::Key, true);
@@ -158,4 +159,26 @@ TEST_CASE("A Mark filter passes only Drawings with a Mark in the set", "[Mark]")
     filter.set(Mark::Breakdown, false);
     CHECK_FALSE(filter.passes(&breakdown));
     CHECK(filter.passes(&key));
+}
+
+TEST_CASE("Marked drawings mode with no Mark ticked passes no Drawing", "[Mark]")
+{
+    const SettingsGuard guard({ SETTING_ONION_TYPE, SETTING_ONION_MARKS });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    REQUIRE(layer->addNewKeyFrameAt(3));
+    REQUIRE(layer->addNewKeyFrameAt(5));
+    layer->getKeyFrameAt(1)->setMark(Mark::Key);
+
+    PreferenceManager* prefs = s.editor->preference();
+    prefs->set(SETTING::ONION_MARKS, 0);
+    prefs->set(SETTING::ONION_TYPE, QString("marked"));
+    const MarkFilter filter = prefs->markFilter();
+    CHECK_FALSE(filter.passes(layer->getKeyFrameAt(1)));
+    CHECK(layer->getPreviousFrameNumber(5, true, filter) == -1);
+    CHECK(layer->getNextFrameNumber(1, true, filter) == -1);
+
+    prefs->set(SETTING::ONION_TYPE, QString("absolute"));
+    CHECK(layer->getPreviousFrameNumber(5, true, prefs->markFilter()) == 3);
 }

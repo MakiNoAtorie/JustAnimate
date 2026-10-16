@@ -150,7 +150,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   are Tabler SVGs under `app/data/icons/tabler/`.
 - Mark: `KeyFrame::mark()` (`Mark::None/Key/Breakdown/Inbetween`),
   XML `mark="key|breakdown|inbetween"` on the frame element. `MarkFilter`
-  (core_lib) is a set of Marks; empty = every Drawing. Onion skin and Flip
+  (core_lib) is a set of Marks; a default filter passes every Drawing, an empty set none. Onion skin and Flip
   share one saved filter: the Onion skin Panel's mode and checkboxes.
 - Rough: `Layer::isRough()/setRough()`, XML `rough="1"` on the layer.
 - Layout: version key in `defaultlayout.*`; Command bar `objectName`
