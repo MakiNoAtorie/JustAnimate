@@ -76,7 +76,15 @@ MoveMode OverlayManager::getMoveModeForPoint(const QPointF& pos, const QTransfor
     const double calculatedSelectionTol = selectionTolerance();
     MoveMode mode = MoveMode::NONE;
 
-    if (mSinglePerspectiveEnabled && QLineF(pos, transform.inverted().map(mSinglePerspectivePoint)).length() < calculatedSelectionTol)
+    if (mRulerEnabled && QLineF(pos, mRuler.p1()).length() < calculatedSelectionTol)
+    {
+        mode = MoveMode::RULER_START;
+    }
+    else if (mRulerEnabled && QLineF(pos, mRuler.p2()).length() < calculatedSelectionTol)
+    {
+        mode = MoveMode::RULER_END;
+    }
+    else if (mSinglePerspectiveEnabled && QLineF(pos, transform.inverted().map(mSinglePerspectivePoint)).length() < calculatedSelectionTol)
     {
         mode = MoveMode::PERSP_SINGLE;
     }
@@ -121,4 +129,10 @@ void OverlayManager::updatePerspective(const QPointF& point)
     default:
         break;
     }
+}
+
+void OverlayManager::updateRuler(const QPointF& point)
+{
+    if (mMoveMode == MoveMode::RULER_START) { mRuler.setP1(point); }
+    else if (mMoveMode == MoveMode::RULER_END) { mRuler.setP2(point); }
 }

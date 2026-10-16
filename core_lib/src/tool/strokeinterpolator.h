@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QList>
 
 #include "inputsmoother.h"
+#include "strokesnapper.h"
 
 class PointerEvent;
 
@@ -34,6 +35,8 @@ public:
     void setPressure(float pressure);
     /// Applies from the next press.
     void setSmoothing(SmoothingMode mode, int strength) { mSmoother.setMode(mode, strength); }
+    /// Guides in viewport px that a press within tolerance locks to; applies from the next press.
+    void setSnapGuides(const QList<QLineF>& guides, qreal tolerance) { mSnapper.setGuides(guides, tolerance); }
 
     float getPressure() { return mTabletPressure; }
     bool isActive() const { return mStrokeStarted; }
@@ -53,6 +56,7 @@ public:
 
 private:
     InputSmoother mSmoother;
+    StrokeSnapper mSnapper;
 
     QPointF mCurrentPressPixel = { 0, 0 };
     QPointF mCurrentPixel = { 0, 0 };

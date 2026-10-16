@@ -1248,6 +1248,8 @@ void ScribbleArea::prepOverlays(int frame)
     o.mLeftPerspPoint = mEditor->overlays()->getLeftPerspectivePoint();
     o.mRightPerspPoint = mEditor->overlays()->getRightPerspectivePoint();
     o.mMiddlePerspPoint = mEditor->overlays()->getMiddlePerspectivePoint();
+    o.bRuler = mEditor->overlays()->isRulerEnabled();
+    o.mRuler = mEditor->overlays()->ruler();
 
     o.nFrameIndex = frame;
 
