@@ -23,12 +23,15 @@ GNU General Public License for more details.
 #include <QDockWidget>
 #include <QKeyEvent>
 #include <QListWidget>
+#include <QRegularExpression>
 #include <QSet>
 #include <QSlider>
 
 #include "editor.h"
 #include "layermanager.h"
 #include "mainwindow2.h"
+#include "pencildef.h"
+#include "testfixture.h"
 #include "preferencesdialog.h"
 #include "theme.h"
 #include "toolmanager.h"
@@ -88,6 +91,49 @@ TEST_CASE("Theme text roles pass WCAG AA contrast", "[Accessibility]")
             CHECK(contrast(p.color(fg), p.color(bg)) >= 4.5);
         }
     }
+}
+
+TEST_CASE("Every accent colour keeps contrast in Light and Dark", "[Accessibility]")
+{
+    for (Theme::Mode mode : { Theme::Light, Theme::Dark })
+    {
+        for (int a = 0; a < Theme::ACCENT_COUNT; ++a)
+        {
+            const QPalette p = Theme::palette(mode, static_cast<Theme::Accent>(a));
+            const QColor accent = p.color(QPalette::Highlight);
+            INFO("mode " << mode << " accent " << a << " " << accent.name().toStdString());
+            // WCAG non-text contrast for marks on the panels; AA for text on the accent.
+            CHECK(contrast(accent, p.color(QPalette::Window)) >= 3.0);
+            CHECK(contrast(accent, p.color(QPalette::Base)) >= 3.0);
+            CHECK(contrast(p.color(QPalette::HighlightedText), accent) >= 4.5);
+        }
+    }
+}
+
+TEST_CASE("Main window widgets take the accent from the theme", "[Accessibility]")
+{
+    const SettingsGuard guard({ SETTING_THEME, SETTING_ACCENT });
+    Theme::saveAccent(Theme::Violet);
+    Theme::apply(Theme::Dark);
+    const QColor accent = Theme::palette(Theme::Dark, Theme::Violet).color(QPalette::Highlight);
+
+    MainWindow2 window;
+    window.show();
+    QApplication::processEvents();
+
+    // A checked or pressed state must not paint a fixed colour over the accent.
+    const QRegularExpression fixedHighlight(":(checked|pressed)[^}]*background-color:\\s*#");
+    QSet<QString> wrong;
+    for (QWidget* w : window.findChildren<QWidget*>())
+    {
+        if (w->palette().color(QPalette::Highlight) != accent || fixedHighlight.match(w->styleSheet()).hasMatch())
+            wrong << describe(w);
+    }
+    INFO(QStringList(wrong.begin(), wrong.end()).join("\n").toStdString());
+    CHECK(wrong.isEmpty());
+
+    Theme::saveAccent(Theme::Blue);
+    Theme::apply(Theme::System);
 }
 
 TEST_CASE("Every visible main window control has a tooltip", "[Accessibility]")

@@ -153,6 +153,7 @@ void PreferencesDialog::addTooltips()
         { "useQuickSizingBox", tr("Change the brush size and feather with a key and a drag on the canvas.") },
         { "rotationIncrementLabel rotationIncrementSlider rotationIncrementDisplay", tr("Angle steps used when the Move tool rotates a selection with Shift held.") },
         { "themeCombo", tr("Light or dark colours for the app, or the colours of the system.") },
+        { "accentCombo", tr("The colour that marks the active tool, selections, sliders, the playhead and focus.") },
         { "resetCurveButton", tr("Set the pressure curve back to a straight line.") },
         { "clearButton", tr("Remove the key from the selected shortcut.") },
         { "btnSaveShortcuts", tr("Save all shortcuts to a file.") },

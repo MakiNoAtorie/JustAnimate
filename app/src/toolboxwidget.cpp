@@ -54,8 +54,8 @@ void ToolBoxWidget::initUI()
     // Only Mac needs this. ToolButton is naturally borderless on Win/Linux.
     QString sStyle =
         "QToolButton { border: 0px; }"
-        "QToolButton:pressed { border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }"
-        "QToolButton:checked { border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }";
+        "QToolButton:pressed { border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }"
+        "QToolButton:checked { border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }";
     ui->pencilButton->setStyleSheet(sStyle);
     ui->selectButton->setStyleSheet(sStyle);
     ui->moveButton->setStyleSheet(sStyle);

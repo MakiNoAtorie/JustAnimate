@@ -85,8 +85,8 @@ void OnionSkinWidget::initUI()
             "margin-top: 8px;"
             "padding-top: 16px;"
         "}"
-        "QToolButton:pressed{ border: 1px solid #FFADAD; border-radius: 2px; background-color: #D5D5D5; }"
-        "QToolButton:checked{ border: 1px solid #ADADAD; border-radius: 2px; background-color: #D5D5D5; }";
+        "QToolButton:pressed{ border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }"
+        "QToolButton:checked{ border: 1px solid palette(highlight); border-radius: 2px; background-color: palette(highlight); }";
     setStyleSheet(this->styleSheet().append(stylesheet));
 #endif
 }

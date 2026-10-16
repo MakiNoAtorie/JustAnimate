@@ -116,6 +116,24 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
         Theme::apply(mode);
     });
 
+    auto* accentCombo = new QComboBox(this);
+    accentCombo->setObjectName("accentCombo");
+    const QString accentNames[Theme::ACCENT_COUNT] = {
+        tr("Accent: Blue"), tr("Accent: Teal"), tr("Accent: Green"), tr("Accent: Amber"),
+        tr("Accent: Orange"), tr("Accent: Red"), tr("Accent: Pink"), tr("Accent: Violet") };
+    for (int a = 0; a < Theme::ACCENT_COUNT; ++a)
+    {
+        QPixmap swatch(16, 16);
+        swatch.fill(Theme::palette(Theme::Light, static_cast<Theme::Accent>(a)).color(QPalette::Highlight));
+        accentCombo->addItem(QIcon(swatch), accentNames[a], a);
+    }
+    accentCombo->setCurrentIndex(accentCombo->findData(Theme::savedAccent()));
+    ui->langLayout->addWidget(accentCombo, 2, 0);
+    connect(accentCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [accentCombo](int i) {
+        Theme::saveAccent(static_cast<Theme::Accent>(accentCombo->itemData(i).toInt()));
+        Theme::apply(Theme::saved());
+    });
+
     ui->undoRedoGroupApplyButton->setDisabled(true);
     ui->undoRedoGroupCancelButton->setDisabled(true);
 

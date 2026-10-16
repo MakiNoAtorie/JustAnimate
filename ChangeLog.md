@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Appearance: an Accent colour in Preferences (eight choices) marks selections, slider fill, focus and the playhead in Light and Dark (#178).
 - Fixes: the tablet eraser end announces the tool change once per flip, not on every tablet event (#127).
 - Fixes: a vector fill keeps the first vertex of the image, so the filled area no longer drops that point (#126).
 - Image sequence import: files sort by number, so frame2 comes before frame10 (#137).

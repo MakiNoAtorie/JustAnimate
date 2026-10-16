@@ -1,5 +1,8 @@
 #include "theme.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <QApplication>
 #include <QSettings>
 #include <QStyle>
@@ -34,6 +37,33 @@ QPalette darkPalette()
     return p;
 }
 
+double luminance(const QColor& c)
+{
+    auto channel = [](double v) { return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * channel(c.redF()) + 0.7152 * channel(c.greenF()) + 0.0722 * channel(c.blueF());
+}
+
+double contrast(const QColor& a, const QColor& b)
+{
+    const double la = luminance(a), lb = luminance(b);
+    return (std::max(la, lb) + 0.05) / (std::min(la, lb) + 0.05);
+}
+
+// Darkens on light panels, lightens on dark ones, until marks keep 3:1 (WCAG non-text).
+void setAccent(QPalette& p, Theme::Accent accent)
+{
+    static const QRgb base[Theme::ACCENT_COUNT] = {
+        0x3d8bfd, 0x14a3a3, 0x3fae5a, 0xe0a800, 0xf07f2c, 0xe5484d, 0xe0559b, 0x8e6cf0 };
+    const QColor window = p.color(QPalette::Window), field = p.color(QPalette::Base);
+    const bool dark = window.lightness() < 128;
+    QColor c(base[accent]);
+    for (int i = 0; i < 30 && (contrast(c, window) < 3.0 || contrast(c, field) < 3.0); ++i)
+        c = dark ? c.lighter(106) : c.darker(106);
+    const QColor text = contrast(Qt::white, c) >= contrast(Qt::black, c) ? Qt::white : Qt::black;
+    p.setColor(QPalette::Highlight, c);
+    p.setColor(QPalette::HighlightedText, text);
+}
+
 // Captured on first use, before any change, so System restores the platform look.
 struct Original
 {
@@ -62,22 +92,37 @@ void save(Mode mode)
     pencilSettings().setValue(SETTING_THEME, static_cast<int>(mode));
 }
 
-QPalette palette(Mode mode)
+Accent savedAccent()
 {
+    const int v = pencilSettings().value(SETTING_ACCENT, Blue).toInt();
+    return (v >= 0 && v < ACCENT_COUNT) ? static_cast<Accent>(v) : Blue;
+}
+
+void saveAccent(Accent accent)
+{
+    pencilSettings().setValue(SETTING_ACCENT, static_cast<int>(accent));
+}
+
+QPalette palette(Mode mode, Accent accent)
+{
+    QPalette p;
     switch (mode)
     {
-    case Dark: return darkPalette();
-    case Light: return QPalette(QColor(240, 240, 240));
-    default: return original().palette;
+    case Dark: p = darkPalette(); break;
+    case Light: p = QPalette(QColor(240, 240, 240)); break;
+    default: p = original().palette; break;
     }
+    setAccent(p, accent);
+    return p;
 }
 
 void apply(Mode mode)
 {
     const QString style = (mode == System) ? original().style : QStringLiteral("Fusion");
+    // Palette first: setStyle repolishes, so style sheets resolve palette(highlight) to the new accent.
+    QApplication::setPalette(palette(mode));
     if (QStyleFactory::keys().contains(style, Qt::CaseInsensitive))
         QApplication::setStyle(style);
-    QApplication::setPalette(palette(mode));
 }
 
 bool isDark()
