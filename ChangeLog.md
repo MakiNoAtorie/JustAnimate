@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Fixes: swap layers, Import Layers, camera drags and resets, and sound import are each one undo step (#150).
 - Fixes: Import Layers keeps each vector curve and area on its source colour instead of remapping colours one after another (#134).
 - Speed: hovering with the camera tool no longer clears the canvas caches on every mouse move (#132).
 - Export: movie and GIF export keep at most 4 unwritten frames in the ffmpeg pipe instead of queueing up to all frames in memory (#138).

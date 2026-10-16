@@ -137,7 +137,6 @@ public:
     Layer* takeLayer(int layerId); // Note: transfer ownership of the layer
     void insertLayer(int index, Layer* layer); // Note: takes ownership; the layer keeps its id
 
-    bool swapLayers(int i, int j);
 
     /** Allows you to check whether two layers can be swappped, before doing the actual operation
      *

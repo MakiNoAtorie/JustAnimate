@@ -311,4 +311,23 @@ private:
     LayerArrangement after;
 };
 
+/// Undo and redo of a change to the camera keys of a camera layer, by key position.
+class CameraModifyCommand : public UndoRedoCommand
+{
+public:
+    CameraModifyCommand(const std::vector<std::unique_ptr<KeyFrame>>& before,
+                        const std::vector<std::unique_ptr<Camera>>& after,
+                        int layerId, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(const std::vector<std::unique_ptr<Camera>>& cameras);
+
+    std::vector<std::unique_ptr<Camera>> before;
+    std::vector<std::unique_ptr<Camera>> after;
+    int layerId = 0;
+};
+
 #endif // UNDOREDOCOMMAND_H

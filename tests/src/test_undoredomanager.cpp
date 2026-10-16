@@ -28,12 +28,15 @@ GNU General Public License for more details.
 #include <QTemporaryDir>
 
 #include "beziercurve.h"
+#include "camera.h"
+#include "cameratool.h"
 #include "colormanager.h"
 #include "bitmapimage.h"
 #include "editor.h"
 #include "filemanager.h"
 #include "layer.h"
 #include "layerbitmap.h"
+#include "layercamera.h"
 #include "layervector.h"
 #include "layersound.h"
 #include "layermanager.h"
@@ -44,6 +47,7 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "selectionmanager.h"
 #include "soundclip.h"
+#include "soundmanager.h"
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "undoredomanager.h"
@@ -1335,4 +1339,162 @@ TEST_CASE("UndoRedoManager: a stroke whose release came from another device leav
     QApplication::sendEvent(area, &release);
     tabletClick(area, pos);
     CHECK(editor->undoRedo()->pendingStateCount() == 0);
+}
+
+TEST_CASE("UndoRedoManager: undo/redo of layer swap")
+{
+    TestSession session;
+    Object* object = session.object;
+    object->addNewCameraLayer();
+    object->addNewBitmapLayer();
+    object->addNewVectorLayer();
+    object->addNewBitmapLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto order = [&]
+    {
+        QList<int> ids;
+        for (int i = 0; i < object->getLayerCount(); ++i) { ids.append(object->getLayer(i)->id()); }
+        return ids;
+    };
+
+    const QList<int> before = order();
+    editor->swapLayers(1, 2);
+    const QList<int> after = order();
+    REQUIRE(after == QList<int>{ before[0], before[2], before[1], before[3] });
+
+    SECTION("Undo and redo the swap")
+    {
+        undoAction->trigger();
+        CHECK(order() == before);
+        redoAction->trigger();
+        CHECK(order() == after);
+    }
+
+    SECTION("Undo a layer delete after the swap, then the swap")
+    {
+        REQUIRE(editor->layers()->deleteLayer(1) == Status::OK);
+        undoAction->trigger();
+        CHECK(order() == after);
+        undoAction->trigger();
+        CHECK(order() == before);
+    }
+}
+
+TEST_CASE("UndoRedoManager: a camera drag is one undo step")
+{
+    TestSession session;
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(CAMERA);
+    Camera* cam = layer->getCameraAtFrame(1);
+    const QPointF before = cam->translation();
+
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&edits] { ++edits; });
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+    // The hover picks the move mode; a press keeps it.
+    QTabletEvent hover(QEvent::TabletMove, QPointingDevice::primaryPointingDevice(), screen(QPointF(0, 0)),
+                       area->mapToGlobal(screen(QPointF(0, 0))), 0.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+    QApplication::sendEvent(area, &hover);
+    sendTablet(area, QEvent::TabletPress, screen(QPointF(0, 0)));
+    for (int i = 1; i <= 4; ++i) { sendTablet(area, QEvent::TabletMove, screen(QPointF(i * 5, i * 2))); }
+    sendTablet(area, QEvent::TabletRelease, screen(QPointF(20, 8)));
+
+    const QPointF after = cam->translation();
+    REQUIRE(after != before);
+    CHECK(edits == 1);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK(layer->getCameraAtFrame(1)->translation() == before);
+    editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
+    CHECK(layer->getCameraAtFrame(1)->translation() == after);
+
+    SECTION("A click without a drag records nothing")
+    {
+        tabletClick(area, screen(QPointF(200, 200)));
+        CHECK(edits == 1);
+        CHECK(editor->undoRedo()->pendingStateCount() == 0);
+    }
+}
+
+TEST_CASE("UndoRedoManager: undo/redo of camera reset actions")
+{
+    TestSession session;
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    layer->addNewKeyFrameAt(5);
+    layer->getCameraAtFrame(1)->scale(2.0);
+    layer->getCameraAtFrame(5)->translate(QPointF(100, 0));
+    layer->updatePathControlPointAtFrame(QPointF(50, 50), 1);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    CameraTool* tool = static_cast<CameraTool*>(editor->tools()->getTool(CAMERA));
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    Camera* cam = layer->getCameraAtFrame(1);
+
+    SECTION("Reset scale")
+    {
+        tool->performAction(CameraTool::RESET_SCALING);
+        REQUIRE(cam->scaling() == Approx(1.0));
+        undoAction->trigger();
+        CHECK(cam->scaling() == Approx(2.0));
+        redoAction->trigger();
+        CHECK(cam->scaling() == Approx(1.0));
+    }
+
+    SECTION("Reset path")
+    {
+        tool->performAction(CameraTool::RESET_PATH);
+        REQUIRE_FALSE(cam->pathControlPointMoved());
+        undoAction->trigger();
+        CHECK(cam->pathControlPointMoved());
+        CHECK(cam->getPathControlPoint() == QPointF(50, 50));
+        redoAction->trigger();
+        CHECK_FALSE(cam->pathControlPointMoved());
+    }
+}
+
+TEST_CASE("UndoRedoManager: undo/redo of sound import")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString wav = dir.filePath("beep.wav");
+    QFile file(wav);
+    REQUIRE(file.open(QIODevice::WriteOnly));
+    file.write(QByteArray(64, '\0'));
+    file.close();
+
+    TestSession session;
+    LayerSound* sound = session.object->addNewSoundLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(sound);
+    editor->scrubTo(3);
+
+    REQUIRE(editor->sound()->importSoundClip(wav, "Beep").ok());
+    REQUIRE(sound->keyExists(3));
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK_FALSE(sound->keyExists(3));
+    editor->undoRedo()->createRedoAction(&parent, QIcon())->trigger();
+    REQUIRE(sound->keyExists(3));
+    CHECK(static_cast<SoundClip*>(sound->getKeyFrameAt(3))->soundClipName() == "Beep");
 }

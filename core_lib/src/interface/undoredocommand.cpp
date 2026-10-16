@@ -616,3 +616,45 @@ void LayerArrangementCommand::apply(const LayerArrangement& arrangement)
 {
     editor()->layers()->applyLayerArrangement(arrangement);
 }
+
+CameraModifyCommand::CameraModifyCommand(const std::vector<std::unique_ptr<KeyFrame>>& before,
+                                         const std::vector<std::unique_ptr<Camera>>& after,
+                                         int layerId, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId)
+{
+    for (const auto& key : before) { this->before.emplace_back(static_cast<Camera*>(key->clone())); }
+    for (const auto& cam : after) { this->after.emplace_back(cam->clone()); }
+    setText(description);
+}
+
+void CameraModifyCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void CameraModifyCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void CameraModifyCommand::apply(const std::vector<std::unique_ptr<Camera>>& cameras)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return setObsolete(true); }
+
+    for (const auto& saved : cameras)
+    {
+        Camera* cam = static_cast<Camera*>(layer->getKeyFrameAt(saved->pos()));
+        if (cam == nullptr) { continue; }
+        cam->assign(*saved);
+        cam->setPathControlPointMoved(saved->pathControlPointMoved());
+    }
+    editor()->view()->forceUpdateViewTransform();
+    emit editor()->frameModified(editor()->currentFrame());
+}
