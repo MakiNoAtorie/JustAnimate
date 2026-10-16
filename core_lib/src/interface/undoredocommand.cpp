@@ -543,3 +543,34 @@ void LayerAddRemoveCommand::detach()
     editor()->getScribbleArea()->onLayerChanged();
     emit editor()->updateTimeLine();
 }
+
+LayerBlendModeCommand::LayerBlendModeCommand(int layerId, BlendMode oldMode, BlendMode newMode,
+                                             const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), oldMode(oldMode), newMode(newMode)
+{
+    setText(description);
+}
+
+void LayerBlendModeCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(oldMode);
+}
+
+void LayerBlendModeCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(newMode);
+}
+
+void LayerBlendModeCommand::apply(BlendMode mode)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    layer->setBlendMode(mode);
+    editor()->layers()->notifyLayerChanged(layer);
+}

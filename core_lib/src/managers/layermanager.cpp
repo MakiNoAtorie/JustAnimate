@@ -396,6 +396,15 @@ void LayerManager::notifyLayerChanged(Layer* layer)
     emit currentLayerChanged(getIndex(layer));
 }
 
+void LayerManager::setBlendMode(Layer* layer, BlendMode mode)
+{
+    if (layer == nullptr || layer->blendMode() == mode) { return; }
+    const BlendMode oldMode = layer->blendMode();
+    layer->setBlendMode(mode);
+    editor()->undoRedo()->recordLayerBlendMode(layer->id(), oldMode, mode, tr("Blend Mode"));
+    notifyLayerChanged(layer);
+}
+
 /**
  * @brief Get the length of current project
  * @return int: the position of the last key frame in the timeline + its length

@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include "timelinecells.h"
 
+#include <QActionGroup>
 #include <QApplication>
 #include <QResizeEvent>
 #include <QInputDialog>
@@ -851,13 +852,33 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             }
             if (event->pos().x() >= 15 && event->button() == Qt::RightButton)
             {
+                Layer* layer = mEditor->object()->getLayer(layerNumber);
                 QMenu menu;
                 QAction* onion = menu.addAction(tr("Onion Skin"));
                 onion->setCheckable(true);
-                onion->setChecked(mEditor->object()->getLayer(layerNumber)->onionSkin());
-                if (menu.exec(event->globalPosition().toPoint()) == onion)
+                onion->setChecked(layer->onionSkin());
+                if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
+                {
+                    QMenu* blend = menu.addMenu(tr("Blend Mode"));
+                    QActionGroup* group = new QActionGroup(blend);
+                    const QString names[] = { tr("Normal"), tr("Multiply"), tr("Screen"), tr("Overlay"), tr("Add") };
+                    for (int mode = 0; mode < 5; ++mode)
+                    {
+                        QAction* action = blend->addAction(names[mode]);
+                        action->setCheckable(true);
+                        action->setChecked(static_cast<int>(layer->blendMode()) == mode);
+                        action->setData(mode);
+                        group->addAction(action);
+                    }
+                }
+                QAction* chosen = menu.exec(event->globalPosition().toPoint());
+                if (chosen == onion)
                 {
                     mEditor->switchOnionSkinOfLayer(layerNumber);
+                }
+                else if (chosen && chosen->data().isValid())
+                {
+                    mEditor->layers()->setBlendMode(layer, static_cast<BlendMode>(chosen->data().toInt()));
                 }
             }
         }

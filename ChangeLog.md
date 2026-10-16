@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Layers can blend with Multiply, Screen, Overlay or Add: right-click a bitmap or vector layer in the timeline and choose Blend Mode; the mode is saved in the project and can be undone (3.8).
 - The welcome screen shows at every startup unless a file is opened from the command line; turn it off in Preferences > Files (4.3).
 - Timeline: Delete Frame (Ripple) removes one frame: inside a hold it shortens the hold, on a drawing it removes the drawing, and later frames move one frame left (3.4).
 - Shape tool: Esc, a tool switch or a layer change drops an unfinished polygon (2.3).

@@ -114,6 +114,8 @@ private:
 
     void paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
     void paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
+    /// Draws mCurrentLayerPixmap onto painter within blitRect, blended with mode.
+    void drawLayerPixmap(QPainter& painter, const QRect& blitRect, BlendMode mode);
 
     CanvasPainterOptions mOptions;
 
