@@ -232,7 +232,7 @@ void CameraTool::performAction(ActionType actionType)
             break;
         }
         case RESET_SCALING: {
-            resetTransform(CameraFieldOption::RESET_ROTATION);
+            resetTransform(CameraFieldOption::RESET_SCALING);
             break;
         }
         case RESET_TRANSLATION: {
