@@ -195,8 +195,6 @@ void TimeLine::initUI()
     mScrollingStoppedTimer = new QTimer(this);
     mScrollingStoppedTimer->setSingleShot(true);
 
-    setWindowFlags(Qt::WindowStaysOnTopHint);
-
     connect(mHScrollbar, &QScrollBar::valueChanged, mTracks, &TimeLineCells::hScrollChange);
     connect(mTracks, &TimeLineCells::offsetChanged, mHScrollbar, &QScrollBar::setValue);
     connect(mVScrollbar, &QScrollBar::valueChanged, mTracks, &TimeLineCells::vScrollChange);

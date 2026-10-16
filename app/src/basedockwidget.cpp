@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #include "titlebarwidget.h"
 
 BaseDockWidget::BaseDockWidget(QWidget* pParent)
-: QDockWidget(pParent, Qt::Tool)
+: QDockWidget(pParent)
 {
 
     updateTitleStyle();

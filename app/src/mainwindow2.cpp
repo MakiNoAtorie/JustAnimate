@@ -1349,8 +1349,8 @@ void MainWindow2::readSettings()
     QVariant winGeometry = settings.value(SETTING_WINDOW_GEOMETRY);
     restoreGeometry(winGeometry.toByteArray());
 
-    QVariant winState = settings.value(SETTING_WINDOW_STATE);
-    restoreState(winState.toByteArray());
+    dropOutdatedLayouts(settings);
+    restoreState(settings.value(SETTING_WINDOW_STATE).toByteArray());
 
     int opacity = mEditor->preference()->getInt(SETTING::WINDOW_OPACITY);
     setOpacity(100 - opacity);

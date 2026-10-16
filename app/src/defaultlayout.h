@@ -10,6 +10,9 @@ class QDockWidget;
 class QMainWindow;
 class QSettings;
 
+// Layout version saved with the window state. Raise it to drop every saved Layout once.
+#define SETTING_LAYOUT_VERSION "Workspace/LayoutVersion"
+
 struct DefaultDockLayout
 {
     QList<QDockWidget*> left;
@@ -34,5 +37,9 @@ void switchWorkspace(QMainWindow* window, const DefaultDockLayout& docks, QSize 
 
 // Drops the active workspace's saved state and shows its built-in layout. Other workspaces keep theirs.
 void resetCurrentWorkspace(QMainWindow* window, const DefaultDockLayout& docks, QSize screen, QSettings& settings);
+
+// Drops the saved window state and every saved workspace state when they come from an older Layout version.
+// Returns true when it dropped them.
+bool dropOutdatedLayouts(QSettings& settings);
 
 #endif // DEFAULTLAYOUT_H

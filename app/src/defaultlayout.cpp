@@ -86,3 +86,14 @@ void resetCurrentWorkspace(QMainWindow* window, const DefaultDockLayout& docks, 
     settings.remove(SETTING_WORKSPACE_STATE + name);
     applyPreset(window, docks, screen, name);
 }
+
+bool dropOutdatedLayouts(QSettings& settings)
+{
+    // 2: v1.2, Panels docked by default. Older states restored floating tool windows.
+    const int version = 2;
+    if (settings.value(SETTING_LAYOUT_VERSION).toInt() >= version) { return false; }
+    settings.remove(SETTING_WINDOW_STATE);
+    settings.remove(QString(SETTING_WORKSPACE_STATE).chopped(1));
+    settings.setValue(SETTING_LAYOUT_VERSION, version);
+    return true;
+}

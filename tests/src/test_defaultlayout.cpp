@@ -5,11 +5,16 @@
 #include <QApplication>
 #include <QDockWidget>
 #include <QMainWindow>
+#include <QMouseEvent>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTextEdit>
 
+#include "basedockwidget.h"
 #include "defaultlayout.h"
+#include "mainwindow2.h"
+#include "pencildef.h"
+#include "testfixture.h"
 
 namespace
 {
@@ -139,4 +144,62 @@ TEST_CASE("Reset restores only the current workspace", "[DockLayout]")
     switchWorkspace(&win, docks, screen, settings, "Ink");
     QApplication::processEvents();
     REQUIRE(docks.right[1]->isVisible());
+}
+
+TEST_CASE("Old saved Layouts are dropped once", "[DockLayout]")
+{
+    QTemporaryDir dir;
+    QSettings settings(dir.filePath("ws.ini"), QSettings::IniFormat);
+    settings.setValue(SETTING_WINDOW_STATE, QByteArray("old"));
+    settings.setValue(SETTING_WORKSPACE_STATE + QString("Ink"), QByteArray("old"));
+    settings.setValue(SETTING_WORKSPACE_CURRENT, "Ink");
+
+    REQUIRE(dropOutdatedLayouts(settings));
+    REQUIRE(!settings.contains(SETTING_WINDOW_STATE));
+    REQUIRE(!settings.contains(SETTING_WORKSPACE_STATE + QString("Ink")));
+    REQUIRE(currentWorkspace(settings) == "Ink");
+
+    // A Layout saved by this version survives the next start
+    settings.setValue(SETTING_WINDOW_STATE, QByteArray("new"));
+    REQUIRE(!dropOutdatedLayouts(settings));
+    REQUIRE(settings.value(SETTING_WINDOW_STATE).toByteArray() == "new");
+}
+
+TEST_CASE("MainWindow2 docks every Panel over an old saved state", "[DockLayout]")
+{
+    QSettings& settings = pencilSettings();
+    const SettingsGuard guard({SETTING_WINDOW_STATE, SETTING_LAYOUT_VERSION, SETTING_WORKSPACE_CURRENT, "Workspace/State/Animate"});
+    {
+        MainWindow2 old;
+        old.show();
+        for (QDockWidget* dock : old.findChildren<QDockWidget*>()) { dock->setFloating(true); }
+        settings.setValue(SETTING_WINDOW_STATE, old.saveState());
+    }
+    settings.remove(SETTING_LAYOUT_VERSION);
+
+    MainWindow2 window;
+    window.show();
+    QApplication::processEvents();
+    const QList<BaseDockWidget*> panels = window.findChildren<BaseDockWidget*>();
+    REQUIRE(!panels.isEmpty());
+    for (BaseDockWidget* panel : panels)
+    {
+        INFO(panel->objectName().toStdString());
+        CHECK(!panel->isFloating());
+    }
+
+    // A floating Panel stays above JustAnimate only; a double-click on its title docks it back
+    for (BaseDockWidget* panel : panels)
+    {
+        INFO(panel->objectName().toStdString());
+        panel->setFloating(true);
+        QApplication::processEvents();
+        CHECK(!panel->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+
+        QWidget* title = panel->titleBarWidget();
+        const QPointF at(4, title->height() / 2);
+        QMouseEvent dbl(QEvent::MouseButtonDblClick, at, title->mapToGlobal(at), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(title, &dbl);
+        CHECK(!panel->isFloating());
+    }
 }

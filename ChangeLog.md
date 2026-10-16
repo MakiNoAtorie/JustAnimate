@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Panels: every Panel starts docked; the first v1.2 start drops old saved Layouts once, a floating Panel no longer stays above other programs, and double-clicking its title docks it back (#180).
 - Appearance: an Accent colour in Preferences (eight choices) marks selections, slider fill, focus and the playhead in Light and Dark (#178).
 - UI: menus, tooltips, the timeline, Preferences and status messages say Drawing and Exposure instead of key frame (#185).
 - Fixes: the tablet eraser end announces the tool change once per flip, not on every tablet event (#127).
