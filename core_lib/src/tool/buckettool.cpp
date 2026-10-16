@@ -152,6 +152,8 @@ void BucketTool::pointerReleaseEvent(PointerEvent* event)
             paintBitmap();
         }
     }
+    // A gesture that filled nothing never recorded its state.
+    mEditor->undoRedo()->discardState(mUndoSaveState);
     mFilledOnMove = false;
 }
 

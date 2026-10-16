@@ -166,6 +166,12 @@ public:
      */
     void addUserState(SAVESTATE_ID SaveStateId, const UserSaveState& userState);
 
+    /** Frees the save state without recording it. Unknown ids do nothing. */
+    void discardState(SAVESTATE_ID saveStateId);
+
+    /** Number of save states created and not yet recorded or discarded. */
+    int pendingStateCount() const { return static_cast<int>(mSaveStates.size()); }
+
     /** Records that the layer with the given id was added to the object. */
     void recordLayerAdd(int layerId, const QString& description);
 
