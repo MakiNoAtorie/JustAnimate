@@ -40,6 +40,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "layerbitmap.h"
 #include "colormanager.h"
+#include "pencilsettings.h"
 
 
 ColorPaletteWidget::ColorPaletteWidget(QWidget* parent) :
@@ -56,7 +57,7 @@ ColorPaletteWidget::~ColorPaletteWidget()
 
 void ColorPaletteWidget::initUI()
 {
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     int colorGridSize = settings.value("PreferredColorGridSize", 34).toInt();
     mFitSwatches = settings.value("FitSwatchSize", false).toBool();
     if (mFitSwatches)
@@ -401,7 +402,7 @@ void ColorPaletteWidget::setListMode()
     }
     updateUI();
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue("ColorPaletteViewMode", "ListMode");
 }
 
@@ -417,7 +418,7 @@ void ColorPaletteWidget::setGridMode()
     }
     updateUI();
 
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue("ColorPaletteViewMode", "GridMode");
 }
 
@@ -429,7 +430,7 @@ void ColorPaletteWidget::setSwatchSizeSmall()
         updateUI();
 
         mFitSwatches = false;
-        QSettings settings(PENCIL2D, PENCIL2D);
+        QSettings& settings = pencilSettings();
         settings.setValue("PreferredColorGridSize", MIN_ICON_SIZE);
         settings.setValue("FitSwatchSize", false);
     }
@@ -443,7 +444,7 @@ void ColorPaletteWidget::setSwatchSizeMedium()
         updateUI();
 
         mFitSwatches = false;
-        QSettings settings(PENCIL2D, PENCIL2D);
+        QSettings& settings = pencilSettings();
         settings.setValue("PreferredColorGridSize", MEDIUM_ICON_SIZE);
         settings.setValue("FitSwatchSize", false);
     }
@@ -457,7 +458,7 @@ void ColorPaletteWidget::setSwatchSizeLarge()
         updateUI();
 
         mFitSwatches = false;
-        QSettings settings(PENCIL2D, PENCIL2D);
+        QSettings& settings = pencilSettings();
         settings.setValue("PreferredColorGridSize", MAX_ICON_SIZE);
         settings.setValue("FitSwatchSize", false);
     }
@@ -511,7 +512,7 @@ void ColorPaletteWidget::fitSwatchSize()
     updateUI();
 
     mFitSwatches = true;
-    QSettings settings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     settings.setValue("PreferredColorGridSize", size);
     settings.setValue("FitSwatchSize", true);
 }

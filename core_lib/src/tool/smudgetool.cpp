@@ -31,6 +31,7 @@ GNU General Public License for more details.
 
 #include "layervector.h"
 #include "blitrect.h"
+#include "pencilsettings.h"
 
 SmudgeTool::SmudgeTool(QObject* parent) : DabTool(parent)
 {
@@ -62,7 +63,7 @@ void SmudgeTool::loadSettings()
         mPropertyUsed[property] = { Layer::BITMAP };
 
     QHash<int, PropertyInfo> info;
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
     info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
     info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
@@ -70,14 +71,14 @@ void SmudgeTool::loadSettings()
     info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 10.0 };
 
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
 
-    if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("smudgeWidth", 24.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, pencilSettings.value("smudgeFeather", 48.0).toReal());
+    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
+        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("smudgeWidth", 24.0).toReal());
+        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, settings.value("smudgeFeather", 48.0).toReal());
 
-        pencilSettings.remove("smudgeWidth");
-        pencilSettings.remove("smudgeFeather");
+        settings.remove("smudgeWidth");
+        settings.remove("smudgeFeather");
     }
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);

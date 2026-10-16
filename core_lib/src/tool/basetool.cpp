@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "keyframe.h"
 #include "beziercurve.h"
+#include "pencilsettings.h"
 
 QString BaseTool::TypeName(ToolType type)
 {
@@ -68,7 +69,7 @@ void BaseTool::initialize(Editor* editor)
 
 void BaseTool::saveSettings()
 {
-    QSettings storedSettings(PENCIL2D, PENCIL2D);
+    QSettings& storedSettings = pencilSettings();
     toolProperties().storeTo(storedSettings);
 }
 

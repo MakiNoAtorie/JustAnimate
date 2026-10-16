@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "inputsmoother.h"
 #include "testfixture.h"
 #include "toolmanager.h"
+#include "pencilsettings.h"
 
 namespace
 {
@@ -150,7 +151,7 @@ TEST_CASE("InputSmoother - an existing user's stabilizer setting maps to mode an
 {
     const SettingsGuard keys({ "Brush/LineStabilization", "Brush/SmoothingMode", "Brush/SmoothingStrength" });
     {
-        QSettings settings(PENCIL2D, PENCIL2D);
+        QSettings& settings = pencilSettings();
         settings.setValue("Brush/LineStabilization", 1); // Simple
         settings.remove("Brush/SmoothingMode");
         settings.remove("Brush/SmoothingStrength");

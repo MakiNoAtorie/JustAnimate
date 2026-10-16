@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "undoredomanager.h"
 #include "scribblearea.h"
 #include "pointerevent.h"
+#include "pencilsettings.h"
 
 
 BrushTool::BrushTool(QObject* parent) : DabTool(parent)
@@ -75,7 +76,7 @@ void BrushTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::OPACITY_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::WASH_ENABLED] = { Layer::BITMAP };
 
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     QHash<int, PropertyInfo> info;
     info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
@@ -87,22 +88,22 @@ void BrushTool::loadSettings()
     info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
 
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
-    migrateLineStabilization(pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
+    migrateLineStabilization(settings);
 
     // Subclasses (the shape tool) must not consume the old brush keys.
-    if (type() == BRUSH && toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("brushWidth", 24.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, pencilSettings.value("brushFeather", 48.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, pencilSettings.value("brushPressure", true).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::INVISIBILITY_ENABLED, pencilSettings.value("brushInvisibility", false).toBool());
-        setLegacySmoothing(pencilSettings.value("brushLineStabilization", StabilizationLevel::STRONG).toInt());
+    if (type() == BRUSH && toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
+        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("brushWidth", 24.0).toReal());
+        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, settings.value("brushFeather", 48.0).toReal());
+        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, settings.value("brushPressure", true).toBool());
+        toolProperties().setBaseValue(StrokeToolProperties::INVISIBILITY_ENABLED, settings.value("brushInvisibility", false).toBool());
+        setLegacySmoothing(settings.value("brushLineStabilization", StabilizationLevel::STRONG).toInt());
 
-        pencilSettings.remove("brushWidth");
-        pencilSettings.remove("brushFeather");
-        pencilSettings.remove("brushPressure");
-        pencilSettings.remove("brushInvisibility");
-        pencilSettings.remove("brushLineStabilization");
+        settings.remove("brushWidth");
+        settings.remove("brushFeather");
+        settings.remove("brushPressure");
+        settings.remove("brushInvisibility");
+        settings.remove("brushLineStabilization");
     }
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);

@@ -110,7 +110,7 @@ void ShortcutsPage::keyCapLineEditTextChanged()
     QString strCmdName = actionItem->data().toString();
     QString strKeySeq  = keySequence.toString( QKeySequence::PortableText );
 
-    QSettings setting( PENCIL2D, PENCIL2D );
+    QSettings& setting = pencilSettings();
     setting.beginGroup("shortcuts");
 
     const QString conflictCmd = findShortcutConflict(setting, strCmdName, keySequence);
@@ -144,7 +144,7 @@ void ShortcutsPage::keyCapLineEditTextChanged()
 
 void ShortcutsPage::saveShortcutsButtonClicked()
 {
-    QSettings settings( PENCIL2D, PENCIL2D );
+    QSettings& settings = pencilSettings();
     settings.beginGroup( "LastSavePath" );
 
     QString fDir = settings.value("Shortcuts").toString();
@@ -170,7 +170,7 @@ void ShortcutsPage::saveShortcutsButtonClicked()
 
 void ShortcutsPage::loadShortcutsButtonClicked()
 {
-    QSettings settings( PENCIL2D, PENCIL2D );
+    QSettings& settings = pencilSettings();
     settings.beginGroup("LastSavePath");
     QString fDir = settings.value("Shortcuts").toString();
     settings.endGroup();
@@ -227,7 +227,7 @@ void ShortcutsPage::removeDuplicateKeySequence(QSettings* settings, QKeySequence
 void ShortcutsPage::treeModelLoadShortcutsSetting()
 {
     // Load shortcuts from settings
-    QSettings settings( PENCIL2D, PENCIL2D );
+    QSettings& settings = pencilSettings();
     settings.beginGroup("shortcuts");
 
     m_treeModel->setRowCount(settings.allKeys().size());
@@ -278,7 +278,7 @@ void ShortcutsPage::clearButtonClicked()
 
     QString strCmdName = QString("shortcuts/%1").arg( actionItem->data().toString() );
 
-    QSettings setting( PENCIL2D, PENCIL2D );
+    QSettings& setting = pencilSettings();
     setting.setValue( strCmdName, "" );
     setting.sync();
 

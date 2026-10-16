@@ -6,6 +6,7 @@
 #include <QStyleFactory>
 
 #include "pencildef.h"
+#include "pencilsettings.h"
 
 namespace
 {
@@ -51,14 +52,14 @@ namespace Theme
 {
 Mode saved()
 {
-    QSettings s(PENCIL2D, PENCIL2D);
+    QSettings& s = pencilSettings();
     const int v = s.value(SETTING_THEME, System).toInt();
     return (v == Light || v == Dark) ? static_cast<Mode>(v) : System;
 }
 
 void save(Mode mode)
 {
-    QSettings(PENCIL2D, PENCIL2D).setValue(SETTING_THEME, static_cast<int>(mode));
+    pencilSettings().setValue(SETTING_THEME, static_cast<int>(mode));
 }
 
 QPalette palette(Mode mode)

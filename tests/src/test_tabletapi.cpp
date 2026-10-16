@@ -21,11 +21,12 @@ GNU General Public License for more details.
 #include "platformhandler.h"
 #include "preferencemanager.h"
 #include "testfixture.h"
+#include "pencilsettings.h"
 
 TEST_CASE("Tablet API: WinTab is the default", "[TabletApi]")
 {
     const SettingsGuard guard({ SETTING_TABLET_WINTAB });
-    QSettings(PENCIL2D, PENCIL2D).remove(SETTING_TABLET_WINTAB);
+    pencilSettings().remove(SETTING_TABLET_WINTAB);
 
     TestSession session;
     REQUIRE(session.start());
@@ -41,7 +42,7 @@ TEST_CASE("Tablet API: WinTab is the default", "[TabletApi]")
 TEST_CASE("Tablet API: the stored setting is applied at startup", "[TabletApi]")
 {
     const SettingsGuard guard({ SETTING_TABLET_WINTAB });
-    QSettings(PENCIL2D, PENCIL2D).setValue(SETTING_TABLET_WINTAB, false);
+    pencilSettings().setValue(SETTING_TABLET_WINTAB, false);
 
     TestSession session;
     REQUIRE(session.start());
@@ -57,7 +58,7 @@ TEST_CASE("Tablet API: the stored setting is applied at startup", "[TabletApi]")
 TEST_CASE("Tablet API: Windows Ink stays in use when the switch to WinTab fails", "[TabletApi]")
 {
     const SettingsGuard guard({ SETTING_TABLET_WINTAB });
-    QSettings(PENCIL2D, PENCIL2D).setValue(SETTING_TABLET_WINTAB, true);
+    pencilSettings().setValue(SETTING_TABLET_WINTAB, true);
 
     TestSession session;
     REQUIRE(session.start());

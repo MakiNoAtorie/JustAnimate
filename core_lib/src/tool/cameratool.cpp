@@ -35,6 +35,7 @@ GNU General Public License for more details.
 #include <QPixmap>
 #include <QPainter>
 #include <QSettings>
+#include "pencilsettings.h"
 
 CameraTool::CameraTool(QObject* object) : BaseTool(object)
 {
@@ -52,7 +53,7 @@ void CameraTool::loadSettings()
 
     mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
 
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     mPropertyUsed[CameraToolProperties::SHOWPATH_ENABLED] = { Layer::CAMERA };
     mPropertyUsed[CameraToolProperties::PATH_DOTCOLOR_TYPE] = { Layer::CAMERA };
@@ -64,7 +65,7 @@ void CameraTool::loadSettings()
     info[CameraToolProperties::SHOWPATH_ENABLED] = false;
 
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
 
     connect(mEditor->preference(), &PreferenceManager::optionChanged, this, &CameraTool::updateSettings);
 

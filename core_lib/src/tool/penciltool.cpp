@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "layervector.h"
 #include "vectorimage.h"
+#include "pencilsettings.h"
 
 
 PencilTool::PencilTool(QObject* parent) : DabTool(parent)
@@ -67,7 +68,7 @@ void PencilTool::loadSettings()
     mPropertyUsed[StrokeToolProperties::OPACITY_VALUE] = { Layer::BITMAP };
     mPropertyUsed[StrokeToolProperties::WASH_ENABLED] = { Layer::BITMAP };
 
-    QSettings pencilSettings(PENCIL2D, PENCIL2D);
+    QSettings& settings = pencilSettings();
 
     QHash<int, PropertyInfo> info;
 
@@ -80,19 +81,19 @@ void PencilTool::loadSettings()
     info[StrokeToolProperties::FILLCONTOUR_ENABLED] = false;
 
     toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), pencilSettings);
-    migrateLineStabilization(pencilSettings);
+    toolProperties().loadFrom(typeName(), settings);
+    migrateLineStabilization(settings);
 
-    if (toolProperties().requireMigration(pencilSettings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, pencilSettings.value("pencilWidth", 4.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, pencilSettings.value("pencilPressure", true).toBool());
-        setLegacySmoothing(pencilSettings.value("pencilLineStabilization", StabilizationLevel::STRONG).toInt());
-        toolProperties().setBaseValue(StrokeToolProperties::FILLCONTOUR_ENABLED, pencilSettings.value("FillContour", false).toBool());
+    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
+        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("pencilWidth", 4.0).toReal());
+        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, settings.value("pencilPressure", true).toBool());
+        setLegacySmoothing(settings.value("pencilLineStabilization", StabilizationLevel::STRONG).toInt());
+        toolProperties().setBaseValue(StrokeToolProperties::FILLCONTOUR_ENABLED, settings.value("FillContour", false).toBool());
 
-        pencilSettings.remove("pencilWidth");
-        pencilSettings.remove("pencilPressure");
-        pencilSettings.remove("pencilLineStabilization");
-        pencilSettings.remove("FillContour");
+        settings.remove("pencilWidth");
+        settings.remove("pencilPressure");
+        settings.remove("pencilLineStabilization");
+        settings.remove("FillContour");
     }
 
     toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, info[StrokeToolProperties::FEATHER_VALUE].defaultReal());
