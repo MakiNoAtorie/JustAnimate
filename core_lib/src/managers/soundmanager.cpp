@@ -160,6 +160,8 @@ Status SoundManager::createMediaPlayer(SoundClip* clip)
     newPlayer->init(clip);
 
     connect(newPlayer, &SoundPlayer::durationChanged, this, &SoundManager::onDurationChanged);
+    // The timeline repaints on this signal, which now also shows the waveform.
+    connect(newPlayer, &SoundPlayer::waveformReady, this, &SoundManager::soundClipDurationChanged);
 
     return Status::OK;
 }
