@@ -44,6 +44,7 @@ add_compile_definitions(
     APP_VERSION="${APP_VERSION}"
     QT_DEPRECATED_WARNINGS
     QT_DISABLE_DEPRECATED_UP_TO=0x050F00
+    $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT>
 )
 
 # Git revision for the About dialog and error reports (set at configure time)
