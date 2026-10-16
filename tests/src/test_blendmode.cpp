@@ -1,0 +1,190 @@
+/*
+
+JustAnimate - Traditional Animation Software
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; version 2 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+*/
+#include "catch.hpp"
+
+#include <memory>
+#include <QAction>
+#include <QDomDocument>
+#include <QIcon>
+#include <QPixmap>
+
+#include "bitmapimage.h"
+#include "blendmode.h"
+#include "canvaspainter.h"
+#include "layerbitmap.h"
+#include "layermanager.h"
+#include "object.h"
+#include "testfixture.h"
+#include "undoredomanager.h"
+
+namespace
+{
+
+const QRgb kBelow = qRgb(200, 100, 50);
+const QRgb kAbove = qRgb(128, 128, 128);
+
+// Opaque results of kAbove over kBelow, worked out from the W3C compositing formulas.
+QRgb expected(BlendMode mode)
+{
+    switch (mode)
+    {
+    case BlendMode::Multiply: return qRgb(100, 50, 25);
+    case BlendMode::Screen: return qRgb(228, 178, 153);
+    case BlendMode::Overlay: return qRgb(200, 100, 50);
+    case BlendMode::Add: return qRgb(255, 228, 178);
+    default: return kAbove;
+    }
+}
+
+// Two bitmap layers filled with one color each; the top one uses `mode`.
+std::unique_ptr<Object> twoLayers(BlendMode mode)
+{
+    std::unique_ptr<Object> object(new Object);
+    object->init();
+    for (QRgb color : { kBelow, kAbove })
+    {
+        LayerBitmap* layer = object->addNewBitmapLayer();
+        layer->addNewKeyFrameAt(1);
+        layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-20, -20, 40, 40), Qt::NoPen, QBrush(QColor(color)),
+                                                  QPainter::CompositionMode_Source, false);
+    }
+    object->getLayer(1)->setBlendMode(mode);
+    return object;
+}
+
+QRgb canvasCenter(const Object* object, int paintedLayer)
+{
+    QPixmap canvas(60, 60);
+    CanvasPainter painter(canvas);
+    const QTransform view = QTransform::fromTranslate(30, 30);
+    painter.setViewTransform(view, view.inverted());
+    CanvasPainterOptions options;
+    options.eLayerVisibility = LayerVisibility::ALL;
+    painter.setOptions(options);
+    painter.setPaintSettings(object, paintedLayer, 1, nullptr);
+    painter.paint(QRect(0, 0, 60, 60));
+    return canvas.toImage().pixel(30, 30);
+}
+
+const BlendMode kModes[] = { BlendMode::Multiply, BlendMode::Screen, BlendMode::Overlay, BlendMode::Add };
+
+} // namespace
+
+TEST_CASE("Blend modes composite opaque pixels", "[BlendMode]")
+{
+    for (BlendMode mode : kModes)
+    {
+        quint32 dst = kBelow;
+        const quint32 src = kAbove;
+        blendPixels(mode, &dst, &src, 1);
+        CHECK(dst == expected(mode));
+    }
+}
+
+TEST_CASE("Blend modes keep the layer over transparent pixels and the backdrop under them", "[BlendMode]")
+{
+    const quint32 layer = qPremultiply(qRgba(200, 100, 50, 128));
+    for (BlendMode mode : kModes)
+    {
+        quint32 dst = 0;
+        blendPixels(mode, &dst, &layer, 1);
+        CHECK(dst == layer);
+
+        const quint32 clear = 0;
+        dst = layer;
+        blendPixels(mode, &dst, &clear, 1);
+        CHECK(dst == layer);
+    }
+}
+
+TEST_CASE("A blend layer composites over the layers below on the canvas", "[BlendMode]")
+{
+    for (BlendMode mode : kModes)
+    {
+        auto object = twoLayers(mode);
+        CHECK(canvasCenter(object.get(), 1) == expected(mode)); // painting the blend layer
+        CHECK(canvasCenter(object.get(), 0) == expected(mode)); // painting the layer below it
+    }
+}
+
+TEST_CASE("A blend layer composites over the layers below on export", "[BlendMode]")
+{
+    for (BlendMode mode : kModes)
+    {
+        auto object = twoLayers(mode);
+        QImage image(60, 60, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        painter.setWorldTransform(QTransform::fromTranslate(30, 30));
+        object->paintImage(painter, 1, false, true);
+        painter.end();
+        CHECK(image.pixel(30, 30) == expected(mode));
+    }
+}
+
+TEST_CASE("The layer blend mode is saved in the project", "[BlendMode]")
+{
+    QDomDocument doc;
+
+    SECTION("Each mode round-trips")
+    {
+        for (BlendMode mode : kModes)
+        {
+            LayerBitmap saved(1);
+            saved.setBlendMode(mode);
+            LayerBitmap loaded(2);
+            loaded.loadBaseDomElement(saved.createBaseDomElement(doc));
+            CHECK(loaded.blendMode() == mode);
+        }
+    }
+    SECTION("Normal writes no attribute and old files load as normal")
+    {
+        LayerBitmap saved(1);
+        const QDomElement elem = saved.createBaseDomElement(doc);
+        REQUIRE_FALSE(elem.hasAttribute("blend"));
+        LayerBitmap loaded(2);
+        loaded.setBlendMode(BlendMode::Screen);
+        loaded.loadBaseDomElement(elem);
+        REQUIRE(loaded.blendMode() == BlendMode::Normal);
+    }
+    SECTION("An unknown mode loads as normal")
+    {
+        QDomElement elem = LayerBitmap(1).createBaseDomElement(doc);
+        elem.setAttribute("blend", 99);
+        LayerBitmap loaded(2);
+        loaded.loadBaseDomElement(elem);
+        REQUIRE(loaded.blendMode() == BlendMode::Normal);
+    }
+}
+
+TEST_CASE("A blend mode change undoes and redoes", "[BlendMode]")
+{
+    TestSession session;
+    Layer* layer = session.object->addNewBitmapLayer();
+    session.start();
+    Editor* editor = session.editor.get();
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    editor->layers()->setBlendMode(layer, BlendMode::Multiply);
+    REQUIRE(layer->blendMode() == BlendMode::Multiply);
+    REQUIRE(editor->undoRedo()->hasUnsavedChanges());
+
+    undo->trigger();
+    REQUIRE(layer->blendMode() == BlendMode::Normal);
+    redo->trigger();
+    REQUIRE(layer->blendMode() == BlendMode::Multiply);
+}
