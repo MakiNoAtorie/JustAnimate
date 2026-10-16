@@ -237,6 +237,42 @@ TEST_CASE("BitmapBucket - Click outside the image fills the empty area around th
     }
 }
 
+TEST_CASE("BitmapBucket - Click outside the image fills every transparent region on its border")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+
+    // A line from top to bottom splits the empty image into two regions that touch the border.
+    const QRgb black = qPremultiply(qRgba(0, 0, 0, 255));
+    BitmapImage* image = layer->getLastBitmapImageAtFrame(1);
+    BitmapImage canvas(QRect(0, 0, 10, 10), Qt::transparent);
+    image->paste(&canvas);
+    for (int y = 0; y < 10; y++) { image->setPixel(5, y, black); }
+
+    BucketToolProperties properties;
+    QHash<int, PropertyInfo> info;
+    info[BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE] = 0;
+    info[BucketToolProperties::FILLEXPAND_ENABLED] = false;
+    info[BucketToolProperties::FILLMODE_VALUE] = 0;
+    info[BucketToolProperties::COLORTOLERANCE_VALUE] = 25;
+    info[BucketToolProperties::COLORTOLERANCE_ENABLED] = true;
+    properties.toolProperties().insertProperties(info);
+
+    BitmapBucket bucket(editor, Qt::red, QRect(0, 0, 10, 10), QPointF(-5, -5), properties);
+    int fillCount = 0;
+    bucket.paint(QPointF(-5, -5), [&fillCount](BucketState s, int, int) { if (s == BucketState::DidFillTarget) fillCount++; });
+
+    image = layer->getLastBitmapImageAtFrame(1);
+    CHECK(fillCount == 1);
+    CHECK(image->constScanLine(2, 5) == qRgba(255, 0, 0, 255));
+    CHECK(image->constScanLine(8, 5) == qRgba(255, 0, 0, 255));
+    CHECK(image->constScanLine(5, 5) == black);
+}
+
 TEST_CASE("BitmapBucket - Behind mode fills under antialiased line art")
 {
     TestSession session;

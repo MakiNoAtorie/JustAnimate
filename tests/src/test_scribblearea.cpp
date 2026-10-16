@@ -260,3 +260,33 @@ TEST_CASE("ScribbleArea - a held frame repaints from the frame cache")
     StageProfiler::enabled() = profiling;
     StageProfiler::reset();
 }
+
+TEST_CASE("ScribbleArea - an edit on another layer's key repaints its held frames")
+{
+    TestSession s;
+    LayerBitmap* below = s.object->addNewBitmapLayer();
+    LayerBitmap* current = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show(); // grab() on a hidden widget resizes it, which clears the cache
+    editor->layers()->setCurrentLayer(current);
+    editor->tools()->setCurrentTool(HAND);
+    REQUIRE(current->addNewKeyFrameAt(3)); // the current layer's key at 3 does not hold frame 1
+    BitmapImage* key = below->getBitmapImageAtFrame(1);
+    REQUIRE(key);
+    editor->scrubTo(3); // held by the lower layer's key at 1
+
+    const auto fill = [&](QColor c) {
+        key->drawRect(QRectF(-20, -20, 40, 40), Qt::NoPen, QBrush(c), QPainter::CompositionMode_Source, false);
+        area->onFrameModified(1);
+    };
+    const auto centre = [&] { return area->grab().toImage().pixelColor(100, 100); };
+
+    fill(Qt::red);
+    CHECK(centre() == QColor(Qt::red));
+    fill(Qt::blue);
+    CHECK(centre() == QColor(Qt::blue));
+}

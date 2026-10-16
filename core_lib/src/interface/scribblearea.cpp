@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #include "mathutils.h"
 
+#include <algorithm>
 #include <cmath>
 #include <QGuiApplication>
 #include <QMessageBox>
@@ -289,16 +290,40 @@ void ScribbleArea::invalidateCacheForFrame(int frameNumber)
 {
     if (frameNumber < 0) { return; }
 
-    // The frame cache is keyed by frame: drop every cached frame that the current layer's key at frameNumber holds.
-    const Layer* layer = mEditor->layers()->currentLayer();
-    const KeyFrame* key = layer ? layer->getLastKeyFrameAtPosition(frameNumber) : nullptr;
-    auto it = mPixmapCacheKeys.lowerBound(static_cast<unsigned int>(key ? key->pos() : frameNumber));
-    while (it != mPixmapCacheKeys.end()
-           && (key ? layer->getLastKeyFrameAtPosition(static_cast<int>(it.key())) == key
-                   : it.key() == static_cast<unsigned int>(frameNumber)))
+    // The frame cache is keyed by frame and the edit does not name its layer:
+    // drop every cached frame that any layer's key at frameNumber holds.
+    std::vector<std::pair<const Layer*, const KeyFrame*>> holds;
+    int start = frameNumber;
+    const Object* object = mEditor->object();
+    for (int i = 0; object && i < object->getLayerCount(); ++i)
     {
-        QPixmapCache::remove(it.value());
-        it = mPixmapCacheKeys.erase(it);
+        const Layer* layer = object->getLayer(i);
+        if (const KeyFrame* key = layer->getLastKeyFrameAtPosition(frameNumber))
+        {
+            holds.emplace_back(layer, key);
+            start = std::min(start, key->pos());
+        }
+    }
+    auto it = mPixmapCacheKeys.lowerBound(static_cast<unsigned int>(start));
+    while (it != mPixmapCacheKeys.end())
+    {
+        const int frame = static_cast<int>(it.key());
+        const bool held = frame == frameNumber || std::any_of(holds.begin(), holds.end(), [frame](const auto& h) {
+            return h.first->getLastKeyFrameAtPosition(frame) == h.second;
+        });
+        if (held)
+        {
+            QPixmapCache::remove(it.value());
+            it = mPixmapCacheKeys.erase(it);
+        }
+        else if (frame > frameNumber)
+        {
+            break; // holds are contiguous: none reaches past this frame
+        }
+        else
+        {
+            ++it;
+        }
     }
 }
 

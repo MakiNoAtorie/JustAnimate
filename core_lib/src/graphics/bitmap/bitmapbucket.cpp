@@ -122,19 +122,14 @@ void BitmapBucket::paint(const QPointF& updatedPoint, std::function<void(BucketS
     QPoint point = QPoint(qFloor(updatedPoint.x()), qFloor(updatedPoint.y()));
     if (!mReferenceImage.contains(point))
     {
-        // An outside click means the empty area around the drawing: start at a transparent border pixel
+        // An outside click means the empty area around the drawing: start at a transparent border pixel.
+        // The fill runs through the transparent 1 px ring around the image, so it reaches every border-connected region.
         const QRect b = mReferenceImage.bounds();
         bool found = false;
-        for (int x = b.left(); x <= b.right() && !found; x++)
-        {
-            for (int y : { b.top(), b.bottom() })
-            {
-                if (qAlpha(mReferenceImage.constScanLine(x, y)) == 0) { point = QPoint(x, y); found = true; break; }
-            }
-        }
         for (int y = b.top(); y <= b.bottom() && !found; y++)
         {
-            for (int x : { b.left(), b.right() })
+            const bool edgeRow = (y == b.top() || y == b.bottom());
+            for (int x = b.left(); x <= b.right(); x += edgeRow ? 1 : qMax(1, b.width() - 1))
             {
                 if (qAlpha(mReferenceImage.constScanLine(x, y)) == 0) { point = QPoint(x, y); found = true; break; }
             }

@@ -534,6 +534,34 @@ TEST_CASE("Pen - a stroke after an arrow-key nudge applies the nudge first")
         CHECK(pixelAt(11));
     }
 
+    SECTION("Undo and redo of a stroke after a nudge restore the right pixels")
+    {
+        QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+        nudgeRight();
+        if (GENERATE(false, true))
+        {
+            // The nudge comes back from a redo.
+            undoAction->trigger();
+            redoAction->trigger();
+        }
+        auto strokeAt = [&] { return qAlpha(layer->getBitmapImageAtFrame(1)->pixel(225, 200)) != 0; };
+        tablet(area, QEvent::TabletPress, screen(QPointF(200, 200)), 1.0);
+        tablet(area, QEvent::TabletMove, screen(QPointF(250, 200)), 1.0);
+        tablet(area, QEvent::TabletRelease, screen(QPointF(250, 200)), 1.0);
+        REQUIRE(strokeAt());
+
+        undoAction->trigger();
+        CHECK_FALSE(strokeAt());
+        undoAction->trigger();
+        CHECK(pixelAt(10));
+        CHECK_FALSE(pixelAt(11));
+        redoAction->trigger();
+        redoAction->trigger();
+        CHECK(strokeAt());
+        CHECK_FALSE(pixelAt(10));
+        CHECK(pixelAt(11));
+    }
+
     SECTION("Enter applies the nudge")
     {
         nudgeRight();
