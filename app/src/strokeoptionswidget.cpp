@@ -76,6 +76,9 @@ void StrokeOptionsWidget::initUI()
         { StrokeToolProperties::GRAIN_SCALE_VALUE, tr("Grain scale"), "%" },
         { StrokeToolProperties::GRAIN_CONTRAST_VALUE, tr("Grain contrast"), "%" },
         { StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, tr("Grain brightness"), "" },
+        { StrokeToolProperties::SMUDGE_LENGTH_VALUE, tr("Smudge length"), "%" },
+        { StrokeToolProperties::SMUDGE_RADIUS_VALUE, tr("Smudge sample radius"), "%" },
+        { StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE, tr("Smudge colour rate"), "%" },
     };
     // Item index is the GrainMode value.
     mGrainModeCombo = new QComboBox(mDynamicsBox);
@@ -367,7 +370,13 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     ui->washBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::WASH_ENABLED));
     ui->loadTipImageButton->setVisible(tip);
     ui->clearTipImageButton->setVisible(tip);
-    if (mDynamicsBox) mDynamicsBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SCATTER_VALUE));
+    if (mDynamicsBox)
+    {
+        mDynamicsBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SCATTER_VALUE));
+        auto* form = static_cast<QFormLayout*>(mDynamicsBox->layout());
+        for (const auto& [type, box] : mDynamicsSpinBoxes)
+            form->setRowVisible(box, tool->isPropertyEnabled(type));
+    }
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
     ui->makeInvisibleBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::INVISIBILITY_ENABLED));

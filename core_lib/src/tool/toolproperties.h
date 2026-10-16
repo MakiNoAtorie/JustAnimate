@@ -430,6 +430,9 @@ struct StrokeToolProperties: public ToolPropertiesBase
         GRAIN_SCALE_VALUE        = 128,
         GRAIN_CONTRAST_VALUE     = 129,
         GRAIN_BRIGHTNESS_VALUE   = 130,
+        SMUDGE_LENGTH_VALUE      = 131,
+        SMUDGE_RADIUS_VALUE      = 132,
+        SMUDGE_COLOR_RATE_VALUE  = 133,
 
         END                = 199,
     };
@@ -468,7 +471,10 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { GRAIN_MODE_VALUE,      "GrainMode" },
             { GRAIN_SCALE_VALUE,     "GrainScale" },
             { GRAIN_CONTRAST_VALUE,  "GrainContrast" },
-            { GRAIN_BRIGHTNESS_VALUE, "GrainBrightness" }
+            { GRAIN_BRIGHTNESS_VALUE, "GrainBrightness" },
+            { SMUDGE_LENGTH_VALUE,   "SmudgeLength" },
+            { SMUDGE_RADIUS_VALUE,   "SmudgeRadius" },
+            { SMUDGE_COLOR_RATE_VALUE, "SmudgeColorRate" }
         });
     }
 
@@ -508,6 +514,9 @@ struct StrokeToolProperties: public ToolPropertiesBase
     int grainScale() const { return getInfo(GRAIN_SCALE_VALUE).intValue(); } // percent
     int grainContrast() const { return getInfo(GRAIN_CONTRAST_VALUE).intValue(); } // percent
     int grainBrightness() const { return getInfo(GRAIN_BRIGHTNESS_VALUE).intValue(); } // -100..100
+    int smudgeLength() const { return getInfo(SMUDGE_LENGTH_VALUE).intValue(); } // percent of the colour bucket kept per dab
+    int smudgeRadius() const { return getInfo(SMUDGE_RADIUS_VALUE).intValue(); } // sample radius, percent of the dab radius
+    int smudgeColorRate() const { return getInfo(SMUDGE_COLOR_RATE_VALUE).intValue(); } // percent of front colour in each smudge dab
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }

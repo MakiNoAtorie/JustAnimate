@@ -90,6 +90,9 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::GRAIN_SCALE_VALUE] = { 25, 800, 100 };
     info[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { 0, 400, 100 };
     info[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { -100, 100, 0 };
+    info[StrokeToolProperties::SMUDGE_LENGTH_VALUE] = { 0, 100, 50 };
+    info[StrokeToolProperties::SMUDGE_RADIUS_VALUE] = { 1, 100, 50 };
+    info[StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE] = { 0, 100, 0 };
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;

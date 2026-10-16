@@ -1037,3 +1037,73 @@ TEST_CASE("DabTool - grain is fixed to the paper or moves with each dab and repl
     }
     CHECK(*layer->getBitmapImageAtFrame(8)->image() == *layer->getBitmapImageAtFrame(9)->image());
 }
+
+TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    for (int f = 1; f <= 4; ++f) layer->addNewKeyFrameAt(f);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+
+    editor->tools()->setCurrentTool(SMUDGE);
+    StrokeTool* smudge = static_cast<StrokeTool*>(editor->tools()->getTool(SMUDGE));
+    const ToolSettingsGuard guard(smudge);
+    smudge->setWidth(20);
+    smudge->setFeather(48); // a hard opaque dab repaints its own last colour at any length
+    smudge->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    // Opaque red left of canvas x = 0, transparent right of it.
+    auto prepare = [&](int frame) {
+        editor->scrubTo(frame);
+        layer->getBitmapImageAtFrame(frame)->drawRect(QRectF(-100, -50, 100, 100), Qt::NoPen, QBrush(Qt::red),
+                                                      QPainter::CompositionMode_Source, false);
+    };
+    auto pixel = [&](int frame, QPoint canvas) { return layer->getBitmapImageAtFrame(frame)->pixel(canvas); };
+    auto drag = [&](QPointF from, QPointF to) {
+        stroke(area, editor->view()->mapCanvasToScreen(from), editor->view()->mapCanvasToScreen(to), 1.0);
+    };
+
+    // A long smudge length carries red far into the empty part; length 0 much less.
+    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+    prepare(1);
+    drag(QPointF(-30, 0), QPointF(40, 0));
+    const QRgb carried = pixel(1, QPoint(20, 0));
+    INFO("carried alpha " << qAlpha(carried));
+    CHECK(qAlpha(carried) > 60);
+    CHECK(qRed(qUnpremultiply(carried)) > 200);
+    CHECK(qBlue(carried) == 0);
+    REQUIRE(undoAction->isEnabled());
+    undoAction->trigger();
+    CHECK(qAlpha(pixel(1, QPoint(20, 0))) == 0);
+
+    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 0);
+    prepare(2);
+    drag(QPointF(-30, 0), QPointF(40, 0));
+    CHECK(qAlpha(pixel(2, QPoint(20, 0))) < qAlpha(carried) / 2);
+
+    // Smudge smears transparency into paint too: it lowers alpha, not only adds.
+    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+    prepare(3);
+    drag(QPointF(40, 0), QPointF(-40, 0));
+    CHECK(qAlpha(pixel(3, QPoint(-20, 0))) < 200);
+    CHECK(qAlpha(pixel(3, QPoint(-20, 40))) == 255); // outside the dabs
+
+    // Full colour rate paints the front colour, like a wet brush.
+    smudge->setDynamic(StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE, 100);
+    editor->color()->setFrontColor(Qt::blue);
+    prepare(4);
+    drag(QPointF(20, 200), QPointF(80, 200));
+    const QRgb painted = pixel(4, QPoint(50, 200));
+    CHECK(qAlpha(painted) > 250);
+    CHECK(qBlue(painted) == qAlpha(painted));
+    CHECK(qRed(painted) + qGreen(painted) == 0);
+}
