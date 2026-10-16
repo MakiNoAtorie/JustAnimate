@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Export: a failed or cancelled movie export no longer deletes the movie it was to overwrite; export writes a temporary file and replaces the target only on success (#154).
 - Speed: hovering with the camera tool no longer clears the canvas caches on every mouse move (#132).
 - Export: movie and GIF export keep at most 4 unwritten frames in the ffmpeg pipe instead of queueing up to all frames in memory (#138).
 - Undo: bucket clicks that fill nothing, smudge clicks on an empty vector frame and strokes released by another device no longer leak an image copy each (#123).

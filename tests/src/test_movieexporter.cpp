@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
-#include <QDateTime>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
@@ -33,34 +33,55 @@ static QString makeFile(const QTemporaryDir& dir)
     return f.fileName();
 }
 
-TEST_CASE("MovieExporter::discardPartialOutput")
+static QByteArray readAll(const QString& path)
+{
+    QFile f(path);
+    REQUIRE(f.open(QIODevice::ReadOnly));
+    return f.readAll();
+}
+
+TEST_CASE("MovieExporter::writeThenReplace")
 {
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
-    const QString path = makeFile(dir);
+    const QString target = dir.filePath("out.mp4");
+    QString written;
+    auto partial = [&written](Status result) {
+        return [&written, result](const QString& path) {
+            written = path;
+            QFile f(path);
+            REQUIRE(f.open(QIODevice::WriteOnly));
+            f.write("cut");
+            return result;
+        };
+    };
 
-    const QFileInfo before(path);
-
-    SECTION("A file the failed run created is removed")
+    SECTION("A cancelled export keeps the previous target and leaves no temporary file")
     {
-        MovieExporter::discardPartialOutput(path, QDateTime(), 0);
-        REQUIRE_FALSE(QFile::exists(path));
+        makeFile(dir);
+        REQUIRE((MovieExporter::writeThenReplace(target, partial(Status::CANCELED)) == Status::CANCELED));
+        REQUIRE(written != target);
+        REQUIRE(written.endsWith(".mp4"));
+        REQUIRE(readAll(target) == "partial");
+        REQUIRE(QDir(dir.path()).entryList(QDir::Files) == QStringList("out.mp4"));
     }
-    SECTION("A file the failed run began to overwrite is removed")
+    SECTION("A failed export with no target leaves no file")
     {
-        const QDateTime modifiedBefore = before.lastModified();
-        const qint64 sizeBefore = before.size();
-        QFile f(path);
-        REQUIRE(f.open(QIODevice::WriteOnly));
-        f.write("cut");
-        f.close();
-        MovieExporter::discardPartialOutput(path, modifiedBefore, sizeBefore);
-        REQUIRE_FALSE(QFile::exists(path));
+        REQUIRE((MovieExporter::writeThenReplace(target, partial(Status::FAIL)) == Status::FAIL));
+        REQUIRE(QDir(dir.path()).entryList(QDir::Files).isEmpty());
     }
-    SECTION("A file the failed run never touched is kept")
+    SECTION("A successful export replaces the target with the new movie")
     {
-        MovieExporter::discardPartialOutput(path, before.lastModified(), before.size());
-        REQUIRE(QFile::exists(path));
+        makeFile(dir);
+        const QString ffmpeg = QStandardPaths::findExecutable("ffmpeg");
+        if (ffmpeg.isEmpty()) { WARN("ffmpeg not installed: skipping encode check"); return; }
+        auto encode = [&ffmpeg](const QString& path) {
+            const QStringList args = { "-f", "lavfi", "-i", "testsrc=size=64x64:rate=6:duration=1", "-pix_fmt", "yuv420p", "-y", path };
+            return MovieExporter::executeFFmpeg(ffmpeg, args, [](int) { return true; });
+        };
+        REQUIRE(MovieExporter::writeThenReplace(target, encode).ok());
+        REQUIRE(readAll(target).mid(4, 4) == "ftyp");
+        REQUIRE(QDir(dir.path()).entryList(QDir::Files) == QStringList("out.mp4"));
     }
 }
 
