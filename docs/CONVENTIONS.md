@@ -130,6 +130,16 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   resets layer caches). Pixel-identical caches carry a golden hash
   recorded on the code before the change.
 
+- Stroke snapping (ruler, perspective) goes through
+  `core_lib/src/tool/strokesnapper.*`: StrokeTool snaps input points before
+  smoothing. Ruler and perspective state live in `OverlayManager`; neither
+  is saved.
+- Selection skew and numeric transform values go through
+  `SelectionManager` setters that rebuild `mSelectionTransform`; the UI
+  never builds its own `QTransform`.
+- Every user-visible string goes through `tr()`; tooltips live in the `.ui`
+  file or next to the widget's creation.
+
 ## Commits
 
 - One commit per ticket: code, test and a one-line `ChangeLog.md` entry at
