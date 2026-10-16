@@ -95,7 +95,9 @@ add_executable(pencil2d_tests
     ${TEST_APP_SOURCES}
     ${TEST_RESOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.h
