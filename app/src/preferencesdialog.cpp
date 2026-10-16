@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPushButton>
 
 #include "prefsearch.h"
 
@@ -37,6 +38,7 @@ PreferencesDialog::PreferencesDialog(QWidget* parent) :
     ui->mainLayout->insertWidget(0, mSearchEdit);
     connect(mSearchEdit, &QLineEdit::textChanged, this, &PreferencesDialog::search);
 
+    ui->buttonBox->button(QDialogButtonBox::Close)->setToolTip(tr("Close the preferences."));
     addTooltips();
 
     for (int i = 0; i < 0 + 1 * ui->contentsWidget->count(); i++) {
@@ -150,6 +152,12 @@ void PreferencesDialog::addTooltips()
         { "labelVisibility visibilitySlider visibilitySpinbox", tr("How visible the other layers are when layer visibility is relative.") },
         { "useQuickSizingBox", tr("Change the brush size and feather with a key and a drag on the canvas.") },
         { "rotationIncrementLabel rotationIncrementSlider rotationIncrementDisplay", tr("Angle steps used when the Move tool rotates a selection with Shift held.") },
+        { "themeCombo", tr("Light or dark colours for the app, or the colours of the system.") },
+        { "resetCurveButton", tr("Set the pressure curve back to a straight line.") },
+        { "clearButton", tr("Remove the key from the selected shortcut.") },
+        { "btnSaveShortcuts", tr("Save all shortcuts to a file.") },
+        { "btnLoadShortcuts", tr("Load shortcuts from a file.") },
+        { "restoreShortcutsButton", tr("Set all shortcuts back to their default keys.") },
     };
     for (const auto& tip : tips) {
         for (const QString& name : QString(tip.names).split(' ')) {

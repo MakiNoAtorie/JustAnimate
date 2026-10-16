@@ -20,13 +20,16 @@ GNU General Public License for more details.
 #include <QAbstractSpinBox>
 #include <QApplication>
 #include <QComboBox>
+#include <QDockWidget>
 #include <QKeyEvent>
+#include <QListWidget>
 #include <QSet>
 #include <QSlider>
 
 #include "editor.h"
 #include "layermanager.h"
 #include "mainwindow2.h"
+#include "preferencesdialog.h"
 #include "theme.h"
 #include "toolmanager.h"
 #include "timelinecells.h"
@@ -112,6 +115,56 @@ TEST_CASE("Every visible main window control has a tooltip", "[Accessibility]")
     CHECK(missing.isEmpty());
 }
 
+TEST_CASE("Every visible preference control has a tooltip", "[Accessibility]")
+{
+    MainWindow2 window;
+    Editor* editor = window.findChild<Editor*>();
+    REQUIRE(editor);
+    PreferencesDialog dialog(&window);
+    dialog.init(editor->preference());
+    auto* pageList = dialog.findChild<QListWidget*>("contentsWidget");
+    REQUIRE(pageList);
+    REQUIRE(pageList->count() > 1);
+
+    QSet<QString> missing;
+    for (int row = 0; row < pageList->count(); ++row)
+    {
+        pageList->setCurrentRow(row);
+        for (QWidget* w : dialog.findChildren<QWidget*>())
+        {
+            if (isControl(w) && w->isVisibleTo(&dialog) && w->toolTip().isEmpty())
+                missing << describe(w);
+        }
+    }
+    INFO(QStringList(missing.begin(), missing.end()).join("\n").toStdString());
+    CHECK(missing.isEmpty());
+}
+TEST_CASE("Tab reaches every visible dock", "[Accessibility]")
+{
+    MainWindow2 window;
+    window.show();
+    QApplication::processEvents();
+
+    // Saved settings can float a dock: a floating dock is its own window with its own chain.
+    for (QDockWidget* dock : window.findChildren<QDockWidget*>()) dock->setFloating(false);
+    QApplication::processEvents();
+
+    // Tab follows the focus chain and stops on visible, enabled widgets that take Tab focus.
+    QSet<QDockWidget*> reached;
+    for (QWidget* w = window.nextInFocusChain(); w != &window; w = w->nextInFocusChain())
+    {
+        if ((w->focusPolicy() & Qt::TabFocus) != Qt::TabFocus || !w->isVisibleTo(&window) || !w->isEnabled()) continue;
+        for (QWidget* p = w; p; p = p->parentWidget())
+        {
+            if (auto* dock = qobject_cast<QDockWidget*>(p)) { reached << dock; break; }
+        }
+    }
+    for (QDockWidget* dock : window.findChildren<QDockWidget*>())
+    {
+        INFO(dock->objectName().toStdString());
+        if (dock->isVisibleTo(&window)) CHECK(reached.contains(dock));
+    }
+}
 TEST_CASE("Timeline arrow keys move the frame and the layer", "[Accessibility]")
 {
     MainWindow2 window;
