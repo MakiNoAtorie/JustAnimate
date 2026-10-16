@@ -19,6 +19,10 @@ GNU General Public License for more details.
 
 #include "basedockwidget.h"
 #include "pencildef.h"
+#include <QHash>
+#include <QList>
+#include <QMargins>
+#include <QPair>
 
 namespace Ui
 {
@@ -27,6 +31,9 @@ namespace Ui
 
 class BaseWidget;
 class QBoxLayout;
+class QGridLayout;
+class QLayout;
+class QLayoutItem;
 class Editor;
 class BaseTool;
 class BucketOptionsWidget;
@@ -65,6 +72,10 @@ private:
     StrokeOptionsWidget* mStrokeOptionsWidget = nullptr;
     TransformOptionsWidget* mTransformOptionsWidget = nullptr;
     QList<QBoxLayout*> mColumnLayouts;
+    struct GridCell { QLayoutItem* item; int row, column, rowSpan, columnSpan; Qt::Alignment alignment; };
+    // Each grid's cells at their designed positions, in reading order
+    QList<QPair<QGridLayout*, QList<GridCell>>> mGrids;
+    QHash<QLayout*, QMargins> mMargins;
     QPushButton* mResetViewButton = nullptr;
 };
 

@@ -21,6 +21,9 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QDebug>
 #include <QBoxLayout>
+#include <QGridLayout>
+#include <algorithm>
+#include <tuple>
 #include <QMainWindow>
 
 #include "cameraoptionswidget.h"
@@ -80,6 +83,24 @@ void ToolOptionWidget::initUI()
     {
         if (layout->direction() == QBoxLayout::TopToBottom && !layout->objectName().isEmpty()) { mColumnLayouts << layout; }
     }
+    for (QGridLayout* grid : ui->scrollAreaWidgetContents->findChildren<QGridLayout*>())
+    {
+        if (grid->objectName().isEmpty()) { continue; }
+        QList<GridCell> cells;
+        for (int i = 0; i < grid->count(); ++i)
+        {
+            GridCell c{grid->itemAt(i), 0, 0, 0, 0, grid->itemAt(i)->alignment()};
+            grid->getItemPosition(i, &c.row, &c.column, &c.rowSpan, &c.columnSpan);
+            cells << c;
+        }
+        std::sort(cells.begin(), cells.end(), [](const GridCell& a, const GridCell& b)
+        {
+            return std::tie(a.row, a.column) < std::tie(b.row, b.column);
+        });
+        mGrids << qMakePair(grid, cells);
+        mMargins.insert(grid, grid->contentsMargins());
+    }
+    for (QBoxLayout* layout : mColumnLayouts) { mMargins.insert(layout, layout->contentsMargins()); }
     connect(this, &QDockWidget::dockLocationChanged, this, &ToolOptionWidget::updateOrientation);
     connect(this, &QDockWidget::topLevelChanged, this, &ToolOptionWidget::updateOrientation);
     updateOrientation();
@@ -133,6 +154,23 @@ void ToolOptionWidget::updateOrientation()
         // Tall items such as forms start at the top of the strip, so its first line shows
         for (int i = 0; i < layout->count(); ++i) { layout->itemAt(i)->setAlignment(row ? Qt::AlignTop : Qt::Alignment()); }
         layout->invalidate();
+    }
+    // Margins above and below would make the strip taller than one control
+    for (auto it = mMargins.cbegin(); it != mMargins.cend(); ++it)
+    {
+        const QMargins m = it.value();
+        it.key()->setContentsMargins(m.left(), row ? 0 : m.top(), m.right(), row ? 0 : m.bottom());
+    }
+    // A grid goes into one line of cells in the strip and back to its designed rows elsewhere
+    for (const auto& [grid, cells] : mGrids)
+    {
+        while (grid->count() > 0) { grid->takeAt(0); }
+        for (int i = 0; i < cells.size(); ++i)
+        {
+            const GridCell& c = cells[i];
+            if (row) { grid->addItem(c.item, 0, i, 1, 1, Qt::AlignTop); }
+            else { grid->addItem(c.item, c.row, c.column, c.rowSpan, c.columnSpan, c.alignment); }
+        }
     }
 }
 

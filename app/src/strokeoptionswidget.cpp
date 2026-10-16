@@ -14,7 +14,8 @@
 
 #include <QComboBox>
 #include <QFileDialog>
-#include <QFormLayout>
+#include <QGridLayout>
+#include <QLabel>
 #include <QMessageBox>
 
 StrokeOptionsWidget::StrokeOptionsWidget(Editor* editor, QWidget *parent) :
@@ -59,8 +60,18 @@ void StrokeOptionsWidget::initUI()
     ui->tipAngleSlider->init(tr("Tip Angle"), SpinSlider::LINEAR, angleInfo.minReal(), angleInfo.maxReal());
 
     mDynamicsBox = new QWidget(this);
-    auto* dynamics = new QFormLayout(mDynamicsBox);
+    // A grid, not a form: Tool settings lays a named grid out in one row in its strip
+    auto* dynamics = new QGridLayout(mDynamicsBox);
+    dynamics->setObjectName("dynamicsLayout");
     dynamics->setContentsMargins(0, 0, 0, 0);
+    const auto addRow = [this, dynamics](const QString& text, QWidget* field)
+    {
+        auto* label = new QLabel(text, mDynamicsBox);
+        label->setBuddy(field);
+        const int row = dynamics->rowCount();
+        dynamics->addWidget(label, row, 0);
+        dynamics->addWidget(field, row, 1);
+    };
     struct Row { int type; QString label; QString suffix; };
     const Row rows[] = {
         { StrokeToolProperties::SPEED_TO_SIZE_VALUE, tr("Speed to size"), "%" },
@@ -84,7 +95,7 @@ void StrokeOptionsWidget::initUI()
     mGrainModeCombo = new QComboBox(mDynamicsBox);
     mGrainModeCombo->addItems({ tr("Off"), tr("Fixed to paper"), tr("Moves with stroke") });
     mGrainModeCombo->setToolTip(tr("Paper grain mode"));
-    dynamics->addRow(tr("Grain"), mGrainModeCombo);
+    addRow(tr("Grain"), mGrainModeCombo);
     connect(mGrainModeCombo, &QComboBox::activated, this, [this](int mode) {
         mCurrentTool->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, mode);
     });
@@ -92,7 +103,7 @@ void StrokeOptionsWidget::initUI()
     mSmudgeMixCombo = new QComboBox(mDynamicsBox);
     mSmudgeMixCombo->addItems({ tr("Light"), tr("Pigment") });
     mSmudgeMixCombo->setToolTip(tr("How smudge mixes colours"));
-    dynamics->addRow(tr("Smudge mixing"), mSmudgeMixCombo);
+    addRow(tr("Smudge mixing"), mSmudgeMixCombo);
     connect(mSmudgeMixCombo, &QComboBox::activated, this, [this](int mode) {
         mCurrentTool->setDynamic(StrokeToolProperties::SMUDGE_MIX_VALUE, mode);
     });
@@ -103,7 +114,7 @@ void StrokeOptionsWidget::initUI()
         box->setRange(info.minInt(), info.maxInt());
         box->setSuffix(suffix);
         box->setToolTip(label);
-        dynamics->addRow(label, box);
+        addRow(label, box);
         mDynamicsSpinBoxes.append({ type, box });
         connect(box, &QSpinBox::valueChanged, this, [this, type = type](int value) { mCurrentTool->setDynamic(type, value); });
     }
@@ -384,10 +395,11 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
     if (mDynamicsBox)
     {
         mDynamicsBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SCATTER_VALUE));
-        auto* form = static_cast<QFormLayout*>(mDynamicsBox->layout());
         for (const auto& [type, box] : mDynamicsSpinBoxes)
-            form->setRowVisible(box, tool->isPropertyEnabled(type));
-        form->setRowVisible(mSmudgeMixCombo, tool->isPropertyEnabled(StrokeToolProperties::SMUDGE_MIX_VALUE));
+            box->setVisible(tool->isPropertyEnabled(type));
+        mSmudgeMixCombo->setVisible(tool->isPropertyEnabled(StrokeToolProperties::SMUDGE_MIX_VALUE));
+        for (QLabel* label : mDynamicsBox->findChildren<QLabel*>())
+            label->setVisible(!label->buddy()->isHidden());
     }
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));

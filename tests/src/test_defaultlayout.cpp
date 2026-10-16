@@ -1,8 +1,12 @@
 #include "catch.hpp"
 
+#include <algorithm>
 #include <deque>
 
 #include <QApplication>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QPushButton>
 #include <QDockWidget>
 #include <QMainWindow>
 #include <QMenu>
@@ -15,6 +19,8 @@
 
 #include "basedockwidget.h"
 #include "defaultlayout.h"
+#include "editor.h"
+#include "toolmanager.h"
 #include "mainwindow2.h"
 #include "pencildef.h"
 #include "spinslider.h"
@@ -261,7 +267,29 @@ TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayo
     CHECK(at("opacitySlider").x() > at("sizeSlider").x());
     CHECK(at("opacitySlider").y() == at("sizeSlider").y());
     othersAfterOpacity(true);
-    CHECK(toolSettings->height() < 100);
+
+    // In the strip every tool's options stay one control high, whatever the style
+    QComboBox combo;
+    QDoubleSpinBox spin;
+    QPushButton button;
+    button.setIconSize(QSize(24, 24));
+    button.setIcon(QIcon(":/icons/tabler/arrows-move.svg"));
+    const int rowHeight = std::max({toolSettings->findChild<QWidget*>("sizeSlider")->sizeHint().height(), combo.sizeHint().height(),
+                                    spin.sizeHint().height(), button.sizeHint().height()});
+    QWidget* contents = toolSettings->findChild<QWidget*>("scrollAreaWidgetContents");
+    for (int type = 0; type < TOOL_TYPE_COUNT; ++type)
+    {
+        window.mEditor->tools()->setCurrentTool(static_cast<ToolType>(type));
+        QApplication::processEvents();
+        for (QWidget* options : contents->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
+        {
+            if (options->isHidden()) { continue; }
+            INFO("tool " << type << " " << options->metaObject()->className() << " " << options->sizeHint().height() << " > " << rowHeight);
+            CHECK(options->sizeHint().height() <= rowHeight);
+        }
+    }
+    window.mEditor->tools()->setCurrentTool(PENCIL);
+    QApplication::processEvents();
 
     window.addDockWidget(Qt::LeftDockWidgetArea, toolSettings);
     QApplication::processEvents();
