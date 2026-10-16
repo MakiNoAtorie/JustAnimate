@@ -84,7 +84,7 @@ QCursor PenTool::cursor()
 
 void PenTool::pointerPressEvent(PointerEvent *event)
 {
-    prepareInput();
+    prepareInput(event->viewportPos());
     mInterpolator.pointerPressEvent(event);
     if (handleQuickSizing(event)) {
         return;

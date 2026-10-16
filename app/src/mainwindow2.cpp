@@ -394,6 +394,14 @@ void MainWindow2::createMenus()
         mEditor->overlays()->setRulerEnabled(on);
         mEditor->updateFrame();
     });
+
+    QAction* perspectiveSnapAction = new QAction(tr("Snap to Perspective"), this);
+    perspectiveSnapAction->setCheckable(true);
+    perspectiveSnapAction->setToolTip(tr("Strokes follow the line from their start point toward a vanishing point of the visible perspective overlay."));
+    ui->menuOverlays->insertAction(ui->menuPerspectiveLinesAngle->menuAction(), perspectiveSnapAction);
+    connect(perspectiveSnapAction, &QAction::toggled, this, [this](bool on) {
+        mEditor->overlays()->setPerspectiveSnapEnabled(on);
+    });
     bindPreferenceSetting(ui->actionShowOutlinesOnly, prefs, SETTING::OUTLINES);
     bindPreferenceSetting(ui->actionShowInvisibleLines, prefs, SETTING::INVISIBLE_LINES);
     bindPreferenceSetting(ui->actionOnionPrev, prefs, SETTING::PREV_ONION);
