@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #define COLORWHEEL_H
 
 #include <QWidget>
+#include <QTimer>
 
 
 class ColorWheel : public QWidget
@@ -27,6 +28,7 @@ public:
     explicit ColorWheel(QWidget* parent);
 
     QColor color();
+    int rebuildCount() const { return mRebuildCount; }
 
 signals:
     void colorSelected(const QColor& color);
@@ -52,6 +54,7 @@ private:
     void drawHueIndicator(const int& hue);
     void drawPicker(const QColor& color);
 
+    void rebuild();
     void drawWheelImage(const QSize& newSize);
     void drawSquareImage(const int& hue);
     void composeWheel(QPixmap& pixmap, QRect blitRect);
@@ -61,6 +64,8 @@ private:
     QImage mWheelImage;
     QImage mSquareImage;
     QPixmap mWheelPixmap;
+    QTimer mRebuildTimer;
+    int mRebuildCount = 0;
    
     int mWheelThickness = 20;
     QRect mWheelRect;

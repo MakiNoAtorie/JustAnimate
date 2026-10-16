@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Brush presets belong to a tool: the Brush Presets panel lists only the eraser's presets (Hard Eraser, Soft Eraser) or the drawing tools' presets, and applying one never changes another tool (#172).
+- Colour wheel: follows a dock resize smoothly by scaling its last image and rebuilding once the resize stops (#173).
 - Drawing on a held frame now makes a new Drawing by default, undone with its stroke in one step; Preferences > Timeline keeps the old choice (#189).
 - Rough layers: mark a layer Rough from its timeline menu; it shows tinted and faded on the canvas, carries a ROUGH tag and is left out of every export (#192).
 - Play-around: Alt+Return or the timeline button loops N frames either side of the playhead (N set beside it) and returns to the playhead on stop; Shift-drag on the timeline ruler sets the loop range and turns Loop on (#191).
