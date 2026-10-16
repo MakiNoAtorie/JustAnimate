@@ -388,6 +388,8 @@ static QString getHumanReadableShortcutName(const QString& cmdName)
         {CMD_TOOL_LASSOFILL, ShortcutsPage::tr("Lasso Fill Tool", "Shortcut")},
         {CMD_TOOL_SMUDGE, ShortcutsPage::tr("Smudge Tool", "Shortcut")},
         {CMD_RESET_ALL_TOOLS, ShortcutsPage::tr("Reset all tools to default", "Shortcut")},
+        {CMD_RADIAL_TOOL_MENU, ShortcutsPage::tr("Radial Tool Menu", "Shortcut")},
+        {CMD_QUICK_PRESET_PICKER, ShortcutsPage::tr("Quick Preset Picker", "Shortcut")},
         {CMD_CHANGE_LINE_COLOR_KEYFRAME, ShortcutsPage::tr("Change Line Color (Current keyframe)", "Shortcut")},
         {CMD_CHANGE_LINE_COLOR_LAYER, ShortcutsPage::tr("Change Line Color (All keyframes on layer)", "Shortcut")},
         {CMD_CHANGE_LAYER_OPACITY, ShortcutsPage::tr("Change Layer / Keyframe Opacity", "Shortcut")},

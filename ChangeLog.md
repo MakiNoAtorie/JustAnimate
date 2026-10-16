@@ -7,6 +7,7 @@ the original Pencil2D history is kept below for reference.
 
 - Project loading is fuzz-tested: a camera key with zero or negative scale, or an unknown element under the document, no longer crashes a debug build (1.8).
 - Triage: swept open Pencil2D crash and data-loss issues; four still apply and are filed as #164-#167 (1.9).
+- Radial tool menu (Q) and quick brush-preset picker (W): a ring under the cursor; tap or release the pen on a slice to pick it (4.6).
 - Canvas HUD: the bottom-left corner of the canvas shows a brush-size ring, a rotation dial and the zoom and rotation values (4.6).
 - Preferences: a search box finds options by name, and every option has a tooltip (4.9).
 - Preferences: assigning a shortcut that another action uses warns and names that action (4.5).
