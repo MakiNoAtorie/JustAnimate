@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Export: MP4 and WebM quality presets (low/medium/high) and GIF palette options (max colours, dither on/off) in the movie exporter (3.12).
 - Playback: loop or ping-pong over the playback range, speed 0.5x/1x/2x in the timeline controls, and held Next/Previous Frame keys flip at the project fps; ping-pong is saved with the project (3.11).
 - Timeline: right-click the frame ruler to add, rename, recolor or remove a named marker on the current frame; markers are saved with the project (3.6).
 - The welcome screen shows at every startup unless a file is opened from the command line; turn it off in Preferences > Files (4.3).
