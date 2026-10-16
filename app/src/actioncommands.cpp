@@ -478,6 +478,14 @@ Status ActionCommands::exportImageSequence()
     int startFrame = dialog->getStartFrame();
     int endFrame  = dialog->getEndFrame();
 
+    if (dialog->getSpriteSheet() && !MovieExporter::mayOverwrite(strFilePath, [this, &strFilePath] {
+            return QMessageBox::question(mParent, APP_NAME,
+                       tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(strFilePath))) == QMessageBox::Yes;
+        }))
+    {
+        return Status::SAFE;
+    }
+
     QString sCameraLayerName = dialog->getCameraLayerName();
     LayerCamera* cameraLayer = static_cast<LayerCamera*>(mEditor->layers()->findLayerByName(sCameraLayerName, Layer::CAMERA));
 
@@ -487,7 +495,15 @@ Status ActionCommands::exportImageSequence()
     progress.setWindowModality(Qt::WindowModal);
     progress.show();
 
-    Status st = mEditor->object()->exportFrames(startFrame, endFrame,
+    Status st = Status::OK;
+    if (dialog->getSpriteSheet())
+    {
+        st = mEditor->object()->exportSpriteSheet(startFrame, endFrame, cameraLayer, exportSize, strFilePath,
+                                                  dialog->getSpriteSheetColumns(), useTransparency, true, &progress, 100);
+    }
+    else
+    {
+        st = mEditor->object()->exportFrames(startFrame, endFrame,
                                     cameraLayer,
                                     exportSize,
                                     strFilePath,
@@ -498,6 +514,8 @@ Status ActionCommands::exportImageSequence()
                                     true,
                                     &progress,
                                     100);
+    }
+    if (st == Status::CANCELED) { return Status::SAFE; }
 
     if (!st.ok())
     {

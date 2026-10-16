@@ -20,6 +20,9 @@ GNU General Public License for more details.
 
 #include "importexportdialog.h"
 
+class QCheckBox;
+class QSpinBox;
+
 namespace Ui {
 class ExportImageOptions;
 }
@@ -41,6 +44,9 @@ public:
     QString getExportFormat() const;
 	QString getCameraLayerName() const;
 
+    bool getSpriteSheet() const;
+    int getSpriteSheetColumns() const; // 0 = automatic
+
     int getStartFrame() const;
     int getEndFrame() const;
 
@@ -52,6 +58,8 @@ private slots:
 
 private:
     Ui::ExportImageOptions* ui = nullptr;
+    QCheckBox* mSpriteSheet = nullptr;
+    QSpinBox* mSheetColumns = nullptr;
 
     void setTransparencyOptionVisibility(const QString& format);
     int mEndFrameWithSounds = 0;
