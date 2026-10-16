@@ -1435,7 +1435,7 @@ CanvasHud ScribbleArea::canvasHud() const
 void ScribbleArea::paintCanvasHud(QPainter& painter) const
 {
     const CanvasHud hud = canvasHud();
-    // ponytail: a ring wider than the box is drawn at the box size; the canvas cursor shows the full size.
+    // shortcut: a ring wider than the box is drawn at the box size; the canvas cursor shows the full size.
     constexpr qreal kMaxRing = 24;
     constexpr qreal kDial = 8;
     constexpr qreal kPad = 6;
