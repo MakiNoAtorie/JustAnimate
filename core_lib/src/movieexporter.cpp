@@ -338,16 +338,6 @@ Status MovieExporter::generateMovie(
     QTransform centralizeCamera;
     centralizeCamera.translate(camSize.width() / 2, camSize.height() / 2);
 
-    int failCounter = 0;
-    /* Movie export uses a "sliding window" to reduce memory usage
-     * while having a relatively small impact on speed. This basically
-     * means that there is a maximum number of frames that can be waiting
-     * to be encoded by ffmpeg at any one time. The limit is set by the
-     * frameWindow variable which is designed to take up a maximum of
-     * about 1GB of memory
-     */
-    int frameWindow = static_cast<int>(1e9 / (camSize.width() * camSize.height() * 4.0));
-
     // Build FFmpeg command
 
     //int exportFps = mDesc.videoFps;
@@ -387,40 +377,25 @@ Status MovieExporter::generateMovie(
 
     // Run FFmpeg command
 
-    Status status = executeFFMpegPipe(ffmpegPath, args, progress, [&](QProcess& ffmpeg, int framesProcessed)
+    Status status = executeFFMpegPipe(ffmpegPath, args, progress, [&](QImage& imageToExport)
     {
-        if(framesProcessed < 0)
-        {
-            failCounter++;
-        }
-
         if(currentFrame > frameEnd)
         {
-            ffmpeg.closeWriteChannel();
             return false;
         }
 
-        if((currentFrame - frameStart <= framesProcessed + frameWindow || failCounter > 10) && currentFrame <= frameEnd)
-        {
-            QImage imageToExport = imageToExportBase.copy();
-            QPainter painter(&imageToExport);
+        imageToExport = imageToExportBase.copy();
+        QPainter painter(&imageToExport);
 
-            QTransform view = cameraLayer->getViewAtFrame(currentFrame);
-            painter.setWorldTransform(view * centralizeCamera);
-            painter.setWindow(QRect(0, 0, camSize.width(), camSize.height()));
+        QTransform view = cameraLayer->getViewAtFrame(currentFrame);
+        painter.setWorldTransform(view * centralizeCamera);
+        painter.setWindow(QRect(0, 0, camSize.width(), camSize.height()));
 
-            obj->paintImage(painter, currentFrame, false, true);
-            painter.end();
+        obj->paintImage(painter, currentFrame, false, true);
+        painter.end();
 
-            int bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.sizeInBytes());
-            Q_ASSERT(bytesWritten == imageToExport.sizeInBytes());
-
-            currentFrame++;
-            failCounter = 0;
-            return true;
-        }
-
-        return false;
+        currentFrame++;
+        return true;
     });
     STATUS_CHECK(status);
 
@@ -459,7 +434,6 @@ Status MovieExporter::generateGif(
     bool transparency = false;
     QString strCameraName = mDesc.strCameraName;
     bool loop = mDesc.loop;
-    int bytesWritten;
 
     auto cameraLayer = static_cast<LayerCamera*>(obj->findLayerByName(strCameraName, Layer::CAMERA));
     if (cameraLayer == nullptr)
@@ -502,24 +476,14 @@ Status MovieExporter::generateGif(
 
     // Run FFmpeg command
 
-    Status status = executeFFMpegPipe(ffmpegPath, args, progress, [&](QProcess& ffmpeg, int framesProcessed)
+    Status status = executeFFMpegPipe(ffmpegPath, args, progress, [&](QImage& imageToExport)
     {
-        /* The GIF FFmpeg command requires the entires stream to be
-         * written before FFmpeg can encode the GIF. This is because
-         * the generated pallete is based off of the colors in all
-         * frames. The only way to avoid this would be to generate
-         * all the frames twice and run two separate commands, which
-         * would likely have unacceptable speed costs.
-         */
-
-        Q_UNUSED(framesProcessed);
         if(currentFrame > frameEnd)
         {
-            ffmpeg.closeWriteChannel();
             return false;
         }
 
-        QImage imageToExport = imageToExportBase.copy();
+        imageToExport = imageToExportBase.copy();
         QPainter painter(&imageToExport);
 
         QTransform view = cameraLayer->getViewAtFrame(currentFrame);
@@ -527,12 +491,9 @@ Status MovieExporter::generateGif(
         painter.setWindow(QRect(0, 0, camSize.width(), camSize.height()));
 
         obj->paintImage(painter, currentFrame, false, true);
-
-        bytesWritten = ffmpeg.write(reinterpret_cast<const char*>(imageToExport.constBits()), imageToExport.sizeInBytes());
-        Q_ASSERT(bytesWritten == imageToExport.sizeInBytes());
+        painter.end();
 
         currentFrame++;
-
         return true;
     });
     STATUS_CHECK(status);
@@ -661,40 +622,17 @@ Status MovieExporter::executeFFmpeg(const QString& cmd, const QStringList& args,
  *              (the percentage of the ffmpeg operation complete) and
  *              may display the output to the user in any way it
  *              sees fit.
- *  @param[in]  writeFrame A function that takes two arguments, a
- *              process (the ffmpeg process) and an integer
- *              (frames processed or -1, see full description).
- *              This function should write a single frame to the
- *              process. The function returns true value if it
- *              actually wrote a frame.
+ *  @param[in]  nextFrame A function that renders the next frame into
+ *              its argument and returns true, or returns false when
+ *              there are no more frames.
  *
- *  This function operates generally as follows:
- *  1. Spawn process with the command from cmd
- *  2. Check ffmpeg's output for a progress update.
- *  3. Add frames with writeFrame until it returns false.
- *  4. Repeat from step 2 until all frames have been written.
- *
- *  The idea is that there are two forms of processing occuring
- *  simultaneously, generating frames to send to ffmpeg, and ffmpeg
- *  encoding those frames. Whether these this actually occur
- *  concurrently or one after another appears to depend on the environment.
- *
- *  The writeFrame function deserves a bit of extra details. It does
- *  not only return false when there is an error in generating or
- *  writing a frame, it also does it when it wants to "return control"
- *  to the rest of the executeFFMpegPipe function for the purposes of
- *  reading updates from ffmpeg's output. This should be done every
- *  once in a while if possible, but with some formats (specifically gif),
- *  all frames must be loaded before any processing can continue, so
- *  there is no point returning false for it until all frames have
- *  been written. writeFrame is also responsible for closing the writeChannel
- *  of the process when it has finished writing all frames. This indicates
- *  to executeFFMpegPipe that it no longer needs to call writeFrame.
+ *  At most MAX_QUEUED_FRAMES frames wait unwritten in the stdin buffer:
+ *  past that, the renderer waits for ffmpeg to read instead of queueing.
  *
  *  @return Returns Status::OK if everything went well, and Status::FAIL
  *  and error is detected (usually a non-zero exit code for ffmpeg).
  */
-Status MovieExporter::executeFFMpegPipe(const QString& cmd, const QStringList& args, std::function<void(float)> progress, std::function<bool(QProcess&, int)> writeFrame)
+Status MovieExporter::executeFFMpegPipe(const QString& cmd, const QStringList& args, std::function<void(float)> progress, std::function<bool(QImage&)> nextFrame)
 {
     qDebug() << cmd;
 
@@ -711,8 +649,10 @@ Status MovieExporter::executeFFMpegPipe(const QString& cmd, const QStringList& a
     {
         int framesGenerated = 0;
         int lastFrameProcessed = 0;
-        const int frameStart = mDesc.startFrame;
-        const int frameEnd = mDesc.endFrame;
+        const float frameCount = qMax(1, mDesc.endFrame - mDesc.startFrame);
+        qint64 frameBytes = 0;
+        bool writing = true;
+        mPeakQueuedBytes = 0;
         while(ffmpeg.state() == QProcess::Running)
         {
             if (mCanceled)
@@ -722,10 +662,30 @@ Status MovieExporter::executeFFMpegPipe(const QString& cmd, const QStringList& a
                 return Status::CANCELED;
             }
 
+            if (writing && ffmpeg.bytesToWrite() <= (MAX_QUEUED_FRAMES - 1) * frameBytes)
+            {
+                QImage frame;
+                if (nextFrame(frame))
+                {
+                    frameBytes = frame.sizeInBytes();
+                    ffmpeg.write(reinterpret_cast<const char*>(frame.constBits()), frameBytes);
+                    mPeakQueuedBytes = qMax(mPeakQueuedBytes, ffmpeg.bytesToWrite());
+                    framesGenerated++;
+                }
+                else
+                {
+                    ffmpeg.closeWriteChannel();
+                    writing = false;
+                }
+            }
+            else if (writing)
+            {
+                ffmpeg.waitForBytesWritten(10);
+            }
+
             // Check FFmpeg progress
 
-            int framesProcessed = -1;
-            if(ffmpeg.waitForReadyRead(10))
+            if(ffmpeg.waitForReadyRead(writing ? 0 : 10))
             {
                 QString output(ffmpeg.readAll());
                 QStringList sList = output.split(QRegularExpression("[\r\n]"), SplitBehaviorFlags::SkipEmptyParts);
@@ -736,27 +696,13 @@ Status MovieExporter::executeFFMpegPipe(const QString& cmd, const QStringList& a
                 }
                 if(output.startsWith("frame="))
                 {
-                    lastFrameProcessed = framesProcessed = output.mid(6, output.indexOf(' ')).toInt();
+                    lastFrameProcessed = output.mid(6, output.indexOf(' ')).toInt();
                 }
             }
 
-            if(!ffmpeg.isWritable())
-            {
-                continue;
-            }
-
-            while(writeFrame(ffmpeg, framesProcessed))
-            {
-                framesGenerated++;
-
-                const float percentGenerated = framesGenerated / static_cast<float>(frameEnd - frameStart);
-                const float percentConverted = lastFrameProcessed / static_cast<float>(frameEnd - frameStart);
-                progress((percentGenerated + percentConverted) / 2);
-            }
-            const float percentGenerated = framesGenerated / static_cast<float>(frameEnd - frameStart);
-            const float percentConverted = lastFrameProcessed / static_cast<float>(frameEnd - frameStart);
-            progress((percentGenerated + percentConverted) / 2);
+            progress((framesGenerated + lastFrameProcessed) / frameCount / 2);
         }
+        qDebug() << "Peak unwritten pipe bytes:" << mPeakQueuedBytes;
 
         QString output(ffmpeg.readAll());
         QStringList sList = output.split(QRegularExpression("[\r\n]"), SplitBehaviorFlags::SkipEmptyParts);

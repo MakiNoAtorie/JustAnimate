@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Export: movie and GIF export keep at most 4 unwritten frames in the ffmpeg pipe instead of queueing up to all frames in memory (#138).
 - Settings: every access goes through pencilSettings(), and the test suite uses its own empty INI file instead of the real app settings (#168).
 - Fixes: undo and redo update the title-bar and status-bar modified marker, so undoing back to the saved state shows the file as saved (#149).
 - Translations: all .ts files re-synced with the current strings (obsolete entries kept) and the fork translation workflow is documented in docs/translations.md.

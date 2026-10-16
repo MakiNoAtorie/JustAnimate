@@ -15,8 +15,10 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
@@ -127,5 +129,41 @@ TEST_CASE("MovieExporter export presets")
             return run(QString("c%1%2.gif").arg(colors).arg(dither), { "-filter_complex", MovieExporter::gifFilter(colors, dither) });
         };
         REQUIRE(gif(4, false) != gif(256, true));
+    }
+}
+
+TEST_CASE("MovieExporter pipe holds few unwritten frames")
+{
+    const QString ffmpeg = QStandardPaths::findExecutable("ffmpeg");
+    if (ffmpeg.isEmpty()) { WARN("ffmpeg not installed: skipping pipe check"); return; }
+
+    QImage frame(1920, 1080, QImage::Format_ARGB32_Premultiplied);
+    frame.fill(Qt::white);
+    const qint64 frameBytes = frame.sizeInBytes();
+    const QStringList input = { "-f", "rawvideo", "-pixel_format", "bgra", "-video_size", "1920x1080", "-framerate", "12" };
+    const QStringList output = { "-i", "-", "-f", "null", "-" };
+    MovieExporter ex;
+    int written = 0;
+
+    SECTION("a 100-frame 1080p export stays under the bound")
+    {
+        auto next = [&](QImage& img) { img = frame; return written++ < 100; };
+        REQUIRE(ex.executeFFMpegPipe(ffmpeg, input + output, [](float) {}, next).ok());
+        REQUIRE(written == 101);
+        REQUIRE(ex.peakQueuedBytes() > 0);
+        REQUIRE(ex.peakQueuedBytes() <= MovieExporter::MAX_QUEUED_FRAMES * frameBytes);
+    }
+
+    SECTION("cancel ends a waiting export within a second")
+    {
+        // -re makes ffmpeg read at 12 fps, so the renderer waits on the pipe.
+        auto next = [&](QImage& img) { img = frame; ++written; return true; };
+        QElapsedTimer sinceCancel;
+        auto progress = [&](float) {
+            if (written == 20 && !sinceCancel.isValid()) { sinceCancel.start(); ex.cancel(); }
+        };
+        const Status st = ex.executeFFMpegPipe(ffmpeg, input + QStringList("-re") + output, progress, next);
+        REQUIRE((st == Status::CANCELED));
+        REQUIRE(sinceCancel.elapsed() < 1000);
     }
 }
