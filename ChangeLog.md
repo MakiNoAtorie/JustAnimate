@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Fixes: Check for Updates on a development build shows that checks are off instead of spinning forever, and closing the dialog no longer dereferences a null network manager (#135).
 - Fixes: a held frame repaints the canvas from the cache instead of redrawing it on every repaint; an edit on its key still shows at once (#129).
 - Fixes: an eraser or smudge stroke shrinks a bitmap's bounds to the ink that remains, so erased areas no longer stay in memory, saved files and selection bounds (#130).
 - Fixes: a sound clip restored by undo or redo plays again, and deleting a sound layer stops its playing clips (#151).

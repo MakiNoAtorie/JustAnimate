@@ -83,7 +83,6 @@ CheckUpdatesDialog::CheckUpdatesDialog()
 
 CheckUpdatesDialog::~CheckUpdatesDialog()
 {
-    mNetworkManager->deleteLater();
 }
 
 void CheckUpdatesDialog::startChecking()
@@ -92,7 +91,9 @@ void CheckUpdatesDialog::startChecking()
     if (version.startsWith("99.0.0")) {
         nightlyBuildCheck();
     } else if (version == "0.0.0.0") {
-        // Do nothing 
+        mTitleLabel->setText(tr("<b>Update checks are off for development builds</b>"));
+        mProgressBar->setRange(0, 1);
+        mProgressBar->setValue(1);
     } else {
         regularBuildCheck();
     }
