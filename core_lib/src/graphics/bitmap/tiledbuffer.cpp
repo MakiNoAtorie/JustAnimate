@@ -29,6 +29,7 @@ GNU General Public License for more details.
 
 #include "tile.h"
 #include "stageprofiler.h"
+#include "util.h"
 
 TiledBuffer::TiledBuffer(QObject* parent) : QObject(parent)
 {
@@ -754,18 +755,25 @@ std::array<float, 4> TiledBuffer::sampleSmudge(QPointF center, qreal radius)
 
 void TiledBuffer::compositeSmudge(const DabMask& mask, const QRect& rect, quint32 src, quint32 weight)
 {
+    // Tile pixels are fetched here: QImage::bits() detaches, which is not safe on worker threads.
+    struct Part { QRect area; uchar* bits; qsizetype stride; QPoint pos; };
+    std::vector<Part> parts;
     const qreal tileSize = UNIFORM_TILE_SIZE;
     for (int tileY = qFloor(rect.top() / tileSize); tileY <= qFloor(rect.bottom() / tileSize); tileY++) {
         for (int tileX = qFloor(rect.left() / tileSize); tileX <= qFloor(rect.right() / tileSize); tileX++) {
             Tile* tile = mTiles.value({tileX, tileY});
-            const QRect area = rect & tile->bounds();
-            const QPoint tilePos = tile->pos();
             QImage& image = tile->image();
-            for (int y = area.top(); y <= area.bottom(); ++y)
+            parts.push_back({ rect & tile->bounds(), image.bits(), image.bytesPerLine(), tile->pos() });
+        }
+    }
+    auto rows = [&](int top, int bottom) {
+        for (const Part& p : parts)
+        {
+            for (int y = qMax(top, p.area.top()), last = qMin(bottom, p.area.bottom()); y <= last; ++y)
             {
-                QRgb* d = reinterpret_cast<QRgb*>(image.scanLine(y - tilePos.y())) + (area.left() - tilePos.x());
-                const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (area.left() - rect.left());
-                for (int k = 0, w = area.width(); k < w; ++k)
+                QRgb* d = reinterpret_cast<QRgb*>(p.bits + (y - p.pos.y()) * p.stride) + (p.area.left() - p.pos.x());
+                const quint8* m = mask.alpha.data() + (y - rect.top()) * rect.width() + (p.area.left() - rect.left());
+                for (int k = 0, w = p.area.width(); k < w; ++k)
                 {
                     const int a = int(mul255(weight, m[k]));
                     if (a == 0) continue;
@@ -783,7 +791,19 @@ void TiledBuffer::compositeSmudge(const DabMask& mask, const QRect& rect, quint3
                 }
             }
         }
+    };
+    // Bands of at least 64 rows; each pixel depends only on itself, so bands match the serial result.
+    const qint64 pixels = qint64(rect.width()) * rect.height();
+    const int bands = pixels >= mParallelSmudgeMinPixels ? qMin(parallelWorkerCount(), rect.height() / 64) : 1;
+    mLastSmudgeWorkers = qMax(bands, 1);
+    if (bands <= 1)
+    {
+        rows(rect.top(), rect.bottom());
+        return;
     }
+    parallelFor(bands, [&](int band) {
+        rows(rect.top() + rect.height() * band / bands, rect.top() + rect.height() * (band + 1) / bands - 1);
+    });
 }
 
 void TiledBuffer::smudgeDab(QPointF center, qreal diameter, qreal feather, QColor color, qreal opacity, bool antialiasing,

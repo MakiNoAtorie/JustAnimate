@@ -38,7 +38,9 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
   colour bucket (`mixSmudgeColor`, kept part = smudge length), mix the front
   colour in by colour rate, then `compositeSmudge` moves pixels toward that
   colour, alpha included. Kubelka-Munk mixing replaces only
-  `mixSmudgeColor`; row-band parallelism goes only in `compositeSmudge`.
+  `mixSmudgeColor`; row-band parallelism goes only in `compositeSmudge`
+  (dab box >= 256K px, bands >= 64 rows; it fetches tile `bits()` before
+  `parallelFor`, since a detach on a worker thread is a data race).
 - Smudge reads the canvas every dab, so it never queues dabs for
   `flushDabs`. A smudge stroke seeds each new tile with the layer pixels
   (`setSmudgeSource`) and the buffer replaces the layer
