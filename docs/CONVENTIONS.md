@@ -43,7 +43,10 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   Tests run on an empty temporary INI store, restore what they change and
   set up what they read.
 - Tests do not link QtTest: count signals with a lambda `connect`, not
-  `QSignalSpy`.
+  `QSignalSpy`. Tool tests send `QTabletEvent`s at
+  `view()->mapCanvasToScreen()`; paint checks call `area->grab()` on a
+  shown area. Input timing uses `QEvent::setTimestamp`, never sleeps.
+  Catch compares a `Status` in double parentheses.
 - Tests write files only under their own `QTemporaryDir`: agents run suites in
   parallel on one machine.
 - Fixtures are stack objects or `unique_ptr`, and every `new` QObject in app
@@ -137,11 +140,16 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `StrokeTool::prepareInput` (`strokesnapper.*`); ruler state in
   `OverlayManager`, unsaved.
 - Selection transforms change only through `SelectionManager` setters; a
-  new field joins `SelectionSaveState` and `TransformCommand`.
+  new field joins `SelectionSaveState` and `TransformCommand`. A pending
+  transform is applied in `ScribbleArea::pointerPressEvent` before any
+  drawing tool paints. Camera key edits record as `CAMERA_MODIFY`.
 - Stroke buffer composition: only `ScribbleArea::bufferCompositionMode()`.
   `duplicateLayer` copies every saved layer attribute.
 - Sound timing: `SoundClip::msAtFrame`/`waveformPeaks`; tests use
-  `setSamples`.
+  `setSamples`; a test that needs a player writes a valid WAV. A clip put
+  back into a layer gets a player from `SoundManager::processSound`; code
+  that takes a layer out stops its clips. Name clips with
+  `LayerSound::clipLabel()`.
 - Preference tooltips: `PreferencesDialog::addTooltips()`.
 - User-visible strings go through `tr()`.
 
