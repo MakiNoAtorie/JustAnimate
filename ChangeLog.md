@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Drawing on a held frame now makes a new Drawing by default, undone with its stroke in one step; Preferences > Timeline keeps the old choice (#189).
 - Command search: Ctrl+Shift+P or the Command bar's search field finds a menu command by name and runs it; Ctrl+K opens Preferences (#183).
 - Pen-drag Flip: hold F and drag the pen left or right to flip through Drawings (following the Marked drawings filter); releasing F returns to the starting frame (#190).
 

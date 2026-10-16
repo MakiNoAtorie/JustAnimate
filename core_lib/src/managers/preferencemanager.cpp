@@ -127,7 +127,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::LABEL_FONT_SIZE,          settings.value(SETTING_LABEL_FONT_SIZE,        12).toInt());
 
     set( SETTING::DRAW_ON_EMPTY_FRAME_ACTION, settings.value( SETTING_DRAW_ON_EMPTY_FRAME_ACTION,
-                                                              KEEP_DRAWING_ON_PREVIOUS_KEY).toInt() );
+                                                              CREATE_NEW_KEY).toInt() );
 
     // Onion Skin
     set(SETTING::PREV_ONION,               settings.value(SETTING_PREV_ONION,             false).toBool());

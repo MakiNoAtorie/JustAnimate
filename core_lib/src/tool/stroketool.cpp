@@ -190,6 +190,10 @@ QPointF StrokeTool::getLastPoint() const
 
 void StrokeTool::startStroke(PointerEvent::InputType inputType)
 {
+    // A stroke whose release went unhandled (other device) never recorded its state.
+    mEditor->undoRedo()->discardState(mUndoSaveStateId);
+    // A Drawing added for this stroke undoes with the stroke in one step.
+    mEditor->undoRedo()->beginMacro(typeName());
     if (emptyFrameActionEnabled())
     {
         mScribbleArea->handleDrawingOnEmptyFrame();
@@ -209,9 +213,8 @@ void StrokeTool::startStroke(PointerEvent::InputType inputType)
     mStrokePressures << mCurrentPressure;
 
     mCurrentInputType = inputType;
-    // A stroke whose release went unhandled (other device) never recorded its state.
-    mEditor->undoRedo()->discardState(mUndoSaveStateId);
-    mUndoSaveStateId =mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    mEditor->undoRedo()->endMacroWith(mUndoSaveStateId);
 
     disableCoalescing();
 }

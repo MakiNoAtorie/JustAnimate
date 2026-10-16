@@ -126,6 +126,9 @@ struct UndoSaveState {
     std::vector<std::unique_ptr<KeyFrame>> selectedKeyframes;
 
     UserSaveState userState = {};
+
+    // Set by endMacroWith: recording or discarding this state ends the open macro.
+    bool endsMacro = false;
 };
 
 class UndoRedoManager : public BaseManager
@@ -189,6 +192,9 @@ public:
      *  Use UndoMacro. No step is made when nothing is recorded. */
     void beginMacro(const QString& description);
     void endMacro();
+    /** Ends the open macro when saveStateId is recorded or discarded, for a gesture
+     *  that spans events. An unknown id ends it now. */
+    void endMacroWith(SAVESTATE_ID saveStateId);
 
     QAction* createUndoAction(QObject* parent, const QIcon& icon);
     QAction* createRedoAction(QObject* parent, const QIcon& icon);

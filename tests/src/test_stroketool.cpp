@@ -1548,3 +1548,59 @@ TEST_CASE("Eraser - a stroke shrinks the bitmap bounds to the remaining ink and 
     CHECK(image->isMinimallyBounded());
     CHECK(image->bounds().isEmpty());
 }
+
+TEST_CASE("Pencil - a stroke on a held frame makes a new Drawing by default")
+{
+    const SettingsGuard settingsGuard({ SETTING_DRAW_ON_EMPTY_FRAME_ACTION });
+    pencilSettings().remove(SETTING_DRAW_ON_EMPTY_FRAME_ACTION);
+
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    const ToolSettingsGuard guard(editor->tools()->currentTool());
+    static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(6);
+    const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    SECTION("Default: a new Drawing, undone with its stroke in one step")
+    {
+        // Reload so the test reads the default, not a value another test set.
+        editor->preference()->loadPrefs();
+        REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == CREATE_NEW_KEY);
+
+        editor->scrubTo(3);
+        stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+        REQUIRE(layer->keyExists(3));
+        CHECK(layer->getBitmapImageAtFrame(1)->bounds().isEmpty());
+        CHECK_FALSE(layer->getBitmapImageAtFrame(3)->bounds().isEmpty());
+
+        undoAction->trigger();
+        CHECK_FALSE(layer->keyExists(3));
+        CHECK(layer->getBitmapImageAtFrame(1)->bounds().isEmpty());
+        CHECK_FALSE(undoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(layer->keyExists(3));
+        CHECK_FALSE(layer->getBitmapImageAtFrame(3)->bounds().isEmpty());
+    }
+
+    SECTION("A saved Keep drawing on previous choice still loads and draws on the held Drawing")
+    {
+        pencilSettings().setValue(SETTING_DRAW_ON_EMPTY_FRAME_ACTION, int(KEEP_DRAWING_ON_PREVIOUS_KEY));
+        editor->preference()->loadPrefs();
+        REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == KEEP_DRAWING_ON_PREVIOUS_KEY);
+
+        editor->scrubTo(3);
+        stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
+        CHECK_FALSE(layer->keyExists(3));
+        CHECK_FALSE(layer->getBitmapImageAtFrame(1)->bounds().isEmpty());
+    }
+}
