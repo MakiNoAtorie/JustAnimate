@@ -57,7 +57,8 @@ void SmudgeTool::loadSettings()
                           StrokeToolProperties::TAPER_END_VALUE, StrokeToolProperties::GRAIN_MODE_VALUE,
                           StrokeToolProperties::GRAIN_SCALE_VALUE, StrokeToolProperties::GRAIN_CONTRAST_VALUE,
                           StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, StrokeToolProperties::SMUDGE_LENGTH_VALUE,
-                          StrokeToolProperties::SMUDGE_RADIUS_VALUE, StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE })
+                          StrokeToolProperties::SMUDGE_RADIUS_VALUE, StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE,
+                          StrokeToolProperties::SMUDGE_MIX_VALUE })
         mPropertyUsed[property] = { Layer::BITMAP };
 
     QHash<int, PropertyInfo> info;
@@ -100,6 +101,7 @@ void SmudgeTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushT
     smudge.length = mSettings.smudgeLength() / 100.0f;
     smudge.radius = mSettings.smudgeRadius() / 100.0f;
     smudge.colorRate = mSettings.smudgeColorRate() / 100.0f;
+    smudge.wet = mSettings.smudgeMix() == 1;
     mScribbleArea->smudgeDab(point, width, mSettings.feather(), mEditor->color()->frontColor(), opacity, tip, smudge);
 }
 

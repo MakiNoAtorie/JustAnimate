@@ -433,6 +433,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
         SMUDGE_LENGTH_VALUE      = 131,
         SMUDGE_RADIUS_VALUE      = 132,
         SMUDGE_COLOR_RATE_VALUE  = 133,
+        SMUDGE_MIX_VALUE         = 134,
 
         END                = 199,
     };
@@ -474,7 +475,8 @@ struct StrokeToolProperties: public ToolPropertiesBase
             { GRAIN_BRIGHTNESS_VALUE, "GrainBrightness" },
             { SMUDGE_LENGTH_VALUE,   "SmudgeLength" },
             { SMUDGE_RADIUS_VALUE,   "SmudgeRadius" },
-            { SMUDGE_COLOR_RATE_VALUE, "SmudgeColorRate" }
+            { SMUDGE_COLOR_RATE_VALUE, "SmudgeColorRate" },
+            { SMUDGE_MIX_VALUE,      "SmudgeMix" }
         });
     }
 
@@ -517,6 +519,7 @@ struct StrokeToolProperties: public ToolPropertiesBase
     int smudgeLength() const { return getInfo(SMUDGE_LENGTH_VALUE).intValue(); } // percent of the colour bucket kept per dab
     int smudgeRadius() const { return getInfo(SMUDGE_RADIUS_VALUE).intValue(); } // sample radius, percent of the dab radius
     int smudgeColorRate() const { return getInfo(SMUDGE_COLOR_RATE_VALUE).intValue(); } // percent of front colour in each smudge dab
+    int smudgeMix() const { return getInfo(SMUDGE_MIX_VALUE).intValue(); } // 0 mixes as light (linear), 1 as pigment (Kubelka-Munk)
     bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
     bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
     bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }

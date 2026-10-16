@@ -791,6 +791,33 @@ TEST_CASE("TiledBuffer smudgeDab: large dabs composite in row bands with the sam
         CHECK(workers > 1);
 }
 
+TEST_CASE("TiledBuffer smudgeDab: wet mode mixes blue and yellow paint to green")
+{
+    QImage source(64, 64, QImage::Format_ARGB32_Premultiplied);
+    source.fill(qRgb(0, 0, 255));
+    auto mixed = [&](bool wet) {
+        TiledBuffer buffer;
+        buffer.setSmudgeSource(source, QPoint(0, 0));
+        SmudgeSettings smudge;
+        smudge.colorRate = 0.5f;
+        smudge.wet = wet;
+        buffer.smudgeDab(QPointF(32, 32), 20, 0, QColor(255, 255, 0), 1.0, false, BrushTip(), smudge);
+        BitmapImage image(QRect(0, 0, 64, 64), Qt::transparent);
+        image.paste(&buffer, QPainter::CompositionMode_Source);
+        return image.image()->pixel(32, 32);
+    };
+    const QRgb linear = mixed(false);
+    INFO("linear " << qRed(linear) << " " << qGreen(linear) << " " << qBlue(linear));
+    CHECK(qAbs(qRed(linear) - qGreen(linear)) < 8);
+    CHECK(qAbs(qGreen(linear) - qBlue(linear)) < 8);
+
+    const QRgb wet = mixed(true);
+    INFO("wet " << qRed(wet) << " " << qGreen(wet) << " " << qBlue(wet));
+    CHECK(qAlpha(wet) == 255);
+    CHECK(qGreen(wet) > qRed(wet) + 40);
+    CHECK(qGreen(wet) > qBlue(wet) + 40);
+}
+
 TEST_CASE("TiledBuffer: cleared tiles go to a pool that stays under its cap and comes back clean")
 {
     TiledBuffer buffer;

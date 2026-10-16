@@ -37,8 +37,11 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
   the mean premultiplied colour within the sample radius, mix it into the
   colour bucket (`mixSmudgeColor`, kept part = smudge length), mix the front
   colour in by colour rate, then `compositeSmudge` moves pixels toward that
-  colour, alpha included. Kubelka-Munk mixing replaces only
-  `mixSmudgeColor`; row-band parallelism goes only in `compositeSmudge`
+  colour, alpha included. Kubelka-Munk mixing (`SMUDGE_MIX_VALUE = 134`,
+  "SmudgeMix": 0 light, 1 pigment) runs only inside `mixSmudgeColor`, through
+  `spectralMix` (`spectralmix.*`, a port of spectral.js; keep its MIT notice,
+  never Mixbox): colour weighted by amount x alpha, alpha mixed linearly.
+  Row-band parallelism goes only in `compositeSmudge`
   (dab box >= 256K px, bands >= 64 rows; it fetches tile `bits()` before
   `parallelFor`, since a detach on a worker thread is a data race).
 - Smudge reads the canvas every dab, so it never queues dabs for

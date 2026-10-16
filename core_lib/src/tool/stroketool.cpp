@@ -93,6 +93,7 @@ void StrokeTool::loadSettings()
     info[StrokeToolProperties::SMUDGE_LENGTH_VALUE] = { 0, 100, 50 };
     info[StrokeToolProperties::SMUDGE_RADIUS_VALUE] = { 1, 100, 50 };
     info[StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE] = { 0, 100, 0 };
+    info[StrokeToolProperties::SMUDGE_MIX_VALUE] = { 0, 1, 0 };
     info[StrokeToolProperties::FEATHER_ENABLED] = false;
     info[StrokeToolProperties::PRESSURE_ENABLED] = false;
     info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;

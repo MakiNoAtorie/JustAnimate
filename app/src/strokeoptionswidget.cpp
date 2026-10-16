@@ -87,6 +87,13 @@ void StrokeOptionsWidget::initUI()
     connect(mGrainModeCombo, &QComboBox::activated, this, [this](int mode) {
         mCurrentTool->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, mode);
     });
+    // Item index is the SmudgeMix value.
+    mSmudgeMixCombo = new QComboBox(mDynamicsBox);
+    mSmudgeMixCombo->addItems({ tr("Light"), tr("Pigment") });
+    dynamics->addRow(tr("Smudge mixing"), mSmudgeMixCombo);
+    connect(mSmudgeMixCombo, &QComboBox::activated, this, [this](int mode) {
+        mCurrentTool->setDynamic(StrokeToolProperties::SMUDGE_MIX_VALUE, mode);
+    });
     for (const auto& [type, label, suffix] : rows)
     {
         const PropertyInfo info = p.getInfo(type);
@@ -376,6 +383,7 @@ void StrokeOptionsWidget::setVisibility(BaseTool* tool)
         auto* form = static_cast<QFormLayout*>(mDynamicsBox->layout());
         for (const auto& [type, box] : mDynamicsSpinBoxes)
             form->setRowVisible(box, tool->isPropertyEnabled(type));
+        form->setRowVisible(mSmudgeMixCombo, tool->isPropertyEnabled(StrokeToolProperties::SMUDGE_MIX_VALUE));
     }
     ui->useFeatherBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::FEATHER_ENABLED));
     ui->usePressureBox->setVisible(tool->isPropertyEnabled(StrokeToolProperties::PRESSURE_ENABLED));
@@ -464,6 +472,8 @@ void StrokeOptionsWidget::updateDynamics()
     }
     QSignalBlocker b(mGrainModeCombo);
     mGrainModeCombo->setCurrentIndex(p.grainMode());
+    QSignalBlocker b2(mSmudgeMixCombo);
+    mSmudgeMixCombo->setCurrentIndex(p.smudgeMix());
 }
 
 void StrokeOptionsWidget::setFeatherEnabled(bool enabled)

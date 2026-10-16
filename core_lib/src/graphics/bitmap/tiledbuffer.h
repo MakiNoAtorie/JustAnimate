@@ -67,6 +67,7 @@ struct SmudgeSettings
     float length = 0.5f; // part of the colour bucket kept at each dab
     float radius = 0.5f; // sample radius as a part of the dab radius
     float colorRate = 0; // part of the paint colour in each dab
+    bool wet = false;    // mix colours as pigments (Kubelka-Munk), not as light
 };
 
 /** Loads a brush tip mask from a GIMP .gbr file or an image file such as PNG.

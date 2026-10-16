@@ -13,6 +13,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapbucket.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapimage.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tile.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/spectralmix.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tiledbuffer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/bezierarea.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/beziercurve.h
@@ -118,6 +119,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapbucket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tile.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/spectralmix.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tiledbuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/bezierarea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/beziercurve.cpp
