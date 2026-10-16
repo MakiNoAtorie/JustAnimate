@@ -220,7 +220,8 @@ void ImportImageSeqDialog::importArbitrarySequence(const ImportImageConfig impor
 QStringList naturalSortedFileNames(const QDir& dir)
 {
     QStringList names = dir.entryList(QDir::Files);
-    QCollator collator;
+    // The C locale (CI, LANG unset) ignores numeric mode.
+    QCollator collator{QLocale(QLocale::English)};
     collator.setNumericMode(true);
     std::sort(names.begin(), names.end(), collator);
     return names;
