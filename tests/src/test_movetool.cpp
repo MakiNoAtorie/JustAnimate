@@ -131,3 +131,72 @@ TEST_CASE("MoveTool: a corner drag on a skewed selection follows the cursor")
     CHECK(after[2].x() == Approx(before[2].x() + 10).margin(0.5));
     CHECK(after[2].y() == Approx(before[2].y() + 10).margin(0.5));
 }
+
+TEST_CASE("MoveTool: typed transform values apply exactly")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    SelectionManager* select = editor->select();
+
+    select->setSelection(QRectF(0, 0, 40, 40), true);
+    select->setNumericTransform(QPointF(123.25, -7.5), 30, 1.5, -0.25);
+
+    CHECK(select->selectionCentre().x() == Approx(123.25).margin(1e-9));
+    CHECK(select->selectionCentre().y() == Approx(-7.5).margin(1e-9));
+    CHECK(select->myRotation() == 30);
+    CHECK(select->myScaleX() == 1.5);
+    CHECK(select->myScaleY() == -0.25);
+    // The top-left corner is (-20, -20) from the centre: scaled, then rotated 30 degrees.
+    const QPointF corner = select->mapToSelection(QPointF(0, 0));
+    CHECK(corner.x() == Approx(123.25 + (-30 * 0.8660254037844387 - 5 * 0.5)).margin(1e-9));
+    CHECK(corner.y() == Approx(-7.5 + (-30 * 0.5 + 5 * 0.8660254037844387)).margin(1e-9));
+}
+
+TEST_CASE("MoveTool: a typed move applies and undoes")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(MOVE);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    layer->getBitmapImageAtFrame(1)->setPixel(10, 20, qRgba(0, 0, 0, 255));
+    editor->select()->setSelection(QRectF(0, 0, 40, 40), true);
+
+    // An undo or redo step applies a pending move and deselects; a move shows either way.
+    auto moved = [&]
+    {
+        BitmapImage* img = layer->getBitmapImageAtFrame(1);
+        const bool pending = editor->select()->somethingSelected() && editor->select()->selectionCentre() == QPointF(120, 70);
+        const bool applied = qAlpha(img->pixel(10, 20)) == 0 && qAlpha(img->pixel(110, 70)) != 0;
+        return pending || applied;
+    };
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+
+    REQUIRE_FALSE(moved());
+    editor->select()->setNumericTransform(QPointF(120, 70), 0, 1, 1);
+    REQUIRE(moved());
+    // A click outside applies the move to the pixels.
+    drag(area, screen(QPointF(300, 300)), screen(QPointF(300, 300)));
+    REQUIRE(moved());
+
+    undoAction->trigger();
+    REQUIRE(moved()); // the move is pending again
+    undoAction->trigger();
+    REQUIRE_FALSE(moved());
+    redoAction->trigger();
+    REQUIRE(moved());
+}

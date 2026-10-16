@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Move and select tools: type the position, scale and rotation of a selection in the tool options; values apply exactly and undo in one step (2.10).
 - Move tool: drag the round handle on a selection edge to skew it around its centre; undoable (2.10).
 - Lock Transparency: right-click a bitmap layer to paint only on its existing pixels; strokes never change alpha and the setting is saved (2.8).
 - Fixes: a stroke on a moved (tweened) key lands where it is drawn, Duplicate Layer keeps the blend mode, a single Next/Previous Frame tap always steps, and marker names show on the timeline ruler.

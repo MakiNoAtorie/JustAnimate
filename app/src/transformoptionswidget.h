@@ -50,11 +50,14 @@ private:
     void updateToolConnections(BaseTool* tool);
     void setShowSelectionInfo(bool enabled);
     void setAntiAliasingEnabled(bool enabled);
+    void updateNumericTransform();
+    void applyNumericTransform();
 
     Ui::TransformOptionsWidget *ui;
 
     TransformTool* mTransformTool = nullptr;
     Editor* mEditor = nullptr;
+    qreal mShownValues[5] = {}; // Box values after the last update: an unchanged box keeps the exact value.
 };
 
 #endif // TRANSFORMOPTIONSWIDGET_H

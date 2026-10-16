@@ -125,6 +125,12 @@ public:
     void setSkew(const qreal skewX, const qreal skewY) { mSkewX = skewX; mSkewY = skewY; }
     void setTranslation(const QPointF& translation) { mTranslation = translation; }
 
+    /// Canvas position of the centre of the selection rect after the transform.
+    QPointF selectionCentre() const { return mapToSelection(mOriginalRect.center()); }
+    /** @brief Sets typed transform values around the selection centre and records one undo step.
+     *  @param centre canvas position of the centre; @param rotation degrees; skew stays. */
+    void setNumericTransform(const QPointF& centre, qreal rotation, qreal scaleX, qreal scaleY);
+
     qreal angleFromPoint(const QPointF& point, const QPointF& anchorPoint) const;
 
     // Coordinate Space Conversions
