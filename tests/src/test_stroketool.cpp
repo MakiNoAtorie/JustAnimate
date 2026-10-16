@@ -1362,3 +1362,60 @@ TEST_CASE("StrokeTool - perspective snap locks a stroke to the line toward the n
 
     prefs->set(SETTING::OVERLAY_PERSPECTIVE2, twoPointWas);
 }
+
+TEST_CASE("Eraser - a stroke shrinks the bitmap bounds to the remaining ink and undo restores them")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    BitmapImage* image = layer->getBitmapImageAtFrame(1);
+    const QRect blobA(-80, -10, 20, 20);
+    const QRect blobB(60, -10, 20, 20);
+    BitmapImage a(blobA, Qt::black);
+    BitmapImage b(blobB, Qt::black);
+    image->paste(&a);
+    image->paste(&b);
+    // Minimal bounds before the stroke, like a frame loaded from a file.
+    const QRect beforeBounds = image->bounds();
+    REQUIRE(beforeBounds == blobA.united(blobB));
+    REQUIRE(image->isMinimallyBounded());
+    const QImage beforePixels = *image->image();
+
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->scrubTo(1);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(ERASER);
+    auto* eraser = static_cast<StrokeTool*>(editor->tools()->currentTool());
+    const ToolSettingsGuard guard(eraser);
+    eraser->setWidth(100);
+    eraser->setFeatherEnabled(false);
+    eraser->setPressureEnabled(false);
+    auto erase = [&](QPointF from, QPointF to) {
+        stroke(area, editor->view()->mapCanvasToScreen(from), editor->view()->mapCanvasToScreen(to), 1.0);
+    };
+
+    erase(QPointF(70, -40), QPointF(70, 40));
+    image = layer->getBitmapImageAtFrame(1);
+    CHECK(image->isMinimallyBounded());
+    CHECK(image->bounds() == blobA);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    REQUIRE(undoAction->isEnabled());
+    undoAction->trigger();
+    image = layer->getBitmapImageAtFrame(1);
+    CHECK(image->bounds() == beforeBounds);
+    CHECK(*image->image() == beforePixels);
+
+    REQUIRE(redoAction->isEnabled());
+    redoAction->trigger();
+    CHECK(layer->getBitmapImageAtFrame(1)->bounds() == blobA);
+    erase(QPointF(-70, -40), QPointF(-70, 40));
+    image = layer->getBitmapImageAtFrame(1);
+    CHECK(image->isMinimallyBounded());
+    CHECK(image->bounds().isEmpty());
+}
