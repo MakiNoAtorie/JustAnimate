@@ -109,6 +109,25 @@ TEST_CASE("VectorImage fillSelectedPath")
     REQUIRE(vImage.getFirstAreaNumber(QPointF(200, 200)) == -1);
 }
 
+TEST_CASE("VectorImage getClosestVertexTo finds curve 0 vertex 0")
+{
+    VectorImage vImage;
+    BezierCurve square({ QPointF(10, 10), QPointF(90, 10), QPointF(90, 90), QPointF(10, 90), QPointF(10, 10) });
+    vImage.addCurve(square, 1.0);
+
+    SECTION("A point on vertex 0 returns it")
+    {
+        REQUIRE(vImage.getClosestVertexTo(vImage.curve(0), 0, vImage.getVertex(0, 0)) == VertexRef(0, 0));
+    }
+
+    SECTION("A fill keeps vertex 0 in the area")
+    {
+        vImage.selectAll();
+        vImage.fillSelectedPath(3);
+        REQUIRE(vImage.getSelectedArea(QPointF(50, 50)).mVertex.contains(VertexRef(0, 0)));
+    }
+}
+
 namespace {
 // Adds a one-curve vector frame at frame 1 coloured `colour`.
 void addCurve(LayerVector* layer, int colour)
