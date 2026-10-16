@@ -15,6 +15,8 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <memory>
+#include <random>
+#include <vector>
 #include <QAction>
 #include <QDomDocument>
 #include <QIcon>
@@ -106,6 +108,33 @@ TEST_CASE("Blend modes keep the layer over transparent pixels and the backdrop u
         dst = layer;
         blendPixels(mode, &dst, &clear, 1);
         CHECK(dst == layer);
+    }
+}
+
+TEST_CASE("The vector blend matches the scalar blend byte for byte", "[BlendMode]")
+{
+    // Every source and backdrop alpha pair, random premultiplied colours, 3 extra pixels for the tail.
+    const int count = 256 * 256 + 3;
+    std::mt19937 rng(96);
+    std::vector<quint32> src(count), dst(count);
+    for (int i = 0; i < count; ++i)
+    {
+        const int sa = i & 0xff;
+        const int da = (i >> 8) & 0xff;
+        auto channel = [&](int a) { return int(rng() % (a + 1)); };
+        src[i] = qRgba(channel(sa), channel(sa), channel(sa), sa);
+        dst[i] = qRgba(channel(da), channel(da), channel(da), da);
+    }
+    for (BlendMode mode : { BlendMode::Normal, BlendMode::Multiply, BlendMode::Screen, BlendMode::Overlay, BlendMode::Add })
+    {
+        std::vector<quint32> vector = dst, scalar = dst;
+        blendPixels(mode, vector.data(), src.data(), count);
+        blendPixelsScalar(mode, scalar.data(), src.data(), count);
+        int mismatches = 0;
+        for (int i = 0; i < count; ++i)
+            mismatches += vector[i] != scalar[i];
+        INFO("mode " << int(mode));
+        CHECK(mismatches == 0);
     }
 }
 

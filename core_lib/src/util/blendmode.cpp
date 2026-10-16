@@ -18,6 +18,12 @@ GNU General Public License for more details.
 #include <QPainter>
 #include <QPixmap>
 
+// SSE2 is the x86-64 baseline: no runtime check. Other targets use the scalar path.
+#if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+#define BLEND_SSE2
+#include <emmintrin.h>
+#endif
+
 namespace
 {
 
@@ -46,6 +52,78 @@ inline int blendChannel(BlendMode mode, int s, int d, int sa, int da)
     }
 }
 
+#ifdef BLEND_SSE2
+// One channel per 16-bit lane. Lane maths wraps modulo 2^16, so it gives the exact scalar result
+// whenever the true numerator is within 0..65407: true for valid premultiplied pixels.
+
+// round(x / 255), exact for 0 <= x <= 65407.
+inline __m128i div255(__m128i x)
+{
+    return _mm_mulhi_epu16(_mm_add_epi16(x, _mm_set1_epi16(128)), _mm_set1_epi16(257));
+}
+
+inline __m128i alphas(__m128i p)
+{
+    return _mm_shufflehi_epi16(_mm_shufflelo_epi16(p, 0xff), 0xff);
+}
+
+// blendChannel on 8 lanes. The alpha lanes get the alpha formula, as in the scalar path.
+template <BlendMode M>
+__m128i blendLanes(__m128i s, __m128i d)
+{
+    const __m128i sa = alphas(s);
+    const __m128i da = alphas(d);
+    const __m128i full = _mm_set1_epi16(255);
+    if constexpr (M == BlendMode::Normal)
+    {
+        return _mm_add_epi16(s, div255(_mm_mullo_epi16(d, _mm_sub_epi16(full, sa))));
+    }
+    else if constexpr (M == BlendMode::Screen)
+    {
+        return _mm_sub_epi16(_mm_add_epi16(s, d), div255(_mm_mullo_epi16(s, d)));
+    }
+    else
+    {
+        const __m128i base = _mm_add_epi16(_mm_mullo_epi16(s, _mm_sub_epi16(full, da)),
+                                           _mm_mullo_epi16(d, _mm_sub_epi16(full, sa)));
+        __m128i b = _mm_mullo_epi16(s, d);
+        if constexpr (M == BlendMode::Overlay)
+        {
+            const __m128i high = _mm_sub_epi16(_mm_mullo_epi16(sa, da),
+                                               _mm_slli_epi16(_mm_mullo_epi16(_mm_sub_epi16(da, d), _mm_sub_epi16(sa, s)), 1));
+            const __m128i useHigh = _mm_cmpgt_epi16(_mm_slli_epi16(d, 1), da);
+            b = _mm_or_si128(_mm_and_si128(useHigh, high), _mm_andnot_si128(useHigh, _mm_slli_epi16(b, 1)));
+        }
+        return div255(_mm_add_epi16(base, b));
+    }
+}
+
+// Blends 4 pixels per step; returns the number of pixels done.
+template <BlendMode M>
+int blendSse2(quint32* dst, const quint32* src, int count)
+{
+    int i = 0;
+    for (; i + 4 <= count; i += 4)
+    {
+        const __m128i s = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src + i));
+        const __m128i d = _mm_loadu_si128(reinterpret_cast<const __m128i*>(dst + i));
+        __m128i out;
+        if constexpr (M == BlendMode::Add)
+        {
+            out = _mm_adds_epu8(s, d);
+        }
+        else
+        {
+            const __m128i zero = _mm_setzero_si128();
+            out = _mm_packus_epi16(blendLanes<M>(_mm_unpacklo_epi8(s, zero), _mm_unpacklo_epi8(d, zero)),
+                                   blendLanes<M>(_mm_unpackhi_epi8(s, zero), _mm_unpackhi_epi8(d, zero)));
+        }
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i), out);
+    }
+    return i;
+}
+#endif
+
 QImage grabDevice(QPaintDevice* device, const QRect& rect)
 {
     if (device->devType() == QInternal::Image) { return static_cast<QImage*>(device)->copy(rect); }
@@ -56,6 +134,22 @@ QImage grabDevice(QPaintDevice* device, const QRect& rect)
 } // namespace
 
 void blendPixels(BlendMode mode, quint32* dst, const quint32* src, int count)
+{
+    int done = 0;
+#ifdef BLEND_SSE2
+    switch (mode)
+    {
+    case BlendMode::Multiply: done = blendSse2<BlendMode::Multiply>(dst, src, count); break;
+    case BlendMode::Screen: done = blendSse2<BlendMode::Screen>(dst, src, count); break;
+    case BlendMode::Overlay: done = blendSse2<BlendMode::Overlay>(dst, src, count); break;
+    case BlendMode::Add: done = blendSse2<BlendMode::Add>(dst, src, count); break;
+    default: done = blendSse2<BlendMode::Normal>(dst, src, count); break;
+    }
+#endif
+    blendPixelsScalar(mode, dst + done, src + done, count - done);
+}
+
+void blendPixelsScalar(BlendMode mode, quint32* dst, const quint32* src, int count)
 {
     for (int i = 0; i < count; ++i)
     {

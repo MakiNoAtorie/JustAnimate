@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #include "object.h"
 #include "appinfo.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <QDomDocument>
 #include <QTextStream>
 #include <QProgressDialog>
@@ -902,7 +905,48 @@ Status Object::exportFrames(int frameStart, int frameEnd,
     return Status::OK;
 }
 
-Status Object::exportIm(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, const QString& filePath, const QString& format, bool antialiasing, bool transparency) const
+Object::SpriteSheetGrid Object::spriteSheetGrid(int frameCount, int columns)
+{
+    SpriteSheetGrid grid;
+    const int n = std::max(frameCount, 1);
+    grid.columns = columns > 0 ? std::min(columns, n) : static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n))));
+    grid.rows = (n + grid.columns - 1) / grid.columns;
+    return grid;
+}
+
+Status Object::exportSpriteSheet(int frameStart, int frameEnd, const LayerCamera* cameraLayer, QSize frameSize, const QString& filePath,
+                                 int columns, bool transparency, bool antialiasing, QProgressDialog* progress, int progressMax) const
+{
+    Q_ASSERT(cameraLayer);
+    const int count = frameEnd - frameStart + 1;
+    const SpriteSheetGrid grid = spriteSheetGrid(count, columns);
+    QImage sheet(frameSize.width() * grid.columns, frameSize.height() * grid.rows, QImage::Format_ARGB32_Premultiplied);
+    sheet.fill(transparency ? QColor(Qt::transparent) : QColor(Qt::white));
+
+    for (int i = 0; i < count; ++i)
+    {
+        if (progress != nullptr)
+        {
+            progress->setValue((i + 1) * progressMax / count);
+            QApplication::processEvents();
+            if (progress->wasCanceled()) { return Status::CANCELED; }
+        }
+        const int frame = frameStart + i;
+        QPainter painter(&sheet);
+        painter.drawImage(grid.cell(i, frameSize).topLeft(),
+                          renderFrame(frame, cameraLayer->getViewAtFrame(frame), cameraLayer->getViewSize(), frameSize, antialiasing, transparency));
+    }
+
+    QImageWriter writer(filePath, "PNG");
+    if (writer.write(sheet)) { return Status::OK; }
+    DebugDetails dd;
+    dd << "Object::exportSpriteSheet";
+    dd << QString("&nbsp;&nbsp;filePath: ").append(filePath);
+    dd << QString("&nbsp;&nbsp;Error: %1 (code %2)").arg(writer.errorString()).arg(static_cast<int>(writer.error()));
+    return Status(Status::FAIL, dd);
+}
+
+QImage Object::renderFrame(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, bool antialiasing, bool transparency) const
 {
     QImage imageToExport(exportSize, QImage::Format_ARGB32_Premultiplied);
 
@@ -919,7 +963,12 @@ Status Object::exportIm(int frame, const QTransform& view, QSize cameraSize, QSi
     painter.setWindow(QRect(0, 0, cameraSize.width(), cameraSize.height()));
 
     paintImage(painter, frame, false, antialiasing);
+    return imageToExport;
+}
 
+Status Object::exportIm(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, const QString& filePath, const QString& format, bool antialiasing, bool transparency) const
+{
+    const QImage imageToExport = renderFrame(frame, view, cameraSize, exportSize, antialiasing, transparency);
     QImageWriter writer(filePath, format.toStdString().c_str());
     bool b = writer.write(imageToExport);
     if (b) {

@@ -22,6 +22,8 @@ GNU General Public License for more details.
 #include <QObject>
 #include <QList>
 #include <QColor>
+#include <QImage>
+#include <QRect>
 #include "layer.h"
 #include "colorref.h"
 #include "pencilerror.h"
@@ -150,6 +152,22 @@ public:
     // these functions need to be moved to somewhere...
     Status exportFrames(int frameStart, int frameEnd, const LayerCamera* cameraLayer, QSize exportSize, QString filePath, QString format,
                       bool transparency, bool exportKeyframesOnly, const QString& layerName, bool antialiasing, QProgressDialog* progress, int progressMax) const;
+
+    // Frames in one PNG: row-major grid in frame order. columns <= 0 means ceil(sqrt(n)).
+    struct SpriteSheetGrid
+    {
+        int columns = 1;
+        int rows = 1;
+        QRect cell(int index, const QSize& frame) const
+        {
+            return QRect(QPoint((index % columns) * frame.width(), (index / columns) * frame.height()), frame);
+        }
+    };
+    QImage renderFrame(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, bool antialiasing, bool transparency) const;
+    static SpriteSheetGrid spriteSheetGrid(int frameCount, int columns);
+    // Writes nothing when canceled through progress.
+    Status exportSpriteSheet(int frameStart, int frameEnd, const LayerCamera* cameraLayer, QSize frameSize, const QString& filePath,
+                             int columns, bool transparency, bool antialiasing, QProgressDialog* progress, int progressMax) const;
 
     Status exportIm(int frameStart, const QTransform& view, QSize cameraSize, QSize exportSize, const QString& filePath, const QString& format, bool antialiasing, bool transparency) const;
 

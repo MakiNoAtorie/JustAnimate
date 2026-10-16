@@ -38,6 +38,7 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | draw brush | the same with the brush tool |
 | draw top | the pencil strokes on the top layer, so all other layers are below the painted one |
 | scrub onion | the scrub again on the top layer, onion skin on with 5 tinted frames before and after |
+| play blend | the play again with layers 2-10 blended (multiply, screen, overlay, add in turn) |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke. A last line prints the peak RAM (working set, sampled after
