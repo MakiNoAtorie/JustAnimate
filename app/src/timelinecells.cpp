@@ -36,6 +36,7 @@ GNU General Public License for more details.
 #include "camerapropertiesdialog.h"
 #include "editor.h"
 #include "keyframe.h"
+#include "layerbitmap.h"
 #include "layermanager.h"
 #include "viewmanager.h"
 #include "object.h"
@@ -998,6 +999,13 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 QAction* onion = menu.addAction(tr("Onion Skin"));
                 onion->setCheckable(true);
                 onion->setChecked(layer->onionSkin());
+                QAction* lockAlpha = nullptr;
+                if (layer->type() == Layer::BITMAP)
+                {
+                    lockAlpha = menu.addAction(tr("Lock Transparency"));
+                    lockAlpha->setCheckable(true);
+                    lockAlpha->setChecked(static_cast<LayerBitmap*>(layer)->lockAlpha());
+                }
                 if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
                 {
                     QMenu* blend = menu.addMenu(tr("Blend Mode"));
@@ -1040,6 +1048,11 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 if (chosen == onion)
                 {
                     mEditor->switchOnionSkinOfLayer(layerNumber);
+                }
+                else if (chosen && chosen == lockAlpha)
+                {
+                    static_cast<LayerBitmap*>(layer)->setLockAlpha(lockAlpha->isChecked());
+                    mEditor->object()->modification();
                 }
                 else if (chosen && chosen == newGroup)
                 {

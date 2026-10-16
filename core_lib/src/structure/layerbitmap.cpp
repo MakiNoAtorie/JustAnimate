@@ -195,6 +195,7 @@ bool LayerBitmap::needSaveFrame(KeyFrame* key, const QString& savePath)
 QDomElement LayerBitmap::createDomElement(QDomDocument& doc) const
 {
     QDomElement layerElem = createBaseDomElement(doc);
+    if (mLockAlpha) { layerElem.setAttribute("lockAlpha", 1); }
 
     foreachKeyFrame([&](KeyFrame* pKeyFrame)
     {
@@ -220,6 +221,7 @@ QDomElement LayerBitmap::createDomElement(QDomDocument& doc) const
 void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath, ProgressCallback progressStep)
 {
     this->loadBaseDomElement(element);
+    mLockAlpha = element.attribute("lockAlpha") == "1";
 
     const DataPathValidator dataPaths(dataDirPath);
     QDomNode imageTag = element.firstChild();

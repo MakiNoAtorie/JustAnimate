@@ -176,6 +176,7 @@ public:
                    const SmudgeSettings& smudge);
 
     void paintBitmapBuffer();
+    QPainter::CompositionMode bufferCompositionMode() const;
     void clearDrawingBuffer();
 
     void pointerPressEvent(PointerEvent*);

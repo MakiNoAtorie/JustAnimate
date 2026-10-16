@@ -227,6 +227,10 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     Layer* to = createLayer(from->type(), name);
     if (to == nullptr) { return nullptr; }
     to->setBlendMode(from->blendMode());
+    if (to->type() == Layer::BITMAP)
+    {
+        static_cast<LayerBitmap*>(to)->setLockAlpha(static_cast<LayerBitmap*>(from)->lockAlpha());
+    }
     from->foreachKeyFrame([&](KeyFrame* key) {
         key = key->clone();
         to->addOrReplaceKeyFrame(key->pos(), key);

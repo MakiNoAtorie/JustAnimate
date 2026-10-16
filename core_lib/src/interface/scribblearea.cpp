@@ -792,24 +792,8 @@ void ScribbleArea::paintBitmapBuffer()
     BitmapImage* targetImage = currentBitmapImage(layer);
     if (targetImage != nullptr)
     {
-        QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver;
-        switch (currentTool()->type())
-        {
-        case ERASER:
-            cm = QPainter::CompositionMode_DestinationOut;
-            break;
-        case SMUDGE:
-            cm = QPainter::CompositionMode_Source;
-            break;
-        case BRUSH:
-        case PEN:
-        case PENCIL:
-            break;
-        default: //nothing
-            break;
-        }
         // The stroke is drawn in canvas space; map it into the space of the key.
-        targetImage->paste(&mTiledBuffer, cm, layer->tweenStateAt(frameNumber).transform().inverted());
+        targetImage->paste(&mTiledBuffer, bufferCompositionMode(), layer->tweenStateAt(frameNumber).transform().inverted());
     }
 
     QRect rect = mEditor->view()->mapCanvasToScreen(mTiledBuffer.bounds()).toRect();
@@ -818,6 +802,22 @@ void ScribbleArea::paintBitmapBuffer()
 
     layer->setModified(frameNumber, true);
     mTiledBuffer.clear();
+}
+
+QPainter::CompositionMode ScribbleArea::bufferCompositionMode() const
+{
+    Layer* layer = mEditor->layers()->currentLayer();
+    const bool lockAlpha = layer && layer->type() == Layer::BITMAP && static_cast<LayerBitmap*>(layer)->lockAlpha();
+    switch (mEditor->tools()->currentTool()->type())
+    {
+    case ToolType::ERASER:
+        return lockAlpha ? QPainter::CompositionMode_Destination : QPainter::CompositionMode_DestinationOut;
+    // Smudge tiles hold the layer pixels they change.
+    case ToolType::SMUDGE:
+        return lockAlpha ? QPainter::CompositionMode_SourceAtop : QPainter::CompositionMode_Source;
+    default:
+        return lockAlpha ? QPainter::CompositionMode_SourceAtop : QPainter::CompositionMode_SourceOver;
+    }
 }
 
 void ScribbleArea::clearDrawingBuffer()
@@ -1131,13 +1131,7 @@ void ScribbleArea::prepCanvas(int frame)
     o.eLayerVisibility = mLayerVisibility;
     o.fLayerVisibilityThreshold = mPrefs->getFloat(SETTING::LAYER_VISIBILITY_THRESHOLD);
     o.scaling = mEditor->view()->scaling();
-    switch (mEditor->tools()->currentTool()->type())
-    {
-    case ToolType::ERASER: o.cmBufferBlendMode = QPainter::CompositionMode_DestinationOut; break;
-    // Smudge tiles hold the layer pixels they change.
-    case ToolType::SMUDGE: o.cmBufferBlendMode = QPainter::CompositionMode_Source; break;
-    default: o.cmBufferBlendMode = QPainter::CompositionMode_SourceOver; break;
-    }
+    o.cmBufferBlendMode = bufferCompositionMode();
 
     mCanvasPainter.setOnionSkinOptions(onionSkinOptions());
     mCanvasPainter.setOptions(o);

@@ -41,6 +41,10 @@ public:
     void repositionFrame(QPoint point, int frame);
     QRect getFrameBounds(int frame);
 
+    // Lock transparency: strokes change colour only where pixels exist.
+    bool lockAlpha() const { return mLockAlpha; }
+    void setLockAlpha(bool b) { mLockAlpha = b; }
+
 protected:
     Status saveKeyFrameFile(KeyFrame*, QString strPath) override;
     KeyFrame* createKeyFrame(int position) override;
@@ -50,6 +54,8 @@ private:
     QString filePath(KeyFrame* key, const QDir& dataFolder) const;
     QString fileName(KeyFrame* key) const;
     bool needSaveFrame(KeyFrame* key, const QString& strSavePath);
+
+    bool mLockAlpha = false;
 };
 
 #endif
