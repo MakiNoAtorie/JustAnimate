@@ -32,7 +32,8 @@ To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
 - **Closing work:** open a **draft PR** from the integration branch into
   `master` after the first ticket merges. The `Fixes #N` lines close the
   tickets when it merges. Mark it ready after `/code-review` fixes are in
-  and CI is green. Never close the spec issue by hand.
+  and CI is green. After the merge, close the spec issue once all of its
+  tickets are closed; if skipped tickets stay open, leave it open.
 - **Model per subagent:** pick before launching and say why in one line.
   Opus for tricky work (undo/serialization/state, rendering, parsing
   untrusted files, cross-module refactors, unexplained failures); Sonnet for
