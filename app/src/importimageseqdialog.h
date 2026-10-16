@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #ifndef IMPORTIMAGESEQDIALOG_H
 #define IMPORTIMAGESEQDIALOG_H
 
+#include <QDir>
+#include <QStringList>
+
 #include "importexportdialog.h"
 #include "pencilerror.h"
 #include "predefinedsetmodel.h"
@@ -41,6 +44,9 @@ struct PredefinedKeySetParams
 };
 
 enum ImportCriteria { Arbitrary, PredefinedSet };
+
+/** Files of dir in natural order: a2 before a10, with or without zero padding. */
+QStringList naturalSortedFileNames(const QDir& dir);
 
 class ImportImageSeqDialog : public ImportExportDialog
 {
