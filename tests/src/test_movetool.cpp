@@ -17,10 +17,12 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QApplication>
 #include <QIcon>
+#include <QKeyEvent>
 #include <QPointingDevice>
 #include <QTabletEvent>
 
 #include "bitmapimage.h"
+#include "colormanager.h"
 #include "editor.h"
 #include "layerbitmap.h"
 #include "layermanager.h"
@@ -199,4 +201,101 @@ TEST_CASE("MoveTool: a typed move applies and undoes")
     REQUIRE_FALSE(moved());
     redoAction->trigger();
     REQUIRE(moved());
+}
+
+TEST_CASE("MoveTool: a stroke after a redone move paints with an identity selection transform")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(MOVE);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    const QRgb black = qRgba(0, 0, 0, 255);
+    layer->getBitmapImageAtFrame(1)->setPixel(10, 20, black);
+    editor->select()->setSelection(QRectF(0, 0, 40, 40), true);
+    auto blackAt = [&](int x) { return layer->getBitmapImageAtFrame(1)->pixel(x, 20) == black; };
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+
+    // Move the selection 20 right, undo, switch to the pen, redo, draw.
+    drag(area, screen(QPointF(20, 20)), screen(QPointF(40, 20)));
+    undoAction->trigger();
+    REQUIRE(blackAt(10));
+    editor->tools()->setCurrentTool(PEN);
+    redoAction->trigger();
+    tablet(area, QEvent::TabletPress, screen(QPointF(200, 200)), Qt::LeftButton);
+    tablet(area, QEvent::TabletMove, screen(QPointF(250, 200)), Qt::LeftButton);
+    area->grab(); // paints while drawing: asserts on a pending selection transform
+    tablet(area, QEvent::TabletRelease, screen(QPointF(250, 200)), Qt::NoButton);
+
+    CHECK(editor->select()->selectionTransform().isIdentity());
+    CHECK_FALSE(blackAt(10));
+    CHECK(blackAt(30));
+
+    undoAction->trigger(); // the stroke
+    undoAction->trigger(); // the move
+    CHECK(blackAt(10));
+    CHECK_FALSE(blackAt(30));
+}
+
+TEST_CASE("Polyline and bucket apply a pending selection transform before they paint")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+
+    const QRgb black = qRgba(0, 0, 0, 255);
+    // A block wider than the bucket's fill expand, so a fill around it keeps its middle.
+    for (int x = 5; x <= 15; ++x)
+        for (int y = 15; y <= 25; ++y)
+            layer->getBitmapImageAtFrame(1)->setPixel(x, y, black);
+    editor->select()->setSelection(QRectF(0, 0, 40, 40), true);
+    auto blackAt = [&](int x) { return layer->getBitmapImageAtFrame(1)->pixel(x, 20) == black; };
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+    auto nudgeRight = [&]
+    {
+        QKeyEvent e(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+        QApplication::sendEvent(area, &e);
+        REQUIRE_FALSE(editor->select()->selectionTransform().isIdentity());
+    };
+
+    SECTION("Polyline")
+    {
+        editor->tools()->setCurrentTool(POLYLINE);
+        nudgeRight();
+        tablet(area, QEvent::TabletPress, screen(QPointF(200, 200)), Qt::LeftButton);
+        tablet(area, QEvent::TabletRelease, screen(QPointF(200, 200)), Qt::NoButton);
+        tablet(area, QEvent::TabletMove, screen(QPointF(250, 200)), Qt::NoButton);
+        area->grab(); // paints the polyline buffer: asserts on a pending selection transform
+        QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+        QApplication::sendEvent(area, &esc);
+    }
+
+    SECTION("Bucket")
+    {
+        editor->color()->setFrontColor(Qt::red);
+        editor->tools()->setCurrentTool(BUCKET);
+        nudgeRight();
+        tablet(area, QEvent::TabletPress, screen(QPointF(200, 200)), Qt::LeftButton);
+        tablet(area, QEvent::TabletRelease, screen(QPointF(200, 200)), Qt::NoButton);
+    }
+
+    CHECK(editor->select()->selectionTransform().isIdentity());
+    CHECK_FALSE(blackAt(5));
+    CHECK(blackAt(11));
 }

@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "camera.h"
 
 #include "scribblearea.h"
+#include "undoredomanager.h"
 
 #include <QPixmap>
 #include <QPainter>
@@ -218,6 +219,7 @@ void CameraTool::updateMoveMode(const QPointF& pos)
 
 void CameraTool::performAction(ActionType actionType)
 {
+    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::CAMERA_MODIFY);
     switch (actionType)
     {
         case RESET_PATH: {
@@ -241,6 +243,7 @@ void CameraTool::performAction(ActionType actionType)
             break;
         }
     }
+    mEditor->undoRedo()->record(saveStateId, actionType == RESET_PATH ? tr("Reset Camera Path") : tr("Reset Camera"));
 }
 
 void CameraTool::setCameraPathEnabled(bool enabled)
@@ -331,6 +334,10 @@ void CameraTool::pointerPressEvent(PointerEvent* event)
 
     mStartAngle = getAngleBetween(event->canvasPos(), mCameraRect.center()) - mCurrentAngle;
     mTransformOffset = event->canvasPos();
+
+    // A press whose release never came leaves its state behind
+    mEditor->undoRedo()->discardState(mUndoSaveStateId);
+    mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::CAMERA_MODIFY);
 }
 
 void CameraTool::pointerMoveEvent(PointerEvent* event)
@@ -370,6 +377,9 @@ void CameraTool::pointerReleaseEvent(PointerEvent* event)
         mEditor->view()->forceUpdateViewTransform();
     }
     emit mEditor->frameModified(frame);
+
+    mEditor->undoRedo()->record(mUndoSaveStateId, tr("Move Camera"));
+    mUndoSaveStateId = 0;
 }
 
 qreal CameraTool::getAngleBetween(const QPointF& pos1, const QPointF& pos2) const

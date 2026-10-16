@@ -27,7 +27,6 @@ GNU General Public License for more details.
 #include "overlaymanager.h"
 #include "layermanager.h"
 #include "layercamera.h"
-#include "selectionmanager.h"
 #include "tiledbuffer.h"
 
 #include "canvascursorpainter.h"
@@ -188,12 +187,6 @@ QPointF StrokeTool::getLastPoint() const
 
 void StrokeTool::startStroke(PointerEvent::InputType inputType)
 {
-    // The canvas cannot paint a stroke over a pending selection transform.
-    if (!mEditor->select()->selectionTransform().isIdentity())
-    {
-        mScribbleArea->applyTransformedSelection();
-    }
-
     if (emptyFrameActionEnabled())
     {
         mScribbleArea->handleDrawingOnEmptyFrame();

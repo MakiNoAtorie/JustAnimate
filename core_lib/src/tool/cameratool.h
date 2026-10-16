@@ -111,6 +111,7 @@ private:
     QPointF mTransformOffset;
     CameraMoveType mCamMoveMode = CameraMoveType::NONE;
     int mDragPathFrame = 1;
+    int mUndoSaveStateId = 0; // the drag records once, at release
     int mRotationIncrement = 0;
 
     QRectF mCameraRect;
