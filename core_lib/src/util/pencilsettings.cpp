@@ -16,6 +16,8 @@ GNU General Public License for more details.
 */
 #include "pencilsettings.h"
 
+#include <memory>
+
 #include <QStringList>
 #include <QDebug>
 
@@ -31,9 +33,11 @@ void usePencilSettingsIniFile(const QString& path)
 
 QSettings& pencilSettings()
 {
-    static QSettings settings = gIniPath.isEmpty()
-        ? QSettings(PENCIL2D, PENCIL2D)
-        : QSettings(gIniPath, QSettings::IniFormat);
+    // MSVC with Qt 6.5 rejects a ternary of QSettings prvalues: copy constructor is deleted.
+    static const std::unique_ptr<QSettings> instance(gIniPath.isEmpty()
+        ? new QSettings(PENCIL2D, PENCIL2D)
+        : new QSettings(gIniPath, QSettings::IniFormat));
+    QSettings& settings = *instance;
 
     if ( !settings.contains("InitPencilSetting") )
     {
