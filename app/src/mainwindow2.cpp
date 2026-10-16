@@ -958,6 +958,12 @@ bool MainWindow2::saveObject(QString strSavedFileName)
 
     progress.setValue(progress.maximum());
 
+    if (!fm.skippedSoundClips().isEmpty())
+    {
+        QMessageBox::warning(this, tr("Missing Sound Files"),
+                             tr("These sound clips were saved without audio because their files are missing:\n%1").arg(fm.skippedSoundClips().join('\n')));
+    }
+
     mEditor->resetAutoSaveCounter();
 
     return true;

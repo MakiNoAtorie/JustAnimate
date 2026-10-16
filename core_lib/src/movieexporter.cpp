@@ -98,6 +98,7 @@ Status MovieExporter::run(const Object* obj,
 
     STATUS_CHECK(checkInputParameters(desc))
     mDesc = desc;
+    mSkippedClips.clear();
 
     qDebug() << "OutFile: " << mDesc.strFileName;
 
@@ -199,13 +200,8 @@ Status MovieExporter::assembleAudio(const Object* obj,
                                     QString ffmpegPath,
                                     std::function<void(float)> progress)
 {
-    // Quicktime assemble call
-    const int startFrame = mDesc.startFrame;
-    const int endFrame = mDesc.endFrame;
-    const int fps = mDesc.fps;
-
-    Q_ASSERT(startFrame >= 0);
-    Q_ASSERT(endFrame >= startFrame);
+    Q_ASSERT(mDesc.startFrame >= 0);
+    Q_ASSERT(mDesc.endFrame >= mDesc.startFrame);
 
     QDir dir(mTempWorkDir);
     Q_ASSERT(dir.exists());
@@ -213,36 +209,53 @@ Status MovieExporter::assembleAudio(const Object* obj,
     QString tempAudioPath = QDir(mTempWorkDir).filePath("tmpaudio.wav");
     qDebug() << "TempAudio=" << tempAudioPath;
 
+    if (mCanceled)
+    {
+        return Status::CANCELED;
+    }
+
+    const AudioMix mix = audioMix(obj, mDesc.startFrame, mDesc.endFrame, mDesc.fps, tempAudioPath);
+    mSkippedClips = mix.skipped;
+    if (mix.args.isEmpty()) return Status::SAFE;
+    const QStringList& args = mix.args;
+
+    STATUS_CHECK(MovieExporter::executeFFmpeg(ffmpegPath, args, [&progress, this] (int frame) { progress(frame / static_cast<float>(mDesc.endFrame - mDesc.startFrame)); return !mCanceled; }))
+    qDebug() << "audio file: " + tempAudioPath;
+
+    return Status::OK;
+}
+
+MovieExporter::AudioMix MovieExporter::audioMix(const Object* obj, int startFrame, int endFrame, int fps, const QString& outPath)
+{
+    AudioMix mix;
     std::vector< SoundClip* > allSoundClips;
 
     std::vector< LayerSound* > allSoundLayers = obj->getLayersByType<LayerSound>();
     for (LayerSound* layer : allSoundLayers)
     {
         if (!layer->visible()) { continue; }
-        layer->foreachKeyFrame([&allSoundClips](KeyFrame* key)
+        layer->foreachKeyFrame([&](KeyFrame* key)
         {
-            if (!key->fileName().isEmpty())
+            if (key->fileName().isEmpty()) { return; }
+            if (!QFile::exists(key->fileName()))
             {
-                allSoundClips.push_back(static_cast<SoundClip*>(key));
+                mix.skipped << layer->clipLabel(key);
+                return;
             }
+            allSoundClips.push_back(static_cast<SoundClip*>(key));
         });
     }
 
-    if (allSoundClips.empty()) return Status::SAFE;
+    if (allSoundClips.empty()) return mix;
 
     int clipCount = 0;
 
     QString filterComplex, amergeInput, panChannelLayout;
-    QStringList args;
+    QStringList& args = mix.args;
 
     int wholeLen = qCeil(endFrame * 44100.0 / fps);
     for (auto clip : allSoundClips)
     {
-        if (mCanceled)
-        {
-            return Status::CANCELED;
-        }
-
         // Add sound file as input
         args << "-i" << clip->fileName();
 
@@ -279,12 +292,9 @@ Status MovieExporter::assembleAudio(const Object* obj,
     args << "-ss" << QString::number((startFrame - 1) / static_cast<double>(fps));
     args << "-to" << QString::number(endFrame / static_cast<double>(fps));
     // Output path
-    args << tempAudioPath;
+    args << outPath;
 
-    STATUS_CHECK(MovieExporter::executeFFmpeg(ffmpegPath, args, [&progress, this] (int frame) { progress(frame / static_cast<float>(mDesc.endFrame - mDesc.startFrame)); return !mCanceled; }))
-    qDebug() << "audio file: " + tempAudioPath;
-
-    return Status::OK;
+    return mix;
 }
 
 /** Exports obj to a movie image at strOut using FFmpeg.
