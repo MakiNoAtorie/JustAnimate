@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <QKeySequence>
 #include <QMessageBox>
 #include "pencilsettings.h"
+#include "shortcutconflict.h"
 #include <QFile>
 #include <QFileDialog>
 
@@ -98,11 +99,12 @@ void ShortcutsPage::keyCapLineEditTextChanged()
     QSettings setting( PENCIL2D, PENCIL2D );
     setting.beginGroup("shortcuts");
 
-    if (isKeySequenceExist(setting, strCmdName, keySequence))
+    const QString conflictCmd = findShortcutConflict(setting, strCmdName, keySequence);
+    if (!conflictCmd.isEmpty())
     {
         QMessageBox msgBox(this);
         msgBox.setText( tr("Shortcut Conflict!"));
-        msgBox.setInformativeText( tr("%1 is already used, overwrite?").arg(keySequence.toString(QKeySequence::NativeText)) );
+        msgBox.setInformativeText( tr("%1 is already used by \"%2\", overwrite?").arg(keySequence.toString(QKeySequence::NativeText), getHumanReadableShortcutName(conflictCmd)) );
         msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
         msgBox.setDefaultButton(QMessageBox::No);
         msgBox.setIcon( QMessageBox::Warning );
@@ -193,24 +195,6 @@ void ShortcutsPage::restoreShortcutsButtonClicked()
 {
     restoreShortcutsToDefault();
     treeModelLoadShortcutsSetting();
-}
-
-bool ShortcutsPage::isKeySequenceExist(const QSettings& settings, QString strTargetCmdName, QKeySequence targetkeySeq)
-{
-    foreach (QString strCmdName, settings.allKeys())
-    {
-        if (strTargetCmdName == strCmdName)
-        {
-            continue;
-        }
-
-        QString strCmdKeySeq = settings.value(strCmdName).toString();
-        if (QKeySequence(strCmdKeySeq) == targetkeySeq)
-        {
-            return true;
-        }
-    }
-    return false;
 }
 
 void ShortcutsPage::removeDuplicateKeySequence(QSettings* settings, QKeySequence keySeq)

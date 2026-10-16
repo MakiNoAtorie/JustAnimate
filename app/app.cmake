@@ -51,6 +51,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutspage.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/spinslider.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/statusbar.h
@@ -116,6 +117,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutspage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/spinslider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/statusbar.cpp
