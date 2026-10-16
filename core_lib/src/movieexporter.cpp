@@ -239,7 +239,7 @@ MovieExporter::AudioMix MovieExporter::audioMix(const Object* obj, int startFram
             if (key->fileName().isEmpty()) { return; }
             if (!QFile::exists(key->fileName()))
             {
-                mix.skipped << QString("%1 frame %2").arg(layer->name()).arg(key->pos());
+                mix.skipped << layer->clipLabel(key);
                 return;
             }
             allSoundClips.push_back(static_cast<SoundClip*>(key));

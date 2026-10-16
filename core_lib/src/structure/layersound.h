@@ -38,6 +38,8 @@ public:
     void updateFrameLengths(int fps);
 
     SoundClip* getSoundClipWhichCovers(int frameNumber);
+    // "<layer> frame <n>": names a clip in missing-file warnings.
+    QString clipLabel(const KeyFrame* clip) const;
 
 protected:
     Status saveKeyFrameFile(KeyFrame*, QString path) override;

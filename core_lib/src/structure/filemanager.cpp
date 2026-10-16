@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "fileformat.h"
 #include "object.h"
 #include "layercamera.h"
+#include "layersound.h"
 #include "util.h"
 
 FileManager::FileManager(QObject* parent) : QObject(parent)
@@ -709,6 +710,15 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
             dd << QString("\nError: Failed to move frames of Layer[%1] %2").arg(i).arg(layer->name());
             return Status(Status::FAIL, dd);
         }
+    }
+
+    mSkippedSoundClips.clear();
+    for (LayerSound* sound : object->getLayersByType<LayerSound>())
+    {
+        sound->foreachKeyFrame([&](KeyFrame* clip) {
+            if (!clip->fileName().isEmpty() && !QFile::exists(clip->fileName()))
+                mSkippedSoundClips << sound->clipLabel(clip);
+        });
     }
 
     bool saveLayersOK = true;
