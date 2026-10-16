@@ -6,8 +6,10 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Fixes: a vector fill keeps the first vertex of the image, so the filled area no longer drops that point (#126).
+- Image sequence import: files sort by number, so frame2 comes before frame10 (#137).
 - CI: the Windows ffmpeg download is checked against a pinned SHA-256 and the job fails on a mismatch.
 - Fixes: after a vector paste the selection covers the pasted curves; non-Debug builds no longer print `qDebug()` output; removed the unused Doxyfile and `SETTING_COUNT` (#156).
+- Fixes: Check for Updates on a development build shows that checks are off instead of spinning forever, and closing the dialog no longer dereferences a null network manager (#135).
 - Pen: a double tap needs two taps within 500 ms and 5 px, not three, and the window is a real 500 ms (#133).
 - Fixes: a held frame repaints the canvas from the cache instead of redrawing it on every repaint; an edit on its key still shows at once (#129).
 - Fixes: an eraser or smudge stroke shrinks a bitmap's bounds to the ink that remains, so erased areas no longer stay in memory, saved files and selection bounds (#130).
