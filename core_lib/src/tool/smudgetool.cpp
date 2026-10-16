@@ -229,7 +229,11 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
     if (event->button() == Qt::LeftButton && layer->type() == Layer::VECTOR)
     {
         VectorImage *vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
-        if (vectorImage == nullptr) { return; }
+        if (vectorImage == nullptr)
+        {
+            mEditor->undoRedo()->discardState(mUndoSaveStateId);
+            return;
+        }
         vectorImage->applySelectionTransformation();
 
         auto selectMan = mEditor->select();

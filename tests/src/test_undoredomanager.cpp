@@ -18,12 +18,17 @@ GNU General Public License for more details.
 #include <functional>
 
 #include <QAction>
+#include <QApplication>
 #include <QFile>
 #include <QIcon>
+#include <QMouseEvent>
+#include <QPointingDevice>
 #include <QSettings>
+#include <QTabletEvent>
 #include <QTemporaryDir>
 
 #include "beziercurve.h"
+#include "colormanager.h"
 #include "bitmapimage.h"
 #include "editor.h"
 #include "filemanager.h"
@@ -40,8 +45,10 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "soundclip.h"
 #include "testfixture.h"
+#include "toolmanager.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
+#include "viewmanager.h"
 #include "pencilsettings.h"
 
 TEST_CASE("UndoRedoManager: undo/redo of Remove frame")
@@ -1176,4 +1183,105 @@ TEST_CASE("UndoRedoManager - moving a sound clip moves the lip-sync markers insi
     CHECK(markers() == before);
     redoAction->trigger();
     CHECK(markers() == after);
+}
+
+namespace
+{
+
+void sendTablet(ScribbleArea* area, QEvent::Type type, QPointF pos)
+{
+    const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
+    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
+                   1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+    QApplication::sendEvent(area, &e);
+}
+
+void tabletClick(ScribbleArea* area, QPointF pos)
+{
+    sendTablet(area, QEvent::TabletPress, pos);
+    sendTablet(area, QEvent::TabletRelease, pos);
+}
+
+} // namespace
+
+TEST_CASE("UndoRedoManager: a bucket click that fills nothing leaves no pending save state")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(3);
+    layer->removeKeyFrame(1); // frame 1 is before the first key: a click there fills nothing
+    layer->getBitmapImageAtFrame(3)->drawRect(QRectF(0, 0, 100, 100), Qt::NoPen, QBrush(Qt::red),
+                                              QPainter::CompositionMode_Source, false);
+
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(BUCKET);
+    editor->color()->setFrontColor(Qt::blue);
+
+    int edits = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&edits] { ++edits; });
+    const QPointF pos = editor->view()->mapCanvasToScreen(QPointF(50, 50));
+
+    editor->scrubTo(1);
+    for (int i = 0; i < 5; ++i)
+        tabletClick(area, pos);
+    CHECK(edits == 0);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+
+    editor->scrubTo(3);
+    tabletClick(area, pos);
+    CHECK(edits == 1);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+    CHECK(QColor(layer->getBitmapImageAtFrame(3)->pixel(50, 50)) == QColor(Qt::blue));
+
+    QObject parent;
+    editor->undoRedo()->createUndoAction(&parent, QIcon())->trigger();
+    CHECK(QColor(layer->getBitmapImageAtFrame(3)->pixel(50, 50)) == QColor(Qt::red));
+}
+
+TEST_CASE("UndoRedoManager: a smudge click on a vector layer before its first key leaves no pending save state")
+{
+    TestSession session;
+    LayerVector* layer = session.object->addNewVectorLayer();
+    layer->addNewKeyFrameAt(3);
+    layer->removeKeyFrame(1);
+
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(SMUDGE);
+    editor->scrubTo(1);
+
+    tabletClick(area, editor->view()->mapCanvasToScreen(QPointF(50, 50)));
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
+}
+
+TEST_CASE("UndoRedoManager: a stroke whose release came from another device leaves no pending save state")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ScribbleArea* area = session.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    editor->scrubTo(1);
+    const QPointF pos = editor->view()->mapCanvasToScreen(QPointF(50, 50));
+
+    // A tablet press, then a mouse release: the tool ignores the release.
+    sendTablet(area, QEvent::TabletPress, pos);
+    QMouseEvent release(QEvent::MouseButtonRelease, pos, area->mapToGlobal(pos), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(area, &release);
+    tabletClick(area, pos);
+    CHECK(editor->undoRedo()->pendingStateCount() == 0);
 }

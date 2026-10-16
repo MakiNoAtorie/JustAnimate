@@ -206,7 +206,9 @@ void StrokeTool::startStroke(PointerEvent::InputType inputType)
     mStrokePressures << mCurrentPressure;
 
     mCurrentInputType = inputType;
-    mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    // A stroke whose release went unhandled (other device) never recorded its state.
+    mEditor->undoRedo()->discardState(mUndoSaveStateId);
+    mUndoSaveStateId =mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
     disableCoalescing();
 }

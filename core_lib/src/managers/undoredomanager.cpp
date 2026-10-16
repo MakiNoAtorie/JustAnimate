@@ -139,6 +139,11 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
     clearState(saveState);
 }
 
+void UndoRedoManager::discardState(SAVESTATE_ID saveStateId)
+{
+    delete mSaveStates.take(saveStateId);
+}
+
 void UndoRedoManager::clearState(UndoSaveState*& state)
 {
     if (state) {
