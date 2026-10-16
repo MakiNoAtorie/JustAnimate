@@ -179,7 +179,7 @@ private:
     QPointF alignPositionToAxis(QPointF currentPoint) const;
     int constrainRotationToAngle(const qreal rotatedAngle, const int rotationIncrement) const;
     /// The selection transform after scaling: skew, rotation, then translation.
-    QTransform rotationAndSkew(bool withSkew = true) const;
+    QTransform transformAfterScale(bool withSkew = true) const;
 
     bool mAspectRatioFixed = false;
     bool mLockAxis = false;

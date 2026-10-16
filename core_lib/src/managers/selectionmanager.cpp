@@ -182,7 +182,7 @@ void SelectionManager::adjustSelection(const QPointF& currentPoint, const QPoint
     case MoveMode::BOTTOMLEFT: {
         // The anchor is the opposite corner. Without translation, rotation and skew,
         // the cursor is the scaled offset of the dragged corner from the anchor.
-        const QPointF local = rotationAndSkew().inverted().map(currentPoint);
+        const QPointF local = transformAfterScale().inverted().map(currentPoint);
         int corner = 3;
         if (mMoveMode == MoveMode::TOPLEFT) { corner = 0; }
         else if (mMoveMode == MoveMode::TOPRIGHT) { corner = 1; }
@@ -203,7 +203,7 @@ void SelectionManager::adjustSelection(const QPointF& currentPoint, const QPoint
     case MoveMode::SKEW_VERTICAL: {
         // The anchor is the centre. Without translation and rotation, the dragged
         // edge midpoint sits at (skewX * y, y) or (x, skewY * x).
-        const QTransform toLocal = rotationAndSkew(false).inverted();
+        const QTransform toLocal = transformAfterScale(false).inverted();
         const QPointF local = toLocal.map(currentPoint);
         const QPointF origin = toLocal.map(mDragOrigin);
         if (mMoveMode == MoveMode::SKEW_HORIZONTAL && !qFuzzyIsNull(origin.y())) {
@@ -307,7 +307,7 @@ void SelectionManager::setNumericTransform(const QPointF& centre, qreal rotation
     emit editor()->frameModified(editor()->currentFrame());
 }
 
-QTransform SelectionManager::rotationAndSkew(bool withSkew) const
+QTransform SelectionManager::transformAfterScale(bool withSkew) const
 {
     QTransform k;
     if (withSkew) { k.shear(mSkewX, mSkewY); }
@@ -324,7 +324,7 @@ void SelectionManager::calculateSelectionTransformation()
     t.translate(-mAnchorPoint.x(), -mAnchorPoint.y());
     QTransform s;
     s.scale(mScaleX, mScaleY);
-    mSelectionTransform = t * s * rotationAndSkew();
+    mSelectionTransform = t * s * transformAfterScale();
 }
 
 QPointF SelectionManager::alignPositionToAxis(QPointF currentPoint) const
