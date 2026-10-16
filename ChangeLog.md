@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Fixes: the tablet eraser end announces the tool change once per flip, not on every tablet event (#127).
+- Fixes: a vector fill keeps the first vertex of the image, so the filled area no longer drops that point (#126).
 - Image sequence import: files sort by number, so frame2 comes before frame10 (#137).
 - CI: the Windows ffmpeg download is checked against a pinned SHA-256 and the job fails on a mismatch.
 - Fixes: after a vector paste the selection covers the pasted curves; non-Debug builds no longer print `qDebug()` output; removed the unused Doxyfile and `SETTING_COUNT` (#156).
