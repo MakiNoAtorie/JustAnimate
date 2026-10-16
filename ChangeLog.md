@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Command search opens once per click on the Command bar field, and no longer reopens when focus returns to the field (#183).
 - Windows installer registers .pclx and .pcl so a double-click opens them in JustAnimate with its file icon; uninstall removes it (#152).
 - Windows package built with Qt 6.8 keeps the Qt DLLs next to justanimate.exe instead of in bin/ (#155).
 - Opening a .pclx project is about 3 times faster: its files are extracted to the working folder in parallel (#147).

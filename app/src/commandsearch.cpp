@@ -76,7 +76,9 @@ void CommandSearchField::mousePressEvent(QMouseEvent*) { emit activated(); }
 void CommandSearchField::focusInEvent(QFocusEvent* e)
 {
     QLineEdit::focusInEvent(e);
-    emit activated();
+    // A click opens through mousePressEvent; focus that returns when a window closes opens nothing.
+    const Qt::FocusReason r = e->reason();
+    if (r == Qt::TabFocusReason || r == Qt::BacktabFocusReason || r == Qt::ShortcutFocusReason) { emit activated(); }
 }
 
 CommandSearch::CommandSearch(const QList<CommandEntry>& all, QWidget* parent) : QDialog(parent), mAll(all)

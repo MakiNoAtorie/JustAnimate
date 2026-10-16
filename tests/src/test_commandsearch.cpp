@@ -16,6 +16,9 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QAction>
+#include <QCoreApplication>
+#include <QFocusEvent>
+#include <QMouseEvent>
 #include <QKeySequence>
 #include <QMenu>
 #include <QMenuBar>
@@ -80,4 +83,25 @@ TEST_CASE("Command search runs an enabled command and refuses a disabled one")
     CommandSearch disabled(filterCommands(collectCommands(&b.bar), "paste"), nullptr);
     CHECK_FALSE(disabled.runCurrent());
     CHECK(b.pasted == 0);
+}
+
+TEST_CASE("Command search field opens once per click and not on focus return")
+{
+    CommandSearchField field(nullptr);
+    int opened = 0;
+    QObject::connect(&field, &CommandSearchField::activated, [&] { opened++; });
+
+    QFocusEvent clickFocus(QEvent::FocusIn, Qt::MouseFocusReason);
+    QCoreApplication::sendEvent(&field, &clickFocus);
+    QMouseEvent press(QEvent::MouseButtonPress, QPointF(5, 5), QPointF(5, 5), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(&field, &press);
+    CHECK(opened == 1);
+
+    QFocusEvent back(QEvent::FocusIn, Qt::ActiveWindowFocusReason);
+    QCoreApplication::sendEvent(&field, &back);
+    CHECK(opened == 1);
+
+    QFocusEvent tab(QEvent::FocusIn, Qt::TabFocusReason);
+    QCoreApplication::sendEvent(&field, &tab);
+    CHECK(opened == 2);
 }
