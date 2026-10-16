@@ -239,6 +239,7 @@
      <addaction name="actionRemove_Frames"/>
     </widget>
     <addaction name="actionPlay"/>
+    <addaction name="actionPlay_Around"/>
     <addaction name="actionLoop"/>
     <addaction name="actionLoopControl"/>
     <addaction name="separator"/>
@@ -567,6 +568,11 @@
   <action name="actionPlay">
    <property name="text">
     <string>Play</string>
+   </property>
+  </action>
+  <action name="actionPlay_Around">
+   <property name="text">
+    <string>Play Around Playhead</string>
    </property>
   </action>
   <action name="actionLoop">

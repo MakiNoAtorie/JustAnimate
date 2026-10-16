@@ -245,6 +245,7 @@ void TimeLine::initUI()
 
 void TimeLine::updateUI()
 {
+    mTimeControls->updateUI();
     updateContent();
 }
 

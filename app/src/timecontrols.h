@@ -82,6 +82,8 @@ private:
     QPushButton* mJumpToEndButton = nullptr;
     QPushButton* mJumpToStartButton = nullptr;
     QPushButton* mLoopButton = nullptr;
+    QPushButton* mPlayAroundButton = nullptr;
+    QSpinBox*    mPlayAroundBox = nullptr;
     QCheckBox* mPingPongCheckBox = nullptr;
     QComboBox* mSpeedBox = nullptr;
     QPushButton* mSoundButton = nullptr;

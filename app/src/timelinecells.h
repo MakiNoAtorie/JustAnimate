@@ -173,6 +173,7 @@ private:
 
     bool mClickSelecting = false;
     int mExposureEdge = 0; // the frame whose right edge is being dragged, or 0
+    int mRangeDragStart = 0; // ruler frame where a Shift-drag loop range started, or 0
 
     int mFramePosMoveX = 0;
     int mLayerPosMoveY = 0;

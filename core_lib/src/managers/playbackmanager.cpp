@@ -60,6 +60,7 @@ bool PlaybackManager::init()
     mMsecSoundScrub = settings.value(SETTING_SOUND_SCRUB_MSEC).toInt();
     if (mMsecSoundScrub == 0) { mMsecSoundScrub = 100; }
     mSoundScrub = settings.value(SETTING_SOUND_SCRUB_ACTIVE).toBool();
+    mPlayAroundFrames = qMax(1, settings.value(SETTING_PLAY_AROUND_FRAMES, 5).toInt());
 
     mElapsedTimer = new QElapsedTimer;
     connect(mTimer, &QTimer::timeout, this, &PlaybackManager::timerTick);
@@ -134,7 +135,40 @@ void PlaybackManager::stop()
 {
     mTimer->stop();
     stopSounds();
+    if (mPlayAroundOrigin > 0)
+    {
+        const int origin = mPlayAroundOrigin;
+        mPlayAroundOrigin = 0;
+        updateStartFrame();
+        updateEndFrame();
+        editor()->scrubTo(origin);
+    }
     emit playStateChanged(false);
+}
+
+void PlaybackManager::playAround()
+{
+    if (isPlaying()) { stop(); return; }
+    mPlayAroundOrigin = editor()->currentFrame();
+    updateStartFrame();
+    editor()->scrubTo(mStartFrame);
+    play();
+}
+
+void PlaybackManager::setPlayAroundFrames(int n)
+{
+    mPlayAroundFrames = qMax(1, n);
+    pencilSettings().setValue(SETTING_PLAY_AROUND_FRAMES, mPlayAroundFrames);
+}
+
+void PlaybackManager::setLoopRange(int from, int to)
+{
+    mMarkInFrame = qMax(1, qMin(from, to));
+    mMarkOutFrame = qMax(from, to);
+    enableRangedPlayback(true);
+    updateStartFrame();
+    updateEndFrame();
+    setLooping(true);
 }
 
 void PlaybackManager::playFlipRoll()
@@ -467,7 +501,7 @@ void PlaybackManager::advance()
         {
             mIsReversing = true;
         }
-        else if (mIsLooping)
+        else if (mIsLooping || mPlayAroundOrigin > 0)
         {
             editor()->scrubTo(mStartFrame);
             mCheckForSoundsHalfway = true;
@@ -565,12 +599,18 @@ void PlaybackManager::setRangedEndFrame(int frame)
 
 void PlaybackManager::updateStartFrame()
 {
+    if (mPlayAroundOrigin > 0) { mStartFrame = qMax(1, mPlayAroundOrigin - mPlayAroundFrames); return; }
     mStartFrame = (mIsRangedPlayback) ? mMarkInFrame : 1;
 }
 
 void PlaybackManager::updateEndFrame()
 {
     int projectLength = editor()->layers()->animationLength();
+    if (mPlayAroundOrigin > 0)
+    {
+        mEndFrame = qMax(mPlayAroundOrigin, qMin(mPlayAroundOrigin + mPlayAroundFrames, projectLength));
+        return;
+    }
     mEndFrame = (mIsRangedPlayback) ? mMarkOutFrame : projectLength;
 }
 

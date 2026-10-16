@@ -525,6 +525,7 @@ void MainWindow2::createMenus()
     //--- Animation Menu ---
     PlaybackManager* pPlaybackManager = mEditor->playback();
     connect(ui->actionPlay, &QAction::triggered, mCommands, &ActionCommands::PlayStop);
+    connect(ui->actionPlay_Around, &QAction::triggered, pPlaybackManager, &PlaybackManager::playAround);
 
     connect(ui->actionLoop, &QAction::triggered, pPlaybackManager, &PlaybackManager::setLooping);
     connect(ui->actionLoopControl, &QAction::triggered, pPlaybackManager, &PlaybackManager::enableRangedPlayback);
@@ -1549,6 +1550,7 @@ void MainWindow2::setupKeyboardShortcuts()
 
     // Animation menu
     ui->actionPlay->setShortcut(cmdKeySeq(CMD_PLAY));
+    ui->actionPlay_Around->setShortcut(cmdKeySeq(CMD_PLAY_AROUND));
     ui->actionLoop->setShortcut(cmdKeySeq(CMD_LOOP));
     ui->actionLoopControl->setShortcut(cmdKeySeq(CMD_LOOP_CONTROL));
     ui->actionPrevious_Frame->setShortcut(cmdKeySeq(CMD_GOTO_PREV_FRAME));

@@ -7,6 +7,7 @@ the original Pencil2D history is kept below for reference.
 
 - Drawing on a held frame now makes a new Drawing by default, undone with its stroke in one step; Preferences > Timeline keeps the old choice (#189).
 - Rough layers: mark a layer Rough from its timeline menu; it shows tinted and faded on the canvas, carries a ROUGH tag and is left out of every export (#192).
+- Play-around: Alt+Return or the timeline button loops N frames either side of the playhead (N set beside it) and returns to the playhead on stop; Shift-drag on the timeline ruler sets the loop range and turns Loop on (#191).
 - Command search: Ctrl+Shift+P or the Command bar's search field finds a menu command by name and runs it; Ctrl+K opens Preferences (#183).
 - Pen-drag Flip: hold F and drag the pen left or right to flip through Drawings (following the Marked drawings filter); releasing F returns to the starting frame (#190).
 

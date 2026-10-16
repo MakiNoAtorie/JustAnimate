@@ -81,6 +81,12 @@ public:
     void endPenFlip();
     bool isPenFlipping() const { return mPenFlipOrigin > 0; }
 
+    // Play-around: loops playhead - N to playhead + N; stopping returns to the playhead.
+    void playAround(); // toggles
+    int playAroundFrames() const { return mPlayAroundFrames; }
+    void setPlayAroundFrames(int n);
+    void setLoopRange(int from, int to); // also turns on the range and Loop
+
 private slots:
     void stopScrubPlayback();
 
@@ -137,6 +143,9 @@ private:
     int mPenFlipOrigin = 0; // frame the flip started on; 0 = not flipping
     int mPenFlipDragFrame = 0;
     qreal mPenFlipDragX = 0;
+
+    int mPlayAroundFrames = 5;
+    int mPlayAroundOrigin = 0; // 0 = not playing around
 };
 
 #endif // PLAYBACKMANAGER_H

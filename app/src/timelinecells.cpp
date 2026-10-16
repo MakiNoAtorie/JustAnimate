@@ -1294,6 +1294,11 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             showMarkerMenu(mEditor->currentFrame(), 0, event->globalPosition().toPoint());
             return;
         }
+        if (event->button() == Qt::LeftButton && event->modifiers() == Qt::ShiftModifier && mStartY < 20 && frameNumber > 0)
+        {
+            mRangeDragStart = frameNumber;
+            return;
+        }
         if (event->button() == Qt::MiddleButton)
         {
             mLastFrameNumber = getFrameNumber(event->pos().x());
@@ -1435,6 +1440,15 @@ void TimeLineCells::mouseMoveEvent(QMouseEvent* event)
         {
             update();
         }
+        else if (mRangeDragStart > 0)
+        {
+            const int frame = qMax(1, mFramePosMoveX);
+            if (frame != mRangeDragStart)
+            {
+                mEditor->playback()->setLoopRange(mRangeDragStart, frame);
+                mTimeLine->updateUI();
+            }
+        }
         else
         {
             if (event->buttons() == Qt::NoButton)
@@ -1538,6 +1552,7 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
     mTimeLine->scrubbing = false;
     mMovingFrames = false;
     mExposureEdge = 0;
+    mRangeDragStart = 0;
 }
 
 void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)

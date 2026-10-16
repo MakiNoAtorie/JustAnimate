@@ -239,3 +239,71 @@ TEST_CASE("Pen-drag Flip steps through Drawings and returns on release", "[Playb
         CHECK_FALSE(layer->getBitmapImageAtFrame(3)->bounds().isEmpty());
     }
 }
+
+TEST_CASE("Play-around loops playhead - N to playhead + N and restores the playhead", "[PlaybackManager]")
+{
+    const SettingsGuard guard({ SETTING_FPS, SETTING_PLAY_AROUND_FRAMES });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    REQUIRE(layer->addNewKeyFrameAt(20));
+    Editor* editor = s.editor.get();
+    PlaybackManager* pb = editor->playback();
+    pb->setLooping(false);
+    pb->setPingPong(false);
+    pb->setPlayAroundFrames(3);
+    CHECK(pencilSettings().value(SETTING_PLAY_AROUND_FRAMES).toInt() == 3);
+
+    auto playAround = [&](int from, int steps) {
+        editor->scrubTo(from);
+        pb->playAround();
+        std::vector<int> frames{ editor->currentFrame() };
+        for (int i = 0; i < steps; i++)
+        {
+            pb->advance();
+            frames.push_back(editor->currentFrame());
+        }
+        REQUIRE(pb->isPlaying());
+        pb->playAround(); // the key again stops
+        CHECK_FALSE(pb->isPlaying());
+        return frames;
+    };
+
+    SECTION("Loops the window even with Loop off; stopping restores the playhead")
+    {
+        CHECK(playAround(10, 8) == std::vector<int>{ 7, 8, 9, 10, 11, 12, 13, 7, 8 });
+        CHECK(editor->currentFrame() == 10);
+    }
+
+    SECTION("The window is clamped to the project")
+    {
+        CHECK(playAround(2, 6) == std::vector<int>{ 1, 2, 3, 4, 5, 1, 2 });
+        CHECK(editor->currentFrame() == 2);
+        CHECK(playAround(19, 5) == std::vector<int>{ 16, 17, 18, 19, 20, 16 });
+        CHECK(editor->currentFrame() == 19);
+    }
+
+    SECTION("Normal play afterwards uses the whole project again")
+    {
+        playAround(10, 2);
+        pb->play();
+        CHECK(pb->endFrame() == 20);
+        CHECK(pb->startFrame() == 1);
+        pb->stop();
+    }
+}
+
+TEST_CASE("Setting a loop range turns on the range and Loop", "[PlaybackManager]")
+{
+    TestSession s;
+    s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    PlaybackManager* pb = s.editor->playback();
+    pb->setLooping(false);
+    pb->enableRangedPlayback(false);
+    pb->setLoopRange(9, 4); // dragged right to left
+    CHECK(pb->isLooping());
+    CHECK(pb->isRangedPlaybackOn());
+    CHECK(pb->markInFrame() == 4);
+    CHECK(pb->markOutFrame() == 9);
+}

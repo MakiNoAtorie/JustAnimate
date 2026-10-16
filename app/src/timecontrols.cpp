@@ -118,8 +118,19 @@ void TimeControls::initUI()
     }
     mSpeedBox->setCurrentIndex(1);
 
+    mPlayAroundBox = new QSpinBox(this);
+    mPlayAroundBox->setFixedHeight(24);
+    mPlayAroundBox->setRange(1, 99);
+    mPlayAroundBox->setPrefix(QString(QChar(0x00B1))); // plus-minus sign
+    mPlayAroundBox->setToolTip(tr("Play-around: frames before and after the playhead"));
+    mPlayAroundBox->setFocusPolicy(Qt::WheelFocus);
+
     mPlayButton = new QPushButton(this);
     mPlayButton->setIconSize(QSize(22,22));
+    mPlayAroundButton = new QPushButton(this);
+    mPlayAroundButton->setIconSize(QSize(22,22));
+    mPlayAroundButton->setIcon(Theme::icon(":/icons/tabler/arrows-horizontal.svg"));
+    mPlayAroundButton->setToolTip(tr("Play around the playhead"));
     mLoopButton = new QPushButton(this);
     mLoopButton->setIconSize(QSize(22,22));
     mSoundButton = new QPushButton(this);
@@ -163,6 +174,8 @@ void TimeControls::initUI()
     addWidget(mPlayButton);
     addWidget(mJumpToEndButton);
     addWidget(mLoopButton);
+    addWidget(mPlayAroundButton);
+    addWidget(mPlayAroundBox);
     addWidget(mFpsBox);
     addWidget(mSpeedBox);
     addWidget(mPingPongCheckBox);
@@ -189,7 +202,11 @@ void TimeControls::updateUI()
     mLoopStartSpinBox->setValue(playback->markInFrame());
 
     QSignalBlocker b2(mLoopEndSpinBox);
+    mLoopEndSpinBox->setMinimum(playback->markInFrame() + 1);
     mLoopEndSpinBox->setValue(playback->markOutFrame());
+
+    QSignalBlocker b6(mPlayAroundBox);
+    mPlayAroundBox->setValue(playback->playAroundFrames());
 
     QSignalBlocker b3(mFpsBox);
     mFpsBox->setValue(playback->fps());
@@ -234,6 +251,7 @@ void TimeControls::makeConnections()
     connect(mLoopButton, &QPushButton::clicked, this, &TimeControls::loopButtonClicked);
     connect(mPlaybackRangeCheckBox, &QCheckBox::clicked, this, &TimeControls::playbackRangeClicked);
     connect(mPingPongCheckBox, &QCheckBox::clicked, mEditor->playback(), &PlaybackManager::setPingPong);
+    connect(mPlayAroundButton, &QPushButton::clicked, mEditor->playback(), &PlaybackManager::playAround);
     connect(mSpeedBox, QOverload<int>::of(&QComboBox::activated), this, [this](int i) {
         mEditor->playback()->setSpeed(mSpeedBox->itemData(i).toDouble());
     });
@@ -243,6 +261,8 @@ void TimeControls::makeConnections()
     clearFocusOnFinished(mLoopStartSpinBox);
     connect(mLoopEndSpinBox, spinBoxValueChanged, this, &TimeControls::loopEndValueChanged);
     clearFocusOnFinished(mLoopEndSpinBox);
+    connect(mPlayAroundBox, spinBoxValueChanged, mEditor->playback(), &PlaybackManager::setPlayAroundFrames);
+    clearFocusOnFinished(mPlayAroundBox);
 
     connect(mPlaybackRangeCheckBox, &QCheckBox::toggled, mLoopStartSpinBox, &QSpinBox::setEnabled);
     connect(mPlaybackRangeCheckBox, &QCheckBox::toggled, mLoopEndSpinBox, &QSpinBox::setEnabled);
