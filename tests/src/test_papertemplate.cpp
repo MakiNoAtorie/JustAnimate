@@ -76,6 +76,79 @@ TEST_CASE("The Paper template round-trips through the project file", "[PaperTemp
         REQUIRE(loaded != nullptr);
         CHECK(loaded->data()->paperTemplate() == filledTemplate());
     }
+
+    SECTION("The Timesheet values are optional attributes")
+    {
+        PaperTemplate t = filledTemplate();
+        s.object->data()->setPaperTemplate(t);
+        REQUIRE(fm.save(s.object, path).ok());
+        {
+            QFile mainXml(QDir(s.object->workingDir()).filePath(PFF_XML_FILE_NAME));
+            REQUIRE(mainXml.open(QIODevice::ReadOnly));
+            CHECK(mainXml.readAll().count("sheetScene") == 0);
+        }
+
+        t.sheetScene = "12";
+        t.sheetShot = "034";
+        t.sheetAnimator = "Rin";
+        s.object->data()->setPaperTemplate(t);
+        REQUIRE(fm.save(s.object, path).ok());
+        std::unique_ptr<Object> loaded(fm.load(path));
+        REQUIRE(loaded != nullptr);
+        CHECK(loaded->data()->paperTemplate() == t);
+    }
+}
+
+TEST_CASE("Timesheet export prefills from the Title block", "[PaperTemplate]")
+{
+    PaperTemplate t;
+    t.id = "12-034";
+    t.name = "Maki";
+    TimesheetInfo info = timesheetPrefill(t);
+    CHECK(info.scene == "12");
+    CHECK(info.shot == "034");
+    CHECK(info.animator == "Maki");
+
+    t.id = "Cut 12";
+    info = timesheetPrefill(t);
+    CHECK(info.scene.isEmpty());
+    CHECK(info.shot.isEmpty());
+    t.id = "1-2-3";
+    CHECK(timesheetPrefill(t).scene.isEmpty());
+    t.id = "-034";
+    CHECK(timesheetPrefill(t).shot.isEmpty());
+
+    // A typed value differing from the Title block is kept and wins; one matching it is not stored.
+    t.id = "12-034";
+    info.scene = "12";
+    info.shot = "035";
+    info.animator = "Rin";
+    rememberTimesheet(t, info);
+    CHECK(t.sheetScene.isEmpty());
+    CHECK(t.sheetShot == "035");
+    CHECK(t.sheetAnimator == "Rin");
+    info = timesheetPrefill(t);
+    CHECK(info.scene == "12");
+    CHECK(info.shot == "035");
+    CHECK(info.animator == "Rin");
+}
+
+TEST_CASE("Undoing a Title block edit keeps the Timesheet values", "[PaperTemplate]")
+{
+    TestSession s;
+    s.object->addNewCameraLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    PaperTemplate renamed = filledTemplate();
+    renamed.name = "Rin";
+    editor->setPaperTemplate(renamed);
+    PaperTemplate typed = editor->object()->data()->paperTemplate();
+    typed.sheetShot = "035";
+    editor->object()->data()->setPaperTemplate(typed);
+    undo->trigger();
+    CHECK(editor->object()->data()->paperTemplate().sheetShot == "035");
 }
 
 TEST_CASE("A Paper template edit is one undo step per changed field", "[PaperTemplate]")

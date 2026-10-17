@@ -806,7 +806,13 @@ void PaperTemplateCommand::redo()
 
 void PaperTemplateCommand::apply(const PaperTemplate& paper)
 {
-    editor()->object()->data()->setPaperTemplate(paper);
+    // The Timesheet values are export memory, not undoable edits: keep the current ones.
+    const PaperTemplate& current = editor()->object()->data()->paperTemplate();
+    PaperTemplate next = paper;
+    next.sheetScene = current.sheetScene;
+    next.sheetShot = current.sheetShot;
+    next.sheetAnimator = current.sheetAnimator;
+    editor()->object()->data()->setPaperTemplate(next);
     emit editor()->framesModified();
 }
 

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Export Timesheet prefills Scene, Shot and Animator from the Title block and remembers the last typed values (#231).
 - Layer > Change line color can be undone: one undo step for the current Drawing, or for all Drawings on the layer (#220).
 - Preferences > Files has one startup choice: Show the Welcome screen, Open the last project or New project from the default preset; old startup settings migrate once (#233).
 - Refused edits show one notice in the status bar and on the canvas and flash the layer's eye or lock icon; the hidden-layer dialog is gone, and Remove drawing on an empty frame no longer moves the playhead (#224).

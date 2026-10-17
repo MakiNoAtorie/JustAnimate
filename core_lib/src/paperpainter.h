@@ -58,6 +58,10 @@ struct TimesheetInfo
     int length = 1;
     int fps = 24;
 };
+/// Export dialog values: the saved sheet* value, else Animator from NAME and Scene-Shot from an ID of the form "scene-shot".
+TimesheetInfo timesheetPrefill(const PaperTemplate& paper);
+/// Stores in paper's sheet* fields the typed values that differ from the Title block prefill.
+void rememberTimesheet(PaperTemplate& paper, const TimesheetInfo& typed);
 /// Sheets for a scene of `length` frames: 144 frames each, at least one.
 int timesheetSheetCount(int length);
 /// On a page, the cell of a Timesheet column (0 Key A ... 13 Camera, -1 the frame marks) at row 0-143 of a sheet.

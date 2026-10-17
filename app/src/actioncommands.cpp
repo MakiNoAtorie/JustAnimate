@@ -725,9 +725,11 @@ Status ActionCommands::exportTimesheet()
     auto form = new QFormLayout(&dialog);
     auto size = new QComboBox(&dialog);
     size->addItems({ tr("A4 portrait"), tr("B4 portrait") });
-    auto scene = new QLineEdit(&dialog);
-    auto shot = new QLineEdit(&dialog);
-    auto animator = new QLineEdit(&dialog);
+    PaperTemplate paper = mEditor->object()->data()->paperTemplate();
+    const TimesheetInfo prefill = timesheetPrefill(paper);
+    auto scene = new QLineEdit(prefill.scene, &dialog);
+    auto shot = new QLineEdit(prefill.shot, &dialog);
+    auto animator = new QLineEdit(prefill.animator, &dialog);
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
     connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
@@ -745,6 +747,12 @@ Status ActionCommands::exportTimesheet()
     info.scene = scene->text();
     info.shot = shot->text();
     info.animator = animator->text();
+    rememberTimesheet(paper, info);
+    if (paper != mEditor->object()->data()->paperTemplate())
+    {
+        mEditor->object()->data()->setPaperTemplate(paper);
+        mEditor->object()->modification();
+    }
     info.length = std::max(1, mEditor->layers()->animationLength());
     info.fps = mEditor->playback()->fps();
     return savePages(mParent, tr("Export Timesheet"), spec, timesheetSheetCount(info.length), timesheetPages(*mEditor->object(), info));
