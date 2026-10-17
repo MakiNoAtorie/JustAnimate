@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 #include "paperpainter.h"
 
-#include <algorithm>
 #include <QCoreApplication>
 #include <QPainter>
 #include <QRectF>
@@ -312,13 +311,12 @@ PagePaintFn timesheetPages(const Object& object, const TimesheetInfo& info)
         paintField(painter, QRectF(page.left() + m, page.bottom() - m - memoHeight, page.width() - 2 * m, memoHeight),
                    QCoreApplication::translate("Timesheet", "MEMO"), QString(), labelSize, labelSize);
 
-        // The topmost layer in each column.
-        int layerOf[kSheetColumns];
-        std::fill(std::begin(layerOf), std::end(layerOf), -1);
-        for (int i = object.getLayerCount() - 1; i >= 0; --i)
+        // The layers of each column, bottom-up: each gets an equal sub-column, left to right.
+        QList<int> layersOf[kSheetColumns];
+        for (int i = 0; i < object.getLayerCount(); ++i)
         {
             const int c = static_cast<int>(effectiveTimesheetColumn(object, i)) - 1;
-            if (c >= 0 && c < kSheetColumns && layerOf[c] < 0) { layerOf[c] = i; }
+            if (c >= 0 && c < kSheetColumns) { layersOf[c] << i; }
         }
 
         for (int half = 0; half < 2; ++half)
@@ -361,16 +359,24 @@ PagePaintFn timesheetPages(const Object& object, const TimesheetInfo& info)
             painter.setPen(QPen(Qt::black, thin * 1.5));
             for (int column = 0; column < kSheetColumns; ++column)
             {
-                if (layerOf[column] < 0) { continue; }
-                for (const Layer::Run& run : object.getLayer(layerOf[column])->runs(info.length))
+                const int count = layersOf[column].size();
+                for (int sub = 0; sub < count; ++sub)
                 {
-                    if (run.last < halfFirst || run.first > halfLast) { continue; }
-                    const bool starts = run.first >= halfFirst;
-                    const QRectF first = timesheetCell(page, column, rowBase + qMax(run.first, halfFirst) - halfFirst);
-                    const QRectF end = timesheetCell(page, column, rowBase + qMin(run.last, halfLast) - halfFirst);
-                    if (starts) { painter.drawText(first, Qt::AlignCenter, QString::number(run.number)); }
-                    const qreal top = starts ? first.bottom() : first.top();
-                    if (end.bottom() - thin > top) { painter.drawLine(QPointF(first.center().x(), top), QPointF(first.center().x(), end.bottom() - thin)); }
+                    const auto subCell = [&](int row) {
+                        const QRectF cell = timesheetCell(page, column, row);
+                        const qreal w = cell.width() / count;
+                        return QRectF(cell.left() + sub * w, cell.top(), w, cell.height());
+                    };
+                    for (const Layer::Run& run : object.getLayer(layersOf[column][sub])->runs(info.length))
+                    {
+                        if (run.last < halfFirst || run.first > halfLast) { continue; }
+                        const bool starts = run.first >= halfFirst;
+                        const QRectF first = subCell(rowBase + qMax(run.first, halfFirst) - halfFirst);
+                        const QRectF end = subCell(rowBase + qMin(run.last, halfLast) - halfFirst);
+                        if (starts) { painter.drawText(first, Qt::AlignCenter, QString::number(run.number)); }
+                        const qreal top = starts ? first.bottom() : first.top();
+                        if (end.bottom() - thin > top) { painter.drawLine(QPointF(first.center().x(), top), QPointF(first.center().x(), end.bottom() - thin)); }
+                    }
                 }
             }
         }

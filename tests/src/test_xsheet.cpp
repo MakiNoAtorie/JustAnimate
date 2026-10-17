@@ -363,6 +363,50 @@ TEST_CASE("The Timesheet layout shows every fixed column and an empty one takes 
     CHECK(editor->layers()->currentLayerIndex() == cameraIndex);
 }
 
+TEST_CASE("Layers that share a Timesheet column each get a sub-column bottom-up", "[XSheet]")
+{
+    const SettingsGuard guard({ SETTING_XSHEET_LAYOUT });
+    TestSession s;
+    Layer* bottom = s.object->addNewBitmapLayer();
+    Layer* top = s.object->addNewBitmapLayer();
+    for (Layer* layer : { bottom, top })
+    {
+        REQUIRE((layer->keyExists(1) || layer->addNewKeyFrameAt(1)));
+        layer->setTimesheetColumn(TimesheetColumn::KeyA);
+    }
+
+    // Export: a Drawing on either layer shows, the bottom layer in the left half of Key A.
+    PageSpec spec;
+    spec.orientation = QPageLayout::Portrait;
+    spec.dpi = 100;
+    const QRectF page(QPointF(), QSizeF(spec.pixelSize()));
+    TimesheetInfo info;
+    info.length = 4;
+    info.fps = 24;
+    const QImage one = renderPage(spec, timesheetPages(*s.object, info), 0);
+    const QRectF keyA = timesheetCell(page, 0, 0) | timesheetCell(page, 0, 3);
+    const QRect left = QRectF(keyA.left(), keyA.top(), keyA.width() / 2, keyA.height()).toAlignedRect();
+    const QRect right = QRectF(keyA.center().x(), keyA.top(), keyA.width() / 2, keyA.height()).toAlignedRect();
+    for (Layer* layer : { bottom, top })
+    {
+        REQUIRE(layer->addNewKeyFrameAt(3));
+        int count = 0;
+        const QRect box = diffBox(one, renderPage(spec, timesheetPages(*s.object, info), 0), &count);
+        CHECK(count > 5);
+        CHECK((layer == bottom ? left : right).contains(box));
+        REQUIRE(layer->removeKeyFrame(3));
+    }
+
+    // Panel: both layers show, side by side in Key A, bottom first.
+    REQUIRE(s.start());
+    s.editor->preference()->set(SETTING::XSHEET_LAYOUT, 1);
+    XSheet xsheet(nullptr);
+    xsheet.setEditor(s.editor.get());
+    xsheet.initUI();
+    const QRect b = xsheet.cellRect(0, 1);
+    CHECK(xsheet.cellRect(1, 1).left() == b.left() + b.width());
+}
+
 TEST_CASE("X-sheet visibility has a command with no default key", "[XSheet]")
 {
     QSettings preset(":resources/kb.ini", QSettings::IniFormat);

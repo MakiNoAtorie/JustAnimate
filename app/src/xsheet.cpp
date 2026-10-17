@@ -59,7 +59,7 @@ public:
     };
 
     /// The columns left to right, without folded group members. Western: the timeline's rows top to bottom.
-    /// Timesheet: every fixed column Key A to Camera, each with its layers or empty.
+    /// Timesheet: every fixed column Key A to Camera, each with its layers bottom-up or empty.
     QList<Column> columns() const
     {
         QList<Column> result;
@@ -76,7 +76,7 @@ public:
         {
             const TimesheetColumn sheet = static_cast<TimesheetColumn>(c);
             const int before = result.size();
-            for (int i = object->getLayerCount() - 1; i >= 0; --i)
+            for (int i = 0; i < object->getLayerCount(); ++i)
             {
                 if (!object->isLayerFolded(i) && effectiveTimesheetColumn(*object, i) == sheet) { result << Column{ i, sheet }; }
             }
