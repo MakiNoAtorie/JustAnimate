@@ -20,9 +20,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - CI runs the suite in random order (rerun: `--order rand --rng-seed
   <run number>`) under ASan, UBSan and LSan; third-party leaks go in
   `tools/lsan.supp`.
-- Windows: `tools\build-test.cmd ["exact test name" | [tag]]` (from
-  PowerShell) runs the CI source guards, builds and runs the suite
-  offscreen; a bare `pencil2d_tests.exe` uses the desktop theme.
+- Windows: `tools\build-test.cmd ["test name" | [tag]]` runs the CI
+  source guards and the suite offscreen.
 - Keep each file's line endings (`git ls-files --eol`); Git Bash `sed -i`
   drops CRLF. Commit with `git commit -F <file>` (UTF-8, no BOM).
 
@@ -40,13 +39,13 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   what they change and set up what they read.
 - No QtTest: count signals with a lambda `connect`. Tool tests send
   `QTabletEvent`s at `view()->mapCanvasToScreen()`; paint checks call
-  `grab()` on a shown area; sizes compare to a `sizeHint` (styles differ
+  `grab()` on a shown area (offscreen glyphs are boxes); sizes compare
+  to a `sizeHint` (styles differ
   by OS). Timing: `QEvent::setTimestamp`, no sleeps. `Status` in `((...))`.
 - Tests write files only under their own `QTemporaryDir`.
 - Fixtures are stack objects or `unique_ptr`; every `new` QObject in app
   code gets a parent.
-- No modal dialog in a test path: put the logic in helpers the test can
-  call. Command-line paths never prompt.
+- No modal dialog in a test path or on the command line.
 - A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
   on Windows.
 - Golden values change only in a commit that means to change output.
@@ -90,8 +89,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
   `loadPrefs` and `set()` in `preferencemanager.cpp`. A renamed setting
   migrates the old key once, only while the new key is absent.
-- Read `docs/brush-engine.md` before you edit `dabtool.*`, `tiledbuffer.*`,
-  `stroketool.*`, `toolproperties.h`, `brushpresets.*` or the preset UI.
+- Read `docs/brush-engine.md` before editing dab, tiled-buffer, stroke,
+  tool-property or brush-preset code.
 - Bitmap shape and path strokes go through `DabTool::dabPath`. A tool
   subclass skips its base's legacy settings migration. A tool that uses
   Shift or Alt clears `mQuickSizingProperties`. A vector fill from a new
@@ -103,9 +102,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - New app files go in `app/app.cmake` only. A new `ToolType` goes before
   `TOOL_TYPE_COUNT` with a `BaseTool::TypeName`, a `StatusBar` icon and an
   `initGroups` entry.
-- Speed-ups: Release `benchmark`, before/after on one machine, numbers in
-  the commit.
-  Caches match `CanvasPainter::paint` pixel for pixel and clear on
+- Speed-ups: Release `benchmark` numbers in the commit. Caches match
+  `CanvasPainter::paint` pixel for pixel and clear on
   modification signals; reuse `LayerCellCache`/`layersKey`; output-changing
   settings join `invalidateAllCache`. A cache that survives a scrub is keyed
   by content and carries a golden hash.
@@ -127,6 +125,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   a layer gets a player from `SoundManager::processSound`; taking a layer
   out stops its clips. A missing clip file never fails save or export: skip
   and warn.
+- Page exports: painters in `paperpainter.*`, files via `writePages`.
+- Camera-frame overlays apply `getViewAtFrame(frame)`.
+- Non-QObject text: `QCoreApplication::translate` on literals.
 - User-visible strings go through `tr()`.
 - Colours come from the palette (Accent = `Highlight`), never hex; icons
   from `Theme::icon`.
@@ -145,41 +146,3 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   attribution trailers.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
-
-## v1.4 homes
-
-- Seconds+frames text: `QString formatSecondsFrames(int frames, int fps)`
-  in `core_lib/src/util/util.h` (84 at 24 fps gives `3+12`). #211 adds it;
-  #210 and #212 reuse it. Whoever lands second keeps the one copy.
-- Paper template (#207): `struct PaperTemplate { bool on; QString kind,
-  title, id, name, state, date, notes; }` in `objectdata.h`, on
-  `ObjectData`. Saved as `<projectdata><paperTemplate on="1" kind="genga"
-  title id name state date notes/>`, omitted when off and all fields empty.
-  Edits record as one `PaperTemplateCommand` (old and new value).
-  Sheet and Title block draw only through
-  `paintPaperTemplate(QPainter&, const QRectF& cameraFrame, const
-  PaperTemplate&)` in `core_lib/src/paperpainter.{h,cpp}`; `CanvasPainter`
-  and the page writer both call it.
-- Page writer (#208): `core_lib/src/pagewriter.{h,cpp}`. `PageSpec { size
-  A4|B4; orientation; dpi }`; `QImage renderPage(const PageSpec&, const
-  PagePaintFn&, int page)` for tests; `Status writePages(path, PageSpec,
-  pageCount, PagePaintFn)` writes PDF (`QPdfWriter`) or PNG by extension,
-  PNG pages as `<base>_0001.png`. `PagePaintFn = std::function<void(QPainter&,
-  const QRectF& page, int index)>`. #210 and #212 add only a paint function.
-- Export menu: #208 adds File > Export > On paper…; #210 Timesheet…; #212
-  Storyboard…. Command line: #208 adds `--paper <A4|B4>`; with it `-o
-  x.pdf|x.png` exports on paper.
-- Timesheet column (#209): `enum class TimesheetColumn { Default, KeyA …
-  KeyF, InbetweenA … InbetweenF, Camera }` and `Layer::timesheetColumn()`.
-  Saved as `<layer timesheet="KA".."KF"|"IA".."IF"|"CAM">`, omitted for
-  Default. `effectiveTimesheetColumn(const Object&, int layerIndex)` resolves
-  Default from layer order; #210 reads only that. X-sheet layout: preference
-  `SETTING::XSHEET_LAYOUT`, key `"XSheetLayout"`, 0 Western, 1 Timesheet.
-- Storyboard (#211): `<layer storyboard="1">`, `Layer::isStoryboard()`.
-  Panel fields: `struct PanelFields { QString scene, cut, notes, audio; }`
-  on `KeyFrame` (`panelFields()`/`setPanelFields`), saved as `<image
-  scene cut notes audio>` each omitted when empty. Dock `objectName`
-  `"Storyboard"`, tabbed on the right; layout version 4 → 5. #212 exports
-  the first storyboard layer.
-- GLOSSARY terms: #205 Genga palette; #207 Paper template, Title block;
-  #209 Timesheet; #211 Storyboard layer, Panel field.
