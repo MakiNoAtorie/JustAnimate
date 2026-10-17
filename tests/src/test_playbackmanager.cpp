@@ -88,6 +88,15 @@ TEST_CASE("PlaybackManager frame sequence")
     }
 }
 
+TEST_CASE("PlaybackManager starts at 12 fps on an empty settings store")
+{
+    SettingsGuard guard({ SETTING_FPS });
+    pencilSettings().remove(SETTING_FPS);
+    TestSession s;
+    REQUIRE(s.start());
+    REQUIRE(s.editor->playback()->fps() == 12);
+}
+
 TEST_CASE("PlaybackManager speed scales the frame interval")
 {
     SettingsGuard guard({ SETTING_FPS });

@@ -15,6 +15,7 @@ the original Pencil2D history is kept below for reference.
 - Right-click on an X-sheet cell or column header opens the timeline's cell or layer menu (#229).
 - Smudge, Eyedropper and Move hints match the tools, grouped Tool column buttons say "Long press or right-click for more", and the Tools menu follows the Tool groups (#236).
 - Delete Layer deletes at once (undoable) with no confirmation; it is disabled on the last camera layer (#230).
+- Playback starts at 12 fps on an empty settings store, so the timeline no longer divides by zero before a project sets the frame rate (#215).
 - Menu, Panel and tooltip names match the app and GLOSSARY: Drawing for Frame, Mirror for Flip, Window menu, Palette and Onion skin Panels, "..." on dialog items, clearer export range tooltip (#235).
 - Timed autosave is on by default, every 5 minutes, so startup recovery has an autosave after a crash; saved settings are kept (#219).
 - Export On Paper, Export Storyboard and Export Timesheet show page progress and can be aborted between pages; an aborted export writes no files (#232).

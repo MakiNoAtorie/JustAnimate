@@ -14,7 +14,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 ```
 
 - Build with `-j2`, one build per worktree; stop only processes you
-  started. Re-run cmake after a `*.cmake` change.
+  started, by path: killing `pencil2d_tests` by name ends other
+  worktrees' suites with exit -1 (255) and no summary. Re-run cmake
+  after a `*.cmake` change.
 - Warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON` on Qt 6.4
   (Linux) and 6.5.3, GCC, Clang and MSVC: no Qt 6.5+ API.
 - CI runs the suite in random order (rerun: `--order rand --rng-seed
