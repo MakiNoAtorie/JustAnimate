@@ -5,7 +5,9 @@
 #include <QTemporaryDir>
 #include <memory>
 
+#include <QCheckBox>
 #include <QComboBox>
+#include <QListWidget>
 #include "layercamera.h"
 #include "object.h"
 #include "objectdata.h"
@@ -106,10 +108,44 @@ TEST_CASE("Welcome dialog preselects the last chosen template by name", "[Welcom
 
     const auto currentTemplate = [&](const QString& last) {
         WelcomeDialog dialog(0, {}, last);
-        return dialog.findChild<QComboBox*>("welcomeTemplates")->currentIndex();
+        return dialog.findChild<QComboBox*>("welcomeNew")->currentIndex();
     };
     CHECK(currentTemplate(prefs->getString(SETTING::LAST_TEMPLATE)) == Welcome::templateIndex("Square 1080"));
     CHECK(Welcome::templateIndex("Square 1080") > 0);
     CHECK(currentTemplate("Removed template") == 0);
     CHECK(currentTemplate(QString()) == 0);
+}
+TEST_CASE("Welcome New project row lists templates, a separator, then presets", "[Welcome]")
+{
+    WelcomeDialog dialog(0, {}, QString());
+    auto* row = dialog.findChild<QComboBox*>("welcomeNew");
+    REQUIRE(row);
+    const int n = Welcome::templates().size();
+    REQUIRE(row->count() >= n + 2);
+    CHECK(row->itemText(0).startsWith(Welcome::templates().at(0).name));
+    CHECK(row->itemData(n, Qt::AccessibleDescriptionRole).toString() == "separator");
+    CHECK(row->itemText(n + 1) == "Default");
+}
+
+TEST_CASE("Welcome hides Recent projects while the list is empty", "[Welcome]")
+{
+    WelcomeDialog empty(0, {}, QString());
+    CHECK(empty.findChild<QListWidget*>("welcomeRecent")->isHidden());
+
+    WelcomeDialog some(0, { "missing.pclx" }, QString());
+    CHECK_FALSE(some.findChild<QListWidget*>("welcomeRecent")->isHidden());
+}
+
+TEST_CASE("Welcome checkbox hides the screen and picks the startup choice", "[Welcome]")
+{
+    WelcomeDialog dialog(0, {}, QString());
+    auto* hide = dialog.findChild<QCheckBox*>("welcomeHide");
+    REQUIRE(hide);
+    CHECK(hide->text() == "Don't show this screen again");
+    CHECK_FALSE(dialog.shouldHide());
+    hide->setChecked(true);
+    CHECK(dialog.shouldHide());
+
+    CHECK(Welcome::hiddenStartupAction(true) == STARTUP_LAST_PROJECT);
+    CHECK(Welcome::hiddenStartupAction(false) == STARTUP_DEFAULT_PRESET);
 }

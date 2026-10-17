@@ -21,6 +21,7 @@ GNU General Public License for more details.
 
 class QComboBox;
 class QCheckBox;
+class QLabel;
 class QListWidget;
 
 class WelcomeDialog : public QDialog
@@ -36,13 +37,15 @@ public:
     int presetIndex() const;
     // -1 unless the user chose a template.
     int templateIndex() const { return mTemplate; }
-    bool shouldAlwaysUse() const;
+    // The "Don't show this screen again" checkbox.
+    bool shouldHide() const;
 
 private:
-    void fillPresets(int defaultPreset);
+    void fillNew(int defaultPreset, const QString& lastTemplate);
 
-    QComboBox* mPresets = nullptr;
-    QCheckBox* mAlwaysUse = nullptr;
+    QComboBox* mNew = nullptr;
+    QCheckBox* mHide = nullptr;
+    QLabel* mRecentLabel = nullptr;
     QListWidget* mRecent = nullptr;
     QString mOpenPath;
     bool mBrowse = false;

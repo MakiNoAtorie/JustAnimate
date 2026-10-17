@@ -16,6 +16,8 @@ GNU General Public License for more details.
 */
 #include "welcomedialog.h"
 
+#include <algorithm>
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
@@ -39,7 +41,8 @@ WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, 
     auto* layout = new QVBoxLayout(this);
     layout->addWidget(new QLabel(tr("<h1>Welcome to JustAnimate!</h1>")));
 
-    layout->addWidget(new QLabel(tr("Recent projects")));
+    mRecentLabel = new QLabel(tr("Recent projects"));
+    layout->addWidget(mRecentLabel);
     mRecent = new QListWidget;
     mRecent->setObjectName("welcomeRecent");
     mRecent->setViewMode(QListView::IconMode);
@@ -69,42 +72,31 @@ WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, 
         }
     }
     layout->addWidget(mRecent);
+    mRecentLabel->setHidden(mRecent->count() == 0);
+    mRecent->setHidden(mRecent->count() == 0);
     connect(mRecent, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
         mOpenPath = item->data(Qt::UserRole).toString();
         accept();
     });
 
     auto* newRow = new QHBoxLayout;
-    newRow->addWidget(new QLabel(tr("New project from preset:")));
-    mPresets = new QComboBox;
-    mPresets->setObjectName("welcomePresets");
-    newRow->addWidget(mPresets, 1);
+    newRow->addWidget(new QLabel(tr("New project:")));
+    mNew = new QComboBox;
+    mNew->setObjectName("welcomeNew");
+    newRow->addWidget(mNew, 1);
     auto* newButton = new QPushButton(tr("New"));
     newRow->addWidget(newButton);
     layout->addLayout(newRow);
-    connect(newButton, &QPushButton::clicked, this, &QDialog::accept);
-
-    auto* templateRow = new QHBoxLayout;
-    templateRow->addWidget(new QLabel(tr("New project from template:")));
-    auto* templates = new QComboBox;
-    templates->setObjectName("welcomeTemplates");
-    for (const Welcome::Template& t : Welcome::templates())
-    {
-        templates->addItem(tr("%1 (%2 x %3, %4 fps)").arg(t.name).arg(t.size.width()).arg(t.size.height()).arg(t.fps));
-    }
-    templates->setCurrentIndex(qMax(0, Welcome::templateIndex(lastTemplate)));
-    templateRow->addWidget(templates, 1);
-    auto* templateButton = new QPushButton(tr("New"));
-    templateRow->addWidget(templateButton);
-    layout->addLayout(templateRow);
-    connect(templateButton, &QPushButton::clicked, this, [this, templates] {
-        mTemplate = templates->currentIndex();
+    connect(newButton, &QPushButton::clicked, this, [this] {
+        const int code = mNew->currentData().toInt();
+        mTemplate = code < 0 ? -code - 1 : -1;
         accept();
     });
 
-    mAlwaysUse = new QCheckBox(tr("Always use this preset"));
-    layout->addWidget(mAlwaysUse);
-
+    mHide = new QCheckBox(tr("Don't show this screen again"));
+    mHide->setObjectName("welcomeHide");
+    mHide->setToolTip(tr("Opens the last project at startup, or a new project from the default preset when there is none. Change it in Preferences."));
+    layout->addWidget(mHide);
     auto* bottom = new QHBoxLayout;
     auto* browse = new QPushButton(tr("Open..."));
     bottom->addWidget(browse);
@@ -118,39 +110,54 @@ WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, 
     });
     connect(cancel, &QPushButton::clicked, this, &QDialog::reject);
 
-    fillPresets(defaultPreset);
+    fillNew(defaultPreset, lastTemplate);
     hideQuestionMark(*this);
 }
 
 int WelcomeDialog::presetIndex() const
 {
-    return mPresets->currentData().toInt();
+    const int code = mNew->currentData().toInt();
+    return code < 0 ? 0 : code;
 }
 
-bool WelcomeDialog::shouldAlwaysUse() const
+bool WelcomeDialog::shouldHide() const
 {
-    return mAlwaysUse->isChecked();
+    return mHide->isChecked();
 }
 
-void WelcomeDialog::fillPresets(int defaultPreset)
+void WelcomeDialog::fillNew(int defaultPreset, const QString& lastTemplate)
 {
-    mPresets->addItem(tr("Default"), 0);
+    // Item data: a template i is -(i + 1); a preset is its index (0 is Default).
+    const auto& templates = Welcome::templates();
+    for (int i = 0; i < templates.size(); ++i)
+    {
+        const Welcome::Template& t = templates.at(i);
+        mNew->addItem(tr("%1 (%2 x %3, %4 fps)").arg(t.name).arg(t.size.width()).arg(t.size.height()).arg(t.fps), -(i + 1));
+    }
+    mNew->insertSeparator(mNew->count());
+    mNew->addItem(tr("Default"), 0);
 
     QDir dataDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
-    if (!dataDir.cd("presets") || !dataDir.exists("presets.ini"))
+    if (dataDir.cd("presets") && dataDir.exists("presets.ini"))
     {
-        return;
+        QSettings presets(dataDir.filePath("presets.ini"), QSettings::IniFormat);
+        QList<QPair<QString, int>> found;
+        for (const QString& key : presets.allKeys())
+        {
+            bool ok = false;
+            const int index = key.toInt(&ok);
+            const QString name = presets.value(key).toString();
+            if (!ok || index == 0 || name.isEmpty() || !dataDir.exists(QString("%1.pclx").arg(index))) continue;
+            found.append({ name, index });
+        }
+        std::sort(found.begin(), found.end());
+        for (const auto& p : found) { mNew->addItem(p.first, p.second); }
     }
-    QSettings presets(dataDir.filePath("presets.ini"), QSettings::IniFormat);
-    for (const QString& key : presets.allKeys())
+
+    int at = Welcome::templateIndex(lastTemplate) >= 0 ? mNew->findData(-(Welcome::templateIndex(lastTemplate) + 1)) : -1;
+    if (at < 0 && defaultPreset > 0 && lastTemplate.isEmpty())
     {
-        bool ok = false;
-        const int index = key.toInt(&ok);
-        const QString name = presets.value(key).toString();
-        if (!ok || index == 0 || name.isEmpty() || !dataDir.exists(QString("%1.pclx").arg(index))) continue;
-        mPresets->addItem(name, index);
+        at = mNew->findData(defaultPreset);
     }
-    mPresets->model()->sort(0);
-    const int at = mPresets->findData(defaultPreset);
-    mPresets->setCurrentIndex(at < 0 ? 0 : at);
+    mNew->setCurrentIndex(at < 0 ? 0 : at);
 }

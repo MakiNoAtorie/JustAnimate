@@ -25,6 +25,7 @@ GNU General Public License for more details.
 
 #include "layercamera.h"
 #include "object.h"
+#include "preferencesdef.h"
 
 namespace Welcome
 {
@@ -70,6 +71,11 @@ Object* newObjectFromTemplate(int index)
     object->data()->setCurrentLayer(1);
     object->data()->setFrameRate(t.fps);
     return object;
+}
+
+int hiddenStartupAction(bool hasRecentProjects)
+{
+    return hasRecentProjects ? STARTUP_LAST_PROJECT : STARTUP_DEFAULT_PRESET;
 }
 
 QString presetPath(int index)

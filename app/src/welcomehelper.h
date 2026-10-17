@@ -47,6 +47,9 @@ int templateIndex(const QString& name);
 // Caller owns the result. Null when index is out of range.
 Object* newObjectFromTemplate(int index);
 
+// The startup choice written by "Don't show this screen again" (STARTUP_*).
+int hiddenStartupAction(bool hasRecentProjects);
+
 QString presetPath(int index);
 QString thumbnailPath(const QString& projectPath);
 QList<RecentEntry> recentEntries(const QStringList& recentFiles);

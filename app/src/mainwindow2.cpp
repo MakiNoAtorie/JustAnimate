@@ -1435,6 +1435,15 @@ void MainWindow2::showWelcomeDialog()
             return;
         }
 
+        if (presetDialog->shouldHide())
+        {
+            mEditor->preference()->set(SETTING::STARTUP_ACTION, Welcome::hiddenStartupAction(!mRecentFileMenu->getRecentFiles().isEmpty()));
+            if (presetDialog->templateIndex() < 0)
+            {
+                mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetDialog->presetIndex());
+            }
+        }
+
         if (presetDialog->browseRequested())
         {
             openDocument();
@@ -1460,11 +1469,6 @@ void MainWindow2::showWelcomeDialog()
         }
 
         int presetIndex = presetDialog->presetIndex();
-        if (presetDialog->shouldAlwaysUse())
-        {
-            mEditor->preference()->set(SETTING::STARTUP_ACTION, STARTUP_DEFAULT_PRESET);
-            mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetIndex);
-        }
         if (!newObjectFromPresets(presetIndex))
         {
             newObject();
