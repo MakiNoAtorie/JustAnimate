@@ -330,7 +330,7 @@
    </widget>
    <widget class="QMenu" name="menuWindows">
     <property name="title">
-     <string>Windows</string>
+     <string>Window</string>
     </property>
     <addaction name="actionLockWindows"/>
     <addaction name="separator"/>
@@ -352,7 +352,7 @@
   </action>
   <action name="actionOpen">
    <property name="text">
-    <string>Open</string>
+    <string>Open...</string>
    </property>
   </action>
   <action name="actionSave">
@@ -390,7 +390,7 @@
   </action>
   <action name="actionExport_Palette">
    <property name="text">
-    <string>Palette</string>
+    <string>Palette...</string>
    </property>
   </action>
   <action name="actionImport_Image">
@@ -464,7 +464,7 @@
   </action>
   <action name="actionClearFrame">
    <property name="text">
-    <string>Clear Frame</string>
+    <string>Clear Drawing</string>
    </property>
   </action>
   <action name="actionCommandSearch">
@@ -474,7 +474,7 @@
   </action>
   <action name="actionPreference">
    <property name="text">
-    <string>Preferences</string>
+    <string>Preferences...</string>
    </property>
    <property name="menuRole">
     <enum>QAction::PreferencesRole</enum>
@@ -515,7 +515,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Horizontal Flip</string>
+    <string>Mirror View Horizontally</string>
    </property>
   </action>
   <action name="actionVertical_Flip">
@@ -523,7 +523,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Vertical Flip</string>
+    <string>Mirror View Vertically</string>
    </property>
   </action>
   <action name="actionGrid">
@@ -749,7 +749,7 @@
   </action>
   <action name="actionAbout">
    <property name="text">
-    <string>About</string>
+    <string>About...</string>
    </property>
   </action>
   <action name="actionResetToolsDefault">
@@ -789,22 +789,22 @@
   </action>
   <action name="actionFlip_X">
    <property name="text">
-    <string>Flip X</string>
+    <string>Mirror Horizontally</string>
    </property>
   </action>
   <action name="actionFlip_Y">
    <property name="text">
-    <string>Flip Y</string>
+    <string>Mirror Vertically</string>
    </property>
   </action>
   <action name="actionMove_Frame_Forward">
    <property name="text">
-    <string>Move Frame Forward</string>
+    <string>Move Drawing Forward</string>
    </property>
   </action>
   <action name="actionMove_Frame_Backward">
    <property name="text">
-    <string>Move Frame Backward</string>
+    <string>Move Drawing Backward</string>
    </property>
   </action>
   <action name="actionWebsite">
@@ -922,7 +922,7 @@
   </action>
   <action name="actionPegbarAlignment">
    <property name="text">
-    <string>Peg Bar Alignment</string>
+    <string>Peg Bar Alignment...</string>
    </property>
   </action>
   <action name="actionImport_MovieAudio">
@@ -981,12 +981,12 @@
   </action>
   <action name="actionReposition_Selected_Frames">
    <property name="text">
-    <string>Reposition Selected Frames</string>
+    <string>Reposition Selected Drawings...</string>
    </property>
   </action>
   <action name="actionChangeLayerOpacity">
    <property name="text">
-    <string>Layer / Drawing Opacity</string>
+    <string>Layer / Drawing Opacity...</string>
    </property>
   </action>
   <action name="actionOpen_Temporary_Directory">
@@ -1014,7 +1014,7 @@
   </action>
   <action name="actionAdd_Transparency_to_paper">
    <property name="text">
-    <string>Replace Paper with Transparency</string>
+    <string>Replace Paper with Transparency...</string>
    </property>
   </action>
   <action name="actionAdd_Frame_Exposure">
@@ -1052,12 +1052,12 @@
   </action>
   <action name="actionReverse_Frames_Order">
    <property name="text">
-    <string>Reverse Frames Order</string>
+    <string>Reverse Drawings</string>
    </property>
   </action>
   <action name="actionRemove_Frames">
    <property name="text">
-    <string>Remove Frames</string>
+    <string>Remove Drawings</string>
    </property>
   </action>
   <action name="actionStatusBar">

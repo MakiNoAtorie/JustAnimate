@@ -20,7 +20,7 @@
    <bool>false</bool>
   </property>
   <property name="windowTitle">
-   <string comment="Window title of display options like .">Onion Skins</string>
+   <string comment="Window title of display options like .">Onion skin</string>
   </property>
   <widget class="QWidget" name="dockWidgetContents">
    <property name="sizePolicy">
