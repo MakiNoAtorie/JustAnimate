@@ -18,7 +18,9 @@ GNU General Public License for more details.
 #ifndef COMMANDLINEPARSER_H
 #define COMMANDLINEPARSER_H
 
+#include <optional>
 #include <QCommandLineParser>
+#include "pagewriter.h"
 
 class CommandLineParser : QObject
 {
@@ -37,8 +39,8 @@ public:
     int startFrame() const { return mStartFrame; }
     int endFrame() const { return mEndFrame; }
     bool transparency() const { return mTransparency; }
-    /// "A4" or "B4" to export on paper, else empty.
-    QString paper() const { return mPaper; }
+    /// The paper size to export on, or none.
+    std::optional<PageSpec::Size> paper() const { return mPaper; }
 
 private:
     QCommandLineParser mParser;
@@ -51,7 +53,7 @@ private:
     int mStartFrame = 1;
     int mEndFrame = -1;
     bool mTransparency = false;
-    QString mPaper;
+    std::optional<PageSpec::Size> mPaper;
 };
 
 #endif // COMMANDLINEPARSER_H

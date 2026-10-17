@@ -328,9 +328,9 @@ TEST_CASE("Alt-drag in the timeline and the X-sheet makes a Linked Drawing, mark
     altDrag(sheetCells, sheet.cellRect(0, 4).center(), sheet.cellRect(0, 7).center());
     REQUIRE(layer->keyExists(7));
     CHECK(layer->linkedKeys(layer->getKeyFrameAt(7)) == QList<KeyFrame*>({ layer->getKeyFrameAt(3) }));
-    const QList<XSheet::Run> runs = XSheet::runs(layer, 9);
+    const QList<Layer::Run> runs = layer->runs(9);
     QList<bool> linked;
-    for (const XSheet::Run& run : runs) { linked << run.linked; }
+    for (const Layer::Run& run : runs) { linked << run.linked; }
     CHECK(linked == QList<bool>({ true, true, true, true }));
 
     undo->trigger();

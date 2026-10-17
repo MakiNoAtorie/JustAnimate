@@ -148,6 +148,7 @@ void ColorPaletteWidget::loadGengaPalette()
     mObject->loadGengaPalette();
     refreshColorList();
     editor()->color()->setColorNumber(0);
+    emit editor()->framesModified(); // vector strokes repaint in the new colours
 }
 
 void ColorPaletteWidget::addItem()

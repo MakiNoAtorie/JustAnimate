@@ -56,7 +56,6 @@ GNU General Public License for more details.
 #include "camera.h"
 #include "pagewriter.h"
 #include "paperpainter.h"
-#include "xsheet.h"
 
 #include "importimageseqdialog.h"
 #include "importpositiondialog.h"
@@ -640,17 +639,43 @@ Status ActionCommands::exportImage()
     return Status::OK;
 }
 
+namespace
+{
+// Asks where to save, writes the pages and shows any error. Shared by the three page exports.
+Status savePages(QWidget* parent, const QString& title, const PageSpec& spec, int pageCount, const PagePaintFn& paint)
+{
+    const QString path = QFileDialog::getSaveFileName(parent, title, QString(), ActionCommands::tr("PDF (*.pdf);;PNG pages (*.png)"));
+    if (path.isEmpty()) { return Status::SAFE; }
+    const Status st = writePages(path, spec, pageCount, paint);
+    if (!st.ok())
+    {
+        ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), parent);
+        errorDialog.exec();
+    }
+    return st;
+}
+} // namespace
+
 Status ActionCommands::exportOnPaper()
 {
+    const std::vector<LayerCamera*> cameras = mEditor->object()->getLayersByType<LayerCamera>();
+    if (cameras.empty())
+    {
+        QMessageBox::information(mParent, tr("Export on Paper"), tr("Add a camera layer first: the pages show its frame."));
+        return Status::SAFE;
+    }
     QDialog dialog(mParent);
     dialog.setWindowTitle(tr("Export on Paper"));
     auto form = new QFormLayout(&dialog);
     auto size = new QComboBox(&dialog);
     size->addItems({ tr("A4 landscape"), tr("B4 landscape") });
     auto camera = new QComboBox(&dialog);
-    for (const LayerCamera* layer : mEditor->object()->getLayersByType<LayerCamera>()) { camera->addItem(layer->name()); }
-    if (mEditor->layers()->currentLayer()->type() == Layer::CAMERA) { camera->setCurrentText(mEditor->layers()->currentLayer()->name()); }
-    const int length = std::max(1, mEditor->layers()->animationLength(false));
+    for (const LayerCamera* layer : cameras)
+    {
+        camera->addItem(layer->name());
+        if (layer == mEditor->layers()->currentLayer()) { camera->setCurrentIndex(camera->count() - 1); }
+    }
+    const int length = std::max(1, mEditor->layers()->animationLength());
     auto from = new QSpinBox(&dialog);
     auto to = new QSpinBox(&dialog);
     from->setRange(1, 9999);
@@ -667,22 +692,11 @@ Status ActionCommands::exportOnPaper()
     form->addRow(buttons);
     if (dialog.exec() != QDialog::Accepted) { return Status::SAFE; }
 
-    const QString path = QFileDialog::getSaveFileName(mParent, tr("Export on Paper"), QString(),
-                                                      tr("PDF (*.pdf);;PNG pages (*.png)"));
-    if (path.isEmpty()) { return Status::SAFE; }
     PageSpec spec;
     spec.size = size->currentIndex() == 1 ? PageSpec::B4 : PageSpec::A4;
-    const auto* cameraLayer = static_cast<const LayerCamera*>(mEditor->layers()->findLayerByName(camera->currentText(), Layer::CAMERA));
-    if (cameraLayer == nullptr) { return Status::FAIL; }
     const int first = std::min(from->value(), to->value());
-    const Status st = writePages(path, spec, std::abs(to->value() - from->value()) + 1,
-                                 paperFramePages(*mEditor->object(), *cameraLayer, first));
-    if (!st.ok())
-    {
-        ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), mParent);
-        errorDialog.exec();
-    }
-    return st;
+    return savePages(mParent, tr("Export on Paper"), spec, std::abs(to->value() - from->value()) + 1,
+                     paperFramePages(*mEditor->object(), *cameras[camera->currentIndex()], first));
 }
 
 Status ActionCommands::exportStoryboard()
@@ -696,24 +710,17 @@ Status ActionCommands::exportStoryboard()
     const std::vector<LayerCamera*> cameras = object->getLayersByType<LayerCamera>();
     if (board == nullptr || cameras.empty())
     {
-        QMessageBox::information(mParent, tr("Export Storyboard"), tr("Make a layer a Storyboard layer first (layer menu)."));
+        QMessageBox::information(mParent, tr("Export Storyboard"),
+                                 board == nullptr ? tr("Make a layer a Storyboard layer first (layer menu).")
+                                                  : tr("Add a camera layer first: the pictures show its frame."));
         return Status::SAFE;
     }
-    const QString path = QFileDialog::getSaveFileName(mParent, tr("Export Storyboard"), QString(),
-                                                      tr("PDF (*.pdf);;PNG pages (*.png)"));
-    if (path.isEmpty()) { return Status::SAFE; }
     QList<QPair<int, int>> panels;
-    for (const XSheet::Run& run : XSheet::runs(board, mEditor->layers()->animationLength())) { panels << qMakePair(run.first, run.last); }
+    for (const Layer::Run& run : board->runs(mEditor->layers()->animationLength())) { panels << qMakePair(run.first, run.last); }
     PageSpec spec;
     spec.orientation = QPageLayout::Portrait;
-    const Status st = writePages(path, spec, storyboardPageCount(panels.size()),
-                                 storyboardPages(*object, *board, *cameras.front(), panels, mEditor->playback()->fps()));
-    if (!st.ok())
-    {
-        ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), mParent);
-        errorDialog.exec();
-    }
-    return st;
+    return savePages(mParent, tr("Export Storyboard"), spec, storyboardPageCount(panels.size()),
+                     storyboardPages(*object, *board, *cameras.front(), panels, mEditor->playback()->fps()));
 }
 
 Status ActionCommands::exportTimesheet()
@@ -736,27 +743,18 @@ Status ActionCommands::exportTimesheet()
     form->addRow(buttons);
     if (dialog.exec() != QDialog::Accepted) { return Status::SAFE; }
 
-    const QString path = QFileDialog::getSaveFileName(mParent, tr("Export Timesheet"), QString(),
-                                                      tr("PDF (*.pdf);;PNG pages (*.png)"));
-    if (path.isEmpty()) { return Status::SAFE; }
     PageSpec spec;
     spec.size = size->currentIndex() == 1 ? PageSpec::B4 : PageSpec::A4;
     spec.orientation = QPageLayout::Portrait;
-    XSheet::TimesheetInfo info; // TITLE comes from the Title block
+    TimesheetInfo info; // TITLE comes from the Title block
     info.scene = scene->text();
     info.shot = shot->text();
     info.animator = animator->text();
     info.length = std::max(1, mEditor->layers()->animationLength());
     info.fps = mEditor->playback()->fps();
-    const Status st = writePages(path, spec, XSheet::timesheetSheetCount(info.length),
-                                 XSheet::timesheetPages(*mEditor->object(), info));
-    if (!st.ok())
-    {
-        ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), mParent);
-        errorDialog.exec();
-    }
-    return st;
+    return savePages(mParent, tr("Export Timesheet"), spec, timesheetSheetCount(info.length), timesheetPages(*mEditor->object(), info));
 }
+
 void ActionCommands::flipSelectionX()
 {
     bool flipVertical = false;

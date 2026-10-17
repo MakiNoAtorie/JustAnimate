@@ -48,7 +48,7 @@ Status CommandLineExporter::process(const QString &inputPath,
                                     int startFrame,
                                     int endFrame,
                                     bool transparency,
-                                    const QString &paper)
+                                    std::optional<PageSpec::Size> paper)
 {
     LayerManager *layerManager = mEditor->layers();
 
@@ -105,11 +105,11 @@ Status CommandLineExporter::process(const QString &inputPath,
     Q_ASSERT(!outputPaths.empty());
     for (const QString& outputPath : outputPaths)
     {
-        if (!paper.isEmpty())
+        if (paper)
         {
             mOut << tr("Exporting on paper...", "Command line task progress") << qEndl;
             PageSpec spec;
-            spec.size = paper == "B4" ? PageSpec::B4 : PageSpec::A4;
+            spec.size = *paper;
             const Status st = writePages(outputPath, spec, endFrame - startFrame + 1,
                                          paperFramePages(*mEditor->object(), *cameraLayer, startFrame));
             if (!st.ok())

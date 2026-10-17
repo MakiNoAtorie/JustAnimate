@@ -151,7 +151,12 @@ void CanvasPainter::paintPaper(QPainter& painter) const
     const Layer* camera = mObject->getLayerBelow(mCurrentLayerIndex, Layer::CAMERA);
     if (camera == nullptr) { camera = mObject->getLayerBelow(mObject->getLayerCount() - 1, Layer::CAMERA); }
     if (camera == nullptr) { return; }
-    paintPaperTemplate(painter, static_cast<const LayerCamera*>(camera)->getViewRect(), paper);
+    const auto* cameraLayer = static_cast<const LayerCamera*>(camera);
+    // The sheet moves with the camera frame on this frame, as the camera border does.
+    painter.save();
+    painter.setWorldTransform(cameraLayer->getViewAtFrame(mFrameNumber).inverted(), true);
+    paintPaperTemplate(painter, cameraLayer->getViewRect(), paper);
+    painter.restore();
 }
 
 void CanvasPainter::resetLayerCache()

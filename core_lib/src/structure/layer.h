@@ -82,6 +82,20 @@ public:
     /** The column chosen for this layer on the Timesheet; Default when none is chosen. */
     TimesheetColumn timesheetColumn() const { return mTimesheetColumn; }
     void setTimesheetColumn(TimesheetColumn c) { mTimesheetColumn = c; }
+    /** The user-visible name of a Timesheet column, such as "Key A". */
+    static QString timesheetColumnName(TimesheetColumn column);
+
+    /** One Drawing's cells: its first and last frame, its number on the layer, its Mark and whether it is linked. */
+    struct Run
+    {
+        int first;
+        int last;
+        int number;
+        Mark mark;
+        bool linked;
+    };
+    /** The Drawings of this layer; the last one runs to `sceneLength`, a sound clip to its own end. */
+    QList<Run> runs(int sceneLength) const;
     /** Id of the LayerGroup in Object that holds this layer, 0 for none */
     int groupId() const { return mGroupId; }
     void setGroupId(int groupId) { mGroupId = groupId; }

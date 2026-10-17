@@ -848,6 +848,7 @@ void Object::loadGengaPalette()
     addColor(ColorRef(QColor(220, 0, 0), tr("Shadow line")));
     addColor(ColorRef(QColor(0, 90, 255), tr("Highlight line")));
     addColor(ColorRef(QColor(0, 160, 0), tr("Second shadow line")));
+    modification();
 }
 
 bool Object::isPaletteInUse() const

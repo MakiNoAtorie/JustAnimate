@@ -48,6 +48,38 @@ Layer::Layer(int id, LAYER_TYPE eType)
     mId = id;
 }
 
+QString Layer::timesheetColumnName(TimesheetColumn column)
+{
+    const int c = static_cast<int>(column);
+    if (column >= TimesheetColumn::KeyA && column <= TimesheetColumn::KeyF)
+    {
+        return tr("Key %1").arg(QChar('A' + c - static_cast<int>(TimesheetColumn::KeyA)));
+    }
+    if (column >= TimesheetColumn::InbetweenA && column <= TimesheetColumn::InbetweenF)
+    {
+        return tr("In-between %1").arg(QChar('A' + c - static_cast<int>(TimesheetColumn::InbetweenA)));
+    }
+    if (column == TimesheetColumn::Dialogue) { return tr("Dialogue"); }
+    if (column == TimesheetColumn::Camera) { return tr("Camera"); }
+    return tr("From layer order");
+}
+
+QList<Layer::Run> Layer::runs(int sceneLength) const
+{
+    QList<Run> result;
+    if (keyFrameCount() == 0) { return result; }
+    for (int pos = firstKeyFramePosition();;)
+    {
+        const KeyFrame* key = getKeyFrameAt(pos);
+        const int next = getNextKeyFramePosition(pos);
+        const bool last = next <= pos;
+        const int end = type() == SOUND ? pos + key->length() - 1 : last ? qMax(pos, sceneLength) : next - 1;
+        result.append({ pos, end, static_cast<int>(result.size()) + 1, key->mark(), isLinked(key) });
+        if (last) { return result; }
+        pos = next;
+    }
+}
+
 Layer::~Layer()
 {
     for (auto it : mKeyFrames)

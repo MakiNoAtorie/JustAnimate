@@ -65,6 +65,9 @@ TEST_CASE("Seconds+frames text", "[Storyboard]")
     CHECK(formatSecondsFrames(24, 24) == "1+0");
     CHECK(formatSecondsFrames(5, 24) == "0+5");
     CHECK(formatSecondsFrames(7, 0) == "0+7");
+    for (int frames : { 0, 5, 24, 84, 1000 }) { CHECK(parseSecondsFrames(formatSecondsFrames(frames, 24), 24) == frames); }
+    CHECK(parseSecondsFrames("36", 24) == 36);
+    CHECK(parseSecondsFrames("1+x", 24) == 0);
 }
 
 TEST_CASE("Storyboard flag and Panel fields round-trip through save and load", "[Storyboard]")
@@ -247,6 +250,42 @@ TEST_CASE("Storyboard export has five panels a page", "[Storyboard]")
                        storyboardPages(object, *board, *camera, panels, 24)).ok());
     CHECK(QFileInfo::exists(dir.filePath("board_0003.png")));
     CHECK_FALSE(QFileInfo::exists(dir.filePath("board_0004.png")));
+}
+
+TEST_CASE("Page exports draw a Drawing the frame pool unloaded", "[Storyboard]")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString path = dir.filePath("far.pclx");
+    FileManager fm;
+    {
+        Object object;
+        object.init();
+        LayerCamera* camera = object.addNewCameraLayer();
+        LayerBitmap* board = object.addNewBitmapLayer();
+        board->addNewKeyFrameAt(1);
+        board->addNewKeyFrameAt(100);
+        board->getBitmapImageAtFrame(100)->drawRect(camera->getViewRect(), Qt::NoPen, Qt::black,
+                                                    QPainter::CompositionMode_SourceOver, false);
+        REQUIRE(fm.save(&object, path).ok());
+    }
+    std::unique_ptr<Object> object(fm.load(path));
+    REQUIRE(object);
+    const auto* camera = static_cast<LayerCamera*>(object->getLayer(0));
+    auto* board = static_cast<LayerBitmap*>(object->getLayer(1));
+    object->updateActiveFrames(100);
+    object->updateActiveFrames(1);
+    REQUIRE_FALSE(board->getBitmapImageAtFrame(100)->isLoaded());
+
+    PageSpec spec;
+    spec.dpi = 30;
+    const QRectF page(QPointF(), QSizeF(spec.pixelSize()));
+    const QImage sheet = renderPage(spec, storyboardPages(*object, *board, *camera, { qMakePair(100, 110) }, 24), 0);
+    CHECK(sheet.pixel(storyboardPicture(storyboardCell(page, 0, 2), camera->getViewSize()).toRect().center()) == qRgb(0, 0, 0));
+    board->getBitmapImageAtFrame(100)->unloadFile();
+    REQUIRE_FALSE(board->getBitmapImageAtFrame(100)->isLoaded());
+    const QImage paper = renderPage(spec, paperFramePages(*object, *camera, 100), 0);
+    CHECK(paper.pixel(paperFrameOnPage(page, camera->getViewSize()).toRect().center()) == qRgb(0, 0, 0));
 }
 
 TEST_CASE("A storyboard page has each field in its cell", "[Storyboard]")

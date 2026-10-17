@@ -23,6 +23,8 @@ GNU General Public License for more details.
 #include "layercamera.h"
 #include "camera.h"
 #include "keyframe.h"
+#include "objectdata.h"
+#include "paperpainter.h"
 
 #include "transform.h"
 
@@ -169,7 +171,9 @@ void CameraPainter::paintBorder(QPainter& painter, const QTransform& camTransfor
     QTransform viewInverse = mViewTransform.inverted();
     QRect boundingRect = viewInverse.mapRect(viewRect);
 
-    QPolygon camPoly = camTransform.inverted().map(QPolygon(camRect));
+    // With the Paper template on, the dimming leaves the whole white sheet clear.
+    const bool paper = mObject->data()->paperTemplate().on;
+    QPolygon camPoly = camTransform.inverted().map(paper ? QPolygon(paperSheetRect(camRect).toAlignedRect()) : QPolygon(camRect));
     QPolygon boundingRectPoly = boundingRect;
     QPolygon visibleCanvasPoly = boundingRectPoly.subtracted(camPoly);
 

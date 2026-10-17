@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include <QList>
 #include <QPair>
 #include <QRectF>
+#include <QString>
 #include "pagewriter.h"
 
 class QPainter;
@@ -25,6 +26,9 @@ class Layer;
 class Object;
 class LayerCamera;
 struct PaperTemplate;
+
+/// The white sheet around cameraFrame: the frame, its margins and the Title block above it.
+QRectF paperSheetRect(const QRectF& cameraFrame);
 
 /// Draws the sheet and its Title block around cameraFrame, in the painter's coordinates. Draws nothing when off.
 void paintPaperTemplate(QPainter& painter, const QRectF& cameraFrame, const PaperTemplate& paper);
@@ -46,5 +50,20 @@ QRectF storyboardPicture(const QRectF& cell, const QSizeF& cameraSize);
 /// TIME is its length at fps; PRODUCTION is the Paper template TITLE. object, board and camera must outlive the function.
 PagePaintFn storyboardPages(const Object& object, const Layer& board, const LayerCamera& camera,
                             const QList<QPair<int, int>>& panels, int fps);
+
+/// Timesheet export: the header fields the Title block does not hold, the scene length and its fps.
+struct TimesheetInfo
+{
+    QString scene, shot, animator;
+    int length = 1;
+    int fps = 24;
+};
+/// Sheets for a scene of `length` frames: 144 frames each, at least one.
+int timesheetSheetCount(int length);
+/// On a page, the cell of a Timesheet column (0 Key A ... 13 Camera, -1 the frame marks) at row 0-143 of a sheet.
+/// Rows 0-71 are the left half, rows 72-143 the right.
+QRectF timesheetCell(const QRectF& page, int column, int row);
+/// Page i is sheet i + 1. Each column shows the topmost layer in it. object must outlive the function.
+PagePaintFn timesheetPages(const Object& object, const TimesheetInfo& info);
 
 #endif // PAPERPAINTER_H

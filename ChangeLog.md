@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- v1.4 review fixes: the Paper template sheet follows the camera move and stays clear of the camera dimming, NOTES holds three lines, page exports keep the old files when a write fails, the export messages name the missing layer, and Load Genga palette asks to save (#204).
 - File > Export > Timesheet... writes the timesheet as A4 or B4 portrait sheets (PDF or PNG), 144 frames each in two 72-frame halves, with TITLE from the Title block, SCENE, SHOT, ANIMATOR, TIME in seconds+frames and SHEET NO. n / N (#210).
 - File > Export > On Paper... writes a frame range as Paper template sheets with the Title block, one page per frame, as PDF or PNG on A4 or B4 landscape; the command line does the same with `--paper A4|B4` (#208).
 - Palette Panel right-click > Load Genga palette: Main line (black), Shadow line (red), Highlight line (blue) and Second shadow line (green); asks first when strokes use the old palette (#205).

@@ -166,7 +166,7 @@ void CommandLineParser::process(QStringList arguments)
     mCamera = mParser.value("camera");
 
     const QString paper = mParser.value("paper").toUpper();
-    if (paper == "A4" || paper == "B4") { mPaper = paper; }
+    if (paper == "A4" || paper == "B4") { mPaper = paper == "B4" ? PageSpec::B4 : PageSpec::A4; }
     else if (!paper.isEmpty())
     {
         err << tr("Warning: paper value %1 is not A4 or B4, ignoring.").arg(mParser.value("paper")) << qEndl;

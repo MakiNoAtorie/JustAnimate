@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -64,7 +65,7 @@ TEST_CASE("A rendered page has each Title block value in its cell", "[PageWriter
     object.init();
     LayerCamera* camera = object.addNewCameraLayer();
     PageSpec spec;
-    spec.dpi = 50;
+    spec.dpi = 100; // NOTES text is small: three lines fit its cell
     const PagePaintFn paint = paperFramePages(object, *camera, 1);
     const QImage blank = renderPage(spec, paint, 0);
     REQUIRE(blank.size() == spec.pixelSize());
@@ -73,7 +74,7 @@ TEST_CASE("A rendered page has each Title block value in its cell", "[PageWriter
     // The Title block cells, as paintPaperTemplate lays them out above the camera frame.
     const QRectF f = paperFrameOnPage(QRectF(QPointF(), QSizeF(blank.size())), camera->getViewSize());
     const QRectF block(f.left(), f.top() - f.height() * 0.22, f.width(), f.height() * 0.16);
-    const qreal unit = block.width() / 6, top = block.height() * 0.55;
+    const qreal unit = block.width() / 6, top = block.height() * 0.35;
     struct Field { QString PaperTemplate::*value; QRectF cell; };
     const Field fields[] = {
         { &PaperTemplate::title, QRectF(block.left(), block.top(), 2 * unit, top) },
@@ -138,11 +139,42 @@ TEST_CASE("writePages writes one PDF page or PNG file per page", "[PageWriter]")
     CHECK_FALSE(writePages(dir.filePath("sheets.jpg"), spec, 1, paint).ok());
 }
 
+TEST_CASE("A failed writePages keeps the old files and leaves no partial file", "[PageWriter]")
+{
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    PageSpec spec;
+    spec.dpi = 30;
+    const PagePaintFn paint = [](QPainter& p, const QRectF& page, int) { p.drawRect(page.adjusted(10, 10, -10, -10)); };
+    const QByteArray old = "old sheet";
+    for (const QString& name : { QString("sheets_0001.png"), QString("sheets.pdf") })
+    {
+        QFile file(dir.filePath(name));
+        REQUIRE(file.open(QIODevice::WriteOnly));
+        file.write(old);
+    }
+    auto content = [&dir](const QString& name) {
+        QFile file(dir.filePath(name));
+        return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+    };
+
+    // A folder where page 2 is written makes that write fail.
+    REQUIRE(QDir(dir.path()).mkdir("sheets_0002.png.tmp"));
+    CHECK_FALSE(writePages(dir.filePath("sheets.png"), spec, 2, paint).ok());
+    CHECK(content("sheets_0001.png") == old);
+    CHECK_FALSE(QFileInfo::exists(dir.filePath("sheets_0001.png.tmp")));
+    CHECK_FALSE(QFileInfo::exists(dir.filePath("sheets_0002.png")));
+
+    REQUIRE(QDir(dir.path()).mkdir("sheets.pdf.tmp"));
+    CHECK_FALSE(writePages(dir.filePath("sheets.pdf"), spec, 2, paint).ok());
+    CHECK(content("sheets.pdf") == old);
+}
+
 TEST_CASE("The command line exports a frame range on paper", "[PageWriter]")
 {
     CommandLineParser parser;
     parser.process({ "app", "in.pclx", "-o", "out.pdf", "--paper", "b4" });
-    CHECK(parser.paper() == "B4");
+    CHECK(parser.paper() == PageSpec::B4);
 
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
@@ -157,6 +189,6 @@ TEST_CASE("The command line exports a frame range on paper", "[PageWriter]")
     editor.init();
     CommandLineExporter exporter(&editor);
 
-    REQUIRE(exporter.process(project, { dir.filePath("out.pdf") }, "", -1, -1, 1, 4, false, "A4").ok());
+    REQUIRE(exporter.process(project, { dir.filePath("out.pdf") }, "", -1, -1, 1, 4, false, PageSpec::A4).ok());
     CHECK(pdfPageCount(dir.filePath("out.pdf")) == 4);
 }

@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QIcon>
 #include <QTemporaryDir>
 
+#include "camera.h"
 #include "fileformat.h"
 #include "filemanager.h"
 #include "layercamera.h"
@@ -137,6 +138,50 @@ TEST_CASE("The canvas shows the Title block and exports leave it out", "[PaperTe
     const QImage exported = editor->object()->renderFrame(1, QTransform(), size, size, false, true);
     editor->object()->data()->setPaperTemplate(PaperTemplate());
     CHECK(exported == editor->object()->renderFrame(1, QTransform(), size, size, false, true));
+}
+
+TEST_CASE("The Paper sheet follows a moved camera and the dimming leaves it white", "[PaperTemplate]")
+{
+    TestSession s;
+    LayerCamera* camera = s.object->addNewCameraLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 400);
+    area->show();
+    QApplication::processEvents();
+    QObject::connect(editor, &Editor::framesModified, area, &ScribbleArea::onFramesModified);
+    const QRectF frame = camera->getViewRect();
+    editor->view()->scale(150 / frame.width());
+    camera->getCameraAtFrame(1)->translate(QPointF(frame.width() * 1.2, 0));
+    editor->scrubTo(1);
+    editor->setPaperTemplate(filledTemplate());
+    const QImage shot = area->grab().toImage();
+
+    // The middle of the sheet margin left of the frame: where the camera moved it, and where it was before.
+    const QPointF margin(frame.left() - frame.height() * 0.03, frame.center().y());
+    const QPoint moved = editor->view()->mapCanvasToScreen(camera->getViewAtFrame(1).inverted().map(margin)).toPoint();
+    const QPoint still = editor->view()->mapCanvasToScreen(margin).toPoint();
+    REQUIRE(area->rect().contains(moved));
+    REQUIRE(area->rect().contains(still));
+    CHECK(shot.pixel(moved) == qRgb(255, 255, 255));
+    CHECK(shot.pixel(still) != qRgb(255, 255, 255));
+}
+
+TEST_CASE("The NOTES cell shows three lines", "[PaperTemplate]")
+{
+    PaperTemplate t;
+    t.on = true;
+    auto paint = [&t](const QString& notes) {
+        QImage image(600, 600, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        t.notes = notes;
+        QPainter painter(&image);
+        paintPaperTemplate(painter, QRectF(50, 200, 500, 300), t);
+        return image;
+    };
+    CHECK(paint("Hold\nPan left\nFade out") != paint("Hold\nPan left\n"));
 }
 
 TEST_CASE("paintPaperTemplate draws nothing when off", "[PaperTemplate]")

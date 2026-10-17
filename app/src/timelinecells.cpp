@@ -46,7 +46,6 @@ GNU General Public License for more details.
 #include "preferencemanager.h"
 #include "soundclip.h"
 #include "timeline.h"
-#include "xsheet.h"
 
 #include "cameracontextmenu.h"
 #include "pencilsettings.h"
@@ -1269,7 +1268,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                     for (int c = 0; c <= static_cast<int>(TimesheetColumn::Camera); ++c)
                     {
                         if (static_cast<TimesheetColumn>(c) == TimesheetColumn::Dialogue) { continue; } // sound layers only
-                        QAction* action = timesheet->addAction(XSheet::columnName(static_cast<TimesheetColumn>(c)));
+                        QAction* action = timesheet->addAction(Layer::timesheetColumnName(static_cast<TimesheetColumn>(c)));
                         action->setCheckable(true);
                         action->setChecked(static_cast<int>(layer->timesheetColumn()) == c);
                         action->setData(c);

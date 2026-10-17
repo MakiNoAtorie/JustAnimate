@@ -123,6 +123,7 @@ public:
     QString savePalette(const QString& filePath) const;
 
     void loadDefaultPalette();
+    /** Replaces the palette with the Genga line colours and marks the object modified. */
     void loadGengaPalette();
     bool isPaletteInUse() const;
 

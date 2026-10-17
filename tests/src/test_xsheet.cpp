@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <algorithm>
 #include <QAbstractScrollArea>
 #include <QAction>
 #include <QApplication>
@@ -33,6 +34,7 @@ GNU General Public License for more details.
 #include "mainwindow2.h"
 #include "object.h"
 #include "pagewriter.h"
+#include "paperpainter.h"
 #include "pencildef.h"
 #include "preferencemanager.h"
 #include "testfixture.h"
@@ -95,7 +97,7 @@ TEST_CASE("X-sheet runs number each Drawing and end where the next one starts", 
     layer->addNewKeyFrameAt(4);
     layer->getKeyFrameAt(4)->setMark(Mark::Breakdown);
 
-    const QList<XSheet::Run> runs = XSheet::runs(layer, 10);
+    const QList<Layer::Run> runs = layer->runs(10);
     REQUIRE(runs.size() == 2);
     CHECK(runs[0].first == 1);
     CHECK(runs[0].last == 3);
@@ -224,15 +226,19 @@ TEST_CASE("MainWindow2 X-sheet edits give the same project as timeline edits", "
     }
     QList<int> timelineOrder;
     for (int i = object->getLayerCount() - 1; i >= 0; --i) { timelineOrder << i; }
+    // Layer indices left to right on the X-sheet.
+    QList<int> columns;
+    for (int i = 0; i < object->getLayerCount(); ++i) { columns << i; }
+    std::sort(columns.begin(), columns.end(), [xsheet](int a, int b) { return xsheet->cellRect(a, 1).left() < xsheet->cellRect(b, 1).left(); });
     QList<TimesheetColumn> order;
-    for (int i : xsheet->columns()) { order << effectiveTimesheetColumn(*object, i); }
+    for (int i : columns) { order << effectiveTimesheetColumn(*object, i); }
     if (timesheet)
     {
         CHECK(std::is_sorted(order.cbegin(), order.cend()));
         CHECK(order.first() == TimesheetColumn::KeyA);
-        CHECK(xsheet->columns() != timelineOrder);
+        CHECK(columns != timelineOrder);
     }
-    else { CHECK(xsheet->columns() == timelineOrder); }
+    else { CHECK(columns == timelineOrder); }
     REQUIRE(object->getLayer(index)->firstKeyFramePosition() == 1);
     REQUIRE(object->getLayer(index)->getMaxKeyFramePosition() == 1);
 
@@ -334,12 +340,12 @@ TEST_CASE("X-sheet visibility has a command with no default key", "[XSheet]")
 
 TEST_CASE("A Timesheet export has one sheet per 144 frames", "[XSheet]")
 {
-    CHECK(XSheet::timesheetSheetCount(0) == 1);
-    CHECK(XSheet::timesheetSheetCount(1) == 1);
-    CHECK(XSheet::timesheetSheetCount(144) == 1);
-    CHECK(XSheet::timesheetSheetCount(145) == 2);
-    CHECK(XSheet::timesheetSheetCount(288) == 2);
-    CHECK(XSheet::timesheetSheetCount(289) == 3);
+    CHECK(timesheetSheetCount(0) == 1);
+    CHECK(timesheetSheetCount(1) == 1);
+    CHECK(timesheetSheetCount(144) == 1);
+    CHECK(timesheetSheetCount(145) == 2);
+    CHECK(timesheetSheetCount(288) == 2);
+    CHECK(timesheetSheetCount(289) == 3);
 }
 
 TEST_CASE("A rendered Timesheet sheet has its columns and frame numbers in known cells", "[XSheet]")
@@ -350,11 +356,11 @@ TEST_CASE("A rendered Timesheet sheet has its columns and frame numbers in known
     spec.orientation = QPageLayout::Portrait;
     spec.dpi = 100;
     const QRectF page(QPointF(), QSizeF(spec.pixelSize()));
-    XSheet::TimesheetInfo info;
+    TimesheetInfo info;
     info.length = 200;
     info.fps = 1; // marks 1+0 ... 288+0: digit counts differ between the sheets even where a font draws only boxes
-    const QImage blank = renderPage(spec, XSheet::timesheetPages(object, info), 0);
-    const QImage second = renderPage(spec, XSheet::timesheetPages(object, info), 1);
+    const QImage blank = renderPage(spec, timesheetPages(object, info), 0);
+    const QImage second = renderPage(spec, timesheetPages(object, info), 1);
     CHECK(blank.height() > blank.width()); // portrait
 
     // Drawings at frames 1 and 3, length 4: ink in rows 0-3 of the layer's column only.
@@ -365,23 +371,23 @@ TEST_CASE("A rendered Timesheet sheet has its columns and frame numbers in known
     info.fps = 24;
     Object bare;
     bare.init();
-    const QImage empty = renderPage(spec, XSheet::timesheetPages(bare, info), 0);
+    const QImage empty = renderPage(spec, timesheetPages(bare, info), 0);
     for (int c = static_cast<int>(TimesheetColumn::KeyA); c <= static_cast<int>(TimesheetColumn::Camera); ++c)
     {
         if (static_cast<TimesheetColumn>(c) == TimesheetColumn::Dialogue) { continue; } // sound layers only
         layer->setTimesheetColumn(static_cast<TimesheetColumn>(c));
-        const QRectF cells = XSheet::timesheetCell(page, c - 1, 0) | XSheet::timesheetCell(page, c - 1, 3);
+        const QRectF cells = timesheetCell(page, c - 1, 0) | timesheetCell(page, c - 1, 3);
         int count = 0;
-        const QRect box = diffBox(empty, renderPage(spec, XSheet::timesheetPages(object, info), 0), &count);
+        const QRect box = diffBox(empty, renderPage(spec, timesheetPages(object, info), 0), &count);
         CHECK(count > 5);
         CHECK(cells.toAlignedRect().contains(box));
     }
 
     // Sheet 2 of 2 differs from sheet 1 only in its frame numbers and the header.
-    const qreal headerBottom = XSheet::timesheetCell(page, -1, 0).top() - XSheet::timesheetCell(page, -1, 0).height() * 5;
+    const qreal headerBottom = timesheetCell(page, -1, 0).top() - timesheetCell(page, -1, 0).height() * 5;
     int inFirstBlock = 0, inSecondBlock = 0, elsewhere = 0;
-    const QRect frames1 = (XSheet::timesheetCell(page, -1, 0) | XSheet::timesheetCell(page, -1, 71)).toAlignedRect();
-    const QRect frames2 = (XSheet::timesheetCell(page, -1, 72) | XSheet::timesheetCell(page, -1, 143)).toAlignedRect();
+    const QRect frames1 = (timesheetCell(page, -1, 0) | timesheetCell(page, -1, 71)).toAlignedRect();
+    const QRect frames2 = (timesheetCell(page, -1, 72) | timesheetCell(page, -1, 143)).toAlignedRect();
     for (int y = 0; y < blank.height(); ++y)
     {
         for (int x = 0; x < blank.width(); ++x)

@@ -26,22 +26,6 @@ GNU General Public License for more details.
 #include "object.h"
 #include "playbackmanager.h"
 #include "util.h"
-#include "xsheet.h"
-
-namespace
-{
-// "s+f" at fps, or a plain frame count. Returns 0 for text that is neither.
-int parseSecondsFrames(const QString& text, int fps)
-{
-    const QStringList parts = text.trimmed().split('+');
-    bool ok = false;
-    const int first = parts.value(0).toInt(&ok);
-    if (!ok || parts.size() > 2) { return 0; }
-    if (parts.size() == 1) { return qMax(0, first); }
-    const int frames = parts[1].toInt(&ok);
-    return ok && first >= 0 && frames >= 0 ? first * qMax(1, fps) + frames : 0;
-}
-} // namespace
 
 StoryboardPanel::StoryboardPanel(QWidget* parent) : BaseDockWidget(parent)
 {
@@ -100,14 +84,14 @@ void StoryboardPanel::updateUI()
     mLayerId = layer ? layer->id() : 0;
     mPanelFrames.clear();
     mPanelTimes.clear();
-    const QList<XSheet::Run> runs = layer ? XSheet::runs(layer, editor()->layers()->animationLength()) : QList<XSheet::Run>();
+    const QList<Layer::Run> runs = layer ? layer->runs(editor()->layers()->animationLength()) : QList<Layer::Run>();
     const int fps = editor()->playback()->fps();
 
     // Items are updated in place: this can run inside itemChanged of one of them.
     mTable->setRowCount(runs.size());
     for (int row = 0; row < runs.size(); ++row)
     {
-        const XSheet::Run& run = runs[row];
+        const Layer::Run& run = runs[row];
         mPanelFrames << run.first;
         mPanelTimes << run.last - run.first + 1;
         const PanelFields f = layer->getKeyFrameAt(run.first)->panelFields();

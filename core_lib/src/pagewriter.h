@@ -43,6 +43,7 @@ using PagePaintFn = std::function<void(QPainter& painter, const QRectF& page, in
 QImage renderPage(const PageSpec& spec, const PagePaintFn& paint, int page);
 
 /// Writes pageCount pages: a .pdf is one file, a .png path writes <base>_0001.png, <base>_0002.png, ...
+/// Each file is written as <name>.tmp and renamed when all are written; a failure leaves the old files.
 Status writePages(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint);
 
 #endif // PAGEWRITER_H

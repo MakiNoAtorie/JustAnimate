@@ -33,7 +33,9 @@ TEST_CASE("Object::loadGengaPalette() loads the four named line colours", "[Pale
 {
     Object obj;
     obj.init();
+    REQUIRE_FALSE(obj.isModified());
     obj.loadGengaPalette();
+    CHECK(obj.isModified()); // so closing the project asks to save
 
     REQUIRE(obj.getColorCount() == 4);
     CHECK(obj.getColor(0).name == "Main line");

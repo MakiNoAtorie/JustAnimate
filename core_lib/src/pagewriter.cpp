@@ -14,8 +14,10 @@ GNU General Public License for more details.
 */
 #include "pagewriter.h"
 
+#include <filesystem>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QImageWriter>
 #include <QPainter>
@@ -45,23 +47,8 @@ static Status pageError(const QString& path, const QString& error)
                   QCoreApplication::translate("PageWriter", "Could not write %1.").arg(QDir::toNativeSeparators(path)));
 }
 
-Status writePages(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint)
+static Status writePdf(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint)
 {
-    const QFileInfo info(path);
-    const QString suffix = info.suffix().toLower();
-    if (suffix == "png")
-    {
-        const QString base = info.dir().filePath(info.completeBaseName());
-        for (int i = 0; i < pageCount; ++i)
-        {
-            const QString file = QString("%1_%2.png").arg(base).arg(i + 1, 4, 10, QChar('0'));
-            QImageWriter writer(file, "PNG");
-            if (!writer.write(renderPage(spec, paint, i))) { return pageError(file, writer.errorString()); }
-        }
-        return Status::OK;
-    }
-    if (suffix != "pdf") { return pageError(path, "the file name must end in .pdf or .png"); }
-
     QPdfWriter writer(path);
     writer.setResolution(spec.dpi);
     writer.setPageLayout(QPageLayout(spec.pageSize(), spec.orientation, QMarginsF()));
@@ -75,4 +62,47 @@ Status writePages(const QString& path, const PageSpec& spec, int pageCount, cons
         paint(painter, page, i);
     }
     return painter.end() ? Status::OK : pageError(path, "cannot finish the file");
+}
+
+Status writePages(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint)
+{
+    const QFileInfo info(path);
+    const QString suffix = info.suffix().toLower();
+    if (suffix != "png" && suffix != "pdf") { return pageError(path, "the file name must end in .pdf or .png"); }
+
+    // Every file is written as <name>.tmp first and renamed only when all are complete, so a failure keeps the old files.
+    QStringList files;
+    if (suffix == "pdf") { files << path; }
+    const QString base = info.dir().filePath(info.completeBaseName());
+    for (int i = 0; suffix == "png" && i < pageCount; ++i) { files << QString("%1_%2.png").arg(base).arg(i + 1, 4, 10, QChar('0')); }
+    auto removeTemporaries = [&files] { for (const QString& file : files) { QFile::remove(file + ".tmp"); } };
+
+    for (int i = 0; i < files.size(); ++i)
+    {
+        const QString tmp = files[i] + ".tmp";
+        QFile::remove(tmp);
+        Status st = Status::OK;
+        if (suffix == "pdf") { st = writePdf(tmp, spec, pageCount, paint); }
+        else
+        {
+            QImageWriter writer(tmp, "PNG");
+            if (!writer.write(renderPage(spec, paint, i))) { st = pageError(files[i], writer.errorString()); }
+        }
+        if (!st.ok())
+        {
+            removeTemporaries();
+            return st;
+        }
+    }
+    for (const QString& file : files)
+    {
+        std::error_code renameError;
+        std::filesystem::rename(QFileInfo(file + ".tmp").filesystemFilePath(), QFileInfo(file).filesystemFilePath(), renameError);
+        if (renameError)
+        {
+            removeTemporaries();
+            return pageError(file, QString::fromStdString(renameError.message()));
+        }
+    }
+    return Status::OK;
 }
