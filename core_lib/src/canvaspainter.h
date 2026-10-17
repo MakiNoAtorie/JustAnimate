@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QCache>
 #include <QVector>
 #include <QCoreApplication>
+#include <QMap>
 #include <QObject>
 #include <QTransform>
 #include <QPainter>
@@ -75,6 +76,8 @@ public:
 
     void setOnionSkinOptions(const OnionSkinPainterOptions& onionSkinOptions) { mOnionSkinPainterOptions = onionSkinOptions;}
     void setOptions(const CanvasPainterOptions& p) { mOptions = p; }
+    /// Shift and Trace: canvas-space offset per onion frame of the current layer.
+    void setShiftAndTraceOffsets(const QMap<int, QTransform>& offsets) { mShiftAndTraceOffsets = offsets; }
     void setTransformedSelection(QRect selection, QTransform transform);
     void ignoreTransformedSelection();
 
@@ -119,6 +122,8 @@ private:
     void paintBitmapOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
     void paintVectorOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
     void tintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPainter, int nFrame, bool colorize, qreal frameOpacity);
+    /// The onion frame's canvas transform: its tween, then its Shift and Trace offset.
+    QTransform onionTransform(const Layer* layer, int nFrame) const;
 
     void paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
     void paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
@@ -166,6 +171,7 @@ private:
 
     OnionSkinSubPainter mOnionSkinSubPainter;
     OnionSkinPainterOptions mOnionSkinPainterOptions;
+    QMap<int, QTransform> mShiftAndTraceOffsets;
 
     const static int OVERLAY_SAFE_CENTER_CROSS_SIZE = 25;
 };

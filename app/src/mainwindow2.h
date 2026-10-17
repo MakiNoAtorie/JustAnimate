@@ -182,6 +182,7 @@ private:
     BrushPresetDock*      mBrushPresets = nullptr;
     QAction*              mRadialToolAction = nullptr;
     QAction*              mPresetPickerAction = nullptr;
+    QAction*              mShiftAndTraceAction = nullptr;
     QToolBar*             mCommandBar = nullptr;
 
     PegBarAlignmentDialog* mPegAlign = nullptr;

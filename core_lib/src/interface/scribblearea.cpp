@@ -361,6 +361,7 @@ void ScribbleArea::onPlayStateChanged()
 void ScribbleArea::onScrubbed(int frameNumber)
 {
     Q_UNUSED(frameNumber)
+    clearShiftAndTraceOffsets();
     invalidatePainterCaches();
     updateFrame();
 }
@@ -391,6 +392,7 @@ void ScribbleArea::onViewChanged()
 
 void ScribbleArea::onLayerChanged()
 {
+    clearShiftAndTraceOffsets();
     invalidateAllCache();
 }
 
@@ -408,6 +410,7 @@ void ScribbleArea::onOnionSkinTypeChanged()
 
 void ScribbleArea::onObjectLoaded()
 {
+    clearShiftAndTraceOffsets();
     invalidateAllCache();
 }
 
@@ -753,6 +756,7 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
         mEditor->playback()->penFlipPress(event->viewportPos().x());
         return;
     }
+    if (mShiftAndTrace && event->button() == Qt::LeftButton && shiftAndTracePress(event)) { return; }
     bool isCameraLayer = mEditor->layers()->currentLayer()->type() == Layer::CAMERA;
     if ((currentTool()->type() != HAND || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
     {
@@ -795,6 +799,11 @@ void ScribbleArea::pointerMoveEvent(PointerEvent* event)
         mEditor->playback()->penFlipMove(event->viewportPos().x());
         return;
     }
+    if (mShiftAndTraceDrag.frame >= 0)
+    {
+        shiftAndTraceDrag(event);
+        return;
+    }
     currentTool()->pointerMoveEvent(event);
 }
 
@@ -804,6 +813,12 @@ void ScribbleArea::pointerReleaseEvent(PointerEvent* event)
     if (mPenFlipDrag)
     {
         mPenFlipDrag = false;
+        return;
+    }
+    if (mShiftAndTraceDrag.frame >= 0)
+    {
+        shiftAndTraceDrag(event);
+        mShiftAndTraceDrag.frame = -1;
         return;
     }
     currentTool()->pointerReleaseEvent(event);
@@ -1014,7 +1029,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         const int frameNumber = mEditor->layers()->lastFrameAtFrame(currentFrame);
 
         // The frame cache is keyed by frame: onion skins and the camera differ inside a hold. A transformed or in-between frame skips it (CanvasPainter caches by content).
-        bool transformed = false;
+        bool transformed = !mShiftAndTraceOffsets.isEmpty();
         for (int i = 0; i < mEditor->object()->getLayerCount() && !transformed; ++i)
         {
             const Layer* layer = mEditor->object()->getLayer(i);
@@ -1078,6 +1093,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
     painter.drawPixmap(QPointF(), mCanvas);
 
     currentTool()->paint(painter, event->rect());
+    if (mShiftAndTrace) { paintShiftAndTraceHandles(painter); }
 
     if (!editor()->playback()->isPlaying())    // we don't need to display the following when the animation is playing
     {
@@ -1264,6 +1280,7 @@ void ScribbleArea::prepCanvas(int frame)
     o.cmBufferBlendMode = bufferCompositionMode();
 
     mCanvasPainter.setOnionSkinOptions(onionSkinOptions());
+    mCanvasPainter.setShiftAndTraceOffsets(mShiftAndTraceOffsets);
     mCanvasPainter.setOptions(o);
 
     ViewManager* vm = mEditor->view();
@@ -1525,6 +1542,121 @@ CanvasHud ScribbleArea::canvasHud() const
     hud.zoomPercent = qRound(view->scaling() * 100);
     hud.rotation = view->rotation();
     return hud;
+}
+
+namespace
+{
+constexpr qreal kShiftAndTraceArm = 40; // screen px from the move handle up to the rotate handle
+constexpr qreal kShiftAndTraceRadius = 7;
+}
+
+void ScribbleArea::setShiftAndTrace(bool on)
+{
+    mShiftAndTrace = on;
+    clearShiftAndTraceOffsets();
+    update();
+}
+
+void ScribbleArea::clearShiftAndTraceOffsets()
+{
+    mShiftAndTraceOffsets.clear();
+    mShiftAndTraceDrag.frame = -1;
+}
+
+QVector<int> ScribbleArea::shiftAndTraceFrames() const
+{
+    QVector<int> frames;
+    Layer* layer = mEditor->layers()->currentLayer();
+    if (!mShiftAndTrace || mEditor->playback()->isPlaying() || layer == nullptr || !mEditor->object()->isLayerVisible(layer)) { return frames; }
+    if (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) { return frames; }
+    for (const OnionSkinSubPainter::Neighbour& n : OnionSkinSubPainter().neighbours(layer, onionSkinOptions(), mEditor->currentFrame()))
+    {
+        frames.append(n.frame);
+    }
+    return frames;
+}
+
+QPointF ScribbleArea::shiftAndTraceHandle(int frame) const
+{
+    Layer* layer = mEditor->layers()->currentLayer();
+    QRectF bounds;
+    if (layer->type() == Layer::BITMAP)
+    {
+        if (BitmapImage* image = static_cast<LayerBitmap*>(layer)->getBitmapImageAtFrame(frame))
+        {
+            image->loadFile();
+            bounds = image->bounds();
+        }
+    }
+    else if (layer->type() == Layer::VECTOR)
+    {
+        if (VectorImage* image = static_cast<LayerVector*>(layer)->getVectorImageAtFrame(frame))
+        {
+            for (int i = 0; i <= image->getLastCurveNumber(); ++i) { bounds |= image->curve(i).getBoundingRect(); }
+        }
+    }
+    const QPointF centre = shiftAndTraceOffset(frame).map(layer->tweenStateAt(frame).transform().map(bounds.center()));
+    return mEditor->view()->mapCanvasToScreen(centre);
+}
+
+QPointF ScribbleArea::shiftAndTraceRotateHandle(int frame) const
+{
+    return shiftAndTraceHandle(frame) - QPointF(0, kShiftAndTraceArm);
+}
+
+bool ScribbleArea::shiftAndTracePress(const PointerEvent* event)
+{
+    const QPointF pos = event->viewportPos();
+    for (int frame : shiftAndTraceFrames())
+    {
+        const QPointF handle = shiftAndTraceHandle(frame);
+        const bool rotate = QLineF(pos, shiftAndTraceRotateHandle(frame)).length() <= kShiftAndTraceRadius;
+        if (!rotate && QLineF(pos, handle).length() > kShiftAndTraceRadius) { continue; }
+        mShiftAndTraceDrag = { frame, rotate, event->canvasPos(), mEditor->view()->mapScreenToCanvas(handle), shiftAndTraceOffset(frame) };
+        return true;
+    }
+    return false;
+}
+
+void ScribbleArea::shiftAndTraceDrag(const PointerEvent* event)
+{
+    const ShiftAndTraceDrag& d = mShiftAndTraceDrag;
+    const QPointF p = event->canvasPos();
+    QTransform delta;
+    if (d.rotate)
+    {
+        const QPointF a = d.press - d.pivot;
+        const QPointF b = p - d.pivot;
+        delta.translate(d.pivot.x(), d.pivot.y());
+        delta.rotate(qRadiansToDegrees(std::atan2(b.y(), b.x()) - std::atan2(a.y(), a.x())));
+        delta.translate(-d.pivot.x(), -d.pivot.y());
+    }
+    else
+    {
+        delta = QTransform::fromTranslate(p.x() - d.press.x(), p.y() - d.press.y());
+    }
+    mShiftAndTraceOffsets[d.frame] = d.start * delta;
+    update();
+}
+
+void ScribbleArea::paintShiftAndTraceHandles(QPainter& painter) const
+{
+    painter.save();
+    painter.setWorldMatrixEnabled(false);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(QPen(palette().color(QPalette::Highlight), 1.5));
+    painter.setBrush(Qt::NoBrush);
+    const QPointF r(0, kShiftAndTraceRadius);
+    for (int frame : shiftAndTraceFrames())
+    {
+        const QPointF handle = shiftAndTraceHandle(frame);
+        const QPointF rotate = shiftAndTraceRotateHandle(frame);
+        // Rings only, so the lines under the centres stay visible.
+        painter.drawEllipse(handle, kShiftAndTraceRadius, kShiftAndTraceRadius);
+        painter.drawEllipse(rotate, kShiftAndTraceRadius, kShiftAndTraceRadius);
+        painter.drawLine(handle - r, rotate + r);
+    }
+    painter.restore();
 }
 
 void ScribbleArea::paintCanvasHud(QPainter& painter) const

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Shift and Trace (View > Onion Skin, Shift+T): drag handles to move and rotate each onion skin in the view to trace an inbetween; Drawings stay unchanged and the offsets clear on a frame change (#195).
 - Tool column: Pencil, Pen and Brush; Eraser and Smudge; Move and Select; Fill and Lasso fill; Hand and Rotate view share one button each; a long press or right-click lists the group, and the button shows the tool used last (#198).
 - Move tool "Transform Key" mode sets a Drawing's key transform on the canvas (drag moves, Ctrl rotates, Shift scales), with its fields in Tool settings; the tween menu previews each easing and the Key Transform dialog is gone (#197).
 - Linked Drawings: Alt-drag a Drawing in the timeline or X-sheet to make a copy that changes with it; linked cells show a bar, and Unlink Drawing in the cell menu makes one copy independent (#194).

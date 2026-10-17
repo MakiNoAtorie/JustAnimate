@@ -490,6 +490,12 @@ void MainWindow2::createMenus()
     });
     connect(ui->actionOnionSkin, &QAction::triggered, mEditor, &Editor::toggleOnionSkin);
 
+    mShiftAndTraceAction = new QAction(tr("Shift and Trace"), this);
+    mShiftAndTraceAction->setCheckable(true);
+    mShiftAndTraceAction->setStatusTip(tr("Move and rotate the onion skins in the view to trace an inbetween. Drawings stay unchanged."));
+    ui->menuOnion_Skin->addAction(mShiftAndTraceAction);
+    connect(mShiftAndTraceAction, &QAction::toggled, ui->scribbleArea, &ScribbleArea::setShiftAndTrace);
+
     bool enableSafeArea = (prefs->isOn(SETTING::ACTION_SAFE_ON) || prefs->isOn(SETTING::TITLE_SAFE_ON));
     ui->actionSafeAreas->setEnabled(enableSafeArea);
 
@@ -1607,6 +1613,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionEraser->setShortcut(cmdKeySeq(CMD_TOOL_ERASER));
     ui->actionResetToolsDefault->setShortcut(cmdKeySeq(CMD_RESET_ALL_TOOLS));
     mRadialToolAction->setShortcut(cmdKeySeq(CMD_RADIAL_TOOL_MENU));
+    mShiftAndTraceAction->setShortcut(cmdKeySeq(CMD_SHIFT_AND_TRACE));
     mPresetPickerAction->setShortcut(cmdKeySeq(CMD_QUICK_PRESET_PICKER));
 
 
