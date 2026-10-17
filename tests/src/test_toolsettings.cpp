@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 */
 #include "catch.hpp"
+#include "basetool.h"
 #include "toolproperties.h"
 
 #include <QSettings>

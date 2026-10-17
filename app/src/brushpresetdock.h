@@ -17,7 +17,6 @@ GNU General Public License for more details.
 
 #include <memory>
 
-#include <QFileSystemWatcher>
 #include <QIcon>
 
 #include "basedockwidget.h"
@@ -40,6 +39,8 @@ public:
 
     void initUI() override;
     void updateUI() override;
+    /// Adds a preset file to the folder and lists it.
+    Status importPreset(const QString& fileName);
 
     static QSize sampleSize() { return QSize(160, 40); }
 
@@ -49,11 +50,10 @@ private:
     /// The `BrushPresets::toolKey` of the current tool; the dock lists only its presets.
     QString currentTool() const;
     void openEditor(const QString& source, const QString& name, const QString& original);
-    QIcon sample(const QString& name);
+    QIcon sample(const QJsonObject& preset);
 
     BrushPresets mPresets;
     QListWidget* mList = nullptr;
-    QFileSystemWatcher mWatcher;
     std::unique_ptr<PresetSampler> mSampler;
 };
 

@@ -12,6 +12,7 @@
     <qresource prefix="/brushpresets">
         <file alias="2B Pencil.json">brushpresets/2B Pencil.json</file>
         <file alias="Chalk.json">brushpresets/Chalk.json</file>
+        <file alias="Classic.json">brushpresets/Classic.json</file>
         <file alias="G-Pen.json">brushpresets/G-Pen.json</file>
         <file alias="Hard Eraser.json">brushpresets/Hard Eraser.json</file>
         <file alias="HB Pencil.json">brushpresets/HB Pencil.json</file>

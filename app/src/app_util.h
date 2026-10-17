@@ -19,6 +19,9 @@ GNU General Public License for more details.
 
 class QAction;
 class QDialog;
+class QKeySequence;
+class QSettings;
+class QString;
 class PreferenceManager;
 enum class SETTING;
 
@@ -30,5 +33,12 @@ void bindPreferenceSetting(QAction* action, PreferenceManager*, const SETTING&);
  *  that comes less than one frame after the last step is skipped. A single tap always steps.
  *  `msSinceStep` is -1 before the first step. */
 bool skipFrameStep(bool autoRepeat, long long msSinceStep, int fps);
+
+/** True when every word of query occurs in label (case-insensitive, '&' mnemonics ignored). */
+bool prefLabelMatches(const QString& label, const QString& query);
+
+/** Returns the command that already uses `seq`, or an empty string.
+ *  `settings` is positioned in the "shortcuts" group. An empty `seq` never conflicts. */
+QString findShortcutConflict(const QSettings& settings, const QString& cmd, const QKeySequence& seq);
 
 #endif // APP_UTIL_H

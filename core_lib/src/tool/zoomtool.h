@@ -26,8 +26,6 @@ public:
     explicit ZoomTool(QObject* parent = nullptr);
 
     ToolType type() const override { return ZOOM; }
-    ToolProperties& toolProperties() override { return mSettings; }
-    void loadSettings() override {}
     QCursor cursor() override;
 
     void pointerPressEvent(PointerEvent*) override;
@@ -40,7 +38,6 @@ private:
     qreal mPressScale = 1;
     bool mDragged = false;
     bool mZoomOut = false;
-    ToolProperties mSettings;
 };
 
 #endif // ZOOMTOOL_H

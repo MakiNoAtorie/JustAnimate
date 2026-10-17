@@ -389,7 +389,7 @@ void MainWindow2::createMenus()
     // Brush preset files; the preset dock lists the result.
     ui->menuImport->addAction(tr("Brush Preset..."), this, [this] {
         const QString file = QFileDialog::getOpenFileName(this, tr("Import Brush Preset"), QString(), tr("Brush preset (*.jabrush)"));
-        const Status st = file.isEmpty() ? Status(Status::CANCELED) : BrushPresets().importPreset(file);
+        const Status st = file.isEmpty() ? Status(Status::CANCELED) : mBrushPresets->importPreset(file);
         if (!st.ok() && st != Status::CANCELED)
             QMessageBox::warning(this, tr("Import Brush Preset"), st.description());
     });

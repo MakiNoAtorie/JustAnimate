@@ -17,6 +17,8 @@ GNU General Public License for more details.
 #include "app_util.h"
 #include <QAction>
 #include <QDialog>
+#include <QKeySequence>
+#include <QSettings>
 #include "preferencemanager.h"
 
 bool skipFrameStep(bool autoRepeat, long long msSinceStep, int fps)
@@ -52,4 +54,34 @@ void bindPreferenceSetting(QAction* action, PreferenceManager* prefs, const SETT
             action->setChecked(prefs->isOn(setting));
         }
     });
+}
+
+bool prefLabelMatches(const QString& label, const QString& query)
+{
+    QString text = label;
+    text.remove('&');
+    const QStringList words = query.split(' ', Qt::SkipEmptyParts);
+    for (const QString& word : words)
+    {
+        if (!text.contains(word, Qt::CaseInsensitive))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+QString findShortcutConflict(const QSettings& settings, const QString& cmd, const QKeySequence& seq)
+{
+    if (seq.isEmpty()) { return QString(); }
+
+    const QStringList keys = settings.allKeys();
+    for (const QString& other : keys)
+    {
+        if (other != cmd && QKeySequence(settings.value(other).toString()) == seq)
+        {
+            return other;
+        }
+    }
+    return QString();
 }

@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QPointingDevice>
 #include <QTabletEvent>
 #include <QTemporaryDir>
@@ -235,10 +237,26 @@ TEST_CASE("Bad brush preset values fall back to defaults", "[BrushPresets]")
     CHECK(b.brush->tipImagePath().isEmpty());
 }
 
+TEST_CASE("A parsed preset applies without its file", "[BrushPresets]")
+{
+    QTemporaryDir dir; // no preset files
+    BrushSession b;
+    b.brush->setWidth(70);
+    b.brush->setPressureCurve("0,0.9 1,1");
+    const QJsonObject preset{ { "settings", QJsonObject{ { "Width", 9 }, { "Opacity", 5000 } } } };
+
+    BrushPresets(dir.path()).apply(preset, *b.brush);
+    const StrokeToolProperties& p = b.brush->strokeToolProperties();
+    CHECK(p.width() == 9.0);
+    CHECK(p.opacity() == 100.0); // clamped as from a file
+    CHECK(b.brush->pressureCurve().isEmpty());
+    CHECK(b.brush->tipImagePath().isEmpty());
+}
+
 namespace
 {
 
-const QStringList DEFAULT_PRESETS{ "2B Pencil", "Chalk", "G-Pen", "HB Pencil", "Hard Eraser", "Marker", "Soft Airbrush", "Soft Eraser", "Watercolour" };
+const QStringList DEFAULT_PRESETS{ "2B Pencil", "Chalk", "Classic", "G-Pen", "HB Pencil", "Hard Eraser", "Marker", "Soft Airbrush", "Soft Eraser", "Watercolour" };
 
 void tabletStroke(ScribbleArea* area, qreal y)
 {
@@ -294,11 +312,10 @@ TEST_CASE("A deleted built-in preset stays deleted after a restart", "[BrushPres
     CHECK_FALSE(presets.names().contains("Marker"));
     CHECK(presets.names().contains("Chalk"));
 
-    // A built-in that was never added is added, once.
-    REQUIRE(presets.addClassic());
+    // Classic is seeded like the rest, once.
     CHECK(presets.names().contains("Classic"));
     REQUIRE(presets.remove("Classic"));
-    REQUIRE(presets.addClassic());
+    BrushPresets(dir.path()).addDefaults();
     CHECK_FALSE(presets.names().contains("Classic"));
 }
 
@@ -484,4 +501,45 @@ TEST_CASE("Malformed jabrush files are rejected before writing", "[BrushPresets]
     CHECK_FALSE(st.ok());
     CHECK_FALSE(QDir(folder).exists());
     CHECK_FALSE(QFile::exists(dir.filePath("evil.png")));
+}
+
+TEST_CASE("The seeded Classic preset equals the fixture of the old C++ writer", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    BrushPresets(dir.path()).addDefaults();
+    QFile seeded(dir.filePath("Classic.json"));
+    QFile fixture(":/classic-preset.json");
+    REQUIRE(seeded.open(QIODevice::ReadOnly));
+    REQUIRE(fixture.open(QIODevice::ReadOnly));
+    CHECK(QJsonDocument::fromJson(seeded.readAll()) == QJsonDocument::fromJson(fixture.readAll()));
+}
+
+TEST_CASE("Tool, description and exists match the listing for every built-in preset", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    const BrushPresets presets(dir.path());
+    presets.addDefaults();
+    const QList<BrushPresets::Entry> entries = presets.entries();
+    REQUIRE(entries.size() == DEFAULT_PRESETS.size());
+    for (const BrushPresets::Entry& entry : entries)
+    {
+        INFO(entry.name.toStdString());
+        QFile pack(":/brushpresets/" + entry.name + ".json");
+        REQUIRE(pack.open(QIODevice::ReadOnly));
+        const QJsonObject expected = QJsonDocument::fromJson(pack.readAll()).object();
+        const QString tool = expected.value("tool").toString("brush");
+
+        CHECK(presets.exists(entry.name));
+        CHECK(entry.tool == tool);
+        CHECK(presets.tool(entry.name) == tool);
+        CHECK(entry.description == expected.value("description").toString());
+        CHECK(presets.description(entry.name) == entry.description);
+        REQUIRE(presets.read(entry.name));
+        CHECK(*presets.read(entry.name) == expected);
+        CHECK(entry.json == expected);
+        CHECK(presets.names(tool).contains(entry.name));
+    }
+    CHECK(presets.tool("Hard Eraser") == "eraser");
+    CHECK_FALSE(presets.read("Missing"));
+    CHECK_FALSE(presets.read("../Classic"));
 }

@@ -88,3 +88,14 @@ Rules for every code change, read before you edit code. Same limits as
 - Cell, layer and easing menus: only `app/src/cellmenus.*`.
 - Linked Drawings (ADR 0001): only `linkDrawing` sets a `linkId`; a pixel
   edit outside `KEYFRAME_MODIFY` calls `syncLinkedDrawings`.
+- Built-in brush presets are JSON files in `core_lib/data/brushpresets/`,
+  never C++. Read a preset by name only through `BrushPresets::read`; with
+  a parsed preset in hand, `apply(QJsonObject, tool)`. The preset dock has
+  no file watcher: whatever writes a preset refreshes it.
+- A developer trace is a `JUSTANIMATE_<NAME>=1` environment switch
+  printing through `qDebug()`, never a user preference.
+- A tool without settings declares no properties member and no
+  `toolProperties()` or `loadSettings()` override.
+- A dropped file attribute: stop writing and reading it, no load shim
+  (QDom ignores unknown attributes); `docs/file-format.md` says the old
+  attribute is ignored.

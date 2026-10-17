@@ -1048,7 +1048,6 @@ void Editor::setPaperTemplate(const PaperTemplate& paper)
         step = next;
     };
     record(&PaperTemplate::on);
-    record(&PaperTemplate::kind);
     record(&PaperTemplate::title);
     record(&PaperTemplate::id);
     record(&PaperTemplate::name);

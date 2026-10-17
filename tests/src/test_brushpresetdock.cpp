@@ -16,7 +16,6 @@ GNU General Public License for more details.
 
 #include <QCheckBox>
 #include <QCoreApplication>
-#include <QDeadlineTimer>
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QFormLayout>
@@ -27,6 +26,7 @@ GNU General Public License for more details.
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMouseEvent>
+#include <QPushButton>
 #include <QTemporaryDir>
 
 #include "brushpresetdock.h"
@@ -105,6 +105,20 @@ TEST_CASE("Selecting a preset row applies it and refreshes tool options", "[Brus
     CHECK(d.brush->strokeToolProperties().width() == 7);
 }
 
+TEST_CASE("Importing a preset file lists it in the dock", "[BrushPresetDock]")
+{
+    DockSession d;
+    QTemporaryDir other;
+    REQUIRE(BrushPresets(other.path()).save("Fine", *d.brush));
+    const QString file = other.filePath("Fine.jabrush");
+    REQUIRE(BrushPresets(other.path()).exportPreset("Fine", file).ok());
+
+    d.openDock();
+    REQUIRE(d.list()->count() == 0);
+    REQUIRE(d.dock->importPreset(file).ok());
+    CHECK(d.list()->count() == 1);
+}
+
 TEST_CASE("Preset rows show a rendered sample stroke and the description", "[BrushPresetDock]")
 {
     DockSession d;
@@ -126,7 +140,7 @@ TEST_CASE("Preset rows show a rendered sample stroke and the description", "[Bru
     CHECK(inkPixels(item->icon()) > 0);
 }
 
-TEST_CASE("Sample strokes update when a preset file changes", "[BrushPresetDock]")
+TEST_CASE("Sample strokes update when the dock's editor saves", "[BrushPresetDock]")
 {
     DockSession d;
     d.brush->setWidth(3);
@@ -135,16 +149,18 @@ TEST_CASE("Sample strokes update when a preset file changes", "[BrushPresetDock]
     const int before = inkPixels(d.list()->item(0)->icon());
     REQUIRE(before > 0);
 
-    d.brush->setWidth(30);
-    REQUIRE(BrushPresets(d.dir.path()).save("Pen", *d.brush));
-    int after = before;
-    const QDeadlineTimer deadline(5000);
-    while (after == before && !deadline.hasExpired())
-    {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-        after = inkPixels(d.list()->item(0)->icon());
-    }
-    CHECK(after > before);
+    d.list()->setCurrentRow(0);
+    QPushButton* edit = nullptr;
+    for (QPushButton* button : d.dock->findChildren<QPushButton*>())
+        if (button->text() == QObject::tr("Edit"))
+            edit = button;
+    REQUIRE(edit);
+    edit->click();
+    auto editor = d.dock->findChild<BrushPresetEditor*>();
+    REQUIRE(editor);
+    editor->findChild<QDoubleSpinBox*>("Width")->setValue(30);
+    editor->accept();
+    CHECK(inkPixels(d.list()->item(0)->icon()) > before);
 }
 
 TEST_CASE("The preset editor previews edits live and saves every part of the preset", "[BrushPresetDock]")

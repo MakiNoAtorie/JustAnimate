@@ -386,9 +386,9 @@ TEST_CASE("ScribbleArea - Brush outline follows size zoom and View rotation")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setTipAspect(100);
-    brush->setTipAngle(0);
-    brush->setTipSquare(false);
+    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 100);
+    brush->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, 0);
+    brush->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, false);
 
     brush->setWidth(40);
     QRect b = outlineBounds(editor, area);
@@ -401,7 +401,7 @@ TEST_CASE("ScribbleArea - Brush outline follows size zoom and View rotation")
 
     // A flat tip lies along x; a quarter turn of the View stands it up.
     editor->view()->scale(1.0);
-    brush->setTipAspect(50);
+    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 50);
     b = outlineBounds(editor, area);
     CHECK(b.width() == Approx(41).margin(2));
     CHECK(b.height() == Approx(21).margin(2));

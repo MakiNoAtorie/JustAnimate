@@ -329,6 +329,35 @@ TEST_CASE("FileManager loads markers with an unknown or non-sound layer as globa
     REQUIRE(obj->data()->markers(99).isEmpty());
 }
 
+TEST_CASE("FileManager loads a Paper template with the old kind attribute and saves it without")
+{
+    FileManager fm;
+    std::unique_ptr<Object> obj(loadXmlString(fm,
+        "<!DOCTYPE PencilDocument><document><object></object>"
+        "  <projectdata><paperTemplate on='1' kind='genga' title='Cut 12' id='A-012' name='Maki'"
+        "    state='Genga' date='2026-10-17' notes='Hold'/></projectdata>"
+        "</document>"));
+    REQUIRE(obj != nullptr);
+    PaperTemplate expected;
+    expected.on = true;
+    expected.title = "Cut 12";
+    expected.id = "A-012";
+    expected.name = "Maki";
+    expected.state = "Genga";
+    expected.date = "2026-10-17";
+    expected.notes = "Hold";
+    CHECK(obj->data()->paperTemplate() == expected);
+
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    REQUIRE(fm.save(obj.get(), dir.filePath("paper.pclx")).ok());
+    QFile mainXml(QDir(obj->workingDir()).filePath(PFF_XML_FILE_NAME));
+    REQUIRE(mainXml.open(QIODevice::ReadOnly));
+    const QByteArray xml = mainXml.readAll();
+    REQUIRE(xml.contains("<paperTemplate"));
+    CHECK_FALSE(xml.contains("kind="));
+}
+
 TEST_CASE("FileManager loads malformed project XML")
 {
     SECTION("XML comment inside projectdata")

@@ -5,6 +5,16 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Deleted the unused upstream name and URL macros (#251).
+- The pressure log checkbox is gone; set JUSTANIMATE_PRESSURE_LOG=1 to print each dab (#242).
+- The pen double-click uses the system double-click interval and distance instead of 500 ms and 5 px (#250).
+- BaseTool supplies default tool properties and settings loading, so tools without settings no longer declare them (#249).
+- The benchmark uses the shared test session instead of its own copy (#244).
+- Project files no longer write the Paper template `kind` attribute; files that have it still load (#248).
+- The Brush Presets Panel parses each preset file once per refresh and no longer watches the preset folder (#246).
+- Preference search and shortcut-conflict code now live in the app utilities (#243).
+- One `setTip(type, value)` replaces the four Stroke tool tip setters (#247).
+- The Classic brush preset is a JSON file in the preset pack, with the same values as before (#245).
 - Review fixes: New Camera Layer asks for name and size in Camera Properties as one undo step; Preferences > Files has "Remind me to save an untitled project", and the reminder names your Save key; Layer > Rename Layer (F2) works anywhere in the main window; the open Opacity dialog follows undo and redo; Change Line Color refuses a hidden layer; an unknown startup choice opens the Welcome screen; shortcut names match the menus (#215).
 - New default keys, only where the command has none and the key is free: Ctrl+5 X-sheet, Ctrl+9 Brush Presets, Ctrl+0 Storyboard, Ctrl+M Export Movie, Ctrl+Shift+I Create Inbetweens (#241).
 - The autosave reminder for an untitled project is a non-modal notice, "Unsaved project: press Ctrl+S"; Esc no longer turns it off for good (#225).

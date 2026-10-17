@@ -29,8 +29,6 @@ public:
     explicit LassoFillTool(QObject* parent = nullptr);
 
     ToolType type() const override { return LASSOFILL; }
-    ToolProperties& toolProperties() override { return mSettings; }
-    void loadSettings() override {}
     QCursor cursor() override;
     bool isActive() const override { return !mLoop.isEmpty(); }
 
@@ -44,7 +42,6 @@ private:
     void updateLoopRect();
 
     QPolygonF mLoop; // canvas points
-    ToolProperties mSettings;
 };
 
 #endif // LASSOFILLTOOL_H

@@ -31,9 +31,7 @@ public:
 
     ToolType type() const override { return EYEDROPPER; }
 
-    ToolProperties& toolProperties() override { return mSettings; }
 
-    void loadSettings() override;
     QCursor cursor() override;
     QCursor cursor( const QColor color );
 
@@ -50,7 +48,6 @@ private:
     /** Retrieves the color index of the pixel under the cursor for a vector layer */
     int getVectorColor(LayerVector *layer, const QPointF& pos);
 
-    ToolProperties mSettings;
 };
 
 #endif // EYEDROPPERTOOL_H

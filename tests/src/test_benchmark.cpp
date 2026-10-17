@@ -141,46 +141,33 @@ struct PaintCounter : QObject
     }
 };
 
-// Mirrors the app's setup in MainWindow2 (editor, scribble area, connections).
-struct Session
+// Adds the app's layers and connections to a TestSession, shows it, then counts its paints.
+void startBenchSession(TestSession& s, PaintCounter& counter)
 {
-    std::unique_ptr<Editor> ownedEditor{ new Editor };
-    std::unique_ptr<ScribbleArea> ownedArea{ new ScribbleArea(nullptr) }; // destroyed before the editor
-    Editor* editor = ownedEditor.get();
-    ScribbleArea* area = ownedArea.get();
-    PaintCounter counter;
+    s.object->addNewCameraLayer();
+    s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
 
-    Session()
-    {
-        editor->setScribbleArea(area);
-        editor->init();
-        Object* object = new Object;
-        object->init();
-        object->addNewCameraLayer();
-        object->addNewBitmapLayer();
-        editor->setObject(object);
-        area->setEditor(editor);
-        area->init();
+    QObject::connect(editor, &Editor::scrubbed, area, &ScribbleArea::onScrubbed);
+    QObject::connect(editor, &Editor::frameModified, area, &ScribbleArea::onFrameModified);
+    QObject::connect(editor, &Editor::framesModified, area, &ScribbleArea::onFramesModified);
+    QObject::connect(editor, &Editor::objectLoaded, area, &ScribbleArea::onObjectLoaded);
+    QObject::connect(editor->layers(), &LayerManager::currentLayerChanged, area, &ScribbleArea::onLayerChanged);
+    QObject::connect(editor->playback(), &PlaybackManager::playStateChanged, area, &ScribbleArea::onPlayStateChanged);
 
-        QObject::connect(editor, &Editor::scrubbed, area, &ScribbleArea::onScrubbed);
-        QObject::connect(editor, &Editor::frameModified, area, &ScribbleArea::onFrameModified);
-        QObject::connect(editor, &Editor::framesModified, area, &ScribbleArea::onFramesModified);
-        QObject::connect(editor, &Editor::objectLoaded, area, &ScribbleArea::onObjectLoaded);
-        QObject::connect(editor->layers(), &LayerManager::currentLayerChanged, area, &ScribbleArea::onLayerChanged);
-        QObject::connect(editor->playback(), &PlaybackManager::playStateChanged, area, &ScribbleArea::onPlayStateChanged);
-
-        area->resize(1280, 720);
-        area->show();
-        // repaint() paints nothing until the window is exposed.
-        QElapsedTimer wait;
-        wait.start();
-        while (!area->windowHandle()->isExposed() && wait.elapsed() < 5000)
-            QApplication::processEvents();
-        REQUIRE(area->windowHandle()->isExposed());
-        area->installEventFilter(&counter);
-    }
-    Q_DISABLE_COPY(Session)
-};
+    area->resize(1280, 720);
+    area->show();
+    // repaint() paints nothing until the window is exposed.
+    QElapsedTimer wait;
+    wait.start();
+    while (!area->windowHandle()->isExposed() && wait.elapsed() < 5000)
+        QApplication::processEvents();
+    REQUIRE(area->windowHandle()->isExposed());
+    area->installEventFilter(&counter);
+}
 
 void mouse(QWidget* w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
 {
@@ -189,20 +176,20 @@ void mouse(QWidget* w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
 }
 
 // Deterministic zig-zag strokes across the canvas, repainting after each move like the app.
-void drawStrokes(Session& s, ToolType tool, int strokes)
+void drawStrokes(TestSession& s, ToolType tool, int strokes)
 {
     s.editor->tools()->setCurrentTool(tool);
     s.editor->scrubTo(1);
     for (int i = 0; i < strokes; ++i)
     {
         const qreal y = 100 + (i * 37) % 500;
-        mouse(s.area, QEvent::MouseButtonPress, QPointF(200, y), Qt::LeftButton);
+        mouse(s.area.get(), QEvent::MouseButtonPress, QPointF(200, y), Qt::LeftButton);
         for (int p = 1; p <= 100; ++p)
         {
-            mouse(s.area, QEvent::MouseMove, QPointF(200 + p * 8, y + ((p % 10) - 5) * 6), Qt::LeftButton);
+            mouse(s.area.get(), QEvent::MouseMove, QPointF(200 + p * 8, y + ((p % 10) - 5) * 6), Qt::LeftButton);
             s.area->repaint();
         }
-        mouse(s.area, QEvent::MouseButtonRelease, QPointF(1000, y), Qt::NoButton);
+        mouse(s.area.get(), QEvent::MouseButtonRelease, QPointF(1000, y), Qt::NoButton);
         s.area->repaint();
     }
 }
@@ -232,7 +219,9 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
 
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
-        Session s;
+        TestSession s;
+        PaintCounter counter;
+        startBenchSession(s, counter);
         QElapsedTimer t;
 
         t.start();
@@ -243,7 +232,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
 
         // Scrub: step through every frame once, frames load from disk on first use.
         s.area->onObjectLoaded();
-        s.counter.paints = 0;
+        counter.paints = 0;
         t.start();
         for (int f = 1; f <= cfg.frames; ++f)
         {
@@ -252,13 +241,13 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             sampleRam();
         }
         sc[2].ms.push_back(t.nsecsElapsed() / 1e6);
-        REQUIRE(s.counter.paints == cfg.frames);
+        REQUIRE(counter.paints == cfg.frames);
 
         // Play: playback state on, frames rendered back to back as fast as possible.
         s.area->onObjectLoaded();
         s.editor->scrubTo(1);
         s.editor->playback()->play();
-        s.counter.paints = 0;
+        counter.paints = 0;
         t.start();
         for (int f = 1; f <= cfg.frames; ++f)
         {
@@ -267,7 +256,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             sampleRam();
         }
         sc[3].ms.push_back(t.nsecsElapsed() / 1e6);
-        REQUIRE(s.counter.paints == cfg.frames);
+        REQUIRE(counter.paints == cfg.frames);
         s.editor->playback()->stop();
         REQUIRE(s.editor->currentFrame() == cfg.frames + 1);
 
@@ -293,7 +282,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             for (SETTING o : { SETTING::PREV_ONION, SETTING::NEXT_ONION, SETTING::ONION_RED, SETTING::ONION_BLUE })
                 s.editor->preference()->set(o, true);
             s.area->onObjectLoaded();
-            s.counter.paints = 0;
+            counter.paints = 0;
             t.start();
             for (int f = 1; f <= cfg.frames; ++f)
             {
@@ -301,7 +290,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
                 s.area->repaint();
             }
             sc[7].ms.push_back(t.nsecsElapsed() / 1e6);
-            REQUIRE(s.counter.paints == cfg.frames);
+            REQUIRE(counter.paints == cfg.frames);
         }
 
         // Play again with every bitmap layer above the bottom one blended (multiply, screen, overlay, add).
@@ -311,7 +300,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         s.area->onObjectLoaded();
         s.editor->scrubTo(1);
         s.editor->playback()->play();
-        s.counter.paints = 0;
+        counter.paints = 0;
         t.start();
         for (int f = 1; f <= cfg.frames; ++f)
         {
@@ -319,7 +308,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             s.editor->scrubForward();
         }
         sc[8].ms.push_back(t.nsecsElapsed() / 1e6);
-        REQUIRE(s.counter.paints == cfg.frames);
+        REQUIRE(counter.paints == cfg.frames);
         s.editor->playback()->stop();
     }
     return sc;
@@ -437,7 +426,9 @@ void tablet(QWidget* w, const QPointingDevice* pen, QEvent::Type type, const Sam
 // 1 ms apart and the result only depends on the input.
 ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes, const QString& presetFolder = {})
 {
-    Session s;
+    TestSession s;
+    PaintCounter counter;
+    startBenchSession(s, counter);
     s.editor->color()->setFrontColor(QColor(200, 30, 90));
     auto* below = static_cast<LayerBitmap*>(s.editor->object()->getLayer(1));
     below->getBitmapImageAtFrame(1)->drawRect(QRectF(-500, -250, 1000, 500), Qt::NoPen, QColor(90, 160, 220),
@@ -462,10 +453,10 @@ ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes, con
     t.start();
     for (const Stroke& stroke : strokes)
     {
-        tablet(s.area, &pen, QEvent::TabletPress, stroke.front(), Qt::LeftButton, Qt::LeftButton);
+        tablet(s.area.get(), &pen, QEvent::TabletPress, stroke.front(), Qt::LeftButton, Qt::LeftButton);
         for (size_t i = 1; i < stroke.size(); ++i)
-            tablet(s.area, &pen, QEvent::TabletMove, stroke[i], Qt::NoButton, Qt::LeftButton);
-        tablet(s.area, &pen, QEvent::TabletRelease, stroke.back(), Qt::LeftButton, Qt::NoButton);
+            tablet(s.area.get(), &pen, QEvent::TabletMove, stroke[i], Qt::NoButton, Qt::LeftButton);
+        tablet(s.area.get(), &pen, QEvent::TabletRelease, stroke.back(), Qt::LeftButton, Qt::NoButton);
     }
     r.ms = t.nsecsElapsed() / 1e6;
 
@@ -620,7 +611,7 @@ TEST_CASE("Brush replay: today's Pencil, Brush and Eraser match the golden hashe
 TEST_CASE("Brush replay: the Classic preset draws like Pencil, Brush and Eraser before v0.3", "[BrushReplay]")
 {
     QTemporaryDir dir;
-    REQUIRE(BrushPresets(dir.path()).addClassic());
+    BrushPresets(dir.path()).addDefaults();
     checkGolden(kClassicGolden, dir.path());
 }
 
@@ -660,7 +651,9 @@ struct PredictionRun
 // One mouse stroke to the right with the given tool, prediction on or off.
 PredictionRun predictionRun(ToolType toolType, bool predict)
 {
-    Session s;
+    TestSession s;
+    PaintCounter counter;
+    startBenchSession(s, counter);
     s.editor->layers()->setCurrentLayer(1);
     s.editor->color()->setFrontColor(QColor(200, 30, 90));
     s.editor->tools()->setCurrentTool(toolType);
@@ -672,14 +665,14 @@ PredictionRun predictionRun(ToolType toolType, bool predict)
     dabTool->setPredictionEnabled(predict);
 
     PredictionRun r;
-    mouse(s.area, QEvent::MouseButtonPress, QPointF(300, 360), Qt::LeftButton);
+    mouse(s.area.get(), QEvent::MouseButtonPress, QPointF(300, 360), Qt::LeftButton);
     for (int x = 310; x <= 600; x += 10)
     {
-        mouse(s.area, QEvent::MouseMove, QPointF(x, 360), Qt::LeftButton);
+        mouse(s.area.get(), QEvent::MouseMove, QPointF(x, 360), Qt::LeftButton);
         QApplication::processEvents();
     }
     r.midStroke = s.area->grab().toImage();
-    mouse(s.area, QEvent::MouseButtonRelease, QPointF(600, 360), Qt::NoButton);
+    mouse(s.area.get(), QEvent::MouseButtonRelease, QPointF(600, 360), Qt::NoButton);
     QApplication::processEvents();
     r.afterRelease = s.area->grab().toImage();
     r.layerSha1 = layerHash(static_cast<LayerBitmap*>(s.editor->layers()->currentLayer())->getBitmapImageAtFrame(1));
@@ -712,7 +705,9 @@ TEST_CASE("Pen prediction: the preview runs ahead of the pen and never reaches t
 // repaint it causes. Prints median and max ms per move. Use a Release build.
 TEST_CASE("Pen prediction: input-to-pixel latency of a 256 px brush on a 4K canvas", "[.latency]")
 {
-    Session s;
+    TestSession s;
+    PaintCounter counter;
+    startBenchSession(s, counter);
     s.editor->layers()->setCurrentLayer(1);
     s.area->resize(3840, 2160);
     QApplication::processEvents();
@@ -733,17 +728,17 @@ TEST_CASE("Pen prediction: input-to-pixel latency of a 256 px brush on a 4K canv
     for (int stroke = 0; stroke < 5; ++stroke)
     {
         const qreal y = 400 + stroke * 300;
-        tablet(s.area, &pen, QEvent::TabletPress, { QPointF(200, y), 0.8 }, Qt::LeftButton, Qt::LeftButton);
+        tablet(s.area.get(), &pen, QEvent::TabletPress, { QPointF(200, y), 0.8 }, Qt::LeftButton, Qt::LeftButton);
         QApplication::processEvents();
         for (int i = 1; i <= 200; ++i)
         {
             t.start();
-            tablet(s.area, &pen, QEvent::TabletMove, { QPointF(200 + i * 17, y + (i % 20 - 10) * 4), 0.8 },
+            tablet(s.area.get(), &pen, QEvent::TabletMove, { QPointF(200 + i * 17, y + (i % 20 - 10) * 4), 0.8 },
                    Qt::NoButton, Qt::LeftButton);
             QApplication::processEvents();
             ms.push_back(t.nsecsElapsed() / 1e6);
         }
-        tablet(s.area, &pen, QEvent::TabletRelease, { QPointF(3600, y), 0.8 }, Qt::LeftButton, Qt::NoButton);
+        tablet(s.area.get(), &pen, QEvent::TabletRelease, { QPointF(3600, y), 0.8 }, Qt::LeftButton, Qt::NoButton);
         QApplication::processEvents();
     }
     std::sort(ms.begin(), ms.end());
@@ -752,7 +747,7 @@ TEST_CASE("Pen prediction: input-to-pixel latency of a 256 px brush on a 4K canv
     if (StageProfiler::enabled())
         StageProfiler::report();
     std::fflush(stdout);
-    CHECK(s.counter.paints > 0);
+    CHECK(counter.paints > 0);
 }
 
 // Hidden: timing run for `compare_replay.py`. Prints one line per tool and size:
@@ -793,7 +788,9 @@ TEST_CASE("Brush replay: dabs per second at 256 and 4 screen px", "[.dabrate]")
         unsigned long long dabs = 0;
         for (int rep = 0; rep < 5; ++rep)
         {
-            Session s;
+            TestSession s;
+            PaintCounter counter;
+            startBenchSession(s, counter);
             s.editor->layers()->setCurrentLayer(1);
             s.editor->tools()->setCurrentTool(BRUSH);
             BaseTool* tool = s.editor->tools()->currentTool();
@@ -808,10 +805,10 @@ TEST_CASE("Brush replay: dabs per second at 256 and 4 screen px", "[.dabrate]")
             t.start();
             for (const Stroke& stroke : strokes)
             {
-                tablet(s.area, &pen, QEvent::TabletPress, stroke.front(), Qt::LeftButton, Qt::LeftButton);
+                tablet(s.area.get(), &pen, QEvent::TabletPress, stroke.front(), Qt::LeftButton, Qt::LeftButton);
                 for (size_t i = 1; i < stroke.size(); ++i)
-                    tablet(s.area, &pen, QEvent::TabletMove, stroke[i], Qt::NoButton, Qt::LeftButton);
-                tablet(s.area, &pen, QEvent::TabletRelease, stroke.back(), Qt::LeftButton, Qt::NoButton);
+                    tablet(s.area.get(), &pen, QEvent::TabletMove, stroke[i], Qt::NoButton, Qt::LeftButton);
+                tablet(s.area.get(), &pen, QEvent::TabletRelease, stroke.back(), Qt::LeftButton, Qt::NoButton);
             }
             const double sec = t.nsecsElapsed() / 1e9;
             dabs = StageProfiler::calls(StageProfiler::DabMask);

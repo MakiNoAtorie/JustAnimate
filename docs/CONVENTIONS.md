@@ -47,6 +47,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
   on Windows.
 - Golden values change only in a commit that means to change output.
+- A test that needs the app's connections builds `TestSession`, never
+  its own session struct; event filters go on after `start()`.
 
 ## Code
 
@@ -55,6 +57,8 @@ Read `docs/conventions-code.md` before you edit code.
 ## Commits
 
 - One commit per ticket (`CLAUDE.md`); its `ChangeLog.md` line goes at the
-  top of "JustAnimate - Unreleased". Follow-ups end `Refs #<n>`.
+  top of the list under "## JustAnimate - Unreleased", never in the
+  heading; write it as UTF-8 without BOM (PowerShell `Get-Content`
+  mangles it). Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.

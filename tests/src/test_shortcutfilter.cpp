@@ -28,7 +28,7 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "object.h"
 #include "scribblearea.h"
-#include "shortcutconflict.h"
+#include "app_util.h"
 #include "shortcutfilter.h"
 #include "pencildef.h"
 #include "pencilsettings.h"

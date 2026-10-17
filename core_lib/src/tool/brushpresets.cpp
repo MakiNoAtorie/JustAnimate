@@ -86,18 +86,34 @@ BrushPresets::BrushPresets(const QString& folder) : mFolder(folder)
         mFolder = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("brushpresets");
 }
 
-QStringList BrushPresets::names(const QString& tool) const
+QList<BrushPresets::Entry> BrushPresets::entries(const QString& tool) const
 {
-    QStringList result;
+    QList<Entry> result;
     const QFileInfoList files = QDir(mFolder).entryInfoList({ "*.json" }, QDir::Files, QDir::Name);
     for (const QFileInfo& info : files)
     {
         const QString name = info.completeBaseName();
-        const std::optional<QJsonObject> preset = isValidName(name) ? readPreset(info.filePath()) : std::nullopt;
-        if (preset && (tool.isEmpty() || toolOf(*preset) == tool))
-            result << name;
+        const std::optional<QJsonObject> preset = read(name);
+        if (!preset)
+            continue;
+        const QString presetTool = toolOf(*preset);
+        if (tool.isEmpty() || presetTool == tool)
+            result.append({ name, presetTool, preset->value("description").toString(), *preset });
     }
     return result;
+}
+
+QStringList BrushPresets::names(const QString& tool) const
+{
+    QStringList result;
+    for (const Entry& entry : entries(tool))
+        result << entry.name;
+    return result;
+}
+
+std::optional<QJsonObject> BrushPresets::read(const QString& name) const
+{
+    return isValidName(name) ? readPreset(filePath(name)) : std::nullopt;
 }
 
 QString BrushPresets::toolKey(ToolType type)
@@ -107,7 +123,7 @@ QString BrushPresets::toolKey(ToolType type)
 
 QString BrushPresets::tool(const QString& name) const
 {
-    const std::optional<QJsonObject> preset = isValidName(name) ? readPreset(filePath(name)) : std::nullopt;
+    const std::optional<QJsonObject> preset = read(name);
     return preset ? toolOf(*preset) : QString();
 }
 
@@ -139,13 +155,16 @@ bool BrushPresets::save(const QString& name, StrokeTool& tool, const QString& de
 
 bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
 {
-    if (!isValidName(name))
-        return false;
-    const std::optional<QJsonObject> preset = readPreset(filePath(name));
+    const std::optional<QJsonObject> preset = read(name);
     if (!preset)
         return false;
+    apply(*preset, tool, name);
+    return true;
+}
 
-    const QJsonObject settings = preset->value("settings").toObject();
+void BrushPresets::apply(const QJsonObject& preset, StrokeTool& tool, const QString& name) const
+{
+    const QJsonObject settings = preset.value("settings").toObject();
     ToolProperties& properties = tool.toolProperties();
     properties.restoreProperties();
     for (const auto& range : properties.typeRanges())
@@ -176,14 +195,13 @@ bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
         }
     }
 
-    const QString tipImage = preset->value("tipImage").toString();
+    const QString tipImage = preset.value("tipImage").toString();
     if (!tool.setTipImage(tipImage).ok())
     {
         qWarning() << "Brush preset" << name << "uses the generated tip: cannot load" << tipImage;
         tool.setTipImage(QString());
     }
-    tool.setPressureCurve(preset->value("pressureCurve").toString());
-    return true;
+    tool.setPressureCurve(preset.value("pressureCurve").toString());
 }
 
 bool BrushPresets::seed(const QString& name, const QByteArray& json) const
@@ -227,17 +245,8 @@ void BrushPresets::addDefaults() const
 
 QString BrushPresets::description(const QString& name) const
 {
-    if (!isValidName(name))
-        return QString();
-    const std::optional<QJsonObject> preset = readPreset(filePath(name));
+    const std::optional<QJsonObject> preset = read(name);
     return preset ? preset->value("description").toString() : QString();
-}
-
-bool BrushPresets::addClassic() const
-{
-    // Missing keys give each tool's default; only these differ from the defaults.
-    const QJsonObject settings{ { "Flow", 50 }, { "FlowPerDab", true }, { "PressureEnabled", true } };
-    return seed("Classic", QJsonDocument(QJsonObject{ { "settings", settings }, { "tipImage", "" } }).toJson());
 }
 
 bool BrushPresets::rename(const QString& from, const QString& to) const
@@ -277,7 +286,7 @@ bool BrushPresets::exists(const QString& name) const
 Status BrushPresets::exportPreset(const QString& name, const QString& fileName) const
 {
     const Status failed(Status::FAIL, QObject::tr("Cannot export the brush preset %1 to %2.").arg(name, fileName));
-    const std::optional<QJsonObject> preset = isValidName(name) ? readPreset(filePath(name)) : std::nullopt;
+    const std::optional<QJsonObject> preset = read(name);
     if (!preset)
         return failed;
 

@@ -546,7 +546,6 @@ QDomElement FileManager::saveProjectData(const Object* object, QDomDocument& xml
     {
         QDomElement tag = xmlDoc.createElement("paperTemplate");
         tag.setAttribute("on", paper.on ? "1" : "0");
-        tag.setAttribute("kind", paper.kind);
         tag.setAttribute("title", paper.title);
         tag.setAttribute("id", paper.id);
         tag.setAttribute("name", paper.name);
@@ -633,7 +632,6 @@ void FileManager::extractProjectData(const QDomElement& element, ObjectData& dat
     {
         PaperTemplate paper;
         paper.on = element.attribute("on") == "1";
-        paper.kind = element.attribute("kind", paper.kind);
         paper.title = element.attribute("title");
         paper.id = element.attribute("id");
         paper.name = element.attribute("name");

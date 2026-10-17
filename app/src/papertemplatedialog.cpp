@@ -48,7 +48,7 @@ PaperTemplateDialog::PaperTemplateDialog(const PaperTemplate& paper, QWidget* pa
 
 PaperTemplate PaperTemplateDialog::paperTemplate() const
 {
-    PaperTemplate paper = mPaper; // keeps the kind
+    PaperTemplate paper = mPaper; // keeps the Timesheet values
     paper.on = mOn->isChecked();
     paper.title = mTitle->text();
     paper.id = mId->text();

@@ -17,7 +17,9 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QApplication>
 #include <QIcon>
+#include <QGuiApplication>
 #include <QKeyEvent>
+#include <QStyleHints>
 #include <QPointingDevice>
 #include <QTabletEvent>
 
@@ -38,11 +40,12 @@ GNU General Public License for more details.
 namespace
 {
 
-void tablet(ScribbleArea* area, QEvent::Type type, QPointF pos, Qt::KeyboardModifiers modifiers)
+void tablet(ScribbleArea* area, QEvent::Type type, QPointF pos, Qt::KeyboardModifiers modifiers, ulong time = 0)
 {
     const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
     QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
                    1.0, 0, 0, 0, 0, 0, modifiers, Qt::LeftButton, buttons);
+    e.setTimestamp(time);
     QApplication::sendEvent(area, &e);
 }
 
@@ -247,6 +250,50 @@ TEST_CASE("ShapeTool - polygon closes on the first point or a double click")
         undoAction->trigger();
         CHECK(vector->getVectorImageAtFrame(1)->getLastCurveNumber() == 0);
     }
+}
+
+TEST_CASE("ShapeTool - a tablet double click follows the system interval and distance")
+{
+    TestSession s;
+    LayerVector* vector = s.object->addNewVectorLayer();
+    s.start();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    s.editor->tools()->setCurrentTool(SHAPE);
+    ShapeTool* tool = static_cast<ShapeTool*>(s.editor->tools()->getTool(SHAPE));
+    const ToolSettingsGuard guard(tool);
+    tool->setShapeMode(ShapeTool::POLYGON);
+    s.editor->layers()->setCurrentLayer(vector);
+    BezierCurve first({ QPointF(0, 0), QPointF(5, 0) });
+    first.setColorNumber(1);
+    vector->getVectorImageAtFrame(1)->addCurve(first, 1.0);
+
+    QStyleHints* hints = QGuiApplication::styleHints();
+    struct IntervalGuard
+    {
+        QStyleHints* hints;
+        int saved = hints->mouseDoubleClickInterval();
+        ~IntervalGuard() { hints->setMouseDoubleClickInterval(saved); }
+    } restore{ hints };
+    const qreal distance = hints->mouseDoubleClickDistance(); // no setter in Qt
+    hints->setMouseDoubleClickInterval(300);
+
+    // Two taps on C after A and B; the polygon ends only when the second tap is a double click.
+    auto curves = [&](ulong gap, QPointF second) {
+        for (QPointF p : { QPointF(200, 200), QPointF(400, 200), QPointF(300, 400) })
+        {
+            tablet(area, QEvent::TabletPress, p, Qt::NoModifier, 1000);
+            tablet(area, QEvent::TabletRelease, p, Qt::NoModifier, 1001);
+        }
+        tablet(area, QEvent::TabletPress, second, Qt::NoModifier, 1000 + gap);
+        tablet(area, QEvent::TabletRelease, second, Qt::NoModifier, 1001 + gap);
+        return vector->getVectorImageAtFrame(1)->getLastCurveNumber();
+    };
+    SECTION("Inside the interval") { CHECK(curves(200, QPointF(300, 400)) == 1); }
+    SECTION("Outside the interval") { CHECK(curves(400, QPointF(300, 400)) == 0); }
+    SECTION("Inside the distance") { CHECK(curves(100, QPointF(300, 400 + distance)) == 1); }
+    SECTION("Outside the distance") { CHECK(curves(100, QPointF(300, 402 + distance)) == 0); }
 }
 
 TEST_CASE("ShapeTool - an open polygon ends on layer change or Esc")

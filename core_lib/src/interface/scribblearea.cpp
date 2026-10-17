@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <algorithm>
 #include <cmath>
 #include <QGuiApplication>
+#include <QStyleHints>
 #include <QKeySequence>
 #include <QPainterPath>
 #include <QtMath>
@@ -697,9 +698,10 @@ void ScribbleArea::tabletEvent(QTabletEvent *e)
         }
 
         // Event timestamps give the elapsed time; a double click consumes both presses.
+        const QStyleHints* hints = QGuiApplication::styleHints();
         const bool isDoubleClick = mHasTabletPress
-            && e->timestamp() - mTabletPressTime <= DOUBLE_CLICK_THRESHOLD
-            && QLineF(e->position(), mTabletPressPos).length() < 5.0;
+            && e->timestamp() - mTabletPressTime <= static_cast<ulong>(hints->mouseDoubleClickInterval())
+            && QLineF(e->position(), mTabletPressPos).length() <= hints->mouseDoubleClickDistance();
         mHasTabletPress = !isDoubleClick;
         mTabletPressPos = e->position();
         mTabletPressTime = e->timestamp();

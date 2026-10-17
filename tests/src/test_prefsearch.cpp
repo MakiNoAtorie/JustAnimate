@@ -1,6 +1,6 @@
 #include "catch.hpp"
 
-#include "prefsearch.h"
+#include "app_util.h"
 #include "actioncommands.h"
 #include "generalpage.h"
 #include "stroketool.h"

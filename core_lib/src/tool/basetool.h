@@ -58,8 +58,8 @@ public:
 
     virtual ToolType type() const = 0;
 
-    virtual ToolProperties& toolProperties() = 0;
-    virtual void loadSettings() = 0;
+    virtual ToolProperties& toolProperties() { return mDefaultProperties; }
+    virtual void loadSettings() {}
     void saveSettings();
     void resetSettings();
 
@@ -112,6 +112,7 @@ protected:
     /// Maps canvas space into the space of the current key at the current frame.
     QTransform canvasToKey() const;
     QHash<int, QSet<Layer::LAYER_TYPE>> mPropertyUsed;
+    ToolProperties mDefaultProperties;
 
     Editor* mEditor = nullptr;
     ScribbleArea* mScribbleArea = nullptr;
