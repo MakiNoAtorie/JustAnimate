@@ -78,7 +78,7 @@ TEST_CASE("The Paper template round-trips through the project file", "[PaperTemp
     }
 }
 
-TEST_CASE("A Paper template edit is one undo step", "[PaperTemplate]")
+TEST_CASE("A Paper template edit is one undo step per changed field", "[PaperTemplate]")
 {
     TestSession s;
     s.object->addNewCameraLayer();
@@ -88,18 +88,30 @@ TEST_CASE("A Paper template edit is one undo step", "[PaperTemplate]")
     QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
     QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
 
-    editor->setPaperTemplate(filledTemplate());
-    REQUIRE(editor->object()->data()->paperTemplate() == filledTemplate());
+    editor->object()->data()->setPaperTemplate(filledTemplate());
     PaperTemplate renamed = filledTemplate();
     renamed.title = "Cut 13";
     editor->setPaperTemplate(renamed);
-
     undo->trigger();
     CHECK(editor->object()->data()->paperTemplate() == filledTemplate());
-    undo->trigger();
-    CHECK(editor->object()->data()->paperTemplate() == PaperTemplate());
     redo->trigger();
+    CHECK(editor->object()->data()->paperTemplate() == renamed);
+    undo->trigger();
+
+    // Two fields changed in one dialog OK: two steps, the last field first.
+    PaperTemplate two = filledTemplate();
+    two.title = "Cut 13";
+    two.state = "Clean";
+    editor->setPaperTemplate(two);
+    undo->trigger();
+    PaperTemplate half = filledTemplate();
+    half.title = "Cut 13";
+    CHECK(editor->object()->data()->paperTemplate() == half);
+    undo->trigger();
     CHECK(editor->object()->data()->paperTemplate() == filledTemplate());
+    redo->trigger();
+    redo->trigger();
+    CHECK(editor->object()->data()->paperTemplate() == two);
 }
 
 TEST_CASE("The canvas shows the Title block and exports leave it out", "[PaperTemplate]")
