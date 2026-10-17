@@ -587,13 +587,8 @@ void MainWindow2::createMenus()
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
-    auto rippleEdit = [this](bool (LayerManager::*edit)())
-    {
-        if (!mEditor->layers()->currentLayer()->visible()) { ui->scribbleArea->showLayerNotVisibleWarning(); return; }
-        (mEditor->layers()->*edit)();
-    };
-    connect(ui->actionRipple_Insert_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleInsertFrame); });
-    connect(ui->actionRipple_Delete_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleRemoveFrame); });
+    connect(ui->actionRipple_Insert_Frame, &QAction::triggered, this, [this] { mEditor->layers()->rippleInsertFrame(); });
+    connect(ui->actionRipple_Delete_Frame, &QAction::triggered, this, [this] { mEditor->layers()->rippleRemoveFrame(); });
     connect(ui->actionExposure_Add, &QAction::triggered, this, [this] { mEditor->layers()->changeExposure(mEditor->currentFrame(), 1); });
     connect(ui->actionExposure_Subtract, &QAction::triggered, this, [this] { mEditor->layers()->changeExposure(mEditor->currentFrame(), -1); });
     connect(ui->actionAdd_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::addExposureToSelectedFrames);

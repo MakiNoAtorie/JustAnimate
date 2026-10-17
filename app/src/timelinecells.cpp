@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include <QPainter>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QTimer>
 #include <QDebug>
 
 #include "camerapropertiesdialog.h"
@@ -82,6 +83,24 @@ TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYP
     setFocusPolicy(Qt::TabFocus);
 
     connect(mPrefs, &PreferenceManager::optionChanged, this, &TimeLineCells::loadSetting);
+    if (mType == TIMELINE_CELL_TYPE::Layers)
+    {
+        mFlashTimer = new QTimer(this);
+        mFlashTimer->setInterval(150);
+        connect(mFlashTimer, &QTimer::timeout, this, [this] {
+            if (--mFlashTicks <= 0) { mFlashTimer->stop(); }
+            update();
+        });
+        connect(editor, &Editor::layerRefused, this, &TimeLineCells::flashLayer);
+    }
+}
+
+void TimeLineCells::flashLayer(int layerId)
+{
+    mFlashLayerId = layerId;
+    mFlashTicks = 6;
+    mFlashTimer->start();
+    update();
 }
 
 TimeLineCells::~TimeLineCells()
@@ -1035,6 +1054,18 @@ void TimeLineCells::paintEvent(QPaintEvent*)
     if (mCache)
     {
         painter.drawPixmap(QPoint(0, 0), *mCache);
+    }
+
+    const Object* object = mEditor->object();
+    for (int i = 0; mFlashTicks % 2 == 1 && i < object->getLayerCount(); ++i)
+    {
+        const Layer* layer = object->getLayer(i);
+        if (layer->id() != mFlashLayerId || object->isLayerFolded(i)) { continue; }
+        // A hidden layer flashes its eye; a locked one its lock.
+        const int left = layer->visible() ? kLockAllLeft : 2;
+        QColor accent = palette.color(QPalette::Highlight);
+        accent.setAlpha(160);
+        painter.fillRect(QRect(left, getLayerY(i), 18, mLayerHeight - 2), accent);
     }
 
     if (mType == TIMELINE_CELL_TYPE::Tracks)

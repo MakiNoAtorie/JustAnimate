@@ -692,7 +692,8 @@ void LayerManager::setKeyMark(int frame, Mark mark)
     Layer* layer = currentLayer();
     if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
     KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
-    if (key == nullptr || key->mark() == mark) { return; }
+    if (key == nullptr) { editor()->notice(tr("No Drawing to mark on frame %1").arg(frame)); return; }
+    if (key->mark() == mark) { return; }
     // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
     const int playhead = editor()->currentFrame();
     const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
@@ -733,7 +734,7 @@ Status LayerManager::createInbetweens(CameraEasingType easing)
     Layer* layer = currentLayer();
     if (layer == nullptr || editor()->refusesEdit(layer)) { return Status::FAIL; }
     auto refuse = [this](const QString& text) {
-        emit editor()->statusMessage(text);
+        editor()->notice(text);
         return Status(Status::FAIL, text);
     };
     if (layer->type() != Layer::VECTOR) { return refuse(tr("Create inbetweens works only on vector layers")); }
@@ -961,7 +962,7 @@ static void shiftFramesAfter(LayerManager* layers, UndoRedoManager* undoRedo, La
 bool LayerManager::rippleInsertFrame()
 {
     Layer* layer = currentLayer();
-    if (!layer->visible() || editor()->refusesEdit(layer)) { return false; }
+    if (editor()->refusesHidden(layer) || editor()->refusesEdit(layer)) { return false; }
 
     const int position = editor()->currentFrame();
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -978,7 +979,7 @@ bool LayerManager::rippleRemoveFrame()
     Layer* layer = currentLayer();
     const int position = editor()->currentFrame();
     const bool onKey = layer->keyExists(position);
-    if (!layer->visible() || editor()->refusesEdit(layer)) { return false; }
+    if (editor()->refusesHidden(layer) || editor()->refusesEdit(layer)) { return false; }
     if (onKey ? layer->keyFrameCount() == 1 : layer->getMaxKeyFramePosition() <= position) { return false; }
 
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -1001,7 +1002,7 @@ bool LayerManager::rippleRemoveFrame()
 bool LayerManager::changeExposure(int frame, int delta)
 {
     Layer* layer = currentLayer(0);
-    if (layer == nullptr || !layer->visible() || editor()->refusesEdit(layer)) { return false; }
+    if (layer == nullptr || editor()->refusesHidden(layer) || editor()->refusesEdit(layer)) { return false; }
     const KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr) { return false; }
     const int position = key->pos();

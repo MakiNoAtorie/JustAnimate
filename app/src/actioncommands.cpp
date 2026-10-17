@@ -216,12 +216,7 @@ Status ActionCommands::importSound(FileType type)
     layer = mEditor->layers()->currentLayer();
     Q_ASSERT(layer->type() == Layer::SOUND);
 
-    if (!layer->visible())
-    {
-        mEditor->getScribbleArea()->showLayerNotVisibleWarning();
-        return Status::SAFE;
-    }
-    if (mEditor->refusesEdit(layer)) { return Status::SAFE; }
+    if (mEditor->refusesHidden(layer) || mEditor->refusesEdit(layer)) { return Status::SAFE; }
     QString strSoundFile = FileDialog::getOpenFileName(mParent, type);
 
     Status st = Status::FAIL;
@@ -999,12 +994,7 @@ void ActionCommands::duplicateKey()
 {
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer == nullptr) return;
-    if (!layer->visible())
-    {
-        mEditor->getScribbleArea()->showLayerNotVisibleWarning();
-        return;
-    }
-    if (mEditor->refusesEdit(layer)) { return; }
+    if (mEditor->refusesHidden(layer) || mEditor->refusesEdit(layer)) { return; }
 
     KeyFrame* key = layer->getKeyFrameAt(mEditor->currentFrame());
     if (key == nullptr) return;

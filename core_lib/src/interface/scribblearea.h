@@ -22,7 +22,6 @@ GNU General Public License for more details.
 #include <cstdint>
 #include <ctime>
 #include <deque>
-#include <functional>
 #include <memory>
 
 #include <QColor>
@@ -167,8 +166,8 @@ public:
     void keyEvent(QKeyEvent* event);
     void keyEventForSelection(QKeyEvent* event);
 
-private:
-    std::function<void()> mLayerNotVisibleWarning;
+    /// The notice the canvas shows now, or empty.
+    QString note() const { return mNote; }
 
 signals:
     void multiLayerOnionSkinChanged(bool);
@@ -187,9 +186,8 @@ public slots:
     void updateToolCursor();
     void paletteColorChanged(QColor);
 
-    void showLayerNotVisibleWarning();
-    /// Replaces the modal warning box, for callers with no user to close it.
-    void setLayerNotVisibleWarning(std::function<void()> warn) { mLayerNotVisibleWarning = std::move(warn); }
+    /// Shows a short notice on the canvas for a few seconds.
+    void showNote(const QString& text);
     void onTileUpdated(TiledBuffer* tiledBuffer, Tile* tile);
     void onTileCreated(TiledBuffer* tiledBuffer, Tile* tile);
 
@@ -260,6 +258,7 @@ private:
     void settingUpdated(SETTING setting);
     void paintSelectionVisuals(QPainter &painter);
     void paintCanvasHud(QPainter& painter) const;
+    void paintNote(QPainter& painter) const;
     void paintRadialMenu(QPainter& painter) const;
     /// Feeds a pointer event at `pos` (widget px) to the open radial menu.
     void radialMenuEvent(QEvent::Type type, QPointF pos);
@@ -314,6 +313,8 @@ private:
     bool mTabletHasEntered = false;
 
     QTimer* mMouseFilterTimer = nullptr;
+    QTimer* mNoteTimer = nullptr;
+    QString mNote;
 
     PreferenceManager* mPrefs = nullptr;
 
