@@ -42,6 +42,16 @@ void showMarkerMenu(Editor* editor, int layerId, int frame, const QPoint& global
 /// Adds a submenu of every easing type with its curve; checked is ticked, pick runs with the chosen type.
 QMenu* addEasingMenu(QMenu* menu, const QString& title, CameraEasingType checked, const std::function<void(CameraEasingType)>& pick);
 
+/// Fills menu with every easing type; checked is ticked, pick runs with the chosen type.
+void fillEasingMenu(QMenu* menu, CameraEasingType checked, const std::function<void(CameraEasingType)>& pick);
+
+/// fillEasingMenu for Create Inbetweens: the last easing (SETTING::INBETWEEN_EASING) is ticked and active,
+/// and a choice is stored as the new last easing before pick runs.
+void fillInbetweenEasingMenu(QMenu* menu, Editor* editor, const std::function<void(CameraEasingType)>& pick);
+
+/// Shows that menu at globalPos. Returns false when it is dismissed.
+bool chooseInbetweenEasing(Editor* editor, const QPoint& globalPos, CameraEasingType& easing);
+
 /** A small plot of the easing curve. */
 QPixmap easingPreview(CameraEasingType easing);
 }

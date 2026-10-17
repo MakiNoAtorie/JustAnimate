@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "layercamera.h"
 #include "layermanager.h"
 #include "object.h"
+#include "preferencemanager.h"
 #include "objectdata.h"
 #include "pencildef.h"
 
@@ -221,21 +222,46 @@ void showMarkerMenu(Editor* editor, int layerId, int frame, const QPoint& global
     menu.exec(globalPos);
 }
 
-QMenu* addEasingMenu(QMenu* menu, const QString& title, CameraEasingType checked, const std::function<void(CameraEasingType)>& pick)
+void fillEasingMenu(QMenu* menu, CameraEasingType checked, const std::function<void(CameraEasingType)>& pick)
 {
-    QMenu* easing = menu->addMenu(title);
-    QActionGroup* group = new QActionGroup(easing);
+    QActionGroup* group = new QActionGroup(menu);
     for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
     {
         const CameraEasingType type = static_cast<CameraEasingType>(i);
-        QAction* action = group->addAction(easing->addAction(QIcon(easingPreview(type)), getInterpolationText(type)));
+        QAction* action = group->addAction(menu->addAction(QIcon(easingPreview(type)), getInterpolationText(type)));
         action->setCheckable(true);
         action->setChecked(type == checked);
         QObject::connect(action, &QAction::triggered, [=] { pick(type); });
     }
+}
+
+QMenu* addEasingMenu(QMenu* menu, const QString& title, CameraEasingType checked, const std::function<void(CameraEasingType)>& pick)
+{
+    QMenu* easing = menu->addMenu(title);
+    fillEasingMenu(easing, checked, pick);
     return easing;
 }
 
+void fillInbetweenEasingMenu(QMenu* menu, Editor* editor, const std::function<void(CameraEasingType)>& pick)
+{
+    PreferenceManager* prefs = editor->preference();
+    const int last = qBound(0, prefs->getInt(SETTING::INBETWEEN_EASING), static_cast<int>(CameraEasingType::OUTINBOUNCE));
+    fillEasingMenu(menu, static_cast<CameraEasingType>(last), [=](CameraEasingType type) {
+        prefs->set(SETTING::INBETWEEN_EASING, static_cast<int>(type));
+        pick(type);
+    });
+    // Enter accepts the preselected easing.
+    for (QAction* action : menu->actions()) { if (action->isChecked()) { menu->setActiveAction(action); } }
+}
+
+bool chooseInbetweenEasing(Editor* editor, const QPoint& globalPos, CameraEasingType& easing)
+{
+    QMenu menu;
+    bool picked = false;
+    fillInbetweenEasingMenu(&menu, editor, [&](CameraEasingType type) { easing = type; picked = true; });
+    menu.exec(globalPos);
+    return picked;
+}
 QPixmap easingPreview(CameraEasingType easing)
 {
     const int size = 16;

@@ -167,6 +167,7 @@ void PreferenceManager::loadPrefs()
 
     set(SETTING::LANGUAGE,                 settings.value(SETTING_LANGUAGE).toString());
     set(SETTING::LAST_TEMPLATE,            settings.value(SETTING_LAST_TEMPLATE).toString());
+    set(SETTING::INBETWEEN_EASING,         settings.value(SETTING_INBETWEEN_EASING,       0).toInt());
     set(SETTING::PRESSURE_CURVE,           settings.value(SETTING_PRESSURE_CURVE).toString());
 }
 
@@ -407,6 +408,9 @@ void PreferenceManager::set(SETTING option, int value)
         break;
     case SETTING::STARTUP_ACTION:
         settings.setValue(SETTING_STARTUP_ACTION, value);
+        break;
+    case SETTING::INBETWEEN_EASING:
+        settings.setValue(SETTING_INBETWEEN_EASING, value);
         break;
     default:
         Q_ASSERT(false);

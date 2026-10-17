@@ -18,6 +18,7 @@ GNU General Public License for more details.
 
 #include "mainwindow2.h"
 #include "appinfo.h"
+#include "cellmenus.h"
 #include "defaultlayout.h"
 #include <QScreen>
 #include "ui_mainwindow2.h"
@@ -1869,14 +1870,8 @@ void MainWindow2::createInbetweens()
     LayerManager* layers = mEditor->layers();
     // Other layer types refuse before the easing is asked.
     if (layers->currentLayer()->type() != Layer::VECTOR) { layers->createInbetweens(CameraEasingType::LINEAR); return; }
-    QStringList names;
-    for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
-    {
-        names << getInterpolationText(static_cast<CameraEasingType>(i));
-    }
-    bool ok = false;
-    const QString name = QInputDialog::getItem(this, tr("Create Inbetweens"), tr("Easing:"), names, 0, false, &ok);
-    if (ok) { layers->createInbetweens(static_cast<CameraEasingType>(names.indexOf(name))); }
+    CameraEasingType easing;
+    if (CellMenus::chooseInbetweenEasing(mEditor, QCursor::pos(), easing)) { layers->createInbetweens(easing); }
 }
 
 void MainWindow2::changePlayState(bool isPlaying)

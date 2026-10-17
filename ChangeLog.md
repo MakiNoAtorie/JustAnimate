@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Create Inbetweens picks the easing from the tween icon menu at the cursor; the last easing is preselected and Enter accepts it (#239).
 - Preferences: both invert-zoom settings sit in one Navigation group on the General page, and the undo steps apply when you finish editing (#237).
 - Right-click on an X-sheet cell or column header opens the timeline's cell or layer menu (#229).
 - Smudge, Eyedropper and Move hints match the tools, grouped Tool column buttons say "Long press or right-click for more", and the Tools menu follows the Tool groups (#236).

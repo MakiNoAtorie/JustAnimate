@@ -99,6 +99,7 @@ enum class SETTING
     FAST_RENDER_LAYERS_ABOVE,
     XSHEET_LAYOUT,
     LAST_TEMPLATE,
+    INBETWEEN_EASING,
     COUNT, // COUNT must always be the last one.
 };
 
