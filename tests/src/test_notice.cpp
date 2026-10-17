@@ -117,9 +117,26 @@ TEST_CASE("Ripple edits and Mark refuse through the notice", "[Notice]")
     }
 }
 
+TEST_CASE("The canvas note takes its colours from the palette", "[Notice]")
+{
+    NoticeSession n;
+    QPalette palette = n.s.area->palette();
+    palette.setColor(QPalette::ToolTipBase, QColor(0, 255, 0));
+    n.s.area->setPalette(palette);
+    n.s.area->show();
+    n.s.editor->notice("Note");
+    const QImage shot = n.s.area->grab().toImage();
+    const QFontMetricsF fm(n.s.area->font());
+    const qreal w = fm.horizontalAdvance("Note") + 16;
+    const QColor box = shot.pixelColor(qRound((n.s.area->width() - w) / 2 + 3), qRound(12 + (fm.height() + 16) / 2));
+    CHECK(box.green() > box.red() + 100);
+    CHECK(box.green() > box.blue() + 100);
+}
+
+// Needs MainWindow2: the notice is its needSave slot and names its Save action's key.
 TEST_CASE("Autosave count on an untitled project shows a notice and no dialog", "[Notice]")
 {
-    const SettingsGuard guard({ SETTING_AUTO_SAVE, SETTING_AUTO_SAVE_NUMBER });
+    const SettingsGuard guard({ SETTING_AUTO_SAVE, SETTING_AUTO_SAVE_NUMBER, SETTING_AUTO_SAVE_REMINDER });
     MainWindow2 window;
     Editor* editor = window.findChild<Editor*>();
     REQUIRE(editor);
@@ -142,11 +159,34 @@ TEST_CASE("Autosave count on an untitled project shows a notice and no dialog", 
 
     auto* layer = static_cast<LayerBitmap*>(editor->layers()->currentLayer());
     REQUIRE(layer->type() == Layer::BITMAP);
-    REQUIRE(layer->addNewKeyFrameAt(7));
-    editor->scrubTo(7);
-    editor->removeKey();
-    QCoreApplication::processEvents();
+    auto modify = [&]
+    {
+        REQUIRE(layer->addNewKeyFrameAt(7));
+        editor->scrubTo(7);
+        editor->removeKey();
+        QCoreApplication::processEvents();
+    };
+    QAction* save = window.findChild<QAction*>("actionSave");
+    REQUIRE(save);
 
-    CHECK_FALSE(dialogOpened);
-    CHECK(notices.contains("Unsaved project: press Ctrl+S"));
+    SECTION("Reminder on names the Save key")
+    {
+        save->setShortcut(QKeySequence("Ctrl+Shift+F9"));
+        modify();
+        CHECK_FALSE(dialogOpened);
+        CHECK(notices.contains(QString("Unsaved project: press %1").arg(QKeySequence("Ctrl+Shift+F9").toString(QKeySequence::NativeText))));
+    }
+    SECTION("Reminder on with Save unbound")
+    {
+        save->setShortcut(QKeySequence());
+        modify();
+        CHECK(notices.contains("Unsaved project: save it to keep autosaving"));
+    }
+    SECTION("Reminder off shows nothing and keeps autosave by count")
+    {
+        editor->preference()->set(SETTING::AUTO_SAVE_REMINDER, false);
+        modify();
+        CHECK(notices.isEmpty());
+        CHECK(editor->preference()->isOn(SETTING::AUTO_SAVE));
+    }
 }

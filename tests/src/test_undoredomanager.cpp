@@ -1768,6 +1768,25 @@ TEST_CASE("UndoRedoManager: change line color is one undo step")
     }
 }
 
+TEST_CASE("Change line color refuses a hidden layer")
+{
+    TestSession session;
+    session.object->addNewCameraLayer();
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->getBitmapImageAtFrame(1)->setPixel(0, 0, qRgba(0, 0, 0, 255));
+    layer->setVisible(false);
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->color()->setFrontColor(QColor(255, 0, 0));
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+
+    commands.changeKeyframeLineColor();
+    commands.changeallKeyframeLineColor();
+    CHECK(layer->getBitmapImageAtFrame(1)->pixel(0, 0) == qRgba(0, 0, 0, 255));
+}
+
 TEST_CASE("LayerOpacityDialog: a slider drag or a typed value is one undo step")
 {
     TestSession session;
@@ -1813,6 +1832,8 @@ TEST_CASE("LayerOpacityDialog: a slider drag or a typed value is one undo step")
     undoAction->trigger();
     CHECK(key->getOpacity() == Approx(1.0));
     CHECK_FALSE(undoAction->isEnabled());
+    CHECK(slider->value() == slider->maximum()); // the open dialog shows the undone value
+    CHECK(spinBox->value() == Approx(100.0));
 }
 
 TEST_CASE("ActionCommands: new Bitmap Vector and Sound layers need no dialog and undo in one step")
@@ -1850,4 +1871,28 @@ TEST_CASE("ActionCommands: new Bitmap Vector and Sound layers need no dialog and
         undoAction->trigger();
         REQUIRE(editor->layers()->count() == count);
     }
+}
+
+TEST_CASE("ActionCommands: a new Camera layer with its size undoes in one step")
+{
+    TestSession session;
+    session.object->addNewCameraLayer();
+    session.start();
+    Editor* editor = session.editor.get();
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    const int count = editor->layers()->count();
+
+    REQUIRE((commands.addNewCameraLayer("Close-up", QSize(320, 240)) == Status::OK));
+    REQUIRE(editor->layers()->count() == count + 1);
+    auto* camera = static_cast<LayerCamera*>(editor->layers()->currentLayer());
+    REQUIRE(camera->type() == Layer::CAMERA);
+    CHECK(camera->name() == "Close-up");
+    CHECK(camera->getViewRect().size() == QSize(320, 240));
+
+    undoAction->trigger();
+    CHECK(editor->layers()->count() == count);
+    CHECK_FALSE(undoAction->isEnabled());
 }

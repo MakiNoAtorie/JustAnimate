@@ -974,7 +974,7 @@ static void shiftFramesAfter(LayerManager* layers, UndoRedoManager* undoRedo, La
 bool LayerManager::rippleInsertFrame()
 {
     Layer* layer = currentLayer();
-    if (editor()->refusesHidden(layer) || editor()->refusesEdit(layer)) { return false; }
+    if (editor()->refuses(layer)) { return false; }
 
     const int position = editor()->currentFrame();
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -991,7 +991,7 @@ bool LayerManager::rippleRemoveFrame()
     Layer* layer = currentLayer();
     const int position = editor()->currentFrame();
     const bool onKey = layer->keyExists(position);
-    if (editor()->refusesHidden(layer) || editor()->refusesEdit(layer)) { return false; }
+    if (editor()->refuses(layer)) { return false; }
     if (onKey ? layer->keyFrameCount() == 1 : layer->getMaxKeyFramePosition() <= position) { return false; }
 
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -1014,7 +1014,7 @@ bool LayerManager::rippleRemoveFrame()
 bool LayerManager::changeExposure(int frame, int delta)
 {
     Layer* layer = currentLayer(0);
-    if (layer == nullptr || editor()->refusesHidden(layer) || editor()->refusesEdit(layer)) { return false; }
+    if (layer == nullptr || editor()->refuses(layer)) { return false; }
     const KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr) { return false; }
     const int position = key->pos();
@@ -1107,9 +1107,7 @@ void LayerManager::setMarker(int layerId, int frame, const FrameMarker& marker)
     ObjectData* data = object()->data();
     const QMap<int, FrameMarker> before = data->markers(layerId);
     data->setMarker(frame, marker, layerId);
-    editor()->undoRedo()->recordMarkers(layerId, before, before.contains(frame) ? tr("Edit Marker") : tr("Add Marker"));
-    object()->modification();
-    emit editor()->updateTimeLine();
+    markersChanged(layerId, before, before.contains(frame) ? tr("Edit Marker") : tr("Add Marker"));
 }
 
 bool LayerManager::moveMarker(int layerId, int from, int to)
@@ -1119,9 +1117,7 @@ bool LayerManager::moveMarker(int layerId, int from, int to)
     if (!before.contains(from) || from == to || to < 1) { return false; }
     data->removeMarker(from, layerId);
     data->setMarker(to, before.value(from), layerId);
-    editor()->undoRedo()->recordMarkers(layerId, before, tr("Move Marker"));
-    object()->modification();
-    emit editor()->updateTimeLine();
+    markersChanged(layerId, before, tr("Move Marker"));
     return true;
 }
 
@@ -1131,7 +1127,12 @@ void LayerManager::removeMarker(int layerId, int frame)
     const QMap<int, FrameMarker> before = data->markers(layerId);
     if (!before.contains(frame)) { return; }
     data->removeMarker(frame, layerId);
-    editor()->undoRedo()->recordMarkers(layerId, before, tr("Remove Marker"));
+    markersChanged(layerId, before, tr("Remove Marker"));
+}
+
+void LayerManager::markersChanged(int layerId, const QMap<int, FrameMarker>& before, const QString& description)
+{
+    editor()->undoRedo()->recordMarkers(layerId, before, description);
     object()->modification();
     emit editor()->updateTimeLine();
 }

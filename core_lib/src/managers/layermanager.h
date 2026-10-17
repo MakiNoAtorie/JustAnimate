@@ -188,6 +188,8 @@ private:
     void recordLayerAdd(const Layer* layer);
     /// True, with a status message, when a layer with selected frames is lock-all.
     bool selectionRefusesEdit();
+    /// Records a Marker edit, marks the project modified and repaints the timeline.
+    void markersChanged(int layerId, const QMap<int, FrameMarker>& before, const QString& description);
 
     int mLastCameraLayerIdx = 0;
     QHash<int, bool> mSoloVisibility; // layer id to visibility before the solo; empty when nothing is soloed

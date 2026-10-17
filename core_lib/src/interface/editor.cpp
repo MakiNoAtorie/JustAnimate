@@ -598,7 +598,7 @@ Status Editor::importBitmapImage(const QString& filePath, const QTransform& impo
     Q_ASSERT(layers()->currentLayer()->type() == Layer::BITMAP);
     const auto layer = static_cast<LayerBitmap*>(layers()->currentLayer());
 
-    if (refusesHidden(layer) || refusesEdit(layer)) { return Status::SAFE; }
+    if (refuses(layer)) { return Status::SAFE; }
 
     Status status = Status::OK;
     DebugDetails dd;
@@ -661,7 +661,7 @@ Status Editor::importVectorImage(const QString& filePath)
 
     auto layer = static_cast<LayerVector*>(layers()->currentLayer());
 
-    if (refusesHidden(layer) || refusesEdit(layer)) { return Status::SAFE; }
+    if (refuses(layer)) { return Status::SAFE; }
 
     Status status = Status::OK;
     DebugDetails dd;
@@ -756,7 +756,7 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
     }
     LayerBitmap* bitmapLayer = static_cast<LayerBitmap*>(layers()->currentLayer());
 
-    if (refusesHidden(bitmapLayer) || refusesEdit(bitmapLayer)) { return Status::SAFE; }
+    if (refuses(bitmapLayer)) { return Status::SAFE; }
 
     QImageReader reader(filePath);
     dd << QString("QImageReader format: %1").arg(QString(reader.format()));
@@ -940,7 +940,7 @@ KeyFrame* Editor::addKeyFrame(const int layerNumber, int frameIndex)
     Layer* layer = mObject->getLayer(layerNumber);
     Q_ASSERT(layer);
 
-    if (refusesHidden(layer) || refusesEdit(layer)) { return nullptr; }
+    if (refuses(layer)) { return nullptr; }
 
     // Find next available space for a keyframe (where either no key exists or there is an empty sound key)
     while (layer->keyExists(frameIndex))
@@ -976,7 +976,7 @@ void Editor::removeKey()
     Layer* layer = layers()->currentLayer();
     Q_ASSERT(layer != nullptr);
 
-    if (refusesHidden(layer) || refusesEdit(layer)) { return; }
+    if (refuses(layer)) { return; }
 
     if (!layer->keyExistsWhichCovers(currentFrame()))
     {

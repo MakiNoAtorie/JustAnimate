@@ -1026,7 +1026,7 @@ void TimeLineCells::keyPressEvent(QKeyEvent* event)
     case Qt::Key_Down: mEditor->layers()->gotoPreviouslayer(); break;
     case Qt::Key_F2:
         if (mType != TIMELINE_CELL_TYPE::Layers) { QWidget::keyPressEvent(event); return; }
-        startRename(mEditor->layers()->currentLayer());
+        renameCurrentLayer();
         break;
     default: QWidget::keyPressEvent(event); return;
     }
@@ -1470,6 +1470,11 @@ void TimeLineCells::editLayerProperties(LayerCamera* cameraLayer) const
     settings.setValue(SETTING_FIELD_W, dialog.getWidth());
     settings.setValue(SETTING_FIELD_H, dialog.getHeight());
     mEditor->layers()->setCameraSize(cameraLayer, QSize(dialog.getWidth(), dialog.getHeight()));
+}
+
+void TimeLineCells::renameCurrentLayer()
+{
+    startRename(mEditor->layers()->currentLayer());
 }
 
 void TimeLineCells::startRename(Layer* layer)

@@ -225,6 +225,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_NEW_SOUND_LAYER "CmdNewSoundLayer"
 #define CMD_NEW_CAMERA_LAYER "CmdNewCameraLayer"
 #define CMD_DELETE_CUR_LAYER "CmdDeleteCurrentLayer"
+#define CMD_RENAME_LAYER "CmdRenameLayer"
 #define CMD_CHANGE_LINE_COLOR_KEYFRAME "CmdChangeLineColorKeyframe"
 #define CMD_CHANGE_LINE_COLOR_LAYER "CmdChangeLineColorLayer"
 #define CMD_CHANGE_LAYER_OPACITY "CmdChangeLayerOpacity"
@@ -257,11 +258,15 @@ const static int MaxFramesBound = 9999;
 // Settings file name (QSettings organization/application); kept separate
 // from Pencil2D so both apps can be installed side by side.
 #define PENCIL2D "JustAnimate"
-#define SHORTCUTS_GROUP             "Shortcuts"
+// Lower case: INI keys are case-sensitive outside Windows, and kb.ini uses [shortcuts].
+#define SHORTCUTS_GROUP             "shortcuts"
+// Set once the v1.5 default keys were added to an existing keymap.
+#define SETTING_SHORTCUT_DEFAULTS_V15 "ShortcutDefaultsV15"
 #define SETTING_AUTO_SAVE           "AutoSave"
 #define SETTING_AUTO_SAVE_NUMBER    "AutosaveNumber"
 #define SETTING_AUTO_SAVE_BY_TIME       "AutoSaveByTime"
 #define SETTING_AUTO_SAVE_BY_TIME_TIMER "AutoSaveByTimeTimer"
+#define SETTING_AUTO_SAVE_REMINDER  "AutoSaveReminder"
 #define SETTING_CURSOR_STYLE        "CursorStyle"
 #define SETTING_TOOL_CURSOR         "ToolCursors" // migrated to CursorStyle
 #define SETTING_CANVAS_CURSOR       "DottedCursors" // migrated to CursorStyle

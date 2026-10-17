@@ -138,6 +138,8 @@ public:
     bool refusesEdit(const Layer* layer);
     /// True, with a notice, when the layer is hidden and so refuses edits.
     bool refusesHidden(const Layer* layer);
+    /// refusesHidden, then refusesEdit: one notice at most.
+    bool refuses(const Layer* layer) { return refusesHidden(layer) || refusesEdit(layer); }
     /// The one path for a refusal or short notice; a layer also flashes its row.
     void notice(const QString& text, const Layer* layer = nullptr);
 

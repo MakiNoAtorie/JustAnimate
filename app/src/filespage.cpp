@@ -48,6 +48,7 @@ FilesPage::FilesPage()
     auto spinBoxValueChange = static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged);
     connect(ui->autosaveCheckBox, &QCheckBox::stateChanged, this, &FilesPage::autoSaveChange);
     connect(ui->autosaveNumberBox, spinBoxValueChange, this, &FilesPage::autoSaveNumberChange);
+    connect(ui->autosaveReminderCheckBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::AUTO_SAVE_REMINDER, on); });
     connect(ui->autosaveByTimeCheckBox, &QCheckBox::stateChanged, this, &FilesPage::autoSaveByTimeChange);
     connect(ui->autosaveByTimeNumberBox, spinBoxValueChange, this, &FilesPage::autoSaveByTimeTimerChange);
 }
@@ -214,6 +215,7 @@ void FilesPage::updateValues()
     }
     ui->autosaveCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE));
     ui->autosaveNumberBox->setValue(mManager->getInt(SETTING::AUTO_SAVE_NUMBER));
+    ui->autosaveReminderCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE_REMINDER));
     ui->autosaveByTimeCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE_BY_TIME));
     ui->autosaveByTimeNumberBox->setValue(mManager->getInt(SETTING::AUTO_SAVE_BY_TIME_TIMER));
     QAbstractButton* startup = ui->startupGroup->button(mManager->getInt(SETTING::STARTUP_ACTION));

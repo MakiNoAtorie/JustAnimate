@@ -767,7 +767,7 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
     if ((!currentTool()->isViewTool() || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
     {
         Layer* layer = mEditor->layers()->currentLayer();
-        if (mEditor->refusesHidden(layer) || mEditor->refusesEdit(layer))
+        if (mEditor->refuses(layer))
         {
             event->ignore();
             return;
@@ -1710,9 +1710,11 @@ void ScribbleArea::paintNote(QPainter& painter) const
     painter.setWorldMatrixEnabled(false);
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(0, 0, 0, 160));
+    QColor base = palette().color(QPalette::ToolTipBase);
+    base.setAlpha(230);
+    painter.setBrush(base);
     painter.drawRoundedRect(box, 6, 6);
-    painter.setPen(Qt::white);
+    painter.setPen(palette().color(QPalette::ToolTipText));
     painter.drawText(box.adjusted(kPad, 0, -kPad, 0), Qt::AlignCenter, fm.elidedText(mNote, Qt::ElideRight, w - 2 * kPad));
     painter.restore();
 }

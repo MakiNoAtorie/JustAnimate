@@ -428,8 +428,9 @@ void MainWindow2::createMenus()
     connect(ui->actionNew_Vector_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewVectorLayer);
     connect(ui->actionNew_Sound_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewSoundLayer);
     connect(ui->actionNew_Storyboard_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewStoryboardLayer);
-    connect(ui->actionNew_Camera_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewCameraLayer);
+    connect(ui->actionNew_Camera_Layer, &QAction::triggered, mCommands, qOverload<>(&ActionCommands::addNewCameraLayer));
     connect(ui->actionDelete_Current_Layer, &QAction::triggered, mCommands, &ActionCommands::deleteCurrentLayer);
+    connect(ui->actionRename_Layer, &QAction::triggered, mTimeLine, &TimeLine::renameCurrentLayer);
     connect(ui->actionChangeLineColorCurrent_keyframe, &QAction::triggered, mCommands, &ActionCommands::changeKeyframeLineColor);
     connect(ui->actionChangeLineColorAll_keyframes_on_layer, &QAction::triggered, mCommands, &ActionCommands::changeallKeyframeLineColor);
     connect(ui->actionChangeLayerOpacity, &QAction::triggered, this, &MainWindow2::openLayerOpacityDialog);
@@ -1131,8 +1132,12 @@ bool MainWindow2::autoSave()
         return saveDocument();
     }
 
-    if (!mSuppressAutoSaveDialog)
-        mEditor->notice(tr("Unsaved project: press Ctrl+S"));
+    if (!mSuppressAutoSaveDialog && mEditor->preference()->isOn(SETTING::AUTO_SAVE_REMINDER))
+    {
+        const QKeySequence key = ui->actionSave->shortcut();
+        mEditor->notice(key.isEmpty() ? tr("Unsaved project: save it to keep autosaving")
+                                      : tr("Unsaved project: press %1").arg(key.toString(QKeySequence::NativeText)));
+    }
 
     return false;
 }
@@ -1627,6 +1632,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionNew_Camera_Layer->setShortcut(cmdKeySeq(CMD_NEW_CAMERA_LAYER));
     ui->actionNew_Sound_Layer->setShortcut(cmdKeySeq(CMD_NEW_SOUND_LAYER));
     ui->actionDelete_Current_Layer->setShortcut(cmdKeySeq(CMD_DELETE_CUR_LAYER));
+    ui->actionRename_Layer->setShortcut(cmdKeySeq(CMD_RENAME_LAYER));
     ui->actionChangeLineColorCurrent_keyframe->setShortcut(cmdKeySeq(CMD_CHANGE_LINE_COLOR_KEYFRAME));
     ui->actionChangeLineColorAll_keyframes_on_layer->setShortcut(cmdKeySeq(CMD_CHANGE_LINE_COLOR_LAYER));
     ui->actionChangeLayerOpacity->setShortcut(cmdKeySeq(CMD_CHANGE_LAYER_OPACITY));
@@ -1771,7 +1777,7 @@ void MainWindow2::makeConnections(Editor* pEditor, TimeLine* pTimeline)
     connect(pTimeline, &TimeLine::newVectorLayer, mCommands, &ActionCommands::addNewVectorLayer);
     connect(pTimeline, &TimeLine::newSoundLayer, mCommands, &ActionCommands::addNewSoundLayer);
     connect(pTimeline, &TimeLine::newStoryboardLayer, mCommands, &ActionCommands::addNewStoryboardLayer);
-    connect(pTimeline, &TimeLine::newCameraLayer, mCommands, &ActionCommands::addNewCameraLayer);
+    connect(pTimeline, &TimeLine::newCameraLayer, mCommands, qOverload<>(&ActionCommands::addNewCameraLayer));
     connect(mTimeLine, &TimeLine::playButtonTriggered, mCommands, &ActionCommands::PlayStop);
     connect(pTimeline, &TimeLine::deleteCurrentLayerClick, mCommands, &ActionCommands::deleteCurrentLayer);
 

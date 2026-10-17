@@ -25,6 +25,12 @@ GNU General Public License for more details.
 #include "object.h"
 #include "testfixture.h"
 #include "timelinecells.h"
+#include "timeline.h"
+#include "mainwindow2.h"
+#include "pencildef.h"
+#include "pencilsettings.h"
+
+#include <QAction>
 
 TEST_CASE("Double-click and F2 rename a layer in place", "[LayerRename]")
 {
@@ -83,4 +89,33 @@ TEST_CASE("Double-click and F2 rename a layer in place", "[LayerRename]")
     QApplication::sendEvent(names, &f2);
     REQUIRE(edit() != nullptr);
     REQUIRE(edit()->text() == "New");
+}
+
+// Needs MainWindow2: the Rename Layer action and its key live there.
+TEST_CASE("Rename Layer action has F2 and renames the current layer in place", "[LayerRename]")
+{
+    const SettingsGuard guard({ "shortcuts/" CMD_RENAME_LAYER });
+    pencilSettings().remove("shortcuts/" CMD_RENAME_LAYER);
+    checkExistingShortcuts();
+    MainWindow2 window;
+    Editor* editor = window.findChild<Editor*>();
+    REQUIRE(editor);
+    auto* action = window.findChild<QAction*>("actionRename_Layer");
+    REQUIRE(action);
+    CHECK(action->shortcut() == QKeySequence(Qt::Key_F2));
+
+    auto* timeline = window.findChild<TimeLine*>();
+    REQUIRE(timeline);
+    auto renameEdit = [&]() -> QLineEdit* {
+        for (TimeLineCells* cells : timeline->findChildren<TimeLineCells*>())
+        {
+            for (QLineEdit* e : cells->findChildren<QLineEdit*>(QString(), Qt::FindDirectChildrenOnly)) { if (!e->isHidden()) { return e; } }
+        }
+        return nullptr;
+    };
+    REQUIRE(renameEdit() == nullptr);
+    action->trigger();
+    QLineEdit* edit = renameEdit();
+    REQUIRE(edit);
+    CHECK(edit->text() == editor->layers()->currentLayer()->name());
 }

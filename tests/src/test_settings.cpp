@@ -41,6 +41,20 @@ TEST_CASE("Preferences - every old startup key combination migrates once to one 
     }
 }
 
+TEST_CASE("Preferences - an unknown startup choice loads as the Welcome screen", "[Settings]")
+{
+    const SettingsGuard guard({ SETTING_STARTUP_ACTION });
+    for (int stored : { -1, 3, 42 })
+    {
+        CAPTURE(stored);
+        pencilSettings().setValue(SETTING_STARTUP_ACTION, stored);
+        Editor editor;
+        PreferenceManager prefs(&editor);
+        prefs.loadPrefs();
+        CHECK(prefs.getInt(SETTING::STARTUP_ACTION) == STARTUP_WELCOME);
+    }
+}
+
 TEST_CASE("Test settings stay out of the native store", "[Settings]")
 {
     pencilSettings().setValue("TestOnlySettingKey", 1);

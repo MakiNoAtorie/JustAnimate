@@ -189,6 +189,7 @@ TEST_CASE("Duplicate Layer copies the keys and the blend mode", "[LayerManager]"
     CHECK(copy->getKeyFrameAt(3) != from->getKeyFrameAt(3));
 }
 
+// Needs MainWindow2: it enables the Delete Layer menu action.
 TEST_CASE("Delete Layer is disabled on the last camera and deletes without a dialog", "[LayerManager]")
 {
     MainWindow2 window;

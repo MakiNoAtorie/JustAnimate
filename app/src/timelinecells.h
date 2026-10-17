@@ -55,6 +55,8 @@ public:
     static int getOffsetX() { return mOffsetX; }
     static int getOffsetY() { return mOffsetY; }
     int getLayerHeight() const { return mLayerHeight; }
+    /** Opens the inline name editor on the current layer. */
+    void renameCurrentLayer();
 
     int getFrameLength() const { return mFrameLength; }
     int getFrameSize() const { return mFrameSize; }

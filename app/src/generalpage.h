@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #ifndef GENERALPAGE_H
 #define GENERALPAGE_H
 
+#include <functional>
+
 class QAbstractButton;
 class PreferenceManager;
 
@@ -32,6 +34,8 @@ public:
     GeneralPage();
     ~GeneralPage() override;
     void setManager(PreferenceManager* p) { mManager = p; }
+    // Asks before a new undo step limit clears the history; tests replace it so no modal opens.
+    std::function<bool()> confirmUndoStepsChange;
 
 public slots:
     void updateValues();

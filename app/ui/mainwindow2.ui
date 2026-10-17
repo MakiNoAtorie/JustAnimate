@@ -310,6 +310,7 @@
     <addaction name="actionNew_Storyboard_Layer"/>
     <addaction name="actionNew_Camera_Layer"/>
     <addaction name="separator"/>
+    <addaction name="actionRename_Layer"/>
     <addaction name="actionDelete_Current_Layer"/>
     <addaction name="separator"/>
     <addaction name="menuChange_line_color"/>
@@ -742,6 +743,11 @@
   <action name="actionNew_Camera_Layer">
    <property name="text">
     <string>New Camera Layer</string>
+   </property>
+  </action>
+  <action name="actionRename_Layer">
+   <property name="text">
+    <string>Rename Layer</string>
    </property>
   </action>
   <action name="actionDelete_Current_Layer">

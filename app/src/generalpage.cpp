@@ -166,6 +166,14 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     connect(ui->invertZoomDirectionBox, &QCheckBox::stateChanged, this, [this](int b) {
         mManager->set(SETTING::INVERT_DRAG_ZOOM_DIRECTION, b != Qt::Unchecked);
     });
+    confirmUndoStepsChange = [this] {
+        QMessageBox messageBox(this);
+        messageBox.setIcon(QMessageBox::Warning);
+        messageBox.setText(tr("Resets your current undo history"));
+        messageBox.setInformativeText(tr("Changing the maximum number of undo/redo steps resets your current undo/redo history. \n\nAre you sure you want to proceed?"));
+        messageBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        return messageBox.exec() == QMessageBox::Yes;
+    };
     connect(ui->undoStepsBox, &QSpinBox::editingFinished, this, &GeneralPage::undoRedoMaxStepsFinished);
 }
 
@@ -372,13 +380,7 @@ void GeneralPage::invertScrollDirectionBoxStateChanged(int b)
 void GeneralPage::undoRedoMaxStepsFinished()
 {
     if (ui->undoStepsBox->value() != mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS)) {
-        QMessageBox messageBox(this);
-        messageBox.setIcon(QMessageBox::Warning);
-        messageBox.setText(tr("Resets your current undo history"));
-        messageBox.setInformativeText(tr("Changing the maximum number of undo/redo steps resets your current undo/redo history. \n\nAre you sure you want to proceed?"));
-        messageBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-
-        if (messageBox.exec() == QMessageBox::Yes) {
+        if (confirmUndoStepsChange()) {
             mManager->set(SETTING::UNDO_REDO_MAX_STEPS, ui->undoStepsBox->value());
         } else {
             ui->undoStepsBox->setValue(mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS));

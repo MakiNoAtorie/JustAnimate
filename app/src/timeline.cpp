@@ -375,6 +375,11 @@ void TimeLine::onObjectLoaded()
     updateLayerNumber(editor()->layers()->count());
 }
 
+void TimeLine::renameCurrentLayer()
+{
+    mLayerList->renameCurrentLayer();
+}
+
 void TimeLine::onCurrentLayerChanged()
 {
     updateVerticalScrollbarPosition();

@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #define COMMANDCENTER_H
 
 #include <QObject>
+#include <QSize>
 #include "pencilerror.h"
 #include "filetype.h"
 
@@ -90,7 +91,10 @@ public:
     // Layer
     Status addNewBitmapLayer();
     Status addNewVectorLayer();
+    /** Asks for the name and size in Camera Properties, then adds the layer. */
     Status addNewCameraLayer();
+    /** Adds a camera layer of this size; one undo step. */
+    Status addNewCameraLayer(const QString& name, QSize size);
     Status addNewSoundLayer();
     Status addNewStoryboardLayer();
     Status deleteCurrentLayer();

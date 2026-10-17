@@ -114,6 +114,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::AUTO_SAVE_NUMBER,         settings.value(SETTING_AUTO_SAVE_NUMBER,       256).toInt());
     set(SETTING::AUTO_SAVE_BY_TIME,        settings.value(SETTING_AUTO_SAVE_BY_TIME,      true).toBool());
     set(SETTING::AUTO_SAVE_BY_TIME_TIMER,  settings.value(SETTING_AUTO_SAVE_BY_TIME_TIMER,5).toInt());
+    set(SETTING::AUTO_SAVE_REMINDER,       settings.value(SETTING_AUTO_SAVE_REMINDER,     true).toBool());
     if (!settings.contains(SETTING_STARTUP_ACTION))
     {
         // The old flags showed the Welcome screen when either flag was on; LoadDefaultPreset never changed startup.
@@ -125,7 +126,8 @@ void PreferenceManager::loadPrefs()
     settings.remove(SETTING_SHOW_WELCOME_SCREEN);
     settings.remove(SETTING_LOAD_MOST_RECENT);
     settings.remove(SETTING_LOAD_DEFAULT_PRESET);
-    set(SETTING::STARTUP_ACTION,           settings.value(SETTING_STARTUP_ACTION,         STARTUP_WELCOME).toInt());
+    const int startup = settings.value(SETTING_STARTUP_ACTION, STARTUP_WELCOME).toInt();
+    set(SETTING::STARTUP_ACTION, startup >= STARTUP_WELCOME && startup <= STARTUP_DEFAULT_PRESET ? startup : int(STARTUP_WELCOME));
     set(SETTING::DEFAULT_PRESET,           settings.value(SETTING_DEFAULT_PRESET,         0).toInt());
 
     // Timeline
@@ -509,6 +511,9 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::AUTO_SAVE_BY_TIME:
         settings.setValue(SETTING_AUTO_SAVE_BY_TIME, value);
+        break;
+    case SETTING::AUTO_SAVE_REMINDER:
+        settings.setValue(SETTING_AUTO_SAVE_REMINDER, value);
         break;
     case SETTING::SHORT_SCRUB:
         settings.setValue(SETTING_SHORT_SCRUB, value);

@@ -134,6 +134,16 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="autosaveReminderCheckBox">
+        <property name="text">
+         <string comment="Preference">Remind me to save an untitled project</string>
+        </property>
+        <property name="toolTip">
+         <string>Shows a notice when autosave by count cannot save a project that has no file yet</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="Line" name="line">
         <property name="orientation">
          <enum>Qt::Orientation::Horizontal</enum>

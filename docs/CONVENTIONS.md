@@ -136,7 +136,7 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Copy new `KeyFrame` fields in its copy constructor and `operator=`. Mark filter only from `PreferenceManager::markFilter()`.
 
 - Lock-all: an edit starts with `editor->refusesEdit(layer)`; View tools
-  (`BaseTool::isViewTool`) are exempt. Notices: `Editor::statusMessage`.
+  (`BaseTool::isViewTool`) are exempt. Notices: `Editor::notice`.
 - Linked Drawings (ADR 0001): only `linkDrawing` sets a `linkId`; a pixel
   edit outside `KEYFRAME_MODIFY` calls `syncLinkedDrawings`.
 

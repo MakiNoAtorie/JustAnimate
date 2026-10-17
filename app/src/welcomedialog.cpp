@@ -39,11 +39,11 @@ WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, 
     setMinimumWidth(640);
 
     auto* layout = new QVBoxLayout(this);
-    layout->addWidget(new QLabel(tr("<h1>Welcome to JustAnimate!</h1>")));
+    layout->addWidget(new QLabel(tr("<h1>Welcome to JustAnimate!</h1>"), this));
 
-    mRecentLabel = new QLabel(tr("Recent projects"));
+    mRecentLabel = new QLabel(tr("Recent projects"), this);
     layout->addWidget(mRecentLabel);
-    mRecent = new QListWidget;
+    mRecent = new QListWidget(this);
     mRecent->setObjectName("welcomeRecent");
     mRecent->setViewMode(QListView::IconMode);
     mRecent->setIconSize(QSize(160, 90));
@@ -80,11 +80,11 @@ WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, 
     });
 
     auto* newRow = new QHBoxLayout;
-    newRow->addWidget(new QLabel(tr("New project:")));
-    mNew = new QComboBox;
+    newRow->addWidget(new QLabel(tr("New project:"), this));
+    mNew = new QComboBox(this);
     mNew->setObjectName("welcomeNew");
     newRow->addWidget(mNew, 1);
-    auto* newButton = new QPushButton(tr("New"));
+    auto* newButton = new QPushButton(tr("New"), this);
     newRow->addWidget(newButton);
     layout->addLayout(newRow);
     connect(newButton, &QPushButton::clicked, this, [this] {
@@ -93,15 +93,15 @@ WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, 
         accept();
     });
 
-    mHide = new QCheckBox(tr("Don't show this screen again"));
+    mHide = new QCheckBox(tr("Don't show this screen again"), this);
     mHide->setObjectName("welcomeHide");
     mHide->setToolTip(tr("Opens the last project at startup, or a new project from the default preset when there is none. Change it in Preferences."));
     layout->addWidget(mHide);
     auto* bottom = new QHBoxLayout;
-    auto* browse = new QPushButton(tr("Open..."));
+    auto* browse = new QPushButton(tr("Open..."), this);
     bottom->addWidget(browse);
     bottom->addStretch();
-    auto* cancel = new QPushButton(tr("Cancel"));
+    auto* cancel = new QPushButton(tr("Cancel"), this);
     bottom->addWidget(cancel);
     layout->addLayout(bottom);
     connect(browse, &QPushButton::clicked, this, [this] {

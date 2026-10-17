@@ -215,12 +215,12 @@ TEST_CASE("Default shortcuts: Ctrl+K opens Preferences and Ctrl+Shift+P opens Co
 
 TEST_CASE("v1.x default keys apply on a fresh keymap and skip a bound command or a taken key", "[Shortcuts]")
 {
-    const SettingsGuard guard({ "ShortcutDefaultsV15", "shortcuts/CmdToggleXSheet", "shortcuts/CmdToggleBrushPresets", "shortcuts/CmdToggleStoryboard",
-                                "shortcuts/CmdExportMovie", "shortcuts/CmdCreateInbetweens", "shortcuts/CmdToggleTimeline" });
+    const SettingsGuard guard({ SETTING_SHORTCUT_DEFAULTS_V15, "shortcuts/CmdToggleXSheet", "shortcuts/CmdToggleBrushPresets", "shortcuts/CmdToggleStoryboard",
+                                "shortcuts/CmdExportMovie", "shortcuts/CmdCreateInbetweens", "shortcuts/CmdToggleTimeline", "shortcuts/" CMD_RENAME_LAYER });
     QSettings& s = pencilSettings();
     const auto reset = [&] {
-        s.remove("ShortcutDefaultsV15");
-        for (const char* c : { CMD_TOGGLE_XSHEET, CMD_TOGGLE_BRUSH_PRESETS, CMD_TOGGLE_STORYBOARD, CMD_EXPORT_MOVIE, CMD_CREATE_INBETWEENS })
+        s.remove(SETTING_SHORTCUT_DEFAULTS_V15);
+        for (const char* c : { CMD_TOGGLE_XSHEET, CMD_TOGGLE_BRUSH_PRESETS, CMD_TOGGLE_STORYBOARD, CMD_EXPORT_MOVIE, CMD_CREATE_INBETWEENS, CMD_RENAME_LAYER })
         {
             s.remove(QStringLiteral("shortcuts/") + c);
         }
@@ -232,6 +232,7 @@ TEST_CASE("v1.x default keys apply on a fresh keymap and skip a bound command or
     CHECK(s.value("shortcuts/" CMD_TOGGLE_STORYBOARD).toString() == "Ctrl+0");
     CHECK(s.value("shortcuts/" CMD_EXPORT_MOVIE).toString() == "Ctrl+M");
     CHECK(s.value("shortcuts/" CMD_CREATE_INBETWEENS).toString() == "Ctrl+Shift+I");
+    CHECK(s.value("shortcuts/" CMD_RENAME_LAYER).toString() == "F2");
 
     reset();
     s.setValue("shortcuts/" CMD_EXPORT_MOVIE, "Ctrl+Alt+E"); // command already bound

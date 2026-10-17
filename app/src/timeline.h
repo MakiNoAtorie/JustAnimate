@@ -56,6 +56,8 @@ public:
 
     void onObjectLoaded();
     void onCurrentLayerChanged();
+    /** Opens the inline name editor on the current layer. */
+    void renameCurrentLayer();
     void onScrollbarValueChanged();
 
 signals:

@@ -60,6 +60,8 @@ void LayerOpacityDialog::initUI()
     connect(mPlayBack, &PlaybackManager::playStateChanged, this, &LayerOpacityDialog::onPlayStateChanged);
     connect(mLayerManager, &LayerManager::currentLayerChanged, this, &LayerOpacityDialog::onCurrentLayerChanged);
     connect(mEditor, &Editor::selectedFramesChanged, this, &LayerOpacityDialog::onSelectedFramesChanged);
+    // Undo and redo change opacities while the dialog is open.
+    connect(mEditor, &Editor::framesModified, this, [this] { onCurrentFrameChanged(mEditor->currentFrame()); });
 
     onObjectLoaded();
 }

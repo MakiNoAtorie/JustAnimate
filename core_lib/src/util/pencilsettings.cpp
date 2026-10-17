@@ -79,7 +79,7 @@ void checkExistingShortcuts()
         freeKey("shortcuts/" CMD_ONIONSKIN_NEXT, "Alt+O");
     }
     // Once: v1.x default keys, only for a command with no key and a key no command uses.
-    if (!curSetting.contains("ShortcutDefaultsV15"))
+    if (!curSetting.contains(SETTING_SHORTCUT_DEFAULTS_V15))
     {
         const auto keyTaken = [&](const QString& key) {
             curSetting.beginGroup(SHORTCUTS_GROUP);
@@ -93,16 +93,16 @@ void checkExistingShortcuts()
         };
         const QPair<const char*, const char*> defaults[] = {
             { CMD_TOGGLE_XSHEET, "Ctrl+5" }, { CMD_TOGGLE_BRUSH_PRESETS, "Ctrl+9" }, { CMD_TOGGLE_STORYBOARD, "Ctrl+0" },
-            { CMD_EXPORT_MOVIE, "Ctrl+M" }, { CMD_CREATE_INBETWEENS, "Ctrl+Shift+I" } };
+            { CMD_EXPORT_MOVIE, "Ctrl+M" }, { CMD_CREATE_INBETWEENS, "Ctrl+Shift+I" }, { CMD_RENAME_LAYER, "F2" } };
         for (const auto& d : defaults)
         {
-            const QString cmd = QStringLiteral("shortcuts/") + d.first;
+            const QString cmd = QStringLiteral(SHORTCUTS_GROUP "/") + d.first;
             if (curSetting.value(cmd).toString().isEmpty())
             {
                 curSetting.setValue(cmd, keyTaken(d.second) ? QString() : QString(d.second));
             }
         }
-        curSetting.setValue("ShortcutDefaultsV15", true);
+        curSetting.setValue(SETTING_SHORTCUT_DEFAULTS_V15, true);
     }
     foreach (QString pShortcutsKey, defaultKey.allKeys())
     {

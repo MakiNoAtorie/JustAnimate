@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "actioncommands.h"
 #include "appinfo.h"
 
-#include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -65,6 +64,7 @@ GNU General Public License for more details.
 #include "exportmoviedialog.h"
 #include "exportimagedialog.h"
 #include "aboutdialog.h"
+#include "camerapropertiesdialog.h"
 #include "doubleprogressdialog.h"
 #include "checkupdatesdialog.h"
 #include "errordialog.h"
@@ -204,7 +204,7 @@ Status ActionCommands::importSound(FileType type)
     layer = mEditor->layers()->currentLayer();
     Q_ASSERT(layer->type() == Layer::SOUND);
 
-    if (mEditor->refusesHidden(layer) || mEditor->refusesEdit(layer)) { return Status::SAFE; }
+    if (mEditor->refuses(layer)) { return Status::SAFE; }
     QString strSoundFile = FileDialog::getOpenFileName(mParent, type);
 
     Status st = Status::FAIL;
@@ -1001,7 +1001,7 @@ void ActionCommands::duplicateKey()
 {
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer == nullptr) return;
-    if (mEditor->refusesHidden(layer) || mEditor->refusesEdit(layer)) { return; }
+    if (mEditor->refuses(layer)) { return; }
 
     KeyFrame* key = layer->getKeyFrameAt(mEditor->currentFrame());
     if (key == nullptr) return;
@@ -1074,14 +1074,17 @@ Status ActionCommands::addNewVectorLayer()
 
 Status ActionCommands::addNewCameraLayer()
 {
-    bool ok;
-    QString text = QInputDialog::getText(nullptr, tr("Layer Properties", "A popup when creating a new layer"),
-                                         tr("Layer name:"), QLineEdit::Normal,
-                                         mEditor->layers()->nameSuggestLayer(tr("Camera Layer")), &ok);
-    if (ok && !text.isEmpty())
-    {
-        mEditor->layers()->createCameraLayer(text);
-    }
+    const QSize size = LayerCamera(0).getViewRect().size(); // the size a new camera gets
+    CameraPropertiesDialog dialog(mEditor->layers()->nameSuggestLayer(tr("Camera Layer")), size.width(), size.height());
+    if (dialog.exec() != QDialog::Accepted || dialog.getName().isEmpty()) { return Status::CANCELED; }
+    return addNewCameraLayer(dialog.getName(), QSize(dialog.getWidth(), dialog.getHeight()));
+}
+
+Status ActionCommands::addNewCameraLayer(const QString& name, QSize size)
+{
+    const UndoMacro macro(mEditor->undoRedo(), tr("New Camera Layer"));
+    LayerCamera* layer = mEditor->layers()->createCameraLayer(name);
+    mEditor->layers()->setCameraSize(layer, size);
     return Status::OK;
 }
 
@@ -1128,7 +1131,7 @@ void ActionCommands::changeKeyframeLineColor()
 {
     Layer* layer = mEditor->layers()->currentLayer();
     const int frame = mEditor->currentFrame();
-    if (layer->type() != Layer::BITMAP || !layer->keyExists(frame) || mEditor->refusesEdit(layer)) { return; }
+    if (layer->type() != Layer::BITMAP || !layer->keyExists(frame) || mEditor->refuses(layer)) { return; }
     recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), frame, mEditor->color()->frontColor().rgb(), tr("Change Line Color"));
     mEditor->updateFrame();
 }
@@ -1136,7 +1139,7 @@ void ActionCommands::changeKeyframeLineColor()
 void ActionCommands::changeallKeyframeLineColor()
 {
     Layer* layer = mEditor->layers()->currentLayer();
-    if (layer->type() != Layer::BITMAP || mEditor->refusesEdit(layer)) { return; }
+    if (layer->type() != Layer::BITMAP || mEditor->refuses(layer)) { return; }
     const QRgb color = mEditor->color()->frontColor().rgb();
     const QString description = tr("Change Line Color");
     const int playhead = mEditor->currentFrame();
