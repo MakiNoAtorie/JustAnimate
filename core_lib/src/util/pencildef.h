@@ -177,6 +177,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_MARK_BREAKDOWN "CmdMarkBreakdown"
 #define CMD_MARK_INBETWEEN "CmdMarkInbetween"
 #define CMD_MARK_CLEAR "CmdMarkClear"
+#define CMD_CREATE_INBETWEENS "CmdCreateInbetweens"
 #define CMD_GOTO_NEXT_FRAME "CmdGotoNextFrame"
 #define CMD_GOTO_PREV_FRAME "CmdGotoPreviousFrame"
 #define CMD_GOTO_NEXT_KEY_FRAME "CmdGotoNextKeyFrame"

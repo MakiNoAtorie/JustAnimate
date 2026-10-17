@@ -47,6 +47,9 @@ public:
     void loadDomElement(QDomElement element);
 
     BezierCurve& curve(int i);
+    int curveCount() const { return mCurves.size(); }
+    /** Splits the curve's segment that ends at vertexNumber at fraction, keeping the areas' vertex references. */
+    void addPoint(int curveNumber, int vertexNumber, qreal fraction);
 
     void insertCurve(int position, BezierCurve& newCurve, qreal factor, bool interacts);
     void addCurve(BezierCurve& newCurve, qreal factor, bool interacts = true);
@@ -151,8 +154,6 @@ public:
 
 
 private:
-    void addPoint(int curveNumber, int vertexNumber, qreal fraction);
-
     void checkCurveExtremity(BezierCurve& newCurve, qreal tolerance);
     void checkCurveIntersections(BezierCurve& newCurve, qreal tolerance);
 

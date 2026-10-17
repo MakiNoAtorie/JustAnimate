@@ -27,11 +27,13 @@ GNU General Public License for more details.
 #include "undoredomanager.h"
 #include "bitmapimage.h"
 #include "vectorimage.h"
+#include "cameraeasingtype.h"
 #include "scribblearea.h"
 #include "soundclip.h"
 #include "soundmanager.h"
 
 #include <algorithm>
+#include <memory>
 
 #include <QXmlStreamWriter>
 
@@ -658,6 +660,100 @@ void LayerManager::setKeyMark(int frame, Mark mark)
     editor()->undoRedo()->record(saveStateId, mark == Mark::None ? tr("Clear Mark") : tr("Mark"));
     if (visit) { editor()->scrubTo(playhead); }
     notifyLayerChanged(layer);
+}
+
+namespace
+{
+// Splits the longest segment of the curve until it has `count` vertices. A curve without segments stays.
+void splitToVertexCount(VectorImage& image, int curve, int count)
+{
+    while (image.curve(curve).getVertexSize() > 0 && image.curve(curve).getVertexSize() < count)
+    {
+        const BezierCurve& c = image.curve(curve);
+        int longest = 0;
+        for (int i = 1; i < c.getVertexSize(); ++i)
+        {
+            if (QLineF(c.getVertex(i - 1), c.getVertex(i)).length() > QLineF(c.getVertex(longest - 1), c.getVertex(longest)).length())
+            {
+                longest = i;
+            }
+        }
+        image.addPoint(curve, longest, 0.5);
+    }
+}
+
+QPointF lerp(const QPointF& a, const QPointF& b, qreal t) { return a + (b - a) * t; }
+}
+
+Status LayerManager::createInbetweens(CameraEasingType easing)
+{
+    Layer* layer = currentLayer();
+    if (layer == nullptr || editor()->refusesEdit(layer)) { return Status::FAIL; }
+    auto refuse = [this](const QString& text) {
+        emit editor()->statusMessage(text);
+        return Status(Status::FAIL, text);
+    };
+    if (layer->type() != Layer::VECTOR) { return refuse(tr("Create inbetweens works only on vector layers")); }
+    QList<int> selected = layer->selectedKeyFramesPositions();
+    if (selected.size() != 2) { return refuse(tr("Select two Drawings to create inbetweens")); }
+    std::sort(selected.begin(), selected.end());
+    const int from = selected[0];
+    const int to = selected[1];
+
+    auto vectorLayer = static_cast<LayerVector*>(layer);
+    VectorImage* first = vectorLayer->getVectorImageAtFrame(from);
+    VectorImage* last = vectorLayer->getVectorImageAtFrame(to);
+    first->loadFile();
+    last->loadFile();
+    if (first->curveCount() != last->curveCount())
+    {
+        return refuse(tr("Cannot create inbetweens: the Drawings have %1 and %2 strokes").arg(first->curveCount()).arg(last->curveCount()));
+    }
+    QList<int> empty;
+    for (int f = from + 1; f < to; ++f)
+    {
+        if (!layer->keyExists(f)) { empty.append(f); }
+    }
+    if (empty.isEmpty()) { return refuse(tr("No empty frames between the two Drawings")); }
+
+    // Pair strokes by order; give each pair the same vertex count.
+    std::unique_ptr<VectorImage> start(first->clone());
+    std::unique_ptr<VectorImage> end(last->clone());
+    for (int i = 0; i < start->curveCount(); ++i)
+    {
+        splitToVertexCount(*start, i, end->curve(i).getVertexSize());
+        splitToVertexCount(*end, i, start->curve(i).getVertexSize());
+    }
+    start->deselectAll();
+
+    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_PASTE, layer);
+    for (int f : empty)
+    {
+        const qreal t = easedProgress(easing, qreal(f - from) / (to - from));
+        VectorImage* image = start->clone();
+        for (int i = 0; i < image->curveCount(); ++i)
+        {
+            BezierCurve& c = image->curve(i);
+            const BezierCurve& e = end->curve(i);
+            c.setOrigin(lerp(c.getOrigin(), e.getOrigin(), t));
+            for (int v = 0; v < std::min(c.getVertexSize(), e.getVertexSize()); ++v)
+            {
+                c.setC1(v, lerp(c.getC1(v), e.getC1(v), t));
+                c.setC2(v, lerp(c.getC2(v), e.getC2(v), t));
+                c.setVertex(v, lerp(c.getVertex(v), e.getVertex(v), t));
+            }
+            c.setWidth(c.getWidth() + (e.getWidth() - c.getWidth()) * t);
+        }
+        image->setTween(false);
+        image->setMark(Mark::Inbetween);
+        image->setLinkId(0);
+        image->modification();
+        layer->addKeyFrame(f, image);
+    }
+    editor()->undoRedo()->record(saveStateId, tr("Create Inbetweens"));
+    notifyLayerChanged(layer);
+    emit editor()->framesModified();
+    return Status::OK;
 }
 
 /**

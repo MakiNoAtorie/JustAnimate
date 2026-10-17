@@ -255,6 +255,7 @@
     <addaction name="actionRipple_Delete_Frame"/>
     <addaction name="actionExposure_Add"/>
     <addaction name="actionExposure_Subtract"/>
+    <addaction name="actionCreate_Inbetweens"/>
     <addaction name="separator"/>
     <addaction name="actionMove_Frame_Forward"/>
     <addaction name="actionMove_Frame_Backward"/>
@@ -906,6 +907,11 @@
   <action name="actionClear_Mark">
    <property name="text">
     <string>Clear Mark</string>
+   </property>
+  </action>
+  <action name="actionCreate_Inbetweens">
+   <property name="text">
+    <string>Create Inbetweens...</string>
    </property>
   </action>
   <action name="actionPegbarAlignment">

@@ -319,6 +319,7 @@ static QString getHumanReadableShortcutName(const QString& cmdName)
         {CMD_MARK_BREAKDOWN, ShortcutsPage::tr("Mark: Breakdown", "Shortcut")},
         {CMD_MARK_INBETWEEN, ShortcutsPage::tr("Mark: Inbetween", "Shortcut")},
         {CMD_MARK_CLEAR, ShortcutsPage::tr("Clear Mark", "Shortcut")},
+        {CMD_CREATE_INBETWEENS, ShortcutsPage::tr("Create Inbetweens", "Shortcut")},
         {CMD_GOTO_NEXT_FRAME, ShortcutsPage::tr("Next Frame", "Shortcut")},
         {CMD_GOTO_NEXT_KEY_FRAME, ShortcutsPage::tr("Next drawing", "Shortcut")},
         {CMD_GOTO_PREV_FRAME, ShortcutsPage::tr("Previous Frame", "Shortcut")},

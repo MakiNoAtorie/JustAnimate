@@ -151,6 +151,7 @@ private:
     QSize availableScreenSize() const;
 
     void changePlayState(bool isPlaying);
+    void createInbetweens();
 
     void setIcons();
     void makeConnections(Editor*);

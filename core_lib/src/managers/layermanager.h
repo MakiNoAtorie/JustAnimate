@@ -73,6 +73,10 @@ public:
     void setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state);
     /** Sets the Mark of the current layer's Drawing shown at frame as one undo step. */
     void setKeyMark(int frame, Mark mark);
+    /** Fills the empty frames between the two selected Drawings of the current vector layer with Drawings
+     *  interpolated stroke by stroke through easing, each marked Inbetween. One undo step. Refuses with a
+     *  status message on other layer types, without two selected Drawings or when the stroke counts differ. */
+    Status createInbetweens(CameraEasingType easing);
 
     /** Makes a new group that holds the layer. Returns its id, or 0 when the layer is already in a group. One undo step. */
     int createLayerGroup(Layer* layer);

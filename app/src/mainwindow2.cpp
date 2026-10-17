@@ -55,6 +55,7 @@ GNU General Public License for more details.
 #include "filemanager.h"
 #include "colormanager.h"
 #include "layermanager.h"
+#include "cameraeasingtype.h"
 #include "toolmanager.h"
 #include "playbackmanager.h"
 #include "selectionmanager.h"
@@ -556,6 +557,7 @@ void MainWindow2::createMenus()
     {
         connect(action, &QAction::triggered, this, [this, mark = mark] { mEditor->layers()->setKeyMark(mEditor->currentFrame(), mark); });
     }
+    connect(ui->actionCreate_Inbetweens, &QAction::triggered, this, &MainWindow2::createInbetweens);
     mTimeLine->setMarkActions({ ui->actionMark_Key, ui->actionMark_Breakdown, ui->actionMark_Inbetween, ui->actionClear_Mark });
     mXSheet->setEditActions({ ui->actionAdd_Frame, ui->actionExposure_Add, ui->actionExposure_Subtract,
                               ui->actionRipple_Insert_Frame, ui->actionRipple_Delete_Frame });
@@ -1595,6 +1597,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionMark_Breakdown->setShortcut(cmdKeySeq(CMD_MARK_BREAKDOWN));
     ui->actionMark_Inbetween->setShortcut(cmdKeySeq(CMD_MARK_INBETWEEN));
     ui->actionClear_Mark->setShortcut(cmdKeySeq(CMD_MARK_CLEAR));
+    ui->actionCreate_Inbetweens->setShortcut(cmdKeySeq(CMD_CREATE_INBETWEENS));
     ui->actionReposition_Selected_Frames->setShortcut(cmdKeySeq(CMD_SELECTION_REPOSITION_FRAMES));
 
     ui->actionMove->setShortcut(cmdKeySeq(CMD_TOOL_MOVE));
@@ -1832,6 +1835,21 @@ void MainWindow2::updateCopyCutPasteEnabled()
 void MainWindow2::updateLayerMenu()
 {
     ui->actionDelete_Current_Layer->setEnabled(mEditor->layers()->canDeleteLayer(mEditor->currentLayerIndex()));
+}
+
+void MainWindow2::createInbetweens()
+{
+    LayerManager* layers = mEditor->layers();
+    // Other layer types refuse before the easing is asked.
+    if (layers->currentLayer()->type() != Layer::VECTOR) { layers->createInbetweens(CameraEasingType::LINEAR); return; }
+    QStringList names;
+    for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
+    {
+        names << getInterpolationText(static_cast<CameraEasingType>(i));
+    }
+    bool ok = false;
+    const QString name = QInputDialog::getItem(this, tr("Create Inbetweens"), tr("Easing:"), names, 0, false, &ok);
+    if (ok) { layers->createInbetweens(static_cast<CameraEasingType>(names.indexOf(name))); }
 }
 
 void MainWindow2::changePlayState(bool isPlaying)
