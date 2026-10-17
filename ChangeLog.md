@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Tool column: Pencil, Pen and Brush; Eraser and Smudge; Move and Select; Fill and Lasso fill; Hand and Rotate view share one button each; a long press or right-click lists the group, and the button shows the tool used last (#198).
 - Corner-handle scaling keeps the aspect ratio by default; hold Shift to scale freely (#200).
 - Canvas wheel: the plain wheel pans up and down, Ctrl+wheel zooms at the pointer, Shift+wheel pans sideways and Alt+wheel rotates the View about the pointer (#201).
 - An X-sheet Panel, tabbed with the timeline, shows each layer as a column of frames with Drawing numbers, Marks and Exposure lines, and edits them like the timeline (#193).
