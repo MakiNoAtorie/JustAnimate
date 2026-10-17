@@ -17,6 +17,8 @@ GNU General Public License for more details.
 
 #include <QMessageBox>
 
+#include "pencilsettings.h"
+
 extern bool gModalWatchdogQuiet; // main.cpp
 extern int gModalWatchdogHits;
 extern QString gModalWatchdogLast;
@@ -32,4 +34,14 @@ TEST_CASE("Modal watchdog closes a modal left open", "[harness]")
     CHECK(gModalWatchdogHits == hits + 1);
     CHECK(gModalWatchdogLast.contains("QMessageBox"));
     CHECK(gModalWatchdogLast.contains("\"Left open\""));
+}
+
+TEST_CASE("Test settings keys are case-sensitive on every platform", "[harness]")
+{
+    QSettings& settings = pencilSettings();
+    settings.setValue("Shortcuts/CmdX", "X");
+    const QVariant lower = settings.value("shortcuts/CmdX");
+    settings.remove("Shortcuts");
+
+    CHECK(lower.toString().isEmpty());
 }

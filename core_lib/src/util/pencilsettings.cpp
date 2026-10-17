@@ -18,6 +18,8 @@ GNU General Public License for more details.
 
 #include <memory>
 
+#include <QDataStream>
+#include <QIODevice>
 #include <QKeySequence>
 #include <QPair>
 #include <QStringList>
@@ -27,6 +29,23 @@ GNU General Public License for more details.
 // ==== Singleton ====
 
 static QString gIniPath;
+
+// Tests only: keys stay case-sensitive on every platform, so a key case bug fails on Windows as on Linux.
+static QSettings::Format caseSensitiveFormat()
+{
+    const auto read = [](QIODevice& device, QSettings::SettingsMap& map) {
+        if (device.atEnd()) { return true; }
+        QDataStream in(&device);
+        in >> map;
+        return in.status() == QDataStream::Ok;
+    };
+    const auto write = [](QIODevice& device, const QSettings::SettingsMap& map) {
+        QDataStream out(&device);
+        out << map;
+        return out.status() == QDataStream::Ok;
+    };
+    return QSettings::registerFormat("ini", read, write, Qt::CaseSensitive);
+}
 
 void usePencilSettingsIniFile(const QString& path)
 {
@@ -38,7 +57,7 @@ QSettings& pencilSettings()
     // MSVC with Qt 6.5 rejects a ternary of QSettings prvalues: copy constructor is deleted.
     static const std::unique_ptr<QSettings> instance(gIniPath.isEmpty()
         ? new QSettings(PENCIL2D, PENCIL2D)
-        : new QSettings(gIniPath, QSettings::IniFormat));
+        : new QSettings(gIniPath, caseSensitiveFormat()));
     QSettings& settings = *instance;
 
     if ( !settings.contains("InitPencilSetting") )
