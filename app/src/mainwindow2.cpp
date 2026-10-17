@@ -1809,6 +1809,7 @@ void MainWindow2::makeConnections(Editor* editor, StatusBar *statusBar)
 
     connect(editor->view(), &ViewManager::viewChanged, statusBar, &StatusBar::updateZoomStatus);
     connect(statusBar, &StatusBar::zoomChanged, editor->view(), &ViewManager::scale);
+    connect(editor, &Editor::statusMessage, statusBar, [statusBar](const QString& text) { statusBar->showMessage(text, 3000); });
 }
 
 void MainWindow2::updateCopyCutPasteEnabled()

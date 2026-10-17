@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define LAYER_MANAGER_H
 
 #include "basemanager.h"
+#include <QHash>
 #include "layer.h"
 
 class LayerBitmap;
@@ -66,6 +67,8 @@ public:
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
     void setRough(Layer* layer, bool rough);
+    /// Shows only the layer at index; again on the same layer restores the visibility from before. Unsaved, no undo.
+    void toggleSolo(int index);
     /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */
     void setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state);
     /** Sets the Mark of the current layer's Drawing shown at frame as one undo step. */
@@ -155,8 +158,12 @@ signals:
 private:
     int getIndex(Layer*) const;
     void recordLayerAdd(const Layer* layer);
+    /// True, with a status message, when a layer with selected frames is lock-all.
+    bool selectionRefusesEdit();
 
     int mLastCameraLayerIdx = 0;
+    QHash<int, bool> mSoloVisibility; // layer id to visibility before the solo; empty when nothing is soloed
+    int mSoloLayerId = 0;
 };
 
 #endif

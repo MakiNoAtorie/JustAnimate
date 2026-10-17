@@ -55,7 +55,10 @@ namespace
 // Layer row: visibility dot, onion toggle, type icon, then the name.
 constexpr int kOnionToggleLeft = 17;
 constexpr int kOnionToggleRight = 35;
-constexpr int kLayerNameLeft = 58;
+// The layer type icon sits between kOnionToggleRight and kLockAlphaLeft.
+constexpr int kLockAlphaLeft = 57;
+constexpr int kLockAllLeft = 75;
+constexpr int kLayerNameLeft = 94;
 }
 
 TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYPE type) : QWidget(parent)
@@ -877,6 +880,17 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
     if (typeIcon)
         typeIcon->paint(&painter, QRect(kOnionToggleRight + 2, y - 1, 18, 18), Qt::AlignCenter, selected ? QIcon::Selected : QIcon::Normal);
 
+    auto paintToggle = [&](const QIcon& icon, int left, bool on) {
+        icon.paint(&painter, QRect(left + 1, y, 16, 16), Qt::AlignCenter, on ? (selected ? QIcon::Selected : QIcon::Normal) : QIcon::Disabled);
+    };
+    if (layer->type() == Layer::BITMAP)
+    {
+        static const QIcon lockAlphaIcon = Theme::icon(":/icons/tabler/lock-square.svg");
+        paintToggle(lockAlphaIcon, kLockAlphaLeft, static_cast<const LayerBitmap*>(layer)->lockAlpha());
+    }
+    static const QIcon lockAllIcon = Theme::icon(":/icons/tabler/lock.svg");
+    paintToggle(lockAllIcon, kLockAllLeft, layer->lockAll());
+
     if (selected)
     {
         painter.setPen(palette.color(QPalette::HighlightedText));
@@ -1161,9 +1175,28 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
         {
             const Layer* clicked = mEditor->object()->getLayer(layerNumber);
             const LayerGroup* clickedGroup = mEditor->object()->findLayerGroup(clicked->groupId());
-            if (event->pos().x() < 15)
+            if (event->pos().x() < 15 && event->button() == Qt::LeftButton && event->modifiers() == Qt::AltModifier)
+            {
+                mEditor->layers()->toggleSolo(layerNumber);
+            }
+            else if (event->pos().x() < 15)
             {
                 mEditor->switchVisibilityOfLayer(layerNumber);
+            }
+            else if (event->button() == Qt::LeftButton && event->pos().x() >= kLockAlphaLeft && event->pos().x() < kLockAllLeft &&
+                     clicked->type() == Layer::BITMAP)
+            {
+                Layer* layer = mEditor->object()->getLayer(layerNumber);
+                static_cast<LayerBitmap*>(layer)->setLockAlpha(!static_cast<LayerBitmap*>(layer)->lockAlpha());
+                mEditor->object()->modification();
+                emit mEditor->updateTimeLine();
+            }
+            else if (event->button() == Qt::LeftButton && event->pos().x() >= kLockAllLeft && event->pos().x() < kLayerNameLeft)
+            {
+                Layer* layer = mEditor->object()->getLayer(layerNumber);
+                layer->setLockAll(!layer->lockAll());
+                mEditor->object()->modification();
+                emit mEditor->updateTimeLine();
             }
             else if (event->button() == Qt::LeftButton && event->pos().x() >= kOnionToggleLeft && event->pos().x() < kOnionToggleRight &&
                      clicked->type() != Layer::SOUND)
@@ -1582,7 +1615,8 @@ void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
             // deselected now instead.
             layer->setFrameSelected(frameNumber, true);
         }
-        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight)
+        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight &&
+                 (event->pos().x() < kLockAlphaLeft || event->pos().x() >= kLayerNameLeft))
         {
             editLayerProperties(layer);
         }

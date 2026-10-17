@@ -69,6 +69,9 @@ public:
     /** A Rough layer paints tinted and faded on the canvas and never exports. */
     bool isRough() const { return mRough; }
     void setRough(bool b) { mRough = b; }
+    /** A lock-all layer refuses every edit; see Editor::refusesEdit. */
+    bool lockAll() const { return mLockAll; }
+    void setLockAll(bool b) { mLockAll = b; }
     /** Id of the LayerGroup in Object that holds this layer, 0 for none */
     int groupId() const { return mGroupId; }
     void setGroupId(int groupId) { mGroupId = groupId; }
@@ -211,6 +214,7 @@ private:
     bool       mOnionSkin = true;
     BlendMode  mBlendMode = BlendMode::Normal;
     bool       mRough = false;
+    bool       mLockAll = false;
     int mGroupId = 0;
     QString    mName;
 

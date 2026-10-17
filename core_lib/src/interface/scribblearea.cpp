@@ -486,6 +486,7 @@ void ScribbleArea::keyEventForSelection(QKeyEvent* event)
     auto selectMan = mEditor->select();
     auto nudge = [&](QPointF offset)
     {
+        if (mEditor->refusesEdit(mEditor->layers()->currentLayer())) { return; }
         const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         selectMan->translate(offset);
         selectMan->calculateSelectionTransformation();
@@ -762,6 +763,11 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
             // This needs to be async so that mTabletInUse is set to false before
             // further events are created (modal dialogs do not currently block tablet events)
             QTimer::singleShot(0, this, &ScribbleArea::showLayerNotVisibleWarning);
+            return;
+        }
+        if (mEditor->refusesEdit(layer))
+        {
+            event->ignore();
             return;
         }
     }
@@ -1672,7 +1678,7 @@ void ScribbleArea::deleteSelection()
     if (selectMan->somethingSelected())      // there is something selected
     {
         Layer* layer = mEditor->layers()->currentLayer();
-        if (layer == nullptr) { return; }
+        if (layer == nullptr || mEditor->refusesEdit(layer)) { return; }
 
         const QString description = tr("Delete Selection", "Undo Step: clear the selection area.");
         // A Drawing added for this delete undoes with it in one step.
@@ -1702,7 +1708,7 @@ void ScribbleArea::deleteSelection()
 void ScribbleArea::clearImage()
 {
     Layer* layer = mEditor->layers()->currentLayer();
-    if (layer == nullptr) { return; }
+    if (layer == nullptr || mEditor->refusesEdit(layer)) { return; }
 
     if (layer->type() == Layer::VECTOR)
     {

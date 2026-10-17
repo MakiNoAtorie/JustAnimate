@@ -8,6 +8,7 @@ the original Pencil2D history is kept below for reference.
 - Corner-handle scaling keeps the aspect ratio by default; hold Shift to scale freely (#200).
 - Canvas wheel: the plain wheel pans up and down, Ctrl+wheel zooms at the pointer, Shift+wheel pans sideways and Alt+wheel rotates the View about the pointer (#201).
 - An X-sheet Panel, tabbed with the timeline, shows each layer as a column of frames with Drawing numbers, Marks and Exposure lines, and edits them like the timeline (#193).
+- Layer rows: Alt+click an eye to solo that layer (again to restore), plus Lock transparency and lock-all icons; a lock-all layer refuses edits (#199).
 - Theme: System after Dark restores the platform colours and style instead of keeping the dark panels (#192).
 - The Brush outline paints its centre cross, so quick-sizing shows the cross in the outline (#184).
 - A double click that Windows makes from a pen tap no longer starts a full-pressure mouse stroke (#175).

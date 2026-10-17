@@ -108,6 +108,7 @@ Status SoundManager::importSoundClip(const QString& soundFile, const QString& cl
 {
     Layer* layer = editor()->layers()->currentLayer();
     if (layer == nullptr || layer->type() != Layer::SOUND) { return Status::FAIL; }
+    if (editor()->refusesEdit(layer)) { return Status::SAFE; }
     const int frame = editor()->currentFrame();
     if (layer->keyExists(frame))
     {

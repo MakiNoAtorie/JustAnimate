@@ -51,6 +51,7 @@ bool LayerManager::init()
 Status LayerManager::load(Object*)
 {
     mLastCameraLayerIdx = 0;
+    mSoloVisibility.clear();
     // Do not emit layerCountChanged here because the editor has not updated to this object yet
     // Leave that to the caller of this function
     return Status::OK;
@@ -230,6 +231,7 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     to->setVisible(from->visible());
     to->setOnionSkin(from->onionSkin());
     to->setRough(from->isRough());
+    to->setLockAll(from->lockAll());
     if (to->type() == Layer::BITMAP)
     {
         static_cast<LayerBitmap*>(to)->setLockAlpha(static_cast<LayerBitmap*>(from)->lockAlpha());
@@ -425,6 +427,38 @@ Status LayerManager::renameLayer(Layer* layer, const QString& newName)
     return Status::OK;
 }
 
+void LayerManager::toggleSolo(int index)
+{
+    Layer* solo = getLayer(index);
+    if (solo == nullptr) { return; }
+    Object* o = object();
+    if (!mSoloVisibility.isEmpty() && mSoloLayerId == solo->id())
+    {
+        for (int i = 0; i < o->getLayerCount(); ++i)
+        {
+            Layer* layer = o->getLayer(i);
+            layer->setVisible(mSoloVisibility.value(layer->id(), layer->visible()));
+        }
+        mSoloVisibility.clear();
+    }
+    else
+    {
+        if (mSoloVisibility.isEmpty())
+        {
+            for (int i = 0; i < o->getLayerCount(); ++i) { mSoloVisibility.insert(o->getLayer(i)->id(), o->getLayer(i)->visible()); }
+        }
+        // Sound and camera layers are not drawn: hiding them would mute the sound or the camera frame.
+        for (int i = 0; i < o->getLayerCount(); ++i)
+        {
+            Layer* layer = o->getLayer(i);
+            if (layer == solo || layer->isPaintable()) { layer->setVisible(layer == solo); }
+        }
+        mSoloLayerId = solo->id();
+    }
+    editor()->getScribbleArea()->onLayerChanged();
+    emit editor()->updateTimeLine();
+}
+
 void LayerManager::notifyLayerChanged(Layer* layer)
 {
     emit currentLayerChanged(getIndex(layer));
@@ -591,7 +625,7 @@ bool LayerManager::moveLayer(int from, int to)
 void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state)
 {
     Layer* layer = currentLayer();
-    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { return; }
+    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
     KeyFrame* key = layer->getKeyFrameAt(frame);
     if (key == nullptr) { return; }
     // The keyframe undo state captures the key at the current frame.
@@ -608,7 +642,7 @@ void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, c
 void LayerManager::setKeyMark(int frame, Mark mark)
 {
     Layer* layer = currentLayer();
-    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { return; }
+    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
     KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr || key->mark() == mark) { return; }
     // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
@@ -666,8 +700,19 @@ void LayerManager::notifyAnimationLengthChanged()
     emit animationLengthChanged(animationLength(true));
 }
 
+bool LayerManager::selectionRefusesEdit()
+{
+    for (int i = 0; i < count(); ++i)
+    {
+        const Layer* layer = object()->getLayer(i);
+        if (layer->hasAnySelectedFrames() && editor()->refusesEdit(layer)) { return true; }
+    }
+    return false;
+}
+
 void LayerManager::setExposureForSelectedFrames(int value, bool hold)
 {
+    if (selectionRefusesEdit()) { return; }
     UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = hold ? tr("Set exposure") : value > 0 ? tr("Add exposure") : tr("Subtract exposure");
     const UndoMacro macro(undoRedo, description);
@@ -701,6 +746,7 @@ static bool sameDrawing(Layer::LAYER_TYPE type, KeyFrame* a, KeyFrame* b)
 
 void LayerManager::cleanExposureOfSelectedFrames()
 {
+    if (selectionRefusesEdit()) { return; }
     UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = tr("Clean exposure");
     const UndoMacro macro(undoRedo, description);
@@ -773,7 +819,7 @@ static void shiftFramesAfter(LayerManager* layers, UndoRedoManager* undoRedo, La
 bool LayerManager::rippleInsertFrame()
 {
     Layer* layer = currentLayer();
-    if (!layer->visible()) { return false; }
+    if (!layer->visible() || editor()->refusesEdit(layer)) { return false; }
 
     const int position = editor()->currentFrame();
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -790,7 +836,7 @@ bool LayerManager::rippleRemoveFrame()
     Layer* layer = currentLayer();
     const int position = editor()->currentFrame();
     const bool onKey = layer->keyExists(position);
-    if (!layer->visible()) { return false; }
+    if (!layer->visible() || editor()->refusesEdit(layer)) { return false; }
     if (onKey ? layer->keyFrameCount() == 1 : layer->getMaxKeyFramePosition() <= position) { return false; }
 
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -813,7 +859,7 @@ bool LayerManager::rippleRemoveFrame()
 bool LayerManager::changeExposure(int frame, int delta)
 {
     Layer* layer = currentLayer(0);
-    if (layer == nullptr || !layer->visible()) { return false; }
+    if (layer == nullptr || !layer->visible() || editor()->refusesEdit(layer)) { return false; }
     const KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr) { return false; }
     const int position = key->pos();
@@ -862,7 +908,7 @@ bool LayerManager::moveSelectedFrames(int offset)
         selected.append(layer);
         firstFrame = qMin(firstFrame, layer->selectedKeyFramesPositions().first());
     }
-    if (selected.isEmpty()) { return false; }
+    if (selected.isEmpty() || selectionRefusesEdit()) { return false; }
 
     offset = qMax(offset, 1 - firstFrame);
     if (offset == 0) { return false; }

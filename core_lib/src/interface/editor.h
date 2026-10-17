@@ -133,6 +133,9 @@ public:
 
     void clipboardChanged();
 
+    /// True, with a status message, when lock-all makes the layer refuse edits.
+    bool refusesEdit(const Layer* layer);
+
 signals:
 
     /** This should be emitted after scrubbing */
@@ -156,6 +159,8 @@ signals:
     void needSave();
     void needDisplayInfo(const QString& title, const QString& body);
     void needDisplayInfoNoTitle(const QString& body);
+    /// A short notice for the status bar, such as an edit refused on a locked layer.
+    void statusMessage(const QString& text);
 
     void canCopyChanged(bool enabled);
     void canPasteChanged(bool enabled);
