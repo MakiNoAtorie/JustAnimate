@@ -41,9 +41,11 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Tests write files only under their own `QTemporaryDir`.
 - Fixtures are stack objects or `unique_ptr`; every `new` QObject in app
   code gets a parent.
-- No modal in tests or CLI; inject `std::function<bool()>`.
-- A modal left open fails its test after 2 s (watchdog in `tests/src/main.cpp`).
-- A test that crashes a child sets `SEM_NOGPFAULTERRORBOX` on Windows.
+- No modal dialog in a test path or on the command line; a UI
+  confirmation is an injectable `std::function<bool()>`. A modal left open
+  fails its test after 2 s (watchdog in `tests/src/main.cpp`).
+- A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
+  on Windows.
 - Golden values change only in a commit that means to change output.
 
 ## Code
