@@ -47,6 +47,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
   on Windows.
 - Golden values change only in a commit that means to change output.
+- A test that needs the app's connections builds `TestSession`, never
+  its own session struct; event filters go on after `start()`.
 
 ## Code
 
@@ -55,16 +57,8 @@ Read `docs/conventions-code.md` before you edit code.
 ## Commits
 
 - One commit per ticket (`CLAUDE.md`); its `ChangeLog.md` line goes at the
-  top of "JustAnimate - Unreleased". Follow-ups end `Refs #<n>`.
+  top of the list under "## JustAnimate - Unreleased", never in the
+  heading; write it as UTF-8 without BOM (PowerShell `Get-Content`
+  mangles it). Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
-
-## v1.6 homes
-
-- #242: the trace switch is `static bool on = qEnvironmentVariableIntValue("JUSTANIMATE_PRESSURE_LOG") == 1;` in `dabtool.cpp`, as in `stageprofiler.h`. The stale key stays in user INI files, unread.
-- #243: `prefsearch` and `shortcutconflict` functions keep their names and signatures, declared in `app/src/app_util.h`, bodies in `app_util.cpp`.
-- #245: `core_lib/data/brushpresets/Classic.json`, listed in the same qrc as the other presets. Fixture of today's C++ output: `tests/data/classic-preset.json`, captured before the writer goes.
-- #246: `std::optional<QJsonObject> BrushPresets::read(const QString& name) const` (public). Listing: `struct BrushPresets::Entry { QString name, tool, description; }` and `QList<Entry> entries(const QString& tool = {}) const`, sorted by name; `names()` stays as a wrapper only if callers remain.
-- #247: `void StrokeTool::setTip(int type, qreal value)` with `StrokeToolProperties::TIP_*`; bool fields take `value != 0`.
-- #249: BaseTool holds the default `ToolProperties` member; `toolProperties()` returns it and `loadSettings()` does nothing by default.
-- #250: `QGuiApplication::styleHints()->mouseDoubleClickInterval()` and `->mouseDoubleClickDistance()`, read at each press. Tests set them with the `QStyleHints` setters and restore them.
