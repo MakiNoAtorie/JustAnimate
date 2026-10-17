@@ -494,6 +494,18 @@ void LayerManager::setTimesheetColumn(Layer* layer, TimesheetColumn column)
     notifyLayerChanged(layer);
 }
 
+bool LayerManager::setSceneLength(int length)
+{
+    const int old = object()->sceneLength();
+    if (length < 0 || length > MaxFramesBound || length == old) { return false; }
+    object()->setSceneLength(length);
+    editor()->undoRedo()->recordSceneLength(old, length, tr("Project Length"));
+    object()->modification();
+    notifyAnimationLengthChanged();
+    emit editor()->updateTimeLine();
+    return true;
+}
+
 void LayerManager::setStoryboard(Layer* layer, bool storyboard)
 {
     if (layer == nullptr || layer->isStoryboard() == storyboard) { return; }
@@ -822,7 +834,7 @@ int LayerManager::animationLength(bool includeSounds)
             }
         }
     }
-    return maxFrame;
+    return qMax(maxFrame, o->sceneLength());
 }
 
 void LayerManager::notifyAnimationLengthChanged()

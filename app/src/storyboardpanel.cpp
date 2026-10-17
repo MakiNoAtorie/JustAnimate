@@ -106,11 +106,9 @@ void StoryboardPanel::updateUI()
             }
             item->setText(texts[column]);
         }
-        // The last panel holds to the end of the scene; there is no next Drawing to move.
         QTableWidgetItem* time = mTable->item(row, Time);
-        const bool last = row == runs.size() - 1;
-        time->setFlags(last ? time->flags() & ~Qt::ItemIsEditable : time->flags() | Qt::ItemIsEditable);
-        time->setToolTip(last ? tr("The last storyboard panel holds to the end of the scene") : QString());
+        time->setFlags(time->flags() | Qt::ItemIsEditable);
+        time->setToolTip(row == runs.size() - 1 ? tr("The last storyboard panel holds to the end of the project; its Time sets the project length") : QString());
     }
 }
 
@@ -124,7 +122,12 @@ void StoryboardPanel::onItemChanged(QTableWidgetItem* item)
     if (item->column() == Time)
     {
         const int time = parseSecondsFrames(item->text(), editor()->playback()->fps());
-        if (time > 0 && time != mPanelTimes[row])
+        if (time > 0 && time != mPanelTimes[row] && row == mPanelFrames.size() - 1)
+        {
+            // No next Drawing to move: the last panel holds to the project length.
+            editor()->layers()->setSceneLength(frame + time - 1);
+        }
+        else if (time > 0 && time != mPanelTimes[row])
         {
             // changeExposure edits the current layer.
             editor()->layers()->setCurrentLayer(layer);

@@ -198,6 +198,70 @@ TEST_CASE("Storyboard Panel lists panels and its Time is the Exposure both ways"
     CHECK(editor->currentFrame() == 25);
 }
 
+TEST_CASE("The last storyboard panel's Time sets the saved project length", "[Storyboard]")
+{
+    SettingsGuard guard({ SETTING_FPS });
+    TestSession s;
+    LayerBitmap* board = s.object->addNewBitmapLayer();
+    board->setStoryboard(true);
+    board->addNewKeyFrameAt(1);
+    board->addNewKeyFrameAt(4);
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    editor->playback()->setFps(24);
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    StoryboardPanel panel(nullptr);
+    panel.setEditor(editor);
+    panel.initUI();
+    QTableWidget* table = panel.findChild<QTableWidget*>();
+    REQUIRE(table->rowCount() == 2);
+    using C = StoryboardPanel::Column;
+    CHECK(cell(table, 1, C::Time) == "0+1");
+    CHECK(table->item(1, C::Time)->flags() & Qt::ItemIsEditable);
+
+    // 1+0 from frame 4 holds the Drawing to frame 27, in one undo step.
+    table->item(1, C::Time)->setText("1+0");
+    CHECK(editor->layers()->animationLength() == 27);
+    CHECK(editor->object()->sceneLength() == 27);
+    CHECK(board->getMaxKeyFramePosition() == 4);
+    CHECK(cell(table, 1, C::Time) == "1+0");
+    undo->trigger();
+    CHECK(editor->layers()->animationLength() == 4);
+    CHECK(cell(table, 1, C::Time) == "0+1");
+    redo->trigger();
+    CHECK(cell(table, 1, C::Time) == "1+0");
+
+    // Playback runs to the end of the project length.
+    PlaybackManager* pb = editor->playback();
+    pb->setLooping(false);
+    pb->enableRangedPlayback(false);
+    editor->scrubTo(1);
+    pb->play();
+    for (int i = 0; i < 40 && pb->isPlaying(); ++i) { pb->advance(); }
+    pb->stop();
+    CHECK(editor->currentFrame() == 27);
+
+    // Saved as <object length>; omitted when unset; a bad value loads as unset.
+    QDomDocument doc;
+    const QDomElement saved = editor->object()->saveXML(doc);
+    CHECK(saved.attribute("length") == "27");
+    Object loaded;
+    REQUIRE(loaded.loadXML(saved, [] {}));
+    CHECK(loaded.sceneLength() == 27);
+    Object unset;
+    CHECK_FALSE(unset.saveXML(doc).hasAttribute("length"));
+    for (const char* bad : { "x", "-3", "0", "100000" })
+    {
+        QDomElement elem = saved.cloneNode(false).toElement();
+        elem.setAttribute("length", bad);
+        Object o;
+        REQUIRE(o.loadXML(elem, [] {}));
+        CHECK(o.sceneLength() == 0);
+    }
+}
+
 TEST_CASE("Playback holds each storyboard panel for its Time", "[Storyboard]")
 {
     SettingsGuard guard({ SETTING_FPS });

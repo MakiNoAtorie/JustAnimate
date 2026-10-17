@@ -73,6 +73,7 @@ void Object::init()
 QDomElement Object::saveXML(QDomDocument& doc) const
 {
     QDomElement objectTag = doc.createElement("object");
+    if (mSceneLength > 0) { objectTag.setAttribute("length", mSceneLength); }
 
     for (Layer* layer : mLayers)
     {
@@ -102,6 +103,8 @@ bool Object::loadXML(const QDomElement& docElem, ProgressCallback progressForwar
     }
 
     const QString dataDirPath = mDataDirPath;
+    const int length = docElem.attribute("length").toInt();
+    mSceneLength = length > 0 && length <= MaxFramesBound ? length : 0;
 
     for (QDomNode node = docElem.firstChild(); !node.isNull(); node = node.nextSibling())
     {

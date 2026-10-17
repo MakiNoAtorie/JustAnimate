@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The last storyboard panel's Time is editable: it sets a saved project length, so the Drawing holds that long in playback and every export; one undo step (#211).
 - Layers that share a Timesheet column all show, side by side bottom-up, in the X-sheet Panel and the Timesheet export (#209, #210).
 - The Timesheet layout of the X-sheet Panel shows every fixed column, Key A to Camera, with empty columns that take no edits (#209).
 - Page exports: B4 now means JIS B4 (257 x 364 mm), the Japanese studio size (#208, #210).

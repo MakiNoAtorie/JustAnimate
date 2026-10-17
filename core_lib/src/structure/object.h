@@ -178,6 +178,9 @@ public:
     LayerArrangement layerArrangement() const;
     /** Reorders the listed layers and sets their groups. Unlisted layers keep their order above them. */
     void setLayerArrangement(const LayerArrangement& arrangement);
+    /** The saved project length in frames, 0 when unset. LayerManager::animationLength never ends before it. */
+    int sceneLength() const { return mSceneLength; }
+    void setSceneLength(int length) { mSceneLength = length; }
 
     template<typename T>
     std::vector<T*> getLayersByType() const
@@ -240,6 +243,7 @@ private:
 
     QList<Layer*> mLayers;
     QList<LayerGroup> mLayerGroups;
+    int mSceneLength = 0;
     bool modified = false;
 
     QList<ColorRef> mPalette;

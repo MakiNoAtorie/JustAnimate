@@ -192,6 +192,7 @@ public:
     void recordPaperTemplate(const PaperTemplate& before, const PaperTemplate& after, const QString& description);
     void recordLayerTimesheet(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description);
     void recordLayerStoryboard(int layerId, bool storyboard, const QString& description);
+    void recordSceneLength(int oldLength, int newLength, const QString& description);
     /** Records Panel fields set on the key at `frame` from `before` to `after` */
     void recordPanelFields(int layerId, int frame, const PanelFields& before, const PanelFields& after, const QString& description);
     /** Records a change of layer order or groups from `before` to the current arrangement */

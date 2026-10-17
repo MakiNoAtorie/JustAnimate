@@ -69,6 +69,8 @@ public:
     void setRough(Layer* layer, bool rough);
     void setTimesheetColumn(Layer* layer, TimesheetColumn column);
     void setStoryboard(Layer* layer, bool storyboard);
+    /** Sets the saved project length (0 unsets it), one undo step. Returns false when nothing changed or the length is out of range. */
+    bool setSceneLength(int length);
     /** Sets the Panel fields of the layer's Drawing shown at `frame`. One undo step.
      *  Returns false when nothing changes: no Drawing at `frame`, the same fields, or a refused edit. */
     bool setPanelFields(Layer* layer, int frame, const PanelFields& fields);

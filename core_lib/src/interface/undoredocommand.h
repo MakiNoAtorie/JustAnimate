@@ -310,6 +310,21 @@ private:
     bool rough = false;
 };
 
+class SceneLengthCommand : public UndoRedoCommand
+{
+public:
+    SceneLengthCommand(int oldLength, int newLength, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(int length);
+
+    int oldLength = 0;
+    int newLength = 0;
+};
+
 class LayerTimesheetCommand : public UndoRedoCommand
 {
 public:

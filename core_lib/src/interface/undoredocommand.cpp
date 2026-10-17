@@ -605,6 +605,36 @@ void LayerBlendModeCommand::apply(BlendMode mode)
     editor()->layers()->notifyLayerChanged(layer);
 }
 
+SceneLengthCommand::SceneLengthCommand(int oldLength, int newLength, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), oldLength(oldLength), newLength(newLength)
+{
+    setText(description);
+}
+
+void SceneLengthCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(oldLength);
+}
+
+void SceneLengthCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(newLength);
+}
+
+void SceneLengthCommand::apply(int length)
+{
+    editor()->object()->setSceneLength(length);
+    editor()->object()->modification();
+    editor()->layers()->notifyAnimationLengthChanged();
+    emit editor()->updateTimeLine();
+}
+
 LayerTimesheetCommand::LayerTimesheetCommand(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn,
                                              const QString& description, Editor* editor)
     : UndoRedoCommand(editor), layerId(layerId), oldColumn(oldColumn), newColumn(newColumn)

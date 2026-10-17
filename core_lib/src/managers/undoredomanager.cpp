@@ -424,6 +424,11 @@ void UndoRedoManager::recordPaperTemplate(const PaperTemplate& before, const Pap
     pushCommand(new PaperTemplateCommand(before, after, description, editor()));
 }
 
+void UndoRedoManager::recordSceneLength(int oldLength, int newLength, const QString& description)
+{
+    pushCommand(new SceneLengthCommand(oldLength, newLength, description, editor()));
+}
+
 void UndoRedoManager::recordLayerTimesheet(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description)
 {
     pushCommand(new LayerTimesheetCommand(layerId, oldColumn, newColumn, description, editor()));
