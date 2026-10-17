@@ -19,6 +19,10 @@ jobs:
         run: |
           if git ls-files -z '*.cpp' '*.h' | LC_ALL=C xargs -0 grep -l $'\xEF\xBB\xBF'; then exit 1; fi
           if git grep -n 'ponytail:' -- '*.cpp' '*.h'; then exit 1; fi
+      - name: Every test file has a TEST_CASE; no private Qt headers outside external/
+        run: |
+          if git grep -L TEST_CASE -- 'tests/src/test_*.cpp' | grep .; then exit 1; fi
+          if git grep -nE '#include\s*[<"](qpa/|private/|[^>"]*_p\.h)' -- '*.cpp' '*.h' ':!core_lib/src/external'; then exit 1; fi
 
   build:
     strategy:
@@ -80,6 +84,7 @@ jobs:
       # Packages: a Release build with Qt and ffmpeg bundled, uploaded as a workflow artifact
       - name: Download ffmpeg (Windows)
         if: runner.os == 'Windows'
+        timeout-minutes: 10
         shell: pwsh
         run: |
           Invoke-WebRequest https://github.com/pencil2d/pencil2d-deps/releases/download/ffmpge-v4.1.1/ffmpeg-win64.zip -OutFile ffmpeg-win64.zip
@@ -91,10 +96,11 @@ jobs:
 
       - name: Download ffmpeg (macOS)
         if: runner.os == 'macOS'
+        timeout-minutes: 10
         run: |
-          curl --retry 5 --retry-delay 15 -fsSLo ffmpeg.7z https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z
-          curl --retry 5 --retry-delay 15 -fsSLo ffmpeg.7z.sig https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z.sig
-          curl --retry 5 --retry-delay 15 -fsSL https://evermeet.cx/ffmpeg/0x1A660874.asc | gpg --import
+          curl --retry 5 --retry-delay 15 --max-time 120 -fsSLo ffmpeg.7z https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z
+          curl --retry 5 --retry-delay 15 --max-time 120 -fsSLo ffmpeg.7z.sig https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z.sig
+          curl --retry 5 --retry-delay 15 --max-time 120 -fsSL https://evermeet.cx/ffmpeg/0x1A660874.asc | gpg --import
           gpg --verify ffmpeg.7z.sig ffmpeg.7z
           mkdir ffmpeg && bsdtar -xf ffmpeg.7z -C ffmpeg
           echo "FFMPEG=$PWD/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
@@ -116,7 +122,7 @@ jobs:
           mkdir -p packages tools
           for t in linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
                    linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage; do
-            curl --retry 5 --retry-delay 15 -fsSL "https://github.com/$t" -o "tools/$(basename "$t")"
+            curl --retry 5 --retry-delay 15 --max-time 120 -fsSL "https://github.com/$t" -o "tools/$(basename "$t")"
           done
           chmod +x tools/*.AppImage
           DESTDIR="$PWD/AppDir" cmake --install build-release --prefix /usr
