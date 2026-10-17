@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "appinfo.h"
 
 #include <QInputDialog>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QApplication>
@@ -707,6 +708,48 @@ Status ActionCommands::exportStoryboard()
     spec.orientation = QPageLayout::Portrait;
     const Status st = writePages(path, spec, storyboardPageCount(panels.size()),
                                  storyboardPages(*object, *board, *cameras.front(), panels, mEditor->playback()->fps()));
+    if (!st.ok())
+    {
+        ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), mParent);
+        errorDialog.exec();
+    }
+    return st;
+}
+
+Status ActionCommands::exportTimesheet()
+{
+    QDialog dialog(mParent);
+    dialog.setWindowTitle(tr("Export Timesheet"));
+    auto form = new QFormLayout(&dialog);
+    auto size = new QComboBox(&dialog);
+    size->addItems({ tr("A4 portrait"), tr("B4 portrait") });
+    auto scene = new QLineEdit(&dialog);
+    auto shot = new QLineEdit(&dialog);
+    auto animator = new QLineEdit(&dialog);
+    auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    form->addRow(tr("Paper:"), size);
+    form->addRow(tr("Scene:"), scene);
+    form->addRow(tr("Shot:"), shot);
+    form->addRow(tr("Animator:"), animator);
+    form->addRow(buttons);
+    if (dialog.exec() != QDialog::Accepted) { return Status::SAFE; }
+
+    const QString path = QFileDialog::getSaveFileName(mParent, tr("Export Timesheet"), QString(),
+                                                      tr("PDF (*.pdf);;PNG pages (*.png)"));
+    if (path.isEmpty()) { return Status::SAFE; }
+    PageSpec spec;
+    spec.size = size->currentIndex() == 1 ? PageSpec::B4 : PageSpec::A4;
+    spec.orientation = QPageLayout::Portrait;
+    XSheet::TimesheetInfo info; // TITLE comes from the Title block
+    info.scene = scene->text();
+    info.shot = shot->text();
+    info.animator = animator->text();
+    info.length = std::max(1, mEditor->layers()->animationLength());
+    info.fps = mEditor->playback()->fps();
+    const Status st = writePages(path, spec, XSheet::timesheetSheetCount(info.length),
+                                 XSheet::timesheetPages(*mEditor->object(), info));
     if (!st.ok())
     {
         ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), mParent);

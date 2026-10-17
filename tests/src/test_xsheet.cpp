@@ -32,6 +32,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "mainwindow2.h"
 #include "object.h"
+#include "pagewriter.h"
 #include "pencildef.h"
 #include "preferencemanager.h"
 #include "testfixture.h"
@@ -53,6 +54,21 @@ QList<QList<int>> keyPositions(const Object* object)
         all << positions;
     }
     return all;
+}
+
+// Pixels that differ between two images, as a bounding box and a count.
+QRect diffBox(const QImage& a, const QImage& b, int* count)
+{
+    QRect box;
+    *count = 0;
+    for (int y = 0; y < a.height(); ++y)
+    {
+        for (int x = 0; x < a.width(); ++x)
+        {
+            if (a.pixel(x, y) != b.pixel(x, y)) { box |= QRect(x, y, 1, 1); ++*count; }
+        }
+    }
+    return box;
 }
 
 void mouse(QWidget* target, QEvent::Type type, QPoint pos, Qt::MouseButtons buttons)
@@ -314,4 +330,70 @@ TEST_CASE("X-sheet visibility has a command with no default key", "[XSheet]")
     preset.beginGroup("shortcuts");
     REQUIRE(preset.contains(CMD_TOGGLE_XSHEET));
     CHECK(preset.value(CMD_TOGGLE_XSHEET).toString().isEmpty());
+}
+
+TEST_CASE("A Timesheet export has one sheet per 144 frames", "[XSheet]")
+{
+    CHECK(XSheet::timesheetSheetCount(0) == 1);
+    CHECK(XSheet::timesheetSheetCount(1) == 1);
+    CHECK(XSheet::timesheetSheetCount(144) == 1);
+    CHECK(XSheet::timesheetSheetCount(145) == 2);
+    CHECK(XSheet::timesheetSheetCount(288) == 2);
+    CHECK(XSheet::timesheetSheetCount(289) == 3);
+}
+
+TEST_CASE("A rendered Timesheet sheet has its columns and frame numbers in known cells", "[XSheet]")
+{
+    Object object;
+    object.init();
+    PageSpec spec;
+    spec.orientation = QPageLayout::Portrait;
+    spec.dpi = 100;
+    const QRectF page(QPointF(), QSizeF(spec.pixelSize()));
+    XSheet::TimesheetInfo info;
+    info.length = 200;
+    info.fps = 1; // marks 1+0 ... 288+0: digit counts differ between the sheets even where a font draws only boxes
+    const QImage blank = renderPage(spec, XSheet::timesheetPages(object, info), 0);
+    const QImage second = renderPage(spec, XSheet::timesheetPages(object, info), 1);
+    CHECK(blank.height() > blank.width()); // portrait
+
+    // Drawings at frames 1 and 3, length 4: ink in rows 0-3 of the layer's column only.
+    Layer* layer = object.addNewBitmapLayer();
+    REQUIRE((layer->keyExists(1) || layer->addNewKeyFrameAt(1)));
+    REQUIRE(layer->addNewKeyFrameAt(3));
+    info.length = 4;
+    info.fps = 24;
+    Object bare;
+    bare.init();
+    const QImage empty = renderPage(spec, XSheet::timesheetPages(bare, info), 0);
+    for (int c = static_cast<int>(TimesheetColumn::KeyA); c <= static_cast<int>(TimesheetColumn::Camera); ++c)
+    {
+        if (static_cast<TimesheetColumn>(c) == TimesheetColumn::Dialogue) { continue; } // sound layers only
+        layer->setTimesheetColumn(static_cast<TimesheetColumn>(c));
+        const QRectF cells = XSheet::timesheetCell(page, c - 1, 0) | XSheet::timesheetCell(page, c - 1, 3);
+        int count = 0;
+        const QRect box = diffBox(empty, renderPage(spec, XSheet::timesheetPages(object, info), 0), &count);
+        CHECK(count > 5);
+        CHECK(cells.toAlignedRect().contains(box));
+    }
+
+    // Sheet 2 of 2 differs from sheet 1 only in its frame numbers and the header.
+    const qreal headerBottom = XSheet::timesheetCell(page, -1, 0).top() - XSheet::timesheetCell(page, -1, 0).height() * 5;
+    int inFirstBlock = 0, inSecondBlock = 0, elsewhere = 0;
+    const QRect frames1 = (XSheet::timesheetCell(page, -1, 0) | XSheet::timesheetCell(page, -1, 71)).toAlignedRect();
+    const QRect frames2 = (XSheet::timesheetCell(page, -1, 72) | XSheet::timesheetCell(page, -1, 143)).toAlignedRect();
+    for (int y = 0; y < blank.height(); ++y)
+    {
+        for (int x = 0; x < blank.width(); ++x)
+        {
+            if (blank.pixel(x, y) == second.pixel(x, y)) { continue; }
+            if (frames1.contains(x, y)) { ++inFirstBlock; }
+            else if (frames2.contains(x, y)) { ++inSecondBlock; }
+            else if (y >= headerBottom) { ++elsewhere; }
+        }
+    }
+    CHECK(inFirstBlock > 20);
+    CHECK(inSecondBlock > 20);
+    CHECK(elsewhere == 0);
+    CHECK(frames2.left() > frames1.right()); // the second 72 frames sit right of the first
 }

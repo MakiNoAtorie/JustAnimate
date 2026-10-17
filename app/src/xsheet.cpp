@@ -26,8 +26,10 @@ GNU General Public License for more details.
 #include "keyframe.h"
 #include "layer.h"
 #include "layermanager.h"
+#include "objectdata.h"
 #include "object.h"
 #include "preferencemanager.h"
+#include "util.h"
 #include "timelinecells.h"
 
 namespace
@@ -54,6 +56,164 @@ QString XSheet::columnName(TimesheetColumn column)
     if (column == TimesheetColumn::Dialogue) { return tr("Dialogue"); }
     if (column == TimesheetColumn::Camera) { return tr("Camera"); }
     return tr("From layer order");
+}
+
+namespace
+{
+// Timesheet export geometry, as parts of the page: margin, header, memo; 72 rows below a column header of 5 rows.
+constexpr qreal kSheetMargin = 0.04;
+constexpr qreal kSheetHeader = 0.06;
+constexpr qreal kSheetMemo = 0.08;
+constexpr qreal kSheetGap = 0.012;
+constexpr int kSheetRows = 72;
+constexpr int kSheetHeadRows = 5;
+constexpr int kSheetColumns = 14; // Key A-F, Dialogue, In-between A-F, Camera
+constexpr qreal kFrameUnits = 2;  // the frame mark column is two cell columns wide
+
+QRectF sheetBody(const QRectF& page)
+{
+    const qreal m = page.width() * kSheetMargin;
+    const qreal top = page.top() + m + page.height() * (kSheetHeader + kSheetGap);
+    const qreal bottom = page.bottom() - m - page.height() * (kSheetMemo + kSheetGap);
+    return QRectF(page.left() + m, top, page.width() - 2 * m, bottom - top);
+}
+
+// The full height of a column (-1 the frame marks) in half 0 or 1, column header included.
+QRectF sheetColumn(const QRectF& page, int half, int column)
+{
+    const QRectF body = sheetBody(page);
+    const qreal gap = page.width() * kSheetGap;
+    const qreal halfWidth = (body.width() - gap) / 2;
+    const qreal unit = halfWidth / (kSheetColumns + kFrameUnits);
+    const qreal left = body.left() + half * (halfWidth + gap) + (column < 0 ? 0 : (kFrameUnits + column) * unit);
+    return QRectF(left, body.top(), column < 0 ? kFrameUnits * unit : unit, body.height());
+}
+
+qreal sheetRowHeight(const QRectF& page) { return sheetBody(page).height() / (kSheetRows + kSheetHeadRows); }
+
+void setPixelFont(QPainter& painter, qreal size)
+{
+    QFont font = painter.font();
+    font.setPixelSize(qMax(1, qRound(size)));
+    painter.setFont(font);
+}
+
+void paintBox(QPainter& painter, const QRectF& cell, const QString& label, const QString& value, qreal labelSize)
+{
+    painter.drawRect(cell);
+    painter.save();
+    painter.setClipRect(cell, Qt::IntersectClip);
+    const QRectF inner = cell.adjusted(labelSize * 0.4, labelSize * 0.2, -labelSize * 0.4, 0);
+    setPixelFont(painter, labelSize);
+    painter.drawText(inner, Qt::AlignLeft | Qt::AlignTop, label);
+    setPixelFont(painter, labelSize * 1.6);
+    painter.drawText(inner.adjusted(0, labelSize * 1.3, 0, 0), Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, value);
+    painter.restore();
+}
+} // namespace
+
+int XSheet::timesheetSheetCount(int length)
+{
+    return qMax(1, (length + 2 * kSheetRows - 1) / (2 * kSheetRows));
+}
+
+QRectF XSheet::timesheetCell(const QRectF& page, int column, int row)
+{
+    const QRectF c = sheetColumn(page, row / kSheetRows, column);
+    const qreal h = sheetRowHeight(page);
+    return QRectF(c.left(), c.top() + (kSheetHeadRows + row % kSheetRows) * h, c.width(), h);
+}
+
+PagePaintFn XSheet::timesheetPages(const Object& object, const TimesheetInfo& info)
+{
+    return [&object, info](QPainter& painter, const QRectF& page, int index) {
+        const qreal rowH = sheetRowHeight(page);
+        const qreal thin = qMax(1.0, page.width() / 1500);
+        const int firstFrame = index * 2 * kSheetRows + 1;
+        painter.save();
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(Qt::black, thin));
+
+        // Header: TITLE from the Title block, then the dialog's fields, the scene TIME and SHEET NO.
+        const qreal m = page.width() * kSheetMargin;
+        const QRectF header(page.left() + m, page.top() + m, page.width() - 2 * m, page.height() * kSheetHeader);
+        const QString labels[] = { tr("TITLE"), tr("SCENE"), tr("SHOT"), tr("TIME"), tr("ANIMATOR"), tr("SHEET NO.") };
+        const QString values[] = { object.data()->paperTemplate().title, info.scene, info.shot,
+                                   formatSecondsFrames(info.length, info.fps), info.animator,
+                                   QString("%1 / %2").arg(index + 1).arg(timesheetSheetCount(info.length)) };
+        const qreal labelSize = header.height() * 0.2;
+        const qreal fieldWidth = header.width() / 6;
+        for (int i = 0; i < 6; ++i)
+        {
+            paintBox(painter, QRectF(header.left() + i * fieldWidth, header.top(), fieldWidth, header.height()), labels[i], values[i], labelSize);
+        }
+        const qreal memoHeight = page.height() * kSheetMemo;
+        paintBox(painter, QRectF(page.left() + m, page.bottom() - m - memoHeight, page.width() - 2 * m, memoHeight), tr("MEMO"), QString(), labelSize);
+
+        // The topmost layer in each column.
+        int layerOf[kSheetColumns];
+        std::fill(std::begin(layerOf), std::end(layerOf), -1);
+        for (int i = object.getLayerCount() - 1; i >= 0; --i)
+        {
+            const int c = static_cast<int>(effectiveTimesheetColumn(object, i)) - 1;
+            if (c >= 0 && c < kSheetColumns && layerOf[c] < 0) { layerOf[c] = i; }
+        }
+
+        for (int half = 0; half < 2; ++half)
+        {
+            const int halfFirst = firstFrame + half * kSheetRows;
+            const int halfLast = halfFirst + kSheetRows - 1;
+            const int rowBase = half * kSheetRows;
+            painter.setPen(QPen(Qt::black, thin));
+            for (int column = -1; column < kSheetColumns; ++column)
+            {
+                const QRectF col = sheetColumn(page, half, column);
+                const QRectF head(col.left(), col.top(), col.width(), kSheetHeadRows * rowH);
+                painter.drawRect(col);
+                painter.drawLine(head.bottomLeft(), head.bottomRight());
+                if (column < 0) { continue; }
+                // Column names run bottom to top so "In-between A" fits a narrow column.
+                painter.save();
+                painter.translate(head.bottomLeft());
+                painter.rotate(-90);
+                setPixelFont(painter, qMin(rowH * 0.8, col.width() * 0.6));
+                painter.drawText(QRectF(rowH * 0.2, 0, head.height() - rowH * 0.4, head.width()), Qt::AlignLeft | Qt::AlignVCenter,
+                                 columnName(static_cast<TimesheetColumn>(column + 1)));
+                painter.restore();
+            }
+
+            setPixelFont(painter, rowH * 0.7);
+            for (int r = 0; r < kSheetRows; ++r)
+            {
+                const int frame = halfFirst + r;
+                const QRectF marks = timesheetCell(page, -1, rowBase + r);
+                // A thicker line ends each second.
+                const bool second = info.fps > 0 && frame % info.fps == 0;
+                painter.setPen(QPen(Qt::black, second ? thin * 2.5 : thin * 0.5));
+                painter.drawLine(marks.bottomLeft(), timesheetCell(page, kSheetColumns - 1, rowBase + r).bottomRight());
+                painter.setPen(QPen(Qt::black, thin));
+                painter.drawText(marks.adjusted(0, 0, -rowH * 0.3, 0), Qt::AlignRight | Qt::AlignVCenter, formatSecondsFrames(frame, info.fps));
+            }
+
+            // Each Drawing: its number in its first cell and an Exposure line to its last.
+            painter.setPen(QPen(Qt::black, thin * 1.5));
+            for (int column = 0; column < kSheetColumns; ++column)
+            {
+                if (layerOf[column] < 0) { continue; }
+                for (const Run& run : runs(object.getLayer(layerOf[column]), info.length))
+                {
+                    if (run.last < halfFirst || run.first > halfLast) { continue; }
+                    const bool starts = run.first >= halfFirst;
+                    const QRectF first = timesheetCell(page, column, rowBase + qMax(run.first, halfFirst) - halfFirst);
+                    const QRectF end = timesheetCell(page, column, rowBase + qMin(run.last, halfLast) - halfFirst);
+                    if (starts) { painter.drawText(first, Qt::AlignCenter, QString::number(run.number)); }
+                    const qreal top = starts ? first.bottom() : first.top();
+                    if (end.bottom() - thin > top) { painter.drawLine(QPointF(first.center().x(), top), QPointF(first.center().x(), end.bottom() - thin)); }
+                }
+            }
+        }
+        painter.restore();
+    };
 }
 
 QList<XSheet::Run> XSheet::runs(const Layer* layer, int sceneLength)

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- File > Export > Timesheet... writes the timesheet as A4 or B4 portrait sheets (PDF or PNG), 144 frames each in two 72-frame halves, with TITLE from the Title block, SCENE, SHOT, ANIMATOR, TIME in seconds+frames and SHEET NO. n / N (#210).
 - File > Export > On Paper... writes a frame range as Paper template sheets with the Title block, one page per frame, as PDF or PNG on A4 or B4 landscape; the command line does the same with `--paper A4|B4` (#208).
 - Palette Panel right-click > Load Genga palette: Main line (black), Shadow line (red), Highlight line (blue) and Second shadow line (green); asks first when strokes use the old palette (#205).
 - New project templates Anime 1080p and Anime 720p: 24 fps with the camera frame set to the size (#206).

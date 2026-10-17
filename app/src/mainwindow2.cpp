@@ -365,6 +365,9 @@ void MainWindow2::createMenus()
     QAction* exportStoryboard = new QAction(tr("Storyboard..."), this);
     connect(exportStoryboard, &QAction::triggered, mCommands, &ActionCommands::exportStoryboard);
     ui->menuExport->insertAction(ui->actionExport_Palette, exportStoryboard);
+    QAction* exportTimesheet = new QAction(tr("Timesheet..."), this);
+    connect(exportTimesheet, &QAction::triggered, mCommands, &ActionCommands::exportTimesheet);
+    ui->menuExport->insertAction(ui->actionExport_Palette, exportTimesheet);
 
     //--- Import Menu ---
     //connect( ui->actionExport_Svg_Image, &QAction::triggered, editor, &Editor::saveSvg );

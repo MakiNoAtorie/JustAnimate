@@ -45,6 +45,7 @@ public:
     Status exportImage();
     Status exportOnPaper();
     Status exportStoryboard();
+    Status exportTimesheet();
     Status exportGif();
 
     // edit
