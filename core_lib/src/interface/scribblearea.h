@@ -303,8 +303,6 @@ private:
     // Double click handling for tablet input
     bool mHasTabletPress = false;
     ulong mTabletPressTime = 0;
-    // Microsoft suggests that a double click action should be no more than 500 ms
-    const ulong DOUBLE_CLICK_THRESHOLD = 500;
     QPointF mTabletPressPos;
     RadialMenu mRadialMenu;
     QString mPresetFolder;
