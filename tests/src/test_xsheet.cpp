@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <QAbstractScrollArea>
 #include <QAction>
 #include <QApplication>
+#include <QDomDocument>
 #include <QIcon>
 #include <QMouseEvent>
 #include <QScrollBar>
@@ -27,10 +28,12 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "keyframe.h"
 #include "layerbitmap.h"
+#include "layercamera.h"
 #include "layermanager.h"
 #include "mainwindow2.h"
 #include "object.h"
 #include "pencildef.h"
+#include "preferencemanager.h"
 #include "testfixture.h"
 #include "timeline.h"
 #include "timelinecells.h"
@@ -89,14 +92,93 @@ TEST_CASE("X-sheet runs number each Drawing and end where the next one starts", 
     CHECK(runs[1].mark == Mark::Breakdown);
 }
 
+TEST_CASE("Timesheet columns default from layer order and sound fills Dialogue", "[XSheet]")
+{
+    Object object;
+    object.init();
+    LayerCamera* camera = object.addNewCameraLayer();
+    object.addNewSoundLayer();
+    for (int i = 0; i < 13; ++i)
+    {
+        if (i % 2) { object.addNewVectorLayer(); }
+        else { object.addNewBitmapLayer(); }
+    }
+    QList<TimesheetColumn> columns;
+    for (int i = 0; i < object.getLayerCount(); ++i) { columns << effectiveTimesheetColumn(object, i); }
+    using C = TimesheetColumn;
+    CHECK(columns == QList<C>({ C::Camera, C::Dialogue, C::KeyA, C::KeyB, C::KeyC, C::KeyD, C::KeyE, C::KeyF,
+                                C::InbetweenA, C::InbetweenB, C::InbetweenC, C::InbetweenD, C::InbetweenE, C::InbetweenF, C::InbetweenF }));
+
+    // A chosen column wins; a sound layer stays on Dialogue.
+    object.getLayer(2)->setTimesheetColumn(C::Camera);
+    camera->setTimesheetColumn(C::KeyA);
+    object.getLayer(1)->setTimesheetColumn(C::KeyB);
+    CHECK(effectiveTimesheetColumn(object, 2) == C::Camera);
+    CHECK(effectiveTimesheetColumn(object, 0) == C::KeyA);
+    CHECK(effectiveTimesheetColumn(object, 1) == C::Dialogue);
+    CHECK(effectiveTimesheetColumn(object, 3) == C::KeyB);
+    CHECK(effectiveTimesheetColumn(object, 99) == C::Default);
+}
+
+TEST_CASE("The Timesheet column is saved on the layer", "[XSheet]")
+{
+    QDomDocument doc;
+    LayerBitmap saved(1);
+    REQUIRE_FALSE(saved.createBaseDomElement(doc).hasAttribute("timesheet"));
+
+    const QList<QPair<TimesheetColumn, QString>> codes = { { TimesheetColumn::KeyA, "KA" }, { TimesheetColumn::KeyF, "KF" },
+        { TimesheetColumn::InbetweenA, "IA" }, { TimesheetColumn::InbetweenF, "IF" }, { TimesheetColumn::Camera, "CAM" } };
+    for (const auto& code : codes)
+    {
+        saved.setTimesheetColumn(code.first);
+        const QDomElement elem = saved.createBaseDomElement(doc);
+        CHECK(elem.attribute("timesheet") == code.second);
+        LayerBitmap loaded(2);
+        loaded.loadBaseDomElement(elem);
+        CHECK(loaded.timesheetColumn() == code.first);
+    }
+
+    // Old files and unknown codes load as Default.
+    LayerBitmap loaded(3);
+    loaded.setTimesheetColumn(TimesheetColumn::KeyC);
+    loaded.loadBaseDomElement(LayerBitmap(4).createBaseDomElement(doc));
+    CHECK(loaded.timesheetColumn() == TimesheetColumn::Default);
+    QDomElement bad = saved.createBaseDomElement(doc);
+    bad.setAttribute("timesheet", "ZZ");
+    loaded.loadBaseDomElement(bad);
+    CHECK(loaded.timesheetColumn() == TimesheetColumn::Default);
+}
+
+TEST_CASE("Timesheet column changes undo and duplicates keep them", "[XSheet]")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    editor->layers()->setTimesheetColumn(layer, TimesheetColumn::InbetweenC);
+    REQUIRE(layer->timesheetColumn() == TimesheetColumn::InbetweenC);
+    CHECK(editor->layers()->duplicateLayer(layer, "Copy")->timesheetColumn() == TimesheetColumn::InbetweenC);
+    undo->trigger(); // the duplicate
+    undo->trigger();
+    CHECK(layer->timesheetColumn() == TimesheetColumn::Default);
+    redo->trigger();
+    CHECK(layer->timesheetColumn() == TimesheetColumn::InbetweenC);
+}
+
 TEST_CASE("MainWindow2 X-sheet edits give the same project as timeline edits", "[XSheet]")
 {
     QSettings& settings = pencilSettings();
     const SettingsGuard guard({SETTING_WINDOW_STATE, SETTING_WINDOW_GEOMETRY, SETTING_LAYOUT_VERSION, SETTING_WORKSPACE_CURRENT,
-                               "Workspace/State/Animate"});
+                               "Workspace/State/Animate", SETTING_XSHEET_LAYOUT});
     settings.remove(SETTING_WINDOW_STATE);
     settings.remove("Workspace/State/Animate");
     settings.remove(SETTING_WORKSPACE_CURRENT);
+    const bool timesheet = GENERATE(false, true);
+    settings.setValue(SETTING_XSHEET_LAYOUT, timesheet ? 1 : 0);
 
     MainWindow2 window;
     window.resize(1366, 768);
@@ -119,6 +201,22 @@ TEST_CASE("MainWindow2 X-sheet edits give the same project as timeline edits", "
         if (object->getLayer(i)->type() == Layer::BITMAP) { index = i; }
     }
     REQUIRE(index >= 0);
+    // The Timesheet layout runs Keyframe A-F, Dialogue, In-between A-F, Camera left to right; Western follows the timeline.
+    for (int i = 0; i < object->getLayerCount(); ++i)
+    {
+        object->getLayer(i)->setTimesheetColumn(i == index ? TimesheetColumn::Camera : TimesheetColumn::KeyA);
+    }
+    QList<int> timelineOrder;
+    for (int i = object->getLayerCount() - 1; i >= 0; --i) { timelineOrder << i; }
+    QList<TimesheetColumn> order;
+    for (int i : xsheet->columns()) { order << effectiveTimesheetColumn(*object, i); }
+    if (timesheet)
+    {
+        CHECK(std::is_sorted(order.cbegin(), order.cend()));
+        CHECK(order.first() == TimesheetColumn::KeyA);
+        CHECK(xsheet->columns() != timelineOrder);
+    }
+    else { CHECK(xsheet->columns() == timelineOrder); }
     REQUIRE(object->getLayer(index)->firstKeyFramePosition() == 1);
     REQUIRE(object->getLayer(index)->getMaxKeyFramePosition() == 1);
 
@@ -132,6 +230,13 @@ TEST_CASE("MainWindow2 X-sheet edits give the same project as timeline edits", "
     QApplication::processEvents();
     QWidget* cells = xsheet->findChild<QAbstractScrollArea*>()->viewport();
     QToolBar* bar = xsheet->findChild<QToolBar*>();
+    QAction* layoutToggle = action("actionXSheetTimesheet");
+    REQUIRE(layoutToggle);
+    CHECK(layoutToggle->isChecked() == timesheet);
+    layoutToggle->toggle();
+    CHECK(settings.value(SETTING_XSHEET_LAYOUT).toInt() == (timesheet ? 0 : 1));
+    layoutToggle->toggle();
+    CHECK(settings.value(SETTING_XSHEET_LAYOUT).toInt() == (timesheet ? 1 : 0));
     const auto sheetButton = [&](const char* name) { qobject_cast<QToolButton*>(bar->widgetForAction(action(name)))->click(); };
 
     editor->scrubTo(1);

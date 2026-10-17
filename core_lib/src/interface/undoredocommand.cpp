@@ -605,6 +605,37 @@ void LayerBlendModeCommand::apply(BlendMode mode)
     editor()->layers()->notifyLayerChanged(layer);
 }
 
+LayerTimesheetCommand::LayerTimesheetCommand(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn,
+                                             const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), oldColumn(oldColumn), newColumn(newColumn)
+{
+    setText(description);
+}
+
+void LayerTimesheetCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(oldColumn);
+}
+
+void LayerTimesheetCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(newColumn);
+}
+
+void LayerTimesheetCommand::apply(TimesheetColumn column)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    layer->setTimesheetColumn(column);
+    editor()->layers()->notifyLayerChanged(layer);
+}
+
 LayerRoughCommand::LayerRoughCommand(int layerId, bool rough, const QString& description, Editor* editor)
     : UndoRedoCommand(editor), layerId(layerId), rough(rough)
 {

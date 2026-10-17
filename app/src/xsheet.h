@@ -24,6 +24,7 @@ class QAction;
 class QToolBar;
 class XSheetCells;
 enum class Mark;
+enum class TimesheetColumn;
 
 /// The X-sheet Panel: the timeline as a table, one column per layer and one row per frame.
 /// It has no data of its own; it reads the Editor and edits through the timeline's operations.
@@ -43,6 +44,8 @@ public:
     };
     /// The Drawings of `layer`; the last one runs to `sceneLength`, a sound clip to its own end.
     static QList<Run> runs(const Layer* layer, int sceneLength);
+    /// The user-visible name of a Timesheet column, such as "Key A".
+    static QString columnName(TimesheetColumn column);
 
     explicit XSheet(QWidget* parent);
 
@@ -54,6 +57,8 @@ public:
 
     /// The cell of a layer at a frame, in the cell area's viewport coordinates.
     QRect cellRect(int layerIndex, int frame) const;
+    /// Layer indices left to right in the current layout (preference XSHEET_LAYOUT).
+    QList<int> columns() const;
 
 private:
     QToolBar* mToolBar = nullptr;

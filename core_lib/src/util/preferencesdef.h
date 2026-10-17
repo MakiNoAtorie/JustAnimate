@@ -100,6 +100,7 @@ enum class SETTING
     LOAD_DEFAULT_PRESET,
     DEFAULT_PRESET,
     FAST_RENDER_LAYERS_ABOVE,
+    XSHEET_LAYOUT,
     COUNT, // COUNT must always be the last one.
 };
 

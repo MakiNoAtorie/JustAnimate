@@ -234,6 +234,7 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     to->setOnionSkin(from->onionSkin());
     to->setRough(from->isRough());
     to->setLockAll(from->lockAll());
+    to->setTimesheetColumn(from->timesheetColumn());
     if (to->type() == Layer::BITMAP)
     {
         static_cast<LayerBitmap*>(to)->setLockAlpha(static_cast<LayerBitmap*>(from)->lockAlpha());
@@ -480,6 +481,15 @@ void LayerManager::setRough(Layer* layer, bool rough)
     if (layer == nullptr || layer->isRough() == rough) { return; }
     layer->setRough(rough);
     editor()->undoRedo()->recordLayerRough(layer->id(), rough, tr("Rough Layer"));
+    notifyLayerChanged(layer);
+}
+
+void LayerManager::setTimesheetColumn(Layer* layer, TimesheetColumn column)
+{
+    if (layer == nullptr || layer->timesheetColumn() == column) { return; }
+    const TimesheetColumn old = layer->timesheetColumn();
+    layer->setTimesheetColumn(column);
+    editor()->undoRedo()->recordLayerTimesheet(layer->id(), old, column, tr("Timesheet Column"));
     notifyLayerChanged(layer);
 }
 

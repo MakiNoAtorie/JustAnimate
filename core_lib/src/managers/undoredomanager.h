@@ -190,6 +190,7 @@ public:
     void recordLayerRough(int layerId, bool rough, const QString& description);
     /** Records that the Paper template changed from before to after. */
     void recordPaperTemplate(const PaperTemplate& before, const PaperTemplate& after, const QString& description);
+    void recordLayerTimesheet(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description);
     /** Records a change of layer order or groups from `before` to the current arrangement */
     void recordLayerArrangement(const LayerArrangement& before, const QString& description);
 

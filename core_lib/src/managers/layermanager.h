@@ -67,6 +67,7 @@ public:
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
     void setRough(Layer* layer, bool rough);
+    void setTimesheetColumn(Layer* layer, TimesheetColumn column);
     /// Shows only the layer at index; again on the same layer restores the visibility from before. Unsaved, no undo.
     void toggleSolo(int index);
     /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */

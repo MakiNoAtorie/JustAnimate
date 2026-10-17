@@ -34,6 +34,10 @@ class Status;
 
 typedef std::function<void()> ProgressCallback;
 
+/** A layer's Timesheet column, in sheet order. Default resolves through effectiveTimesheetColumn (object.h). */
+enum class TimesheetColumn { Default, KeyA, KeyB, KeyC, KeyD, KeyE, KeyF, Dialogue,
+                             InbetweenA, InbetweenB, InbetweenC, InbetweenD, InbetweenE, InbetweenF, Camera };
+
 class Layer
 {
     Q_DECLARE_TR_FUNCTIONS(Layer)
@@ -72,6 +76,9 @@ public:
     /** A lock-all layer refuses every edit; see Editor::refusesEdit. */
     bool lockAll() const { return mLockAll; }
     void setLockAll(bool b) { mLockAll = b; }
+    /** The column chosen for this layer on the Timesheet; Default when none is chosen. */
+    TimesheetColumn timesheetColumn() const { return mTimesheetColumn; }
+    void setTimesheetColumn(TimesheetColumn c) { mTimesheetColumn = c; }
     /** Id of the LayerGroup in Object that holds this layer, 0 for none */
     int groupId() const { return mGroupId; }
     void setGroupId(int groupId) { mGroupId = groupId; }
@@ -224,6 +231,7 @@ private:
     BlendMode  mBlendMode = BlendMode::Normal;
     bool       mRough = false;
     bool       mLockAll = false;
+    TimesheetColumn mTimesheetColumn = TimesheetColumn::Default;
     int mGroupId = 0;
     QString    mName;
 

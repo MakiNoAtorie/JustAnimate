@@ -24,8 +24,13 @@ GNU General Public License for more details.
 #include <QHash>
 #include <QFile>
 #include <QSet>
+#include <iterator>
 #include "keyframe.h"
 #include "util.h"
+
+// The <layer timesheet> code of each TimesheetColumn; Default and Dialogue are never saved.
+static const char* const kTimesheetCodes[] = { "", "KA", "KB", "KC", "KD", "KE", "KF", "",
+                                               "IA", "IB", "IC", "ID", "IE", "IF", "CAM" };
 
 // Used to sort the selected frames list
 bool sortAsc(int left, int right)
@@ -772,6 +777,8 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     if (groupId() != 0) { layerTag.setAttribute("group", groupId()); }
     if (isRough()) { layerTag.setAttribute("rough", 1); }
     if (lockAll()) { layerTag.setAttribute("lockAll", 1); }
+    const char* timesheet = kTimesheetCodes[static_cast<int>(timesheetColumn())];
+    if (*timesheet != '\0') { layerTag.setAttribute("timesheet", QLatin1String(timesheet)); }
     return layerTag;
 }
 
@@ -790,6 +797,13 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     setGroupId(elem.attribute("group", "0").toInt());
     setRough(elem.attribute("rough", "0").toInt() == 1);
     setLockAll(elem.attribute("lockAll") == "1");
+    const QString timesheet = elem.attribute("timesheet");
+    // An empty or unknown code loads as Default.
+    setTimesheetColumn(TimesheetColumn::Default);
+    for (int i = 1; i < static_cast<int>(std::size(kTimesheetCodes)); ++i)
+    {
+        if (!timesheet.isEmpty() && timesheet == QLatin1String(kTimesheetCodes[i])) { setTimesheetColumn(static_cast<TimesheetColumn>(i)); }
+    }
 }
 
 TweenState Layer::tweenStateAt(int frame) const

@@ -310,6 +310,22 @@ private:
     bool rough = false;
 };
 
+class LayerTimesheetCommand : public UndoRedoCommand
+{
+public:
+    LayerTimesheetCommand(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(TimesheetColumn column);
+
+    int layerId = 0;
+    TimesheetColumn oldColumn = TimesheetColumn::Default;
+    TimesheetColumn newColumn = TimesheetColumn::Default;
+};
+
 /// Undo and redo of a layer reorder or a layer group edit.
 class LayerArrangementCommand : public UndoRedoCommand
 {

@@ -190,6 +190,20 @@ QPair<int, int> Object::layerGroupRange(int groupId) const
     return range;
 }
 
+TimesheetColumn effectiveTimesheetColumn(const Object& object, int layerIndex)
+{
+    const Layer* layer = object.getLayer(layerIndex);
+    if (layer == nullptr) { return TimesheetColumn::Default; }
+    if (layer->type() == Layer::SOUND) { return TimesheetColumn::Dialogue; }
+    if (layer->timesheetColumn() != TimesheetColumn::Default) { return layer->timesheetColumn(); }
+    if (!layer->isPaintable()) { return TimesheetColumn::Camera; }
+    int below = 0;
+    for (int i = 0; i < layerIndex; ++i) { below += object.getLayer(i)->isPaintable() ? 1 : 0; }
+    const int key = static_cast<int>(TimesheetColumn::KeyA);
+    const int inbetween = static_cast<int>(TimesheetColumn::InbetweenA);
+    return static_cast<TimesheetColumn>(below < 6 ? key + below : inbetween + qMin(below - 6, 5));
+}
+
 bool Object::isLayerFolded(int index) const
 {
     const Layer* layer = getLayer(index);

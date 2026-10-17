@@ -345,6 +345,7 @@ const static int MaxFramesBound = 9999;
 
 #define SETTING_LAYER_VISIBILITY "LayerVisibility"
 #define SETTING_LAYER_VISIBILITY_THRESHOLD "LayerVisibilityThreshold"
+#define SETTING_XSHEET_LAYOUT "XSheetLayout" // 0 Western, 1 Timesheet
 
 #define SETTING_DRAW_ON_EMPTY_FRAME_ACTION  "DrawOnEmptyFrameAction"
 

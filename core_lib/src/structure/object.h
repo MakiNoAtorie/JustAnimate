@@ -243,5 +243,9 @@ private:
     mutable std::unique_ptr<ActiveFramePool> mActiveFramePool;
 };
 
+/** The Timesheet column of the layer at `layerIndex`: sound is Dialogue; a chosen column wins; else a camera is
+ *  Camera and the n-th drawing layer from the bottom is Keyframe A..F, then In-between A..F (the last holds the rest). */
+TimesheetColumn effectiveTimesheetColumn(const Object& object, int layerIndex);
+
 
 #endif
