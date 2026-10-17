@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "basedockwidget.h"
 
 class Layer;
+class QStackedWidget;
 class QTableWidget;
 class QTableWidgetItem;
 
@@ -41,6 +42,7 @@ private:
     void onItemChanged(QTableWidgetItem* item);
 
     QTableWidget* mTable = nullptr;
+    QStackedWidget* mPages = nullptr; // empty-state page, then the table
     int mLayerId = 0;
     QList<int> mPanelFrames; // the key position of each row
     QList<int> mPanelTimes;  // the Exposure of each row

@@ -72,6 +72,7 @@ signals:
     void newBitmapLayer();
     void newVectorLayer();
     void newSoundLayer();
+    void newStoryboardLayer();
     void newCameraLayer();
 
     void soundClick( bool );

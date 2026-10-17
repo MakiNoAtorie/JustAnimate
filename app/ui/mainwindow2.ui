@@ -307,6 +307,7 @@
     <addaction name="actionNew_Bitmap_Layer"/>
     <addaction name="actionNew_Vector_Layer"/>
     <addaction name="actionNew_Sound_Layer"/>
+    <addaction name="actionNew_Storyboard_Layer"/>
     <addaction name="actionNew_Camera_Layer"/>
     <addaction name="separator"/>
     <addaction name="actionDelete_Current_Layer"/>
@@ -734,6 +735,11 @@
   <action name="actionNew_Sound_Layer">
    <property name="text">
     <string>New Sound Layer</string>
+   </property>
+  </action>
+  <action name="actionNew_Storyboard_Layer">
+   <property name="text">
+    <string>New Storyboard Layer</string>
    </property>
   </action>
   <action name="actionNew_Camera_Layer">

@@ -174,6 +174,7 @@ void MainWindow2::setIcons()
         { ui->actionNew_Bitmap_Layer, "photo" },
         { ui->actionNew_Vector_Layer, "vector" },
         { ui->actionNew_Sound_Layer, "volume" },
+        { ui->actionNew_Storyboard_Layer, "clipboard" },
         { ui->actionNew_Camera_Layer, "video" },
         { ui->actionDelete_Current_Layer, "minus" },
         { ui->actionShowInvisibleLines, "line-dotted" },
@@ -426,6 +427,7 @@ void MainWindow2::createMenus()
     connect(ui->actionNew_Bitmap_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewBitmapLayer);
     connect(ui->actionNew_Vector_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewVectorLayer);
     connect(ui->actionNew_Sound_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewSoundLayer);
+    connect(ui->actionNew_Storyboard_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewStoryboardLayer);
     connect(ui->actionNew_Camera_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewCameraLayer);
     connect(ui->actionDelete_Current_Layer, &QAction::triggered, mCommands, &ActionCommands::deleteCurrentLayer);
     connect(ui->actionChangeLineColorCurrent_keyframe, &QAction::triggered, mCommands, &ActionCommands::changeKeyframeLineColor);
@@ -1792,6 +1794,7 @@ void MainWindow2::makeConnections(Editor* pEditor, TimeLine* pTimeline)
     connect(pTimeline, &TimeLine::newBitmapLayer, mCommands, &ActionCommands::addNewBitmapLayer);
     connect(pTimeline, &TimeLine::newVectorLayer, mCommands, &ActionCommands::addNewVectorLayer);
     connect(pTimeline, &TimeLine::newSoundLayer, mCommands, &ActionCommands::addNewSoundLayer);
+    connect(pTimeline, &TimeLine::newStoryboardLayer, mCommands, &ActionCommands::addNewStoryboardLayer);
     connect(pTimeline, &TimeLine::newCameraLayer, mCommands, &ActionCommands::addNewCameraLayer);
     connect(mTimeLine, &TimeLine::playButtonTriggered, mCommands, &ActionCommands::PlayStop);
     connect(pTimeline, &TimeLine::deleteCurrentLayerClick, mCommands, &ActionCommands::deleteCurrentLayer);

@@ -16,7 +16,11 @@ GNU General Public License for more details.
 
 #include <QAbstractButton>
 #include <QHeaderView>
+#include <QLabel>
+#include <QPushButton>
 #include <QSignalBlocker>
+#include <QStackedWidget>
+#include <QVBoxLayout>
 #include <QTableWidget>
 
 #include "editor.h"
@@ -44,7 +48,20 @@ void StoryboardPanel::initUI()
     mTable->setCornerButtonEnabled(false);
     if (auto* corner = mTable->findChild<QAbstractButton*>()) { corner->setToolTip(tr("Storyboard panels")); }
     mTable->setToolTip(tr("One row per storyboard panel; Time is its Exposure in seconds+frames"));
-    setWidget(mTable);
+    auto* empty = new QWidget(this);
+    auto* box = new QVBoxLayout(empty);
+    auto* hint = new QLabel(tr("No Storyboard layer yet. Make a layer with New Storyboard Layer (Layer menu or the timeline's add-layer menu), or turn the current layer into one."), empty);
+    hint->setWordWrap(true);
+    auto* make = new QPushButton(tr("Make current layer the Storyboard layer"), empty);
+    make->setToolTip(tr("Mark the current layer as the Storyboard layer"));
+    connect(make, &QPushButton::clicked, this, [this] { editor()->layers()->setStoryboard(editor()->layers()->currentLayer(), true); });
+    box->addWidget(hint);
+    box->addWidget(make, 0, Qt::AlignLeft);
+    box->addStretch();
+    mPages = new QStackedWidget(this);
+    mPages->addWidget(empty);
+    mPages->addWidget(mTable);
+    setWidget(mPages);
 
     connect(mTable, &QTableWidget::itemChanged, this, &StoryboardPanel::onItemChanged);
     connect(mTable, &QTableWidget::currentCellChanged, this, [this](int row) {
@@ -82,6 +99,7 @@ void StoryboardPanel::updateUI()
     const QSignalBlocker blocker(mTable);
     const Layer* layer = storyboardLayer();
     mLayerId = layer ? layer->id() : 0;
+    mPages->setCurrentIndex(layer ? 1 : 0);
     mPanelFrames.clear();
     mPanelTimes.clear();
     const QList<Layer::Run> runs = layer ? layer->runs(editor()->layers()->animationLength()) : QList<Layer::Run>();

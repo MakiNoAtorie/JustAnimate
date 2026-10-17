@@ -1092,6 +1092,14 @@ Status ActionCommands::addNewSoundLayer()
     return Status::OK;
 }
 
+Status ActionCommands::addNewStoryboardLayer()
+{
+    const UndoMacro macro(mEditor->undoRedo(), tr("New Storyboard Layer"));
+    Layer* layer = mEditor->layers()->createBitmapLayer(mEditor->layers()->nameSuggestLayer(tr("Storyboard Layer")));
+    mEditor->layers()->setStoryboard(layer, true);
+    return Status::OK;
+}
+
 Status ActionCommands::deleteCurrentLayer()
 {
     LayerManager* layerMgr = mEditor->layers();

@@ -18,11 +18,13 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QDomDocument>
 #include <QIcon>
+#include <QPushButton>
 #include <QTableWidget>
 #include <QFileInfo>
 #include <QTemporaryDir>
 #include <QtMath>
 
+#include "actioncommands.h"
 #include "bitmapimage.h"
 #include "editor.h"
 #include "filemanager.h"
@@ -411,4 +413,37 @@ TEST_CASE("A storyboard page has each field in its cell", "[Storyboard]")
     const QImage drawn = renderPage(spec, paint, 1);
     CHECK(drawn.pixel(picture.toRect().center()) == qRgb(0, 0, 0));
     CHECK(drawn.pixel(storyboardPicture(storyboardCell(page, 0, 2), view).toRect().center()) == qRgb(255, 255, 255));
+}
+
+TEST_CASE("Empty Storyboard Panel button and New Storyboard Layer each make a Storyboard layer in one undo step", "[Storyboard]")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    StoryboardPanel panel(nullptr);
+    panel.setEditor(editor);
+    panel.initUI();
+    QPushButton* button = panel.findChild<QPushButton*>();
+    REQUIRE(button);
+
+    editor->layers()->setCurrentLayer(layer);
+    button->click();
+    CHECK(layer->isStoryboard());
+    CHECK(panel.findChild<QTableWidget*>()->rowCount() == 1);
+    undo->trigger();
+    CHECK_FALSE(layer->isStoryboard());
+
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+    const int count = editor->layers()->count();
+    commands.addNewStoryboardLayer();
+    REQUIRE(editor->layers()->count() == count + 1);
+    CHECK(editor->layers()->currentLayer()->isStoryboard());
+    undo->trigger();
+    CHECK(editor->layers()->count() == count);
 }
