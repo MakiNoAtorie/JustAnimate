@@ -45,6 +45,15 @@ const QList<Template>& templates()
     return list;
 }
 
+int templateIndex(const QString& name)
+{
+    for (int i = 0; i < templates().size(); ++i)
+    {
+        if (templates().at(i).name == name) { return i; }
+    }
+    return -1;
+}
+
 Object* newObjectFromTemplate(int index)
 {
     if (index < 0 || index >= templates().size())

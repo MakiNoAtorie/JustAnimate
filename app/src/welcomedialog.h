@@ -28,7 +28,7 @@ class WelcomeDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit WelcomeDialog(int defaultPreset, const QStringList& recentFiles, QWidget* parent = nullptr);
+    explicit WelcomeDialog(int defaultPreset, const QStringList& recentFiles, const QString& lastTemplate, QWidget* parent = nullptr);
 
     // Set when the user chose a recent project. Empty after "New" or "Open...".
     QString openPath() const { return mOpenPath; }

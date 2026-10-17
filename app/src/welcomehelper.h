@@ -42,6 +42,8 @@ struct Template
 };
 
 const QList<Template>& templates();
+// -1 when no template has this name.
+int templateIndex(const QString& name);
 // Caller owns the result. Null when index is out of range.
 Object* newObjectFromTemplate(int index);
 

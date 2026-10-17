@@ -158,6 +158,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::SOUND_SCRUB_MSEC,         settings.value(SETTING_SOUND_SCRUB_MSEC,       100).toInt());
 
     set(SETTING::LANGUAGE,                 settings.value(SETTING_LANGUAGE).toString());
+    set(SETTING::LAST_TEMPLATE,            settings.value(SETTING_LAST_TEMPLATE).toString());
     set(SETTING::PRESSURE_CURVE,           settings.value(SETTING_PRESSURE_CURVE).toString());
 }
 
@@ -240,6 +241,9 @@ void PreferenceManager::set(SETTING option, QString value)
         break;
     case SETTING::LANGUAGE:
         settings.setValue(SETTING_LANGUAGE, value);
+        break;
+    case SETTING::LAST_TEMPLATE:
+        settings.setValue(SETTING_LAST_TEMPLATE, value);
         break;
     case SETTING::PRESSURE_CURVE:
         settings.setValue(SETTING_PRESSURE_CURVE, value);

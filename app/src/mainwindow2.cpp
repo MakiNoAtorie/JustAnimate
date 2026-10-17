@@ -1430,7 +1430,8 @@ bool MainWindow2::tryLoadPreset()
 void MainWindow2::showWelcomeDialog()
 {
     auto* presetDialog = new WelcomeDialog(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET),
-                                           mRecentFileMenu->getRecentFiles(), this);
+                                           mRecentFileMenu->getRecentFiles(),
+                                           mEditor->preference()->getString(SETTING::LAST_TEMPLATE), this);
     presetDialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(presetDialog, &WelcomeDialog::finished, [=](int result)
     {
@@ -1454,6 +1455,7 @@ void MainWindow2::showWelcomeDialog()
         {
             if (Object* object = Welcome::newObjectFromTemplate(presetDialog->templateIndex()))
             {
+                mEditor->preference()->set(SETTING::LAST_TEMPLATE, Welcome::templates().at(presetDialog->templateIndex()).name);
                 mEditor->setObject(object);
                 mEditor->setFps(mEditor->playback()->fps());
                 closeDialogs();

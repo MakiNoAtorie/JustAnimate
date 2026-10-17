@@ -5,9 +5,13 @@
 #include <QTemporaryDir>
 #include <memory>
 
+#include <QComboBox>
 #include "layercamera.h"
 #include "object.h"
 #include "objectdata.h"
+#include "preferencemanager.h"
+#include "testfixture.h"
+#include "welcomedialog.h"
 #include "welcomehelper.h"
 
 TEST_CASE("Welcome screen helper", "[Welcome]")
@@ -97,4 +101,23 @@ TEST_CASE("Welcome anime presets", "[Welcome]")
         CHECK(cameras.front()->getViewSize() == e.second);
         CHECK(cameras.front()->getViewRect() == QRect(QPoint(-e.second.width() / 2, -e.second.height() / 2), e.second));
     }
+}
+
+TEST_CASE("Welcome dialog preselects the last chosen template by name", "[Welcome]")
+{
+    SettingsGuard guard({ SETTING_LAST_TEMPLATE });
+    TestSession s;
+    REQUIRE(s.start());
+    PreferenceManager* prefs = s.editor->preference();
+    prefs->set(SETTING::LAST_TEMPLATE, QString("Square 1080"));
+    CHECK(pencilSettings().value(SETTING_LAST_TEMPLATE).toString() == "Square 1080");
+
+    const auto currentTemplate = [&](const QString& last) {
+        WelcomeDialog dialog(0, {}, last);
+        return dialog.findChild<QComboBox*>("welcomeTemplates")->currentIndex();
+    };
+    CHECK(currentTemplate(prefs->getString(SETTING::LAST_TEMPLATE)) == Welcome::templateIndex("Square 1080"));
+    CHECK(Welcome::templateIndex("Square 1080") > 0);
+    CHECK(currentTemplate("Removed template") == 0);
+    CHECK(currentTemplate(QString()) == 0);
 }
