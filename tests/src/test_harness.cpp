@@ -15,7 +15,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
-#include <QMessageBox>
+#include <QDialog>
 
 #include "pencilsettings.h"
 
@@ -27,12 +27,14 @@ TEST_CASE("Modal watchdog closes a modal left open", "[harness]")
 {
     const int hits = gModalWatchdogHits;
     gModalWatchdogQuiet = true;
-    QMessageBox box(QMessageBox::Information, "Left open", "No closer");
+    // A QDialog: QMessageBox ignores its window title on macOS.
+    QDialog box;
+    box.setWindowTitle("Left open");
     box.exec();
     gModalWatchdogQuiet = false;
 
     CHECK(gModalWatchdogHits == hits + 1);
-    CHECK(gModalWatchdogLast.contains("QMessageBox"));
+    CHECK(gModalWatchdogLast.contains("QDialog"));
     CHECK(gModalWatchdogLast.contains("\"Left open\""));
 }
 
