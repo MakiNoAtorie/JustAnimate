@@ -35,6 +35,7 @@ GNU General Public License for more details.
 #include "brushpresets.h"
 #include "commandlineexporter.h"
 #include "commandlineparser.h"
+#include "duplicatepressfilter.h"
 #include "mainwindow2.h"
 #include "pencildef.h"
 #include "platformhandler.h"
@@ -47,6 +48,7 @@ Pencil2D::Pencil2D(int& argc, char** argv) :
 {
     // Merge tablet moves that queue up while a frame paints, so the canvas catches up with the pen.
     setAttribute(Qt::AA_CompressTabletEvents);
+    installEventFilter(new DuplicatePressFilter(this));
 
     // Set organization and application name
     setOrganizationName(APP_ORGANIZATION);
