@@ -289,7 +289,6 @@ const static int MaxFramesBound = 9999;
 #define SETTING_LABEL_FONT_SIZE     "LabelFontSize"
 #define SETTING_DRAW_LABEL          "DrawLabel"
 #define SETTING_QUICK_SIZING        "QuickSizing"
-#define SETTING_PRESSURE_DEBUG_LOG  "PressureDebugLog"
 #define SETTING_LAYOUT_LOCK         "LayoutLock"
 #define SETTING_ROTATION_INCREMENT  "RotationIncrement"
 #define SETTING_SHOW_SELECTION_INFO "ShowSelectionInfo"

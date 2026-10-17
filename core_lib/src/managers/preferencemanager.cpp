@@ -86,7 +86,6 @@ void PreferenceManager::loadPrefs()
     set(SETTING::TABLET_WINTAB,            settings.value(SETTING_TABLET_WINTAB,          true).toBool());
     set(SETTING::SHADOW,                   settings.value(SETTING_SHADOW,                 false).toBool());
     set(SETTING::QUICK_SIZING,             settings.value(SETTING_QUICK_SIZING,           true).toBool());
-    set(SETTING::PRESSURE_DEBUG_LOG,       settings.value(SETTING_PRESSURE_DEBUG_LOG,     false).toBool());
     set(SETTING::SHOW_SELECTION_INFO,      settings.value(SETTING_SHOW_SELECTION_INFO,    false).toBool());
 
     set(SETTING::INVERT_DRAG_ZOOM_DIRECTION,   settings.value(SETTING_INVERT_DRAG_ZOOM_DIRECTION,  false).toBool());
@@ -523,9 +522,6 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::QUICK_SIZING:
         settings.setValue(SETTING_QUICK_SIZING, value);
-        break;
-    case SETTING::PRESSURE_DEBUG_LOG:
-        settings.setValue(SETTING_PRESSURE_DEBUG_LOG, value);
         break;
     case SETTING::INVERT_DRAG_ZOOM_DIRECTION:
         settings.setValue(SETTING_INVERT_DRAG_ZOOM_DIRECTION, value);

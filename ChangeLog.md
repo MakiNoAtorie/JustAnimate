@@ -3,7 +3,8 @@
 One line per change, newest first. JustAnimate entries are above;
 the original Pencil2D history is kept below for reference.
 
-## JustAnimate - Unreleased
+## JustAnimate - The pressure log checkbox is gone; set JUSTANIMATE_PRESSURE_LOG=1 to print each dab (#242).
+- Unreleased
 
 - Project files no longer write the Paper template `kind` attribute; files that have it still load (#248).
 - Preference search and shortcut-conflict code now live in the app utilities (#243).

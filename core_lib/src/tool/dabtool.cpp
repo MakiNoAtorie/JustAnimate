@@ -17,11 +17,8 @@ GNU General Public License for more details.
 
 #include <cmath>
 
-#include <QDir>
-#include <QFileInfo>
 #include <QPainter>
 #include <QPainterPath>
-#include <QStandardPaths>
 #include <QtMath>
 
 #include "colormanager.h"
@@ -74,21 +71,6 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     mStrokeEnding = false;
     mPendingPoints.clear();
     mDistanceToNextDab = dabSpacing(dabWidth(mCurrentPressure) * taperAt(0));
-    mPressureLog.close();
-    if (mEditor->preference()->isOn(SETTING::PRESSURE_DEBUG_LOG))
-    {
-        QDir().mkpath(QFileInfo(pressureLogPath()).absolutePath());
-        mPressureLog.setFileName(pressureLogPath());
-        if (mPressureLog.open(QIODevice::Append | QIODevice::Text))
-        {
-            if (mPressureLog.size() == 0) mPressureLog.write("input,pressure,curve,taper,size,width\n");
-            mPressureLog.write(QStringLiteral("# stroke %1 %2 width %3 pressure %4\n")
-                                   .arg(typeName(), QString::number(event->timestamp()))
-                                   .arg(strokeToolProperties().width())
-                                   .arg(strokeToolProperties().pressureEnabled() ? "on" : "off")
-                                   .toUtf8());
-        }
-    }
     strokeStarted();
 
     StrokeTool::pointerPressEvent(event);
@@ -138,7 +120,6 @@ void DabTool::pointerReleaseEvent(PointerEvent* event)
         finishVectorStroke(layer);
     }
     endStroke();
-    mPressureLog.close();
 
     StrokeTool::pointerReleaseEvent(event);
 }
@@ -251,24 +232,12 @@ qreal DabTool::sizeDynamics()
     return qMax(factor, kMinSizeFactor);
 }
 
-QString& DabTool::pressureLogPath()
-{
-    static QString path = QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath("pressure-log.csv");
-    return path;
-}
-
 void DabTool::logDab(qreal pressure, qreal taper, qreal sizeFactor, qreal width)
 {
-    if (!mPressureLog.isOpen()) return;
+    static bool on = qEnvironmentVariableIntValue("JUSTANIMATE_PRESSURE_LOG") == 1;
+    if (!on) return;
     const char* input = mCurrentInputType == PointerEvent::Tablet ? "tablet" : mCurrentInputType == PointerEvent::Mouse ? "mouse" : "unknown";
-    mPressureLog.write(QStringLiteral("%1,%2,%3,%4,%5,%6\n")
-                           .arg(input)
-                           .arg(pressure, 0, 'f', 3)
-                           .arg(mPressureCurve.value(pressure), 0, 'f', 3)
-                           .arg(taper, 0, 'f', 3)
-                           .arg(sizeFactor, 0, 'f', 3)
-                           .arg(width, 0, 'f', 2)
-                           .toUtf8());
+    qDebug("dab input=%s pressure=%.3f curve=%.3f taper=%.3f size=%.3f width=%.2f", input, pressure, mPressureCurve.value(pressure), taper, sizeFactor, width);
 }
 
 qreal DabTool::randomSigned()
