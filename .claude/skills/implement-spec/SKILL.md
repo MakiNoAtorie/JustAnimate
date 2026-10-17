@@ -33,7 +33,7 @@ Communication to and from subagents should be sparse. Communicate primarily thro
    - calls the Skill tool with `tdd` to build the ticket;
    - rebases onto the integration tip and reruns the suite before reporting done.
 
-5. Once an **implementer subagent** completes, land its work on the integration branch. Its branch stays checked out in its worktree, so land it from the main checkout: `git merge --ff-only <sha>`, or `git cherry-pick <sha>` when the tip has moved on. Resolve conflicts that keep both sides yourself, then build and test the merged tip. Hand a code conflict that needs judgement to a **merger subagent**.
+5. Once an **implementer subagent** completes, check its report names a red failing line for each new test and `git show --stat <sha>` shows those test files with content; send it back otherwise. Then land its work on the integration branch. Its branch stays checked out in its worktree, so land it from the main checkout: `git merge --ff-only <sha>`, or `git cherry-pick <sha>` when the tip has moved on. Resolve conflicts that keep both sides yourself, then build and test the merged tip. Hand a code conflict that needs judgement to a **merger subagent**.
 
    A crash or failure that a report calls flaky is a finding: start a subagent with `diagnosing-bugs` on it the second time it shows.
 

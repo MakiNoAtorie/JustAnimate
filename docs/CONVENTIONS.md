@@ -21,7 +21,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   <run number>`) under ASan, UBSan and LSan; third-party leaks go in
   `tools/lsan.supp`.
 - Windows: `tools\build-test.cmd ["exact test name" | [tag]]` (from
-  PowerShell) runs the CI source guards, builds and runs the suite.
+  PowerShell) runs the CI source guards, builds and runs the suite
+  offscreen; a bare `pencil2d_tests.exe` uses the desktop theme.
 - Keep each file's line endings (`git ls-files --eol`); Git Bash `sed -i`
   drops CRLF. Commit with `git commit -F <file>` (UTF-8, no BOM).
 
@@ -46,8 +47,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   code gets a parent.
 - No modal dialog in a test path: put the logic in helpers the test can
   call. Command-line paths never prompt.
-- A test that crashes a child on purpose faults for real and sets
-  `SEM_NOGPFAULTERRORBOX` on Windows.
+- A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
+  on Windows.
 - Golden values change only in a commit that means to change output.
 
 ## Code
@@ -81,7 +82,6 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Layer order and group edits: `LayerManager::commitLayerArrangement`;
   timeline rows: `getLayerNumber`/`getLayerY`. Rendering asks
   `Object::isLayerVisible`; group opacity applies to the composite only.
-- Crash-handler code uses static buffers only.
 - Saving goes through `FileManager::save` (`<name>.tmp`, renamed only on
   success); movie export through `MovieExporter::writeThenReplace`; ffmpeg
   pipe writes only through `executeFFMpegPipe`, bounded by `bytesToWrite()`.
