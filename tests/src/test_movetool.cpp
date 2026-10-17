@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "testfixture.h"
 #include "toolmanager.h"
+#include "transformtool.h"
 #include "undoredomanager.h"
 #include "viewmanager.h"
 
@@ -326,4 +327,56 @@ TEST_CASE("MoveTool: corner scaling keeps the aspect ratio unless Shift is held"
     drag(area, screen(QPointF(40, 40)), screen(QPointF(60, 40)), Qt::ShiftModifier);
     CHECK(select->myScaleX() == Approx(1.5).margin(0.05));
     CHECK(select->myScaleY() == Approx(1.0).margin(0.05));
+}
+
+TEST_CASE("MoveTool: Transform key drags write the current Drawing's key transform")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(5);
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(3); // inside key 1's hold
+    editor->tools()->setCurrentTool(MOVE);
+    auto* move = static_cast<TransformTool*>(editor->tools()->getTool(MOVE));
+    move->setKeyTransformEnabled(true);
+    REQUIRE(move->transformSettings().keyTransformEnabled());
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+    auto state = [&] { return layer->getKeyFrameAt(1)->tweenState(); };
+
+    drag(area, screen(QPointF(0, 0)), screen(QPointF(30, 10)));
+    CHECK(state().tx == Approx(30).margin(0.5));
+    CHECK(state().ty == Approx(10).margin(0.5));
+    CHECK(editor->currentFrame() == 3);
+    CHECK(layer->getKeyFrameAt(5)->tweenState().isIdentity());
+
+    // Ctrl rotates around the Drawing's origin.
+    drag(area, screen(QPointF(40, 10)), screen(QPointF(30, 20)), Qt::ControlModifier);
+    CHECK(state().rot == Approx(90).margin(1));
+    CHECK(state().tx == Approx(30).margin(0.5));
+
+    // Shift scales around the Drawing's origin: twice as far from it is twice the size.
+    drag(area, screen(QPointF(40, 10)), screen(QPointF(50, 10)), Qt::ShiftModifier);
+    CHECK(state().scale == Approx(2).margin(0.05));
+    CHECK(state().rot == Approx(90).margin(1));
+    CHECK(state().tx == Approx(30).margin(0.5));
+
+    undoAction->trigger();
+    CHECK(state().scale == 1);
+    undoAction->trigger();
+    CHECK(state().rot == 0);
+    CHECK(state().tx == Approx(30).margin(0.5));
+    undoAction->trigger(); // one step per gesture
+    CHECK(state().isIdentity());
+    redoAction->trigger();
+    CHECK(state().tx == Approx(30).margin(0.5));
+    move->setKeyTransformEnabled(false);
 }

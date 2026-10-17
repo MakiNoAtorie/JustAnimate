@@ -40,3 +40,12 @@ void TransformTool::setAntiAliasingEnabled(bool enabled)
     toolProperties().setBaseValue(TransformToolProperties::ANTI_ALIASING_ENABLED, enabled);
     emit antiAliasingChanged(enabled);
 }
+
+void TransformTool::setKeyTransformEnabled(bool enabled)
+{
+    // Only the Move tool registers the property.
+    if (mSettings.getInfo(TransformToolProperties::KEYTRANSFORM_ENABLED).type() != PropertyInfo::BOOL) { return; }
+    toolProperties().setBaseValue(TransformToolProperties::KEYTRANSFORM_ENABLED, enabled);
+    emit keyTransformChanged(enabled);
+    mEditor->updateFrame();
+}

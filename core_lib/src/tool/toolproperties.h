@@ -664,6 +664,7 @@ struct TransformToolProperties: public ToolPropertiesBase
         START                        = 500,
         SHOWSELECTIONINFO_ENABLED    = START,
         ANTI_ALIASING_ENABLED        = 501,
+        KEYTRANSFORM_ENABLED         = 502, // Move tool: drags write the current Drawing's key transform
         END                          = 599,
     };
 
@@ -672,7 +673,8 @@ struct TransformToolProperties: public ToolPropertiesBase
 
         mProperties.insertIdentifiers({
             { SHOWSELECTIONINFO_ENABLED,    "ShowSelectionInfoEnabled" },
-            { ANTI_ALIASING_ENABLED,        "AntiAliasingEnabled" }
+            { ANTI_ALIASING_ENABLED,        "AntiAliasingEnabled" },
+            { KEYTRANSFORM_ENABLED,         "KeyTransformEnabled" }
         });
     }
 
@@ -684,6 +686,7 @@ struct TransformToolProperties: public ToolPropertiesBase
 
     bool showSelectionInfoEnabled() const { return getInfo(SHOWSELECTIONINFO_ENABLED).boolValue(); }
     bool antiAliasingEnabled() const { return getInfo(ANTI_ALIASING_ENABLED).boolValue(); }
+    bool keyTransformEnabled() const { const PropertyInfo i = getInfo(KEYTRANSFORM_ENABLED); return i.type() == PropertyInfo::BOOL && i.boolValue(); }
 
 private:
     ToolProperties mProperties;

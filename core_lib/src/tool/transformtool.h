@@ -31,10 +31,12 @@ public:
 
     void setShowSelectionInfo(bool enabled);
     void setAntiAliasingEnabled(bool enabled);
+    void setKeyTransformEnabled(bool enabled);
 
 signals:
     void showSelectionInfoChanged(bool enabled);
     void antiAliasingChanged(bool enabled);
+    void keyTransformChanged(bool enabled);
 
 protected:
     TransformToolProperties mSettings;

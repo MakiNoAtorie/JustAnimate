@@ -503,12 +503,12 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
     QMenu* easingMenu = menu.addMenu(tr("Tween Easing"));
     for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
     {
-        QAction* action = easingMenu->addAction(getInterpolationText(static_cast<CameraEasingType>(i)));
+        const CameraEasingType type = static_cast<CameraEasingType>(i);
+        QAction* action = easingMenu->addAction(QIcon(easingPreview(type)), getInterpolationText(type));
         action->setCheckable(true);
         action->setChecked(static_cast<int>(easing) == i);
         action->setData(i);
     }
-    QAction* transform = menu.addAction(tr("Key Transform..."));
     menu.addSeparator();
     // Same labels as the Mark actions; these act on the clicked Drawing, not the playhead.
     const Mark marks[] = { Mark::Key, Mark::Breakdown, Mark::Inbetween, Mark::None };
@@ -531,36 +531,31 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
     {
         tween = !tween;
     }
-    else if (chosen == transform)
-    {
-        QDialog dialog(this);
-        dialog.setWindowTitle(tr("Key Transform"));
-        QFormLayout* form = new QFormLayout(&dialog);
-        auto spin = [&](const QString& label, qreal value, qreal min, qreal max) {
-            QDoubleSpinBox* box = new QDoubleSpinBox(&dialog);
-            box->setRange(min, max);
-            box->setDecimals(2);
-            box->setValue(value);
-            form->addRow(label, box);
-            return box;
-        };
-        QDoubleSpinBox* tx = spin(tr("Move X:"), state.tx, -100000, 100000);
-        QDoubleSpinBox* ty = spin(tr("Move Y:"), state.ty, -100000, 100000);
-        QDoubleSpinBox* rot = spin(tr("Rotation:"), state.rot, -3600, 3600);
-        QDoubleSpinBox* scale = spin(tr("Scale:"), state.scale, 0.01, 100);
-        QDialogButtonBox* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-        form->addRow(buttons);
-        if (dialog.exec() != QDialog::Accepted) { return; }
-        state = TweenState{ tx->value(), ty->value(), rot->value(), scale->value(), state.opacity };
-    }
     else if (chosen->data().isValid())
     {
         easing = static_cast<CameraEasingType>(chosen->data().toInt());
         tween = true;
     }
     mEditor->layers()->setKeyTween(frame, tween, easing, state);
+}
+
+QPixmap TimeLineCells::easingPreview(CameraEasingType easing)
+{
+    const int size = 16;
+    QPixmap pixmap(size, size);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(QApplication::palette().color(QPalette::WindowText), 1.2));
+    // Progress runs bottom to top; elastic and back curves may leave the box and clip.
+    QPolygonF curve;
+    for (int i = 0; i <= size; ++i)
+    {
+        const qreal t = qreal(i) / size;
+        curve << QPointF(1 + t * (size - 2), size - 1 - easedProgress(easing, t) * (size - 2));
+    }
+    painter.drawPolyline(curve);
+    return pixmap;
 }
 
 void TimeLineCells::paintTrack(QPainter& painter, const Layer* layer,

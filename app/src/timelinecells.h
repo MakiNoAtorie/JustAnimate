@@ -50,6 +50,8 @@ public:
     TimeLineCells( TimeLine* parent, Editor* editor, TIMELINE_CELL_TYPE );
     ~TimeLineCells() override;
 
+    /** A small plot of the easing curve for the tween menu. */
+    static QPixmap easingPreview(CameraEasingType easing);
     static int getOffsetX() { return mOffsetX; }
     static int getOffsetY() { return mOffsetY; }
     int getLayerHeight() const { return mLayerHeight; }

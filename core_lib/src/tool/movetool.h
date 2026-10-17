@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "movemode.h"
 #include "preferencemanager.h"
 #include "undoredomanager.h"
+#include "keyframe.h"
 
 class Layer;
 class VectorImage;
@@ -62,6 +63,7 @@ private:
     void setAreaSelected(const QPointF& pos, VectorImage* vectorImage, Qt::KeyboardModifiers keyMod);
 
     Layer* currentPaintableLayer();
+    TweenState keyTransformAt(const QPointF& canvasPos) const;
 
     QPointF mCurrentPoint;
     qreal mRotatedAngle = 0.0;
@@ -70,6 +72,12 @@ private:
     QPointF mOffset;
 
     SAVESTATE_ID mUndoSaveStateId = 0;
+
+    // Transform key gesture: the key being edited (0 when none), its state and the press point.
+    int mKeyFrame = 0;
+    TweenState mKeyStart;
+    QPointF mKeyPress;
+    Qt::KeyboardModifiers mKeyMods; // Ctrl rotates, Shift scales, none moves
 };
 
 #endif

@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <memory>
 #include <QAction>
 #include <QDomDocument>
+#include <QDoubleSpinBox>
 #include <QIcon>
 #include <QPixmap>
 #include <QTemporaryDir>
@@ -34,6 +35,9 @@ GNU General Public License for more details.
 #include "timeline.h"
 #include "timelinecells.h"
 #include "tiledbuffer.h"
+#include "toolmanager.h"
+#include "transformoptionswidget.h"
+#include "transformtool.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
 
@@ -347,4 +351,42 @@ TEST_CASE("The timeline marks a tweened key up to the next key", "[Tween]")
     CHECK(render() == plain);
     layer->getKeyFrameAt(1)->setTween(true);
     CHECK(render() != plain);
+}
+
+TEST_CASE("Tool settings fields edit the current Drawing's key transform", "[Tween]")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(5);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(6);
+    editor->tools()->setCurrentTool(MOVE);
+    auto* move = static_cast<TransformTool*>(editor->tools()->getTool(MOVE));
+    TransformOptionsWidget widget(editor);
+    widget.updateUI();
+    move->setKeyTransformEnabled(true);
+
+    editor->layers()->setKeyTween(5, false, CameraEasingType::LINEAR, TweenState{ 12, 0, 0, 1 });
+    CHECK(editor->currentFrame() == 6);
+    QDoubleSpinBox* x = widget.findChild<QDoubleSpinBox*>("keyMoveXBox");
+    QDoubleSpinBox* opacity = widget.findChild<QDoubleSpinBox*>("keyOpacityBox");
+    REQUIRE(x);
+    REQUIRE(opacity);
+    CHECK(x->value() == 12);
+    CHECK(opacity->value() == 100);
+
+    opacity->setValue(40);
+    emit opacity->editingFinished();
+    CHECK(layer->getKeyFrameAt(5)->tweenState().opacity == Approx(0.4));
+    CHECK(layer->getKeyFrameAt(5)->tweenState().tx == 12);
+    move->setKeyTransformEnabled(false);
+}
+
+TEST_CASE("The tween menu previews each easing curve", "[Tween]")
+{
+    const QImage linear = TimeLineCells::easingPreview(CameraEasingType::LINEAR).toImage();
+    REQUIRE_FALSE(linear.isNull());
+    CHECK(linear != TimeLineCells::easingPreview(CameraEasingType::INQUAD).toImage());
 }

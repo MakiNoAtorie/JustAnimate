@@ -628,14 +628,17 @@ void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, c
     if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
     KeyFrame* key = layer->getKeyFrameAt(frame);
     if (key == nullptr) { return; }
-    // The keyframe undo state captures the key at the current frame.
-    if (editor()->currentFrame() != frame) { editor()->scrubTo(frame); }
+    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
+    const int playhead = editor()->currentFrame();
+    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
+    if (visit) { editor()->scrubTo(frame); }
 
     const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     key->setTween(tween);
     key->setTweenEasing(easing);
     key->setTweenState(state);
     editor()->undoRedo()->record(saveStateId, tr("Tween"));
+    if (visit) { editor()->scrubTo(playhead); }
     notifyLayerChanged(layer);
 }
 
