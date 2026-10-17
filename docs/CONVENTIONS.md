@@ -145,3 +145,41 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   attribution trailers.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
+
+## v1.4 homes
+
+- Seconds+frames text: `QString formatSecondsFrames(int frames, int fps)`
+  in `core_lib/src/util/util.h` (84 at 24 fps gives `3+12`). #211 adds it;
+  #210 and #212 reuse it. Whoever lands second keeps the one copy.
+- Paper template (#207): `struct PaperTemplate { bool on; QString kind,
+  title, id, name, state, date, notes; }` in `objectdata.h`, on
+  `ObjectData`. Saved as `<projectdata><paperTemplate on="1" kind="genga"
+  title id name state date notes/>`, omitted when off and all fields empty.
+  Edits record as one `PaperTemplateCommand` (old and new value).
+  Sheet and Title block draw only through
+  `paintPaperTemplate(QPainter&, const QRectF& cameraFrame, const
+  PaperTemplate&)` in `core_lib/src/paperpainter.{h,cpp}`; `CanvasPainter`
+  and the page writer both call it.
+- Page writer (#208): `core_lib/src/pagewriter.{h,cpp}`. `PageSpec { size
+  A4|B4; orientation; dpi }`; `QImage renderPage(const PageSpec&, const
+  PagePaintFn&, int page)` for tests; `Status writePages(path, PageSpec,
+  pageCount, PagePaintFn)` writes PDF (`QPdfWriter`) or PNG by extension,
+  PNG pages as `<base>_0001.png`. `PagePaintFn = std::function<void(QPainter&,
+  const QRectF& page, int index)>`. #210 and #212 add only a paint function.
+- Export menu: #208 adds File > Export > On paper…; #210 Timesheet…; #212
+  Storyboard…. Command line: #208 adds `--paper <A4|B4>`; with it `-o
+  x.pdf|x.png` exports on paper.
+- Timesheet column (#209): `enum class TimesheetColumn { Default, KeyA …
+  KeyF, InbetweenA … InbetweenF, Camera }` and `Layer::timesheetColumn()`.
+  Saved as `<layer timesheet="KA".."KF"|"IA".."IF"|"CAM">`, omitted for
+  Default. `effectiveTimesheetColumn(const Object&, int layerIndex)` resolves
+  Default from layer order; #210 reads only that. X-sheet layout: preference
+  `SETTING::XSHEET_LAYOUT`, key `"XSheetLayout"`, 0 Western, 1 Timesheet.
+- Storyboard (#211): `<layer storyboard="1">`, `Layer::isStoryboard()`.
+  Panel fields: `struct PanelFields { QString scene, cut, notes, audio; }`
+  on `KeyFrame` (`panelFields()`/`setPanelFields`), saved as `<image
+  scene cut notes audio>` each omitted when empty. Dock `objectName`
+  `"Storyboard"`, tabbed on the right; layout version 4 → 5. #212 exports
+  the first storyboard layer.
+- GLOSSARY terms: #205 Genga palette; #207 Paper template, Title block;
+  #209 Timesheet; #211 Storyboard layer, Panel field.
