@@ -407,6 +407,59 @@ private:
     PaperTemplate after;
 };
 
+/// Undo and redo of a change to the markers of one layer id (0: the global markers).
+class MarkersCommand : public UndoRedoCommand
+{
+public:
+    MarkersCommand(int layerId, const QMap<int, FrameMarker>& before, const QMap<int, FrameMarker>& after,
+                   const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(const QMap<int, FrameMarker>& markers);
+
+    int layerId = 0;
+    QMap<int, FrameMarker> before;
+    QMap<int, FrameMarker> after;
+};
+
+/// Undo and redo of a camera layer size change.
+class CameraSizeCommand : public UndoRedoCommand
+{
+public:
+    CameraSizeCommand(int layerId, QRect before, QRect after, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(QRect viewRect);
+
+    int layerId = 0;
+    QRect before;
+    QRect after;
+};
+
+/// Undo and redo of a Drawing opacity change, by key position.
+class KeyFrameOpacityCommand : public UndoRedoCommand
+{
+public:
+    KeyFrameOpacityCommand(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after,
+                           const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(const QMap<int, qreal>& opacities);
+
+    int layerId = 0;
+    QMap<int, qreal> before;
+    QMap<int, qreal> after;
+};
+
 /// Undo and redo of a change to the camera keys of a camera layer, by key position.
 class CameraModifyCommand : public UndoRedoCommand
 {

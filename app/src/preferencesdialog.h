@@ -44,6 +44,7 @@ public slots:
 
 signals:
     void windowOpacityChange(int);
+    void resetToolsRequested();
     void soundScrubChanged(bool b);
     void soundScrubMsecChanged(int mSec);
     void curveOpacityChange(int);

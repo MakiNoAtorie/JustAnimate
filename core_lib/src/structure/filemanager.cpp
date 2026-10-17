@@ -553,6 +553,9 @@ QDomElement FileManager::saveProjectData(const Object* object, QDomDocument& xml
         tag.setAttribute("state", paper.state);
         tag.setAttribute("date", paper.date);
         tag.setAttribute("notes", paper.notes);
+        if (!paper.sheetScene.isEmpty()) tag.setAttribute("sheetScene", paper.sheetScene);
+        if (!paper.sheetShot.isEmpty()) tag.setAttribute("sheetShot", paper.sheetShot);
+        if (!paper.sheetAnimator.isEmpty()) tag.setAttribute("sheetAnimator", paper.sheetAnimator);
         rootTag.appendChild(tag);
     }
 
@@ -637,6 +640,9 @@ void FileManager::extractProjectData(const QDomElement& element, ObjectData& dat
         paper.state = element.attribute("state");
         paper.date = element.attribute("date");
         paper.notes = element.attribute("notes");
+        paper.sheetScene = element.attribute("sheetScene");
+        paper.sheetShot = element.attribute("sheetShot");
+        paper.sheetAnimator = element.attribute("sheetAnimator");
         data.setPaperTemplate(paper);
     }
 }

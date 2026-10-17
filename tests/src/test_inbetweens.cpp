@@ -16,13 +16,16 @@ GNU General Public License for more details.
 
 #include <QAction>
 #include <QIcon>
+#include <QMenu>
 
 #include "cameraeasingtype.h"
+#include "cellmenus.h"
 #include "editor.h"
 #include "layerbitmap.h"
 #include "layermanager.h"
 #include "layervector.h"
 #include "object.h"
+#include "preferencemanager.h"
 #include "testfixture.h"
 #include "undoredomanager.h"
 #include "vectorimage.h"
@@ -137,4 +140,27 @@ TEST_CASE("Create inbetweens refuses different stroke counts and bitmap layers",
     CHECK(messages == 2);
     CHECK(bitmap->keyFrameCount() == 2);
     CHECK_FALSE(undo->isEnabled());
+}
+
+TEST_CASE("Create inbetweens stores the chosen easing and preselects it next time", "[Inbetweens]")
+{
+    TestSession session;
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->preference()->set(SETTING::INBETWEEN_EASING, static_cast<int>(CameraEasingType::LINEAR));
+
+    QMenu first;
+    CameraEasingType picked = CameraEasingType::LINEAR;
+    CellMenus::fillInbetweenEasingMenu(&first, editor, [&picked](CameraEasingType type) { picked = type; });
+    REQUIRE(first.activeAction() == first.actions().at(0));
+    first.actions().at(static_cast<int>(CameraEasingType::OUTQUAD))->trigger();
+    CHECK(picked == CameraEasingType::OUTQUAD);
+    CHECK(editor->preference()->getInt(SETTING::INBETWEEN_EASING) == static_cast<int>(CameraEasingType::OUTQUAD));
+
+    QMenu second;
+    CellMenus::fillInbetweenEasingMenu(&second, editor, [](CameraEasingType) {});
+    QAction* active = second.activeAction();
+    REQUIRE(active != nullptr);
+    CHECK(second.actions().indexOf(active) == static_cast<int>(CameraEasingType::OUTQUAD));
+    CHECK(active->isChecked());
 }

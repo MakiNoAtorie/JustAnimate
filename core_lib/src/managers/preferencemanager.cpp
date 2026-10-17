@@ -112,12 +112,22 @@ void PreferenceManager::loadPrefs()
     // Files
     set(SETTING::AUTO_SAVE,                settings.value(SETTING_AUTO_SAVE,              false).toBool());
     set(SETTING::AUTO_SAVE_NUMBER,         settings.value(SETTING_AUTO_SAVE_NUMBER,       256).toInt());
-    set(SETTING::AUTO_SAVE_BY_TIME,        settings.value(SETTING_AUTO_SAVE_BY_TIME,      false).toBool());
-    set(SETTING::AUTO_SAVE_BY_TIME_TIMER,  settings.value(SETTING_AUTO_SAVE_BY_TIME_TIMER,15).toInt());
-    set(SETTING::ASK_FOR_PRESET,           settings.value(SETTING_ASK_FOR_PRESET,         false).toBool());
-    set(SETTING::LOAD_MOST_RECENT,         settings.value(SETTING_LOAD_MOST_RECENT,       false).toBool());
-    set(SETTING::SHOW_WELCOME_SCREEN,      settings.value(SETTING_SHOW_WELCOME_SCREEN,    true).toBool());
-    set(SETTING::LOAD_DEFAULT_PRESET,      settings.value(SETTING_LOAD_DEFAULT_PRESET,    true).toBool());
+    set(SETTING::AUTO_SAVE_BY_TIME,        settings.value(SETTING_AUTO_SAVE_BY_TIME,      true).toBool());
+    set(SETTING::AUTO_SAVE_BY_TIME_TIMER,  settings.value(SETTING_AUTO_SAVE_BY_TIME_TIMER,5).toInt());
+    set(SETTING::AUTO_SAVE_REMINDER,       settings.value(SETTING_AUTO_SAVE_REMINDER,     true).toBool());
+    if (!settings.contains(SETTING_STARTUP_ACTION))
+    {
+        // The old flags showed the Welcome screen when either flag was on; LoadDefaultPreset never changed startup.
+        const bool welcome = settings.value(SETTING_SHOW_WELCOME_SCREEN, true).toBool() || settings.value(SETTING_ASK_FOR_PRESET, false).toBool();
+        const bool last = settings.value(SETTING_LOAD_MOST_RECENT, false).toBool();
+        settings.setValue(SETTING_STARTUP_ACTION, welcome ? STARTUP_WELCOME : last ? STARTUP_LAST_PROJECT : STARTUP_DEFAULT_PRESET);
+    }
+    settings.remove(SETTING_ASK_FOR_PRESET);
+    settings.remove(SETTING_SHOW_WELCOME_SCREEN);
+    settings.remove(SETTING_LOAD_MOST_RECENT);
+    settings.remove(SETTING_LOAD_DEFAULT_PRESET);
+    const int startup = settings.value(SETTING_STARTUP_ACTION, STARTUP_WELCOME).toInt();
+    set(SETTING::STARTUP_ACTION, startup >= STARTUP_WELCOME && startup <= STARTUP_DEFAULT_PRESET ? startup : int(STARTUP_WELCOME));
     set(SETTING::DEFAULT_PRESET,           settings.value(SETTING_DEFAULT_PRESET,         0).toInt());
 
     // Timeline
@@ -159,6 +169,7 @@ void PreferenceManager::loadPrefs()
 
     set(SETTING::LANGUAGE,                 settings.value(SETTING_LANGUAGE).toString());
     set(SETTING::LAST_TEMPLATE,            settings.value(SETTING_LAST_TEMPLATE).toString());
+    set(SETTING::INBETWEEN_EASING,         settings.value(SETTING_INBETWEEN_EASING,       0).toInt());
     set(SETTING::PRESSURE_CURVE,           settings.value(SETTING_PRESSURE_CURVE).toString());
 }
 
@@ -397,6 +408,12 @@ void PreferenceManager::set(SETTING option, int value)
     case SETTING::DEFAULT_PRESET:
         settings.setValue(SETTING_DEFAULT_PRESET, value);
         break;
+    case SETTING::STARTUP_ACTION:
+        settings.setValue(SETTING_STARTUP_ACTION, value);
+        break;
+    case SETTING::INBETWEEN_EASING:
+        settings.setValue(SETTING_INBETWEEN_EASING, value);
+        break;
     default:
         Q_ASSERT(false);
         break;
@@ -495,6 +512,9 @@ void PreferenceManager::set(SETTING option, bool value)
     case SETTING::AUTO_SAVE_BY_TIME:
         settings.setValue(SETTING_AUTO_SAVE_BY_TIME, value);
         break;
+    case SETTING::AUTO_SAVE_REMINDER:
+        settings.setValue(SETTING_AUTO_SAVE_REMINDER, value);
+        break;
     case SETTING::SHORT_SCRUB:
         settings.setValue(SETTING_SHORT_SCRUB, value);
         break;
@@ -521,18 +541,6 @@ void PreferenceManager::set(SETTING option, bool value)
         break;
     case SETTING::SOUND_SCRUB_ACTIVE:
         settings.setValue(SETTING_SOUND_SCRUB_ACTIVE, value);
-        break;
-    case SETTING::ASK_FOR_PRESET:
-        settings.setValue(SETTING_ASK_FOR_PRESET, value);
-        break;
-    case SETTING::LOAD_MOST_RECENT:
-        settings.setValue(SETTING_LOAD_MOST_RECENT, value);
-        break;
-    case SETTING::SHOW_WELCOME_SCREEN:
-        settings.setValue(SETTING_SHOW_WELCOME_SCREEN, value);
-        break;
-    case SETTING::LOAD_DEFAULT_PRESET:
-        settings.setValue(SETTING_LOAD_DEFAULT_PRESET, value);
         break;
     default:
         Q_ASSERT(false);

@@ -429,6 +429,21 @@ void UndoRedoManager::recordSceneLength(int oldLength, int newLength, const QStr
     pushCommand(new SceneLengthCommand(oldLength, newLength, description, editor()));
 }
 
+void UndoRedoManager::recordMarkers(int layerId, const QMap<int, FrameMarker>& before, const QString& description)
+{
+    pushCommand(new MarkersCommand(layerId, before, object()->data()->markers(layerId), description, editor()));
+}
+
+void UndoRedoManager::recordCameraSize(int layerId, QRect before, QRect after, const QString& description)
+{
+    pushCommand(new CameraSizeCommand(layerId, before, after, description, editor()));
+}
+
+void UndoRedoManager::recordKeyFrameOpacities(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after, const QString& description)
+{
+    pushCommand(new KeyFrameOpacityCommand(layerId, before, after, description, editor()));
+}
+
 void UndoRedoManager::recordLayerTimesheet(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description)
 {
     pushCommand(new LayerTimesheetCommand(layerId, oldColumn, newColumn, description, editor()));

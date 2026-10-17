@@ -23,7 +23,7 @@ The single row of buttons under the menu bar for file, edit, view and overlay co
 _Avoid_: Main toolbar, view toolbar, overlay toolbar
 
 **Tool column**:
-The Panel that shows one icon for each tool.
+The Panel that shows one icon for each tool. Its title and the menu that lists the tools are both "Tools"; "Tool column" is the term in code and documents.
 _Avoid_: Toolbox, tool palette
 
 **Tool settings**:
@@ -49,6 +49,10 @@ _Avoid_: Keymap, key scheme
 **View**:
 The pan, zoom, rotation and flip through which the canvas is shown. A change to the View never changes the drawing.
 _Avoid_: Camera (a camera is a layer type), viewport
+
+**Mirror**:
+To turn an image into its left-right or top-bottom reverse. Mirror View changes only how the canvas is shown; Mirror Selection changes the selected pixels or strokes.
+_Avoid_: Flip (Flip is the by-hand playback of Drawings)
 
 **View tool**:
 A tool that changes only the View: hand, zoom and rotate view.

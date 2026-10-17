@@ -18,21 +18,19 @@ GNU General Public License for more details.
 #include "timelinecells.h"
 #include "theme.h"
 
-#include <QActionGroup>
 #include <QApplication>
 #include <QResizeEvent>
-#include <QColorDialog>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFontMetrics>
 #include <QFormLayout>
-#include <QInputDialog>
+#include <QLineEdit>
 #include <QKeyEvent>
-#include <QMenu>
 #include <QPainter>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QTimer>
 #include <QDebug>
 
 #include "camerapropertiesdialog.h"
@@ -47,7 +45,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "timeline.h"
 
-#include "cameracontextmenu.h"
+#include "cellmenus.h"
 #include "pencilsettings.h"
 
 namespace
@@ -82,6 +80,24 @@ TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYP
     setFocusPolicy(Qt::TabFocus);
 
     connect(mPrefs, &PreferenceManager::optionChanged, this, &TimeLineCells::loadSetting);
+    if (mType == TIMELINE_CELL_TYPE::Layers)
+    {
+        mFlashTimer = new QTimer(this);
+        mFlashTimer->setInterval(150);
+        connect(mFlashTimer, &QTimer::timeout, this, [this] {
+            if (--mFlashTicks <= 0) { mFlashTimer->stop(); }
+            update();
+        });
+        connect(editor, &Editor::layerRefused, this, &TimeLineCells::flashLayer);
+    }
+}
+
+void TimeLineCells::flashLayer(int layerId)
+{
+    mFlashLayerId = layerId;
+    mFlashTicks = 6;
+    mFlashTimer->start();
+    update();
 }
 
 TimeLineCells::~TimeLineCells()
@@ -205,49 +221,18 @@ bool TimeLineCells::didDetachLayer() const {
 
 void TimeLineCells::showFrameMenu(QPoint pos)
 {
-    int frameNumber = getFrameNumber(pos.x());
-
-    const Layer* curLayer = mEditor->layers()->currentLayer();
+    const int frameNumber = getFrameNumber(pos.x());
+    Layer* curLayer = mEditor->layers()->currentLayer();
     Q_ASSERT(curLayer);
 
-    if ((curLayer->type() == Layer::BITMAP || curLayer->type() == Layer::VECTOR) && curLayer->keyExists(frameNumber))
-    {
-        showTweenMenu(frameNumber, mapToGlobal(pos));
-        return;
-    }
-
-    if (curLayer->type() == Layer::SOUND)
-    {
-        showMarkerMenu(frameNumber, curLayer->id(), mapToGlobal(pos));
-        return;
-    }
-
-    // only show menu if on camera layer and key exists
-    if (curLayer->type() != Layer::CAMERA || !curLayer->keyExists(frameNumber))
-    {
-        return;
-    }
-
-    mHighlightFrameEnabled = true;
+    // The camera menu highlights its key while it is open.
+    mHighlightFrameEnabled = curLayer->type() == Layer::CAMERA && curLayer->keyExists(frameNumber);
     mHighlightedFrame = frameNumber;
-
-    CameraContextMenu menu(mEditor, frameNumber,static_cast<const LayerCamera*>(curLayer));
-
-    menu.connect(&menu, &CameraContextMenu::aboutToHide, this, [=] {
-        mHighlightFrameEnabled = false;
-        mHighlightedFrame = -1;
-        update();
-
-        KeyFrame* key = curLayer->getKeyFrameAt(frameNumber);
-        if (key->isModified()) {
-            emit mEditor->frameModified(frameNumber);
-        }
-    });
-
-    // Update needs to happen before executing menu, otherwise paint event might be postponed
     update();
-
-    menu.exec(mapToGlobal(pos));
+    CellMenus::showCellMenu(mEditor, curLayer, frameNumber, mapToGlobal(pos));
+    mHighlightFrameEnabled = false;
+    mHighlightedFrame = -1;
+    updateContent();
 }
 
 void TimeLineCells::drawContent()
@@ -451,122 +436,6 @@ void TimeLineCells::paintTicks(QPainter& painter, const QPalette& palette) const
         painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, it.value().name);
     }
     painter.restore();
-}
-
-void TimeLineCells::showMarkerMenu(int frame, int layerId, const QPoint& globalPos)
-{
-    ObjectData* data = mEditor->object()->data();
-    const bool has = data->markers(layerId).contains(frame);
-
-    QMenu menu;
-    QAction* add = menu.addAction(has ? tr("Rename Marker...") : tr("Add Marker..."));
-    QAction* color = has ? menu.addAction(tr("Change Marker Color...")) : nullptr;
-    QAction* remove = has ? menu.addAction(tr("Remove Marker")) : nullptr;
-    QAction* chosen = menu.exec(globalPos);
-    if (chosen == nullptr) return;
-
-    FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
-    if (chosen == add)
-    {
-        bool ok = false;
-        const QString name = QInputDialog::getText(this, tr("Marker"), tr("Name:"), QLineEdit::Normal, m.name, &ok);
-        if (!ok) return;
-        m.name = name;
-        data->setMarker(frame, m, layerId);
-    }
-    else if (chosen == color)
-    {
-        const QColor c = QColorDialog::getColor(m.color, this);
-        if (!c.isValid()) return;
-        m.color = c;
-        data->setMarker(frame, m, layerId);
-    }
-    else if (chosen == remove)
-    {
-        data->removeMarker(frame, layerId);
-    }
-    mEditor->object()->modification();
-    updateContent();
-}
-
-void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
-{
-    const KeyFrame* key = mEditor->layers()->currentLayer()->getKeyFrameAt(frame);
-    bool tween = key->tween();
-    CameraEasingType easing = key->tweenEasing();
-    TweenState state = key->tweenState();
-
-    QMenu menu;
-    QAction* toggle = menu.addAction(tr("Tween to Next Key"));
-    toggle->setCheckable(true);
-    toggle->setChecked(tween);
-    QMenu* easingMenu = menu.addMenu(tr("Tween Easing"));
-    for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
-    {
-        const CameraEasingType type = static_cast<CameraEasingType>(i);
-        QAction* action = easingMenu->addAction(QIcon(easingPreview(type)), getInterpolationText(type));
-        action->setCheckable(true);
-        action->setChecked(static_cast<int>(easing) == i);
-        action->setData(i);
-    }
-    menu.addSeparator();
-    // Same labels as the Mark actions; these act on the clicked Drawing, not the playhead.
-    const Mark marks[] = { Mark::Key, Mark::Breakdown, Mark::Inbetween, Mark::None };
-    QActionGroup markGroup(&menu);
-    for (int i = 0; i < mMarkActions.size() && i < 4; ++i)
-    {
-        QAction* action = markGroup.addAction(menu.addAction(mMarkActions[i]->text()));
-        action->setCheckable(marks[i] != Mark::None);
-        action->setChecked(marks[i] != Mark::None && key->mark() == marks[i]);
-    }
-    QAction* unlink = nullptr;
-    if (mEditor->layers()->currentLayer()->isLinked(key))
-    {
-        menu.addSeparator();
-        unlink = menu.addAction(tr("Unlink Drawing"));
-    }
-    QAction* chosen = menu.exec(globalPos);
-    if (chosen == nullptr) { return; }
-    if (chosen == unlink)
-    {
-        mEditor->layers()->unlinkDrawing(frame);
-        return;
-    }
-    if (chosen->actionGroup() == &markGroup)
-    {
-        mEditor->layers()->setKeyMark(frame, marks[markGroup.actions().indexOf(chosen)]);
-        return;
-    }
-
-    if (chosen == toggle)
-    {
-        tween = !tween;
-    }
-    else if (chosen->data().isValid())
-    {
-        easing = static_cast<CameraEasingType>(chosen->data().toInt());
-        tween = true;
-    }
-    mEditor->layers()->setKeyTween(frame, tween, easing, state);
-}
-
-QPixmap TimeLineCells::easingPreview(CameraEasingType easing)
-{
-    const int size = 16;
-    QPixmap pixmap(size, size);
-    pixmap.fill(Qt::transparent);
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(QPen(QApplication::palette().color(QPalette::WindowText), 1.2));
-    // Progress runs bottom to top; elastic and back curves may leave the box and clip.
-    QPolygonF curve;
-    for (int i = 0; i <= size; ++i)
-    {
-        const qreal t = qreal(i) / size;
-        curve << QPointF(1 + t * (size - 2), size - 1 - easedProgress(easing, t) * (size - 2));
-    }
-    painter.drawPolyline(curve);
-    return pixmap;
 }
 
 void TimeLineCells::paintTrack(QPainter& painter, const Layer* layer,
@@ -1037,6 +906,18 @@ void TimeLineCells::paintEvent(QPaintEvent*)
         painter.drawPixmap(QPoint(0, 0), *mCache);
     }
 
+    const Object* object = mEditor->object();
+    for (int i = 0; mFlashTicks % 2 == 1 && i < object->getLayerCount(); ++i)
+    {
+        const Layer* layer = object->getLayer(i);
+        if (layer->id() != mFlashLayerId || object->isLayerFolded(i)) { continue; }
+        // A hidden layer flashes its eye; a locked one its lock.
+        const int left = layer->visible() ? kLockAllLeft : 2;
+        QColor accent = palette.color(QPalette::Highlight);
+        accent.setAlpha(160);
+        painter.fillRect(QRect(left, getLayerY(i), 18, mLayerHeight - 2), accent);
+    }
+
     if (mType == TIMELINE_CELL_TYPE::Tracks)
     {
         if (!isPlaying) {
@@ -1143,6 +1024,10 @@ void TimeLineCells::keyPressEvent(QKeyEvent* event)
     case Qt::Key_Left: mEditor->scrubBackward(); break;
     case Qt::Key_Up: mEditor->layers()->gotoNextLayer(); break;
     case Qt::Key_Down: mEditor->layers()->gotoPreviouslayer(); break;
+    case Qt::Key_F2:
+        if (mType != TIMELINE_CELL_TYPE::Layers) { QWidget::keyPressEvent(event); return; }
+        renameCurrentLayer();
+        break;
     default: QWidget::keyPressEvent(event); return;
     }
     event->accept();
@@ -1230,125 +1115,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             }
             if (event->pos().x() >= 15 && event->button() == Qt::RightButton)
             {
-                Layer* layer = mEditor->object()->getLayer(layerNumber);
-                QMenu menu;
-                QAction* lockAlpha = nullptr;
-                if (layer->type() == Layer::BITMAP)
-                {
-                    lockAlpha = menu.addAction(tr("Lock Transparency"));
-                    lockAlpha->setCheckable(true);
-                    lockAlpha->setChecked(static_cast<LayerBitmap*>(layer)->lockAlpha());
-                }
-                QAction* rough = nullptr;
-                QAction* storyboard = nullptr;
-                if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
-                {
-                    rough = menu.addAction(tr("Rough Layer"));
-                    rough->setCheckable(true);
-                    rough->setChecked(layer->isRough());
-                    storyboard = menu.addAction(tr("Storyboard Layer"));
-                    storyboard->setCheckable(true);
-                    storyboard->setChecked(layer->isStoryboard());
-                    QMenu* blend = menu.addMenu(tr("Blend Mode"));
-                    QActionGroup* group = new QActionGroup(blend);
-                    for (int mode = 0; mode < kBlendModeCount; ++mode)
-                    {
-                        QAction* action = blend->addAction(QCoreApplication::translate("BlendMode", kBlendModeNames[mode]));
-                        action->setCheckable(true);
-                        action->setChecked(static_cast<int>(layer->blendMode()) == mode);
-                        action->setData(mode);
-                        group->addAction(action);
-                    }
-                }
-                QMenu* timesheet = nullptr;
-                if (layer->type() != Layer::SOUND)
-                {
-                    timesheet = menu.addMenu(tr("Timesheet Column"));
-                    QActionGroup* group = new QActionGroup(timesheet);
-                    for (int c = 0; c <= static_cast<int>(TimesheetColumn::Camera); ++c)
-                    {
-                        if (static_cast<TimesheetColumn>(c) == TimesheetColumn::Dialogue) { continue; } // sound layers only
-                        QAction* action = timesheet->addAction(Layer::timesheetColumnName(static_cast<TimesheetColumn>(c)));
-                        action->setCheckable(true);
-                        action->setChecked(static_cast<int>(layer->timesheetColumn()) == c);
-                        action->setData(c);
-                        group->addAction(action);
-                    }
-                }
-                menu.addSeparator();
-                QAction* newGroup = nullptr;
-                QAction* ungroup = nullptr;
-                QAction* collapse = nullptr;
-                QAction* groupVisible = nullptr;
-                QAction* groupOpacity = nullptr;
-                if (clickedGroup == nullptr) { newGroup = menu.addAction(tr("New Group")); }
-                QMenu* addTo = menu.addMenu(tr("Add to Group"));
-                for (const LayerGroup& g : mEditor->object()->layerGroups())
-                {
-                    if (g.id != layer->groupId() && mEditor->object()->layerGroupRange(g.id).first >= 0)
-                    {
-                        addTo->addAction(g.name)->setData(g.id);
-                    }
-                }
-                addTo->setEnabled(!addTo->isEmpty());
-                if (clickedGroup)
-                {
-                    ungroup = menu.addAction(tr("Remove from Group"));
-                    collapse = menu.addAction(clickedGroup->collapsed ? tr("Expand Group") : tr("Collapse Group"));
-                    groupVisible = menu.addAction(tr("Show Group"));
-                    groupVisible->setCheckable(true);
-                    groupVisible->setChecked(clickedGroup->visible);
-                    groupOpacity = menu.addAction(tr("Group Opacity..."));
-                }
-                QAction* chosen = menu.exec(event->globalPosition().toPoint());
-                if (chosen && chosen == lockAlpha)
-                {
-                    static_cast<LayerBitmap*>(layer)->setLockAlpha(lockAlpha->isChecked());
-                    mEditor->object()->modification();
-                }
-                else if (chosen && chosen == rough)
-                {
-                    mEditor->layers()->setRough(layer, rough->isChecked());
-                }
-                else if (chosen && chosen == storyboard)
-                {
-                    mEditor->layers()->setStoryboard(layer, storyboard->isChecked());
-                }
-                else if (chosen && chosen == newGroup)
-                {
-                    mEditor->layers()->createLayerGroup(layer);
-                }
-                else if (chosen && chosen == ungroup)
-                {
-                    mEditor->layers()->removeLayerFromGroup(layer);
-                }
-                else if (chosen && chosen == collapse)
-                {
-                    mEditor->layers()->setLayerGroupCollapsed(clickedGroup->id, !clickedGroup->collapsed);
-                }
-                else if (chosen && chosen == groupVisible)
-                {
-                    mEditor->layers()->setLayerGroupVisible(clickedGroup->id, groupVisible->isChecked());
-                }
-                else if (chosen && chosen == groupOpacity)
-                {
-                    bool ok = false;
-                    const int percent = QInputDialog::getInt(this, tr("Group Opacity"), tr("Opacity (%):"),
-                                                             qRound(clickedGroup->opacity * 100), 0, 100, 1, &ok);
-                    if (ok) { mEditor->layers()->setLayerGroupOpacity(clickedGroup->id, percent / 100.0); }
-                }
-                else if (chosen && timesheet && chosen->parent() == timesheet)
-                {
-                    mEditor->layers()->setTimesheetColumn(layer, static_cast<TimesheetColumn>(chosen->data().toInt()));
-                }
-                else if (chosen && chosen->parent() == addTo)
-                {
-                    mEditor->layers()->addLayerToGroup(layer, chosen->data().toInt());
-                }
-                else if (chosen && chosen->data().isValid())
-                {
-                    mEditor->layers()->setBlendMode(layer, static_cast<BlendMode>(chosen->data().toInt()));
-                }
+                CellMenus::showLayerMenu(mEditor, mEditor->object()->getLayer(layerNumber), event->globalPosition().toPoint());
             }
         }
         if (layerNumber == -1)
@@ -1366,7 +1133,8 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     case TIMELINE_CELL_TYPE::Tracks:
         if (event->button() == Qt::RightButton && mStartY < 20)
         {
-            showMarkerMenu(mEditor->currentFrame(), 0, event->globalPosition().toPoint());
+            CellMenus::showMarkerMenu(mEditor, 0, mEditor->currentFrame(), event->globalPosition().toPoint());
+            updateContent();
             return;
         }
         if (event->button() == Qt::LeftButton && event->modifiers() == Qt::ShiftModifier && mStartY < 20 && frameNumber > 0)
@@ -1469,7 +1237,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                         emit selectionChanged();
                     }
 
-                    mTimeLine->updateContent();
+                    if (mTimeLine) { mTimeLine->updateContent(); }
                 }
                 else
                 {
@@ -1669,26 +1437,17 @@ void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
             // deselected now instead.
             layer->setFrameSelected(frameNumber, true);
         }
-        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight &&
-                 (event->pos().x() < kLockAlphaLeft || event->pos().x() >= kLayerNameLeft))
+        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kLayerNameLeft)
         {
-            editLayerProperties(layer);
+            startRename(layer);
+        }
+        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight && event->pos().x() < kLockAlphaLeft &&
+                 layer->type() == Layer::CAMERA)
+        {
+            editLayerProperties(static_cast<LayerCamera*>(layer));
         }
     }
     QWidget::mouseDoubleClickEvent(event);
-}
-
-void TimeLineCells::editLayerProperties(Layer *layer) const
-{
-    if (layer->type() != Layer::CAMERA)
-    {
-        editLayerName(layer);
-        return;
-    }
-
-    auto cameraLayer = dynamic_cast<LayerCamera*>(layer);
-    Q_ASSERT(cameraLayer);
-    editLayerProperties(cameraLayer);
 }
 
 void TimeLineCells::editLayerProperties(LayerCamera* cameraLayer) const
@@ -1710,27 +1469,70 @@ void TimeLineCells::editLayerProperties(LayerCamera* cameraLayer) const
     QSettings& settings = pencilSettings();
     settings.setValue(SETTING_FIELD_W, dialog.getWidth());
     settings.setValue(SETTING_FIELD_H, dialog.getHeight());
-    cameraLayer->setViewRect(QRect(-dialog.getWidth() / 2, -dialog.getHeight() / 2, dialog.getWidth(), dialog.getHeight()));
-    mEditor->view()->forceUpdateViewTransform();
+    mEditor->layers()->setCameraSize(cameraLayer, QSize(dialog.getWidth(), dialog.getHeight()));
 }
 
-void TimeLineCells::editLayerName(Layer* layer) const
+void TimeLineCells::renameCurrentLayer()
 {
-    QRegularExpression regex("([\\x{FFEF}-\\x{FFFF}])+");
-
-    bool ok;
-    QString name = QInputDialog::getText(nullptr, tr("Layer Properties"),
-                                         tr("Layer name:"), QLineEdit::Normal,
-                                         layer->name(), &ok);
-    name.replace(regex, "");
-    if (!ok || name.isEmpty())
-    {
-        return;
-    }
-
-    mEditor->layers()->renameLayer(layer, name);
+    startRename(mEditor->layers()->currentLayer());
 }
 
+void TimeLineCells::startRename(Layer* layer)
+{
+    if (!layer) { return; }
+    finishRename(false);
+    const Object* object = mEditor->object();
+    int number = 0;
+    while (number < object->getLayerCount() - 1 && object->getLayer(number) != layer) { ++number; }
+    mRenameLayerId = layer->id();
+    mRenameEdit = new QLineEdit(layer->name(), this);
+    mRenameEdit->setGeometry(kLayerNameLeft, getLayerY(number), width() - kLayerNameLeft, mLayerHeight);
+    mRenameEdit->installEventFilter(this);
+    mRenameEdit->selectAll();
+    mRenameEdit->show();
+    mRenameEdit->setFocus();
+}
+
+void TimeLineCells::finishRename(bool accept)
+{
+    if (!mRenameEdit) { return; }
+    QLineEdit* edit = mRenameEdit;
+    mRenameEdit = nullptr;
+    static const QRegularExpression regex("([\\x{FFEF}-\\x{FFFF}])+");
+    QString name = edit->text();
+    name.replace(regex, "");
+    Layer* layer = mEditor->object()->findLayerById(mRenameLayerId);
+    edit->removeEventFilter(this);
+    edit->deleteLater();
+    edit->hide();
+    if (accept && layer && name != layer->name())
+    {
+        mEditor->layers()->renameLayer(layer, name);
+    }
+}
+
+bool TimeLineCells::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == mRenameEdit)
+    {
+        if (event->type() == QEvent::KeyPress)
+        {
+            const int key = static_cast<QKeyEvent*>(event)->key();
+            if (key == Qt::Key_Escape) { finishRename(false); return true; }
+            if (key == Qt::Key_Return || key == Qt::Key_Enter)
+            {
+                // An empty name is refused: the editor stays open.
+                if (!mRenameEdit->text().trimmed().isEmpty()) { finishRename(true); }
+                return true;
+            }
+        }
+        else if (event->type() == QEvent::FocusOut)
+        {
+            finishRename(!mRenameEdit->text().trimmed().isEmpty());
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
 void TimeLineCells::hScrollChange(int x)
 {
     mFrameOffset = x;

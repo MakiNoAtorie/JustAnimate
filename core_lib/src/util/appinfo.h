@@ -38,6 +38,6 @@ GNU General Public License for more details.
 // JustAnimate is based on Pencil2D, whose user manual still applies
 #define UPSTREAM_NAME       "Pencil2D"
 #define UPSTREAM_URL        "https://www.pencil2d.org"
-#define UPSTREAM_DOCS_URL   "https://www.pencil2d.org/doc/"
+#define APP_DOCS_URL        APP_REPO_URL "#readme"
 
 #endif // APPINFO_H

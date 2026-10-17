@@ -56,7 +56,7 @@ bool PlaybackManager::init()
     mSoundclipsToPLay.clear();
 
     QSettings& settings = pencilSettings();
-    mFps = settings.value(SETTING_FPS).toInt();
+    mFps = qMax(1, settings.value(SETTING_FPS, 12).toInt()); // the timeline divides by it
     mMsecSoundScrub = settings.value(SETTING_SOUND_SCRUB_MSEC).toInt();
     if (mMsecSoundScrub == 0) { mMsecSoundScrub = 100; }
     mSoundScrub = settings.value(SETTING_SOUND_SCRUB_ACTIVE).toBool();

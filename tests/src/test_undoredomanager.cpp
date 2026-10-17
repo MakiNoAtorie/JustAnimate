@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include <functional>
 
 #include <QAction>
+#include <QDoubleSpinBox>
+#include <QSlider>
 #include <QApplication>
 #include <QDataStream>
 #include <QElapsedTimer>
@@ -28,7 +30,9 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QTabletEvent>
 #include <QTemporaryDir>
+#include <QTimer>
 
+#include "actioncommands.h"
 #include "beziercurve.h"
 #include "camera.h"
 #include "cameracontextmenu.h"
@@ -44,6 +48,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layersound.h"
 #include "layermanager.h"
+#include "layeropacitydialog.h"
 #include "object.h"
 #include "pencildef.h"
 #include "preferencemanager.h"
@@ -1194,6 +1199,61 @@ TEST_CASE("UndoRedoManager - moving a sound clip moves the lip-sync markers insi
     CHECK(markers() == after);
 }
 
+TEST_CASE("UndoRedoManager - adding moving and removing a marker are one undo step each")
+{
+    TestSession session;
+    ObjectData* data = session.object->data();
+    data->setMarker(2, { "keep", Qt::blue });
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    LayerManager* layers = editor->layers();
+
+    // Lists "frame=name/color" for the global markers.
+    auto markers = [&]
+    {
+        QString list;
+        const auto m = data->markers();
+        for (auto it = m.constBegin(); it != m.constEnd(); ++it)
+        {
+            list += QString("%1=%2/%3 ").arg(it.key()).arg(it.value().name, it.value().color.name());
+        }
+        return list.trimmed().toStdString();
+    };
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    const std::string start = "2=keep/#0000ff";
+    const std::string added = "2=keep/#0000ff 5=A/#ff0000";
+    const std::string moved = "2=keep/#0000ff 8=A/#ff0000";
+    const std::string removed = "8=A/#ff0000";
+
+    layers->setMarker(0, 5, { "A", Qt::red });
+    CHECK(markers() == added);
+    CHECK(undoAction->text().endsWith("Add Marker"));
+    REQUIRE(layers->moveMarker(0, 5, 8));
+    CHECK(markers() == moved);
+    CHECK(undoAction->text().endsWith("Move Marker"));
+    layers->removeMarker(0, 2);
+    CHECK(markers() == removed);
+    CHECK(undoAction->text().endsWith("Remove Marker"));
+    CHECK_FALSE(layers->moveMarker(0, 2, 3));
+
+    undoAction->trigger();
+    CHECK(markers() == moved);
+    undoAction->trigger();
+    CHECK(markers() == added);
+    undoAction->trigger();
+    CHECK(markers() == start);
+    redoAction->trigger();
+    CHECK(markers() == added);
+    redoAction->trigger();
+    CHECK(markers() == moved);
+    redoAction->trigger();
+    CHECK(markers() == removed);
+}
+
 namespace
 {
 
@@ -1646,4 +1706,193 @@ TEST_CASE("UndoRedoManager: deleting a sound layer stops its playing clip")
     REQUIRE(clip->isPlaying());
     REQUIRE(editor->layers()->deleteLayer(editor->layers()->currentLayerIndex()) == Status::OK);
     CHECK_FALSE(clip->isPlaying()); // the undo stack keeps the layer and its clip alive
+}
+
+TEST_CASE("UndoRedoManager: change line color is one undo step")
+{
+    TestSession session;
+    Object* object = session.object;
+    object->addNewCameraLayer();
+    LayerBitmap* layer = object->addNewBitmapLayer();
+    for (int pos : { 1, 3, 6 })
+    {
+        layer->addNewKeyFrameAt(pos);
+        layer->getBitmapImageAtFrame(pos)->setPixel(pos, 0, qRgba(0, 0, 0, 255));
+    }
+
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(3);
+    editor->color()->setFrontColor(QColor(255, 0, 0));
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+
+    // Lists "position=pixel" for every Drawing, last to first.
+    auto pixels = [&]
+    {
+        QString list;
+        layer->foreachKeyFrame([&](KeyFrame* key)
+        {
+            list += QString("%1=%2 ").arg(key->pos()).arg(static_cast<BitmapImage*>(key)->pixel(key->pos(), 0), 8, 16);
+        });
+        return list.trimmed().toStdString();
+    };
+    const std::string before = pixels();
+    REQUIRE(before == "6=ff000000 3=ff000000 1=ff000000");
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto checkUndoRedo = [&](const std::string& after)
+    {
+        REQUIRE(pixels() == after);
+        REQUIRE(editor->currentFrame() == 3);
+        undoAction->trigger();
+        REQUIRE(pixels() == before);
+        REQUIRE_FALSE(undoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(pixels() == after);
+    };
+
+    SECTION("Current Drawing")
+    {
+        commands.changeKeyframeLineColor();
+        checkUndoRedo("6=ff000000 3=ffff0000 1=ff000000");
+    }
+
+    SECTION("All Drawings on the layer")
+    {
+        commands.changeallKeyframeLineColor();
+        checkUndoRedo("6=ffff0000 3=ffff0000 1=ffff0000");
+    }
+}
+
+TEST_CASE("Change line color refuses a hidden layer")
+{
+    TestSession session;
+    session.object->addNewCameraLayer();
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->getBitmapImageAtFrame(1)->setPixel(0, 0, qRgba(0, 0, 0, 255));
+    layer->setVisible(false);
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->color()->setFrontColor(QColor(255, 0, 0));
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+
+    commands.changeKeyframeLineColor();
+    commands.changeallKeyframeLineColor();
+    CHECK(layer->getBitmapImageAtFrame(1)->pixel(0, 0) == qRgba(0, 0, 0, 255));
+}
+
+TEST_CASE("LayerOpacityDialog: a slider drag or a typed value is one undo step")
+{
+    TestSession session;
+    session.object->addNewCameraLayer();
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    int records = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&] { ++records; });
+
+    LayerOpacityDialog dialog(nullptr);
+    dialog.setCore(editor);
+    dialog.initUI();
+    QSlider* slider = dialog.findChild<QSlider*>("chooseOpacitySlider");
+    QDoubleSpinBox* spinBox = dialog.findChild<QDoubleSpinBox*>("chooseOpacitySpinBox");
+    REQUIRE(slider);
+    REQUIRE(spinBox);
+    KeyFrame* key = layer->getKeyFrameAt(1);
+    REQUIRE(key->getOpacity() == Approx(1.0));
+
+    SECTION("Slider drag")
+    {
+        slider->setSliderDown(true);
+        for (int value : { 400, 300, 200 }) { slider->setValue(value); }
+        CHECK(records == 0);
+        CHECK(key->getOpacity() == Approx(0.4));
+        slider->setSliderDown(false);
+        CHECK(records == 1);
+    }
+
+    SECTION("Typed value")
+    {
+        spinBox->setValue(40.0);
+        CHECK(records == 1);
+        CHECK(key->getOpacity() == Approx(0.4));
+    }
+
+    undoAction->trigger();
+    CHECK(key->getOpacity() == Approx(1.0));
+    CHECK_FALSE(undoAction->isEnabled());
+    CHECK(slider->value() == slider->maximum()); // the open dialog shows the undone value
+    CHECK(spinBox->value() == Approx(100.0));
+}
+
+TEST_CASE("ActionCommands: new Bitmap Vector and Sound layers need no dialog and undo in one step")
+{
+    TestSession session;
+    session.object->addNewCameraLayer();
+    session.start();
+    Editor* editor = session.editor.get();
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    // A dialog would block the test; close it so the check fails instead.
+    QTimer closer;
+    QObject::connect(&closer, &QTimer::timeout, [] { if (QWidget* w = QApplication::activeModalWidget()) { w->close(); } });
+    closer.start(0);
+
+    const struct { Layer::LAYER_TYPE type; const char* name; Status (ActionCommands::*add)(); } kinds[] = {
+        { Layer::BITMAP, "Bitmap Layer", &ActionCommands::addNewBitmapLayer },
+        { Layer::VECTOR, "Vector Layer", &ActionCommands::addNewVectorLayer },
+        { Layer::SOUND, "Sound Layer", &ActionCommands::addNewSoundLayer },
+    };
+    for (const auto& kind : kinds)
+    {
+        const int count = editor->layers()->count();
+        (commands.*kind.add)();
+        REQUIRE(editor->layers()->count() == count + 1);
+        REQUIRE(editor->layers()->currentLayer()->type() == kind.type);
+        REQUIRE(editor->layers()->currentLayer()->name() == QString(kind.name));
+        (commands.*kind.add)();
+        REQUIRE(editor->layers()->currentLayer()->name() == QString(kind.name) + " 2");
+
+        undoAction->trigger();
+        undoAction->trigger();
+        REQUIRE(editor->layers()->count() == count);
+    }
+}
+
+TEST_CASE("ActionCommands: a new Camera layer with its size undoes in one step")
+{
+    TestSession session;
+    session.object->addNewCameraLayer();
+    session.start();
+    Editor* editor = session.editor.get();
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    const int count = editor->layers()->count();
+
+    REQUIRE((commands.addNewCameraLayer("Close-up", QSize(320, 240)) == Status::OK));
+    REQUIRE(editor->layers()->count() == count + 1);
+    auto* camera = static_cast<LayerCamera*>(editor->layers()->currentLayer());
+    REQUIRE(camera->type() == Layer::CAMERA);
+    CHECK(camera->name() == "Close-up");
+    CHECK(camera->getViewRect().size() == QSize(320, 240));
+
+    undoAction->trigger();
+    CHECK(editor->layers()->count() == count);
+    CHECK_FALSE(undoAction->isEnabled());
 }

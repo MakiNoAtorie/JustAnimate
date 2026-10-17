@@ -20,9 +20,11 @@ GNU General Public License for more details.
 #include <QApplication>
 #include <QDomDocument>
 #include <QIcon>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QSettings>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 
@@ -86,7 +88,74 @@ void drag(QWidget* target, QPoint from, QPoint to)
     mouse(target, QEvent::MouseButtonRelease, to, Qt::NoButton);
 }
 
+void menuTexts(const QMenu* menu, QStringList* texts)
+{
+    for (const QAction* action : menu->actions())
+    {
+        *texts << action->text();
+        if (action->menu()) { menuTexts(action->menu(), texts); }
+    }
+}
+
+// The texts of the menu a right-click at pos opens, submenus included; empty when none opens.
+QStringList rightClickMenu(QWidget* target, QPoint pos)
+{
+    QStringList texts;
+    QTimer::singleShot(0, [&texts] {
+        if (auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget()))
+        {
+            menuTexts(menu, &texts);
+            menu->close();
+        }
+    });
+    QMouseEvent press(QEvent::MouseButtonPress, QPointF(pos), QPointF(target->mapToGlobal(pos)), Qt::RightButton, Qt::RightButton, Qt::NoModifier);
+    QApplication::sendEvent(target, &press); // no release: a bare TimeLineCells needs its TimeLine there
+    QApplication::processEvents(); // runs the timer when no menu opened
+    return texts;
+}
+
 } // namespace
+
+TEST_CASE("X-sheet right-click opens the timeline's cell and layer menus", "[XSheet]")
+{
+    TestSession s;
+    LayerBitmap* bitmap = s.object->addNewBitmapLayer();
+    REQUIRE((bitmap->keyExists(1) || bitmap->addNewKeyFrameAt(1)));
+    s.object->addNewSoundLayer();
+    LayerCamera* camera = s.object->addNewCameraLayer();
+    REQUIRE((camera->keyExists(1) || camera->addNewKeyFrameAt(1)));
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+
+    XSheet xsheet(nullptr);
+    xsheet.setEditor(editor);
+    xsheet.initUI();
+    xsheet.resize(800, 400);
+    xsheet.show();
+    QApplication::processEvents();
+    QWidget* sheet = xsheet.findChild<QAbstractScrollArea*>()->viewport();
+    TimeLineCells tracks(nullptr, editor, TIMELINE_CELL_TYPE::Tracks);
+    TimeLineCells labels(nullptr, editor, TIMELINE_CELL_TYPE::Layers);
+
+    const int count = s.object->getLayerCount();
+    for (int i = 0; i < count; ++i)
+    {
+        INFO("layer " << i);
+        const int rowY = TimeLineCells::getOffsetY() + (count - 1 - i) * labels.getLayerHeight() + labels.getLayerHeight() / 2;
+        const QPoint sheetCell = xsheet.cellRect(i, 1).center();
+
+        editor->layers()->setCurrentLayer(i);
+        const QStringList timelineCellMenu = rightClickMenu(&tracks, QPoint(tracks.getFrameSize() / 2, rowY));
+        editor->layers()->setCurrentLayer(i == 0 ? 1 : 0);
+        CHECK(!timelineCellMenu.isEmpty());
+        CHECK(rightClickMenu(sheet, sheetCell) == timelineCellMenu);
+        CHECK(editor->layers()->currentLayerIndex() == i);
+
+        const QStringList timelineLayerMenu = rightClickMenu(&labels, QPoint(200, rowY));
+        CHECK(!timelineLayerMenu.isEmpty());
+        CHECK(rightClickMenu(sheet, QPoint(sheetCell.x(), 5)) == timelineLayerMenu);
+    }
+}
 
 TEST_CASE("X-sheet runs number each Drawing and end where the next one starts", "[XSheet]")
 {
@@ -407,12 +476,12 @@ TEST_CASE("Layers that share a Timesheet column each get a sub-column bottom-up"
     CHECK(xsheet.cellRect(1, 1).left() == b.left() + b.width());
 }
 
-TEST_CASE("X-sheet visibility has a command with no default key", "[XSheet]")
+TEST_CASE("X-sheet visibility has a command with the default key Ctrl+5", "[XSheet]")
 {
     QSettings preset(":resources/kb.ini", QSettings::IniFormat);
     preset.beginGroup("shortcuts");
     REQUIRE(preset.contains(CMD_TOGGLE_XSHEET));
-    CHECK(preset.value(CMD_TOGGLE_XSHEET).toString().isEmpty());
+    CHECK(preset.value(CMD_TOGGLE_XSHEET).toString() == "Ctrl+5");
 }
 
 TEST_CASE("A Timesheet export has one sheet per 144 frames", "[XSheet]")

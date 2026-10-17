@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layercamera.h"
 #include "undoredomanager.h"
+#include "viewmanager.h"
 #include "bitmapimage.h"
 #include "vectorimage.h"
 #include "cameraeasingtype.h"
@@ -506,6 +507,17 @@ bool LayerManager::setSceneLength(int length)
     return true;
 }
 
+void LayerManager::setCameraSize(LayerCamera* layer, QSize size)
+{
+    const QRect old = layer->getViewRect();
+    const QRect rect(-size.width() / 2, -size.height() / 2, size.width(), size.height());
+    if (rect == old) { return; }
+    layer->setViewRect(rect);
+    editor()->undoRedo()->recordCameraSize(layer->id(), old, rect, tr("Camera Size"));
+    object()->modification();
+    editor()->view()->forceUpdateViewTransform();
+}
+
 void LayerManager::setStoryboard(Layer* layer, bool storyboard)
 {
     if (layer == nullptr || layer->isStoryboard() == storyboard) { return; }
@@ -692,7 +704,8 @@ void LayerManager::setKeyMark(int frame, Mark mark)
     Layer* layer = currentLayer();
     if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
     KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
-    if (key == nullptr || key->mark() == mark) { return; }
+    if (key == nullptr) { editor()->notice(tr("No Drawing to mark on frame %1").arg(frame)); return; }
+    if (key->mark() == mark) { return; }
     // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
     const int playhead = editor()->currentFrame();
     const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
@@ -733,7 +746,7 @@ Status LayerManager::createInbetweens(CameraEasingType easing)
     Layer* layer = currentLayer();
     if (layer == nullptr || editor()->refusesEdit(layer)) { return Status::FAIL; }
     auto refuse = [this](const QString& text) {
-        emit editor()->statusMessage(text);
+        editor()->notice(text);
         return Status(Status::FAIL, text);
     };
     if (layer->type() != Layer::VECTOR) { return refuse(tr("Create inbetweens works only on vector layers")); }
@@ -961,7 +974,7 @@ static void shiftFramesAfter(LayerManager* layers, UndoRedoManager* undoRedo, La
 bool LayerManager::rippleInsertFrame()
 {
     Layer* layer = currentLayer();
-    if (!layer->visible() || editor()->refusesEdit(layer)) { return false; }
+    if (editor()->refuses(layer)) { return false; }
 
     const int position = editor()->currentFrame();
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -978,7 +991,7 @@ bool LayerManager::rippleRemoveFrame()
     Layer* layer = currentLayer();
     const int position = editor()->currentFrame();
     const bool onKey = layer->keyExists(position);
-    if (!layer->visible() || editor()->refusesEdit(layer)) { return false; }
+    if (editor()->refuses(layer)) { return false; }
     if (onKey ? layer->keyFrameCount() == 1 : layer->getMaxKeyFramePosition() <= position) { return false; }
 
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -1001,7 +1014,7 @@ bool LayerManager::rippleRemoveFrame()
 bool LayerManager::changeExposure(int frame, int delta)
 {
     Layer* layer = currentLayer(0);
-    if (layer == nullptr || !layer->visible() || editor()->refusesEdit(layer)) { return false; }
+    if (layer == nullptr || editor()->refuses(layer)) { return false; }
     const KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr) { return false; }
     const int position = key->pos();
@@ -1087,6 +1100,41 @@ void LayerManager::moveSoundMarkers(const Layer* layer, const QList<QPair<int, i
     }
     markers.insert(moved);
     data->setMarkers(layer->id(), markers);
+}
+
+void LayerManager::setMarker(int layerId, int frame, const FrameMarker& marker)
+{
+    ObjectData* data = object()->data();
+    const QMap<int, FrameMarker> before = data->markers(layerId);
+    data->setMarker(frame, marker, layerId);
+    markersChanged(layerId, before, before.contains(frame) ? tr("Edit Marker") : tr("Add Marker"));
+}
+
+bool LayerManager::moveMarker(int layerId, int from, int to)
+{
+    ObjectData* data = object()->data();
+    const QMap<int, FrameMarker> before = data->markers(layerId);
+    if (!before.contains(from) || from == to || to < 1) { return false; }
+    data->removeMarker(from, layerId);
+    data->setMarker(to, before.value(from), layerId);
+    markersChanged(layerId, before, tr("Move Marker"));
+    return true;
+}
+
+void LayerManager::removeMarker(int layerId, int frame)
+{
+    ObjectData* data = object()->data();
+    const QMap<int, FrameMarker> before = data->markers(layerId);
+    if (!before.contains(frame)) { return; }
+    data->removeMarker(frame, layerId);
+    markersChanged(layerId, before, tr("Remove Marker"));
+}
+
+void LayerManager::markersChanged(int layerId, const QMap<int, FrameMarker>& before, const QString& description)
+{
+    editor()->undoRedo()->recordMarkers(layerId, before, description);
+    object()->modification();
+    emit editor()->updateTimeLine();
 }
 
 bool LayerManager::moveSelectedFrames(int offset)

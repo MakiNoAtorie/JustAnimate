@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "actioncommands.h"
 #include "appinfo.h"
 
-#include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -65,6 +64,7 @@ GNU General Public License for more details.
 #include "exportmoviedialog.h"
 #include "exportimagedialog.h"
 #include "aboutdialog.h"
+#include "camerapropertiesdialog.h"
 #include "doubleprogressdialog.h"
 #include "checkupdatesdialog.h"
 #include "errordialog.h"
@@ -198,30 +198,13 @@ Status ActionCommands::importSound(FileType type)
         }
 
         // Create new sound layer.
-        bool ok = false;
-        QString strLayerName = QInputDialog::getText(mParent, tr("Layer Properties", "Dialog title on creating a sound layer"),
-                                                     tr("Layer name:"), QLineEdit::Normal,
-                                                     mEditor->layers()->nameSuggestLayer(tr("Sound Layer", "Default name on creating a sound layer")), &ok);
-        if (ok && !strLayerName.isEmpty())
-        {
-            Layer* newLayer = mEditor->layers()->createSoundLayer(strLayerName);
-            mEditor->layers()->setCurrentLayer(newLayer);
-        }
-        else
-        {
-            return Status::SAFE;
-        }
+        addNewSoundLayer();
     }
 
     layer = mEditor->layers()->currentLayer();
     Q_ASSERT(layer->type() == Layer::SOUND);
 
-    if (!layer->visible())
-    {
-        mEditor->getScribbleArea()->showLayerNotVisibleWarning();
-        return Status::SAFE;
-    }
-    if (mEditor->refusesEdit(layer)) { return Status::SAFE; }
+    if (mEditor->refuses(layer)) { return Status::SAFE; }
     QString strSoundFile = FileDialog::getOpenFileName(mParent, type);
 
     Status st = Status::FAIL;
@@ -646,7 +629,18 @@ Status savePages(QWidget* parent, const QString& title, const PageSpec& spec, in
 {
     const QString path = QFileDialog::getSaveFileName(parent, title, QString(), ActionCommands::tr("PDF (*.pdf);;PNG pages (*.png)"));
     if (path.isEmpty()) { return Status::SAFE; }
-    const Status st = writePages(path, spec, pageCount, paint);
+    QProgressDialog progress(ActionCommands::tr("Exporting page 1 of %1...").arg(pageCount), ActionCommands::tr("Abort"), 0, pageCount, parent);
+    hideQuestionMark(progress);
+    progress.setWindowModality(Qt::WindowModal);
+    progress.show();
+    // A window-modal setValue processes events, so Abort is seen between pages.
+    const Status st = writePages(path, spec, pageCount, paint, [&progress, pageCount](int done) {
+        progress.setValue(done);
+        progress.setLabelText(ActionCommands::tr("Exporting page %1 of %2...").arg(std::min(done + 1, pageCount)).arg(pageCount));
+        return !progress.wasCanceled();
+    });
+    progress.close();
+    if (st == Status::CANCELED) { return Status::SAFE; }
     if (!st.ok())
     {
         ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), parent);
@@ -730,9 +724,11 @@ Status ActionCommands::exportTimesheet()
     auto form = new QFormLayout(&dialog);
     auto size = new QComboBox(&dialog);
     size->addItems({ tr("A4 portrait"), tr("B4 portrait") });
-    auto scene = new QLineEdit(&dialog);
-    auto shot = new QLineEdit(&dialog);
-    auto animator = new QLineEdit(&dialog);
+    PaperTemplate paper = mEditor->object()->data()->paperTemplate();
+    const TimesheetInfo prefill = timesheetPrefill(paper);
+    auto scene = new QLineEdit(prefill.scene, &dialog);
+    auto shot = new QLineEdit(prefill.shot, &dialog);
+    auto animator = new QLineEdit(prefill.animator, &dialog);
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
     connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
@@ -750,6 +746,12 @@ Status ActionCommands::exportTimesheet()
     info.scene = scene->text();
     info.shot = shot->text();
     info.animator = animator->text();
+    rememberTimesheet(paper, info);
+    if (paper != mEditor->object()->data()->paperTemplate())
+    {
+        mEditor->object()->data()->setPaperTemplate(paper);
+        mEditor->object()->modification();
+    }
     info.length = std::max(1, mEditor->layers()->animationLength());
     info.fps = mEditor->playback()->fps();
     return savePages(mParent, tr("Export Timesheet"), spec, timesheetSheetCount(info.length), timesheetPages(*mEditor->object(), info));
@@ -999,12 +1001,7 @@ void ActionCommands::duplicateKey()
 {
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer == nullptr) return;
-    if (!layer->visible())
-    {
-        mEditor->getScribbleArea()->showLayerNotVisibleWarning();
-        return;
-    }
-    if (mEditor->refusesEdit(layer)) { return; }
+    if (mEditor->refuses(layer)) { return; }
 
     KeyFrame* key = layer->getKeyFrameAt(mEditor->currentFrame());
     if (key == nullptr) return;
@@ -1065,81 +1062,55 @@ void ActionCommands::moveFrameBackward()
 
 Status ActionCommands::addNewBitmapLayer()
 {
-    bool ok;
-    QString text = QInputDialog::getText(nullptr, tr("Layer Properties"),
-                                         tr("Layer name:"), QLineEdit::Normal,
-                                         mEditor->layers()->nameSuggestLayer(tr("Bitmap Layer")), &ok);
-    if (ok && !text.isEmpty())
-    {
-        mEditor->layers()->createBitmapLayer(text);
-    }
+    mEditor->layers()->createBitmapLayer(mEditor->layers()->nameSuggestLayer(tr("Bitmap Layer")));
     return Status::OK;
 }
 
 Status ActionCommands::addNewVectorLayer()
 {
-    bool ok;
-    QString text = QInputDialog::getText(nullptr, tr("Layer Properties"),
-                                         tr("Layer name:"), QLineEdit::Normal,
-                                         mEditor->layers()->nameSuggestLayer(tr("Vector Layer")), &ok);
-    if (ok && !text.isEmpty())
-    {
-        mEditor->layers()->createVectorLayer(text);
-    }
+    mEditor->layers()->createVectorLayer(mEditor->layers()->nameSuggestLayer(tr("Vector Layer")));
     return Status::OK;
 }
 
 Status ActionCommands::addNewCameraLayer()
 {
-    bool ok;
-    QString text = QInputDialog::getText(nullptr, tr("Layer Properties", "A popup when creating a new layer"),
-                                         tr("Layer name:"), QLineEdit::Normal,
-                                         mEditor->layers()->nameSuggestLayer(tr("Camera Layer")), &ok);
-    if (ok && !text.isEmpty())
-    {
-        mEditor->layers()->createCameraLayer(text);
-    }
+    const QSize size = LayerCamera(0).getViewRect().size(); // the size a new camera gets
+    CameraPropertiesDialog dialog(mEditor->layers()->nameSuggestLayer(tr("Camera Layer")), size.width(), size.height());
+    if (dialog.exec() != QDialog::Accepted || dialog.getName().isEmpty()) { return Status::CANCELED; }
+    return addNewCameraLayer(dialog.getName(), QSize(dialog.getWidth(), dialog.getHeight()));
+}
+
+Status ActionCommands::addNewCameraLayer(const QString& name, QSize size)
+{
+    const UndoMacro macro(mEditor->undoRedo(), tr("New Camera Layer"));
+    LayerCamera* layer = mEditor->layers()->createCameraLayer(name);
+    mEditor->layers()->setCameraSize(layer, size);
     return Status::OK;
 }
 
 Status ActionCommands::addNewSoundLayer()
 {
-    bool ok = false;
-    QString strLayerName = QInputDialog::getText(nullptr, tr("Layer Properties"),
-                                                 tr("Layer name:"), QLineEdit::Normal,
-                                                 mEditor->layers()->nameSuggestLayer(tr("Sound Layer")), &ok);
-    if (ok && !strLayerName.isEmpty())
-    {
-        Layer* layer = mEditor->layers()->createSoundLayer(strLayerName);
-        mEditor->layers()->setCurrentLayer(layer);
-   }
+    Layer* layer = mEditor->layers()->createSoundLayer(mEditor->layers()->nameSuggestLayer(tr("Sound Layer")));
+    mEditor->layers()->setCurrentLayer(layer);
+    return Status::OK;
+}
+
+Status ActionCommands::addNewStoryboardLayer()
+{
+    const UndoMacro macro(mEditor->undoRedo(), tr("New Storyboard Layer"));
+    Layer* layer = mEditor->layers()->createBitmapLayer(mEditor->layers()->nameSuggestLayer(tr("Storyboard Layer")));
+    mEditor->layers()->setStoryboard(layer, true);
     return Status::OK;
 }
 
 Status ActionCommands::deleteCurrentLayer()
 {
     LayerManager* layerMgr = mEditor->layers();
-    QString strLayerName = layerMgr->currentLayer()->name();
-
+    // The menu action and timeline button are disabled when this is false.
     if (!layerMgr->canDeleteLayer(mEditor->currentLayerIndex())) {
         return Status::CANCELED;
     }
-
-    int ret = QMessageBox::warning(mParent,
-                                   tr("Delete Layer", "Windows title of Delete current layer pop-up."),
-                                   tr("Are you sure you want to delete layer: %1?").arg(strLayerName),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
-    if (ret == QMessageBox::Ok)
-    {
-        Status st = layerMgr->deleteLayer(mEditor->currentLayerIndex());
-        if (st == Status::ERROR_NEED_AT_LEAST_ONE_CAMERA_LAYER)
-        {
-            QMessageBox::information(mParent, "",
-                                     tr("Please keep at least one camera layer in project", "text when failed to delete camera layer"));
-        }
-    }
-    return Status::OK;
+    return layerMgr->deleteLayer(mEditor->currentLayerIndex());
 }
 
 void ActionCommands::setLayerVisibilityIndex(int index)
@@ -1147,33 +1118,40 @@ void ActionCommands::setLayerVisibilityIndex(int index)
     mEditor->setLayerVisibility(static_cast<LayerVisibility>(index));
 }
 
+// Recolours the Drawing at frame as one KEYFRAME_MODIFY record. The state captures the Drawing at the playhead, so visit the key first.
+static void recolourDrawing(Editor* editor, LayerBitmap* layer, int frame, QRgb color, const QString& description)
+{
+    if (editor->currentFrame() != frame) { editor->scrubTo(frame); }
+    const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY, layer);
+    layer->getBitmapImageAtFrame(frame)->fillNonAlphaPixels(color);
+    editor->undoRedo()->record(saveStateId, description);
+}
+
 void ActionCommands::changeKeyframeLineColor()
 {
-    if (mEditor->layers()->currentLayer()->type() == Layer::BITMAP &&
-            mEditor->layers()->currentLayer()->keyExists(mEditor->currentFrame()))
-    {
-        QRgb color = mEditor->color()->frontColor().rgb();
-        LayerBitmap* layer = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
-        layer->getBitmapImageAtFrame(mEditor->currentFrame())->fillNonAlphaPixels(color);
-        mEditor->updateFrame();
-    }
+    Layer* layer = mEditor->layers()->currentLayer();
+    const int frame = mEditor->currentFrame();
+    if (layer->type() != Layer::BITMAP || !layer->keyExists(frame) || mEditor->refuses(layer)) { return; }
+    recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), frame, mEditor->color()->frontColor().rgb(), tr("Change Line Color"));
+    mEditor->updateFrame();
 }
 
 void ActionCommands::changeallKeyframeLineColor()
 {
-    if (mEditor->layers()->currentLayer()->type() == Layer::BITMAP)
+    Layer* layer = mEditor->layers()->currentLayer();
+    if (layer->type() != Layer::BITMAP || mEditor->refuses(layer)) { return; }
+    const QRgb color = mEditor->color()->frontColor().rgb();
+    const QString description = tr("Change Line Color");
+    const int playhead = mEditor->currentFrame();
     {
-        QRgb color = mEditor->color()->frontColor().rgb();
-        LayerBitmap* layer = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
-        for (int i = layer->firstKeyFramePosition(); i <= layer->getMaxKeyFramePosition(); i++)
-        {
-            if (layer->keyExists(i))
-                layer->getBitmapImageAtFrame(i)->fillNonAlphaPixels(color);
-        }
-        mEditor->updateFrame();
+        const UndoMacro macro(mEditor->undoRedo(), description);
+        QList<int> positions;
+        layer->foreachKeyFrame([&](KeyFrame* key) { positions.append(key->pos()); });
+        for (int pos : positions) { recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), pos, color, description); }
     }
+    mEditor->scrubTo(playhead);
+    mEditor->updateFrame();
 }
-
 
 void ActionCommands::resetAllTools()
 {
@@ -1182,36 +1160,13 @@ void ActionCommands::resetAllTools()
 
 void ActionCommands::help()
 {
-    QString url = UPSTREAM_DOCS_URL;
+    QString url = APP_DOCS_URL;
     QDesktopServices::openUrl(QUrl(url));
-}
-
-void ActionCommands::quickGuide()
-{
-    QString sDocPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
-    QString sCopyDest = QDir(sDocPath).filePath("pencil2d_quick_guide.pdf");
-
-    QFile quickGuideFile(":/app/pencil2d_quick_guide.pdf");
-    quickGuideFile.copy(sCopyDest);
-
-    QDesktopServices::openUrl(QUrl::fromLocalFile(sCopyDest));
 }
 
 void ActionCommands::website()
 {
     QString url = APP_REPO_URL;
-    QDesktopServices::openUrl(QUrl(url));
-}
-
-void ActionCommands::forum()
-{
-    QString url = "https://discuss.pencil2d.org/";
-    QDesktopServices::openUrl(QUrl(url));
-}
-
-void ActionCommands::discord()
-{
-    QString url = "https://discord.gg/8FxdV2g";
     QDesktopServices::openUrl(QUrl(url));
 }
 

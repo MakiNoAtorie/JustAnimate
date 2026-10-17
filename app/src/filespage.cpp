@@ -39,15 +39,16 @@ FilesPage::FilesPage()
     connect(ui->addPreset, &QPushButton::clicked, this, &FilesPage::addPreset);
     connect(ui->removePreset, &QPushButton::clicked, this, &FilesPage::removePreset);
     connect(ui->setDefaultPreset, &QPushButton::clicked, this, &FilesPage::setDefaultPreset);
-    connect(ui->askPresetRbtn, &QRadioButton::toggled, this, &FilesPage::askForPresetChange);
-    connect(ui->loadLastActiveRbtn, &QRadioButton::toggled, this, &FilesPage::loadMostRecentChange);
-    connect(ui->loadDefaultPresetRbtn, &QRadioButton::toggled, this, &FilesPage::loadDefaultPreset);
-    connect(ui->showWelcomeCheckBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::SHOW_WELCOME_SCREEN, on); });
+    ui->startupGroup->setId(ui->welcomeRbtn, STARTUP_WELCOME);
+    ui->startupGroup->setId(ui->loadLastActiveRbtn, STARTUP_LAST_PROJECT);
+    ui->startupGroup->setId(ui->loadDefaultPresetRbtn, STARTUP_DEFAULT_PRESET);
+    connect(ui->startupGroup, &QButtonGroup::idClicked, this, [this](int id) { mManager->set(SETTING::STARTUP_ACTION, id); });
     connect(ui->presetListWidget, &QListWidget::itemChanged, this, &FilesPage::presetNameChanged);
 
     auto spinBoxValueChange = static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged);
     connect(ui->autosaveCheckBox, &QCheckBox::stateChanged, this, &FilesPage::autoSaveChange);
     connect(ui->autosaveNumberBox, spinBoxValueChange, this, &FilesPage::autoSaveNumberChange);
+    connect(ui->autosaveReminderCheckBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::AUTO_SAVE_REMINDER, on); });
     connect(ui->autosaveByTimeCheckBox, &QCheckBox::stateChanged, this, &FilesPage::autoSaveByTimeChange);
     connect(ui->autosaveByTimeNumberBox, spinBoxValueChange, this, &FilesPage::autoSaveByTimeTimerChange);
 }
@@ -214,27 +215,11 @@ void FilesPage::updateValues()
     }
     ui->autosaveCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE));
     ui->autosaveNumberBox->setValue(mManager->getInt(SETTING::AUTO_SAVE_NUMBER));
+    ui->autosaveReminderCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE_REMINDER));
     ui->autosaveByTimeCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE_BY_TIME));
     ui->autosaveByTimeNumberBox->setValue(mManager->getInt(SETTING::AUTO_SAVE_BY_TIME_TIMER));
-    ui->askPresetRbtn->setChecked(mManager->isOn(SETTING::ASK_FOR_PRESET));
-    ui->loadDefaultPresetRbtn->setChecked(mManager->isOn(SETTING::LOAD_DEFAULT_PRESET));
-    ui->loadLastActiveRbtn->setChecked(mManager->isOn(SETTING::LOAD_MOST_RECENT));
-    ui->showWelcomeCheckBox->setChecked(mManager->isOn(SETTING::SHOW_WELCOME_SCREEN));
-}
-
-void FilesPage::askForPresetChange(int b)
-{
-    mManager->set(SETTING::ASK_FOR_PRESET, b != Qt::Unchecked);
-}
-
-void FilesPage::loadMostRecentChange(int b)
-{
-    mManager->set(SETTING::LOAD_MOST_RECENT, b != Qt::Unchecked);
-}
-
-void FilesPage::loadDefaultPreset(int b)
-{
-    mManager->set(SETTING::LOAD_DEFAULT_PRESET, b != Qt::Unchecked);
+    QAbstractButton* startup = ui->startupGroup->button(mManager->getInt(SETTING::STARTUP_ACTION));
+    (startup ? startup : ui->welcomeRbtn)->setChecked(true);
 }
 
 void FilesPage::autoSaveChange(int b)

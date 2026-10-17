@@ -272,22 +272,26 @@
      <string>Tools</string>
     </property>
     <addaction name="actionPencil"/>
-    <addaction name="actionEraser"/>
-    <addaction name="actionSelect"/>
-    <addaction name="actionMove"/>
     <addaction name="actionPen"/>
+    <addaction name="actionBrush"/>
+    <addaction name="separator"/>
+    <addaction name="actionEraser"/>
+    <addaction name="actionSmudge"/>
+    <addaction name="separator"/>
+    <addaction name="actionMove"/>
+    <addaction name="actionSelect"/>
+    <addaction name="separator"/>
     <addaction name="actionHand"/>
     <addaction name="actionZoomTool"/>
     <addaction name="actionRotateView"/>
+    <addaction name="separator"/>
     <addaction name="actionPolyline"/>
     <addaction name="actionShape"/>
-    <addaction name="actionLassoFill"/>
-    <addaction name="actionBucket"/>
-    <addaction name="actionEyedropper"/>
-    <addaction name="actionBrush"/>
-    <addaction name="actionSmudge"/>
     <addaction name="separator"/>
-    <addaction name="actionResetToolsDefault"/>
+    <addaction name="actionBucket"/>
+    <addaction name="actionLassoFill"/>
+    <addaction name="separator"/>
+    <addaction name="actionEyedropper"/>
    </widget>
    <widget class="QMenu" name="menuLayer">
     <property name="title">
@@ -303,8 +307,10 @@
     <addaction name="actionNew_Bitmap_Layer"/>
     <addaction name="actionNew_Vector_Layer"/>
     <addaction name="actionNew_Sound_Layer"/>
+    <addaction name="actionNew_Storyboard_Layer"/>
     <addaction name="actionNew_Camera_Layer"/>
     <addaction name="separator"/>
+    <addaction name="actionRename_Layer"/>
     <addaction name="actionDelete_Current_Layer"/>
     <addaction name="separator"/>
     <addaction name="menuChange_line_color"/>
@@ -316,11 +322,8 @@
      <string>Help</string>
     </property>
     <addaction name="actionHelp"/>
-    <addaction name="actionQuick_Guide"/>
     <addaction name="separator"/>
     <addaction name="actionWebsite"/>
-    <addaction name="actionForum"/>
-    <addaction name="actionDiscord"/>
     <addaction name="separator"/>
     <addaction name="actionCheck_for_Updates"/>
     <addaction name="actionReport_Bug"/>
@@ -330,7 +333,7 @@
    </widget>
    <widget class="QMenu" name="menuWindows">
     <property name="title">
-     <string>Windows</string>
+     <string>Window</string>
     </property>
     <addaction name="actionLockWindows"/>
     <addaction name="separator"/>
@@ -352,7 +355,7 @@
   </action>
   <action name="actionOpen">
    <property name="text">
-    <string>Open</string>
+    <string>Open...</string>
    </property>
   </action>
   <action name="actionSave">
@@ -390,7 +393,7 @@
   </action>
   <action name="actionExport_Palette">
    <property name="text">
-    <string>Palette</string>
+    <string>Palette...</string>
    </property>
   </action>
   <action name="actionImport_Image">
@@ -464,7 +467,7 @@
   </action>
   <action name="actionClearFrame">
    <property name="text">
-    <string>Clear Frame</string>
+    <string>Clear Drawing</string>
    </property>
   </action>
   <action name="actionCommandSearch">
@@ -474,7 +477,7 @@
   </action>
   <action name="actionPreference">
    <property name="text">
-    <string>Preferences</string>
+    <string>Preferences...</string>
    </property>
    <property name="menuRole">
     <enum>QAction::PreferencesRole</enum>
@@ -515,7 +518,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Horizontal Flip</string>
+    <string>Mirror View Horizontally</string>
    </property>
   </action>
   <action name="actionVertical_Flip">
@@ -523,7 +526,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Vertical Flip</string>
+    <string>Mirror View Vertically</string>
    </property>
   </action>
   <action name="actionGrid">
@@ -732,9 +735,19 @@
     <string>New Sound Layer</string>
    </property>
   </action>
+  <action name="actionNew_Storyboard_Layer">
+   <property name="text">
+    <string>New Storyboard Layer</string>
+   </property>
+  </action>
   <action name="actionNew_Camera_Layer">
    <property name="text">
     <string>New Camera Layer</string>
+   </property>
+  </action>
+  <action name="actionRename_Layer">
+   <property name="text">
+    <string>Rename Layer</string>
    </property>
   </action>
   <action name="actionDelete_Current_Layer">
@@ -749,15 +762,7 @@
   </action>
   <action name="actionAbout">
    <property name="text">
-    <string>About</string>
-   </property>
-  </action>
-  <action name="actionResetToolsDefault">
-   <property name="text">
-    <string>Reset to default</string>
-   </property>
-   <property name="toolTip">
-    <string>Reset to default</string>
+    <string>About...</string>
    </property>
   </action>
   <action name="actionNext_KeyFrame">
@@ -789,22 +794,22 @@
   </action>
   <action name="actionFlip_X">
    <property name="text">
-    <string>Flip X</string>
+    <string>Mirror Horizontally</string>
    </property>
   </action>
   <action name="actionFlip_Y">
    <property name="text">
-    <string>Flip Y</string>
+    <string>Mirror Vertically</string>
    </property>
   </action>
   <action name="actionMove_Frame_Forward">
    <property name="text">
-    <string>Move Frame Forward</string>
+    <string>Move Drawing Forward</string>
    </property>
   </action>
   <action name="actionMove_Frame_Backward">
    <property name="text">
-    <string>Move Frame Backward</string>
+    <string>Move Drawing Backward</string>
    </property>
   </action>
   <action name="actionWebsite">
@@ -815,14 +820,6 @@
   <action name="actionReport_Bug">
    <property name="text">
     <string>Report a Bug</string>
-   </property>
-  </action>
-  <action name="actionQuick_Guide">
-   <property name="text">
-    <string>Quick Reference Guide</string>
-   </property>
-   <property name="shortcut">
-    <string>F1</string>
    </property>
   </action>
   <action name="actionImport_AnimatedImage">
@@ -838,16 +835,6 @@
   <action name="actionCheck_for_Updates">
    <property name="text">
     <string>Check for Updates</string>
-   </property>
-  </action>
-  <action name="actionForum">
-   <property name="text">
-    <string>Pencil2D Community Forum</string>
-   </property>
-  </action>
-  <action name="actionDiscord">
-   <property name="text">
-    <string>Pencil2D Community Discord</string>
    </property>
   </action>
   <action name="actionZoom200">
@@ -922,7 +909,7 @@
   </action>
   <action name="actionPegbarAlignment">
    <property name="text">
-    <string>Peg Bar Alignment</string>
+    <string>Peg Bar Alignment...</string>
    </property>
   </action>
   <action name="actionImport_MovieAudio">
@@ -981,12 +968,12 @@
   </action>
   <action name="actionReposition_Selected_Frames">
    <property name="text">
-    <string>Reposition Selected Frames</string>
+    <string>Reposition Selected Drawings...</string>
    </property>
   </action>
   <action name="actionChangeLayerOpacity">
    <property name="text">
-    <string>Layer / Drawing Opacity</string>
+    <string>Layer / Drawing Opacity...</string>
    </property>
   </action>
   <action name="actionOpen_Temporary_Directory">
@@ -1014,7 +1001,7 @@
   </action>
   <action name="actionAdd_Transparency_to_paper">
    <property name="text">
-    <string>Replace Paper with Transparency</string>
+    <string>Replace Paper with Transparency...</string>
    </property>
   </action>
   <action name="actionAdd_Frame_Exposure">
@@ -1052,12 +1039,12 @@
   </action>
   <action name="actionReverse_Frames_Order">
    <property name="text">
-    <string>Reverse Frames Order</string>
+    <string>Reverse Drawings</string>
    </property>
   </action>
   <action name="actionRemove_Frames">
    <property name="text">
-    <string>Remove Frames</string>
+    <string>Remove Drawings</string>
    </property>
   </action>
   <action name="actionStatusBar">

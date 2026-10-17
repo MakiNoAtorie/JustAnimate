@@ -23,7 +23,6 @@ GNU General Public License for more details.
 #include <cmath>
 #include <QGuiApplication>
 #include <QKeySequence>
-#include <QMessageBox>
 #include <QPainterPath>
 #include <QtMath>
 #include <QPixmapCache>
@@ -90,6 +89,13 @@ bool ScribbleArea::init()
     }
 
     connect(mMouseFilterTimer, &QTimer::timeout, this, &ScribbleArea::tabletReleaseEventFired);
+
+    // The canvas shows every notice, so it reaches the user with the status bar hidden.
+    mNoteTimer = new QTimer(this);
+    mNoteTimer->setSingleShot(true);
+    mNoteTimer->setInterval(3000);
+    connect(mNoteTimer, &QTimer::timeout, this, [this] { mNote.clear(); update(); });
+    connect(mEditor, &Editor::statusMessage, this, &ScribbleArea::showNote);
 
     connect(mEditor->select(), &SelectionManager::selectionChanged, this, &ScribbleArea::onSelectionChanged);
     connect(mEditor->select(), &SelectionManager::needDeleteSelection, this, &ScribbleArea::deleteSelection);
@@ -761,15 +767,7 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
     if ((!currentTool()->isViewTool() || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
     {
         Layer* layer = mEditor->layers()->currentLayer();
-        if (!layer->visible())
-        {
-            event->ignore();
-            // This needs to be async so that mTabletInUse is set to false before
-            // further events are created (modal dialogs do not currently block tablet events)
-            QTimer::singleShot(0, this, &ScribbleArea::showLayerNotVisibleWarning);
-            return;
-        }
-        if (mEditor->refusesEdit(layer))
+        if (mEditor->refuses(layer))
         {
             event->ignore();
             return;
@@ -903,13 +901,11 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
     mCameraPainter.reset();
 }
 
-void ScribbleArea::showLayerNotVisibleWarning()
+void ScribbleArea::showNote(const QString& text)
 {
-    if (mLayerNotVisibleWarning) { mLayerNotVisibleWarning(); return; }
-    QMessageBox::warning(this, tr("Warning"),
-                         tr("You are trying to modify a hidden layer! Please select another layer (or make the current layer visible)."),
-                         QMessageBox::Ok,
-                         QMessageBox::Ok);
+    mNote = text;
+    mNoteTimer->start();
+    update();
 }
 
 void ScribbleArea::paintBitmapBuffer()
@@ -1172,6 +1168,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
 
         mOverlayPainter.paint(painter, rect());
         paintCanvasHud(painter);
+        paintNote(painter);
         paintRadialMenu(painter);
 
         // paints the selection outline
@@ -1698,6 +1695,27 @@ void ScribbleArea::paintCanvasHud(QPainter& painter) const
     painter.drawLine(needle);
     x += 2 * kDial + kPad;
     painter.drawText(QRectF(x, box.top(), box.right() - x, box.height()), Qt::AlignVCenter | Qt::AlignLeft, text);
+    painter.restore();
+}
+
+void ScribbleArea::paintNote(QPainter& painter) const
+{
+    if (mNote.isEmpty()) { return; }
+    constexpr qreal kPad = 8;
+    const QFontMetricsF fm(painter.font());
+    const qreal w = qMin(fm.horizontalAdvance(mNote) + 2 * kPad, width() - 24.0);
+    const QRectF box((width() - w) / 2, 12, w, fm.height() + 2 * kPad);
+
+    painter.save();
+    painter.setWorldMatrixEnabled(false);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(Qt::NoPen);
+    QColor base = palette().color(QPalette::ToolTipBase);
+    base.setAlpha(230);
+    painter.setBrush(base);
+    painter.drawRoundedRect(box, 6, 6);
+    painter.setPen(palette().color(QPalette::ToolTipText));
+    painter.drawText(box.adjusted(kPad, 0, -kPad, 0), Qt::AlignCenter, fm.elidedText(mNote, Qt::ElideRight, w - 2 * kPad));
     painter.restore();
 }
 

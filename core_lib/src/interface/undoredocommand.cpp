@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "soundmanager.h"
 #include "layerbitmap.h"
 #include "layervector.h"
+#include "layercamera.h"
 #include "layer.h"
 
 #include "editor.h"
@@ -806,8 +807,112 @@ void PaperTemplateCommand::redo()
 
 void PaperTemplateCommand::apply(const PaperTemplate& paper)
 {
-    editor()->object()->data()->setPaperTemplate(paper);
+    // The Timesheet values are export memory, not undoable edits: keep the current ones.
+    const PaperTemplate& current = editor()->object()->data()->paperTemplate();
+    PaperTemplate next = paper;
+    next.sheetScene = current.sheetScene;
+    next.sheetShot = current.sheetShot;
+    next.sheetAnimator = current.sheetAnimator;
+    editor()->object()->data()->setPaperTemplate(next);
     emit editor()->framesModified();
+}
+
+CameraSizeCommand::CameraSizeCommand(int layerId, QRect before, QRect after, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), before(before), after(after)
+{
+    setText(description);
+}
+
+void CameraSizeCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void CameraSizeCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void CameraSizeCommand::apply(QRect viewRect)
+{
+    auto layer = static_cast<LayerCamera*>(editor()->layers()->findLayerById(layerId));
+    if (layer == nullptr) { return; }
+    layer->setViewRect(viewRect);
+    editor()->object()->modification();
+    editor()->view()->forceUpdateViewTransform();
+}
+
+KeyFrameOpacityCommand::KeyFrameOpacityCommand(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after,
+                                               const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), before(before), after(after)
+{
+    setText(description);
+}
+
+void KeyFrameOpacityCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void KeyFrameOpacityCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void KeyFrameOpacityCommand::apply(const QMap<int, qreal>& opacities)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    for (auto it = opacities.cbegin(); it != opacities.cend(); ++it)
+    {
+        KeyFrame* key = layer->getKeyFrameAt(it.key());
+        if (key == nullptr) { continue; }
+        key->setOpacity(it.value());
+        layer->markFrameAsDirty(it.key());
+    }
+    emit editor()->framesModified();
+}
+
+MarkersCommand::MarkersCommand(int layerId, const QMap<int, FrameMarker>& before, const QMap<int, FrameMarker>& after,
+                               const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), before(before), after(after)
+{
+    setText(description);
+}
+
+void MarkersCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void MarkersCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void MarkersCommand::apply(const QMap<int, FrameMarker>& markers)
+{
+    editor()->object()->data()->setMarkers(layerId, markers);
+    editor()->object()->modification();
+    emit editor()->updateTimeLine();
 }
 
 CameraModifyCommand::CameraModifyCommand(const std::vector<std::unique_ptr<KeyFrame>>& before,

@@ -83,7 +83,7 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_PENCIL ) ) );
     ui->selectButton->setToolTip( tr( "Select Tool (%1): Select an object" )
         .arg( GetToolTips( CMD_TOOL_SELECT ) ) );
-    ui->moveButton->setToolTip( tr( "Move Tool (%1): Move an object" )
+    ui->moveButton->setToolTip( tr( "Move Tool (%1): Move an object<br>[Ctrl]: Rotate, [Shift]: Scale (Transform Key mode: the whole Drawing)" )
         .arg( GetToolTips( CMD_TOOL_MOVE ) ) );
     ui->handButton->setToolTip( tr( "Hand Tool (%1): Move the canvas" )
         .arg( GetToolTips( CMD_TOOL_HAND ) ) );
@@ -107,7 +107,7 @@ void ToolBoxWidget::initUI()
     ui->brushButton->setToolTip( tr( "Brush Tool (%1): Paint smooth stroke with a brush" )
         .arg( GetToolTips( CMD_TOOL_BRUSH ) ) );
     ui->eyedropperButton->setToolTip( tr( "Eyedropper Tool (%1): "
-            "Set color from the stage<br>[ALT] for instant access" )
+            "Pick a color from the canvas<br>[Alt] with a drawing tool for instant access" )
         .arg( GetToolTips( CMD_TOOL_EYEDROPPER ) ) );
     ui->smudgeButton->setToolTip( tr( "Smudge Tool (%1):<br>Edit polyline/curves<br>"
             "Smudge bitmap pixels" )
@@ -265,7 +265,7 @@ void ToolBoxWidget::setGroupLast(Group& group, ToolType type)
     {
         if (m.type != type) continue;
         group.button->setIcon(m.icon);
-        group.button->setToolTip(m.toolTip);
+        group.button->setToolTip(m.toolTip + tr("<br>Long press or right-click for more"));
     }
 }
 

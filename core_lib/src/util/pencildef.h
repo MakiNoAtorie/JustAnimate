@@ -218,7 +218,6 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOOL_BUCKET "CmdToolBucket"
 #define CMD_TOOL_EYEDROPPER "CmdToolEyedropper"
 #define CMD_TOOL_ERASER "CmdToolEraser"
-#define CMD_RESET_ALL_TOOLS "CmdResetAllTools"
 #define CMD_RADIAL_TOOL_MENU "CmdRadialToolMenu"
 #define CMD_QUICK_PRESET_PICKER "CmdQuickPresetPicker"
 #define CMD_NEW_BITMAP_LAYER "CmdNewBitmapLayer"
@@ -226,6 +225,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_NEW_SOUND_LAYER "CmdNewSoundLayer"
 #define CMD_NEW_CAMERA_LAYER "CmdNewCameraLayer"
 #define CMD_DELETE_CUR_LAYER "CmdDeleteCurrentLayer"
+#define CMD_RENAME_LAYER "CmdRenameLayer"
 #define CMD_CHANGE_LINE_COLOR_KEYFRAME "CmdChangeLineColorKeyframe"
 #define CMD_CHANGE_LINE_COLOR_LAYER "CmdChangeLineColorLayer"
 #define CMD_CHANGE_LAYER_OPACITY "CmdChangeLayerOpacity"
@@ -241,6 +241,8 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOGGLE_ONION_SKIN "CmdToggleOnionSkin"
 #define CMD_TOGGLE_TIMELINE "CmdToggleTimeline"
 #define CMD_TOGGLE_XSHEET "CmdToggleXSheet"
+#define CMD_TOGGLE_BRUSH_PRESETS "CmdToggleBrushPresets"
+#define CMD_TOGGLE_STORYBOARD "CmdToggleStoryboard"
 #define CMD_SHIFT_AND_TRACE "CmdShiftAndTrace"
 #define CMD_INCREASE_SIZE "CmdIncreaseSize"
 #define CMD_DECREASE_SIZE "CmdDecreaseSize"
@@ -256,11 +258,15 @@ const static int MaxFramesBound = 9999;
 // Settings file name (QSettings organization/application); kept separate
 // from Pencil2D so both apps can be installed side by side.
 #define PENCIL2D "JustAnimate"
-#define SHORTCUTS_GROUP             "Shortcuts"
+// Lower case: INI keys are case-sensitive outside Windows, and kb.ini uses [shortcuts].
+#define SHORTCUTS_GROUP             "shortcuts"
+// Set once the v1.5 default keys were added to an existing keymap.
+#define SETTING_SHORTCUT_DEFAULTS_V15 "ShortcutDefaultsV15"
 #define SETTING_AUTO_SAVE           "AutoSave"
 #define SETTING_AUTO_SAVE_NUMBER    "AutosaveNumber"
 #define SETTING_AUTO_SAVE_BY_TIME       "AutoSaveByTime"
 #define SETTING_AUTO_SAVE_BY_TIME_TIMER "AutoSaveByTimeTimer"
+#define SETTING_AUTO_SAVE_REMINDER  "AutoSaveReminder"
 #define SETTING_CURSOR_STYLE        "CursorStyle"
 #define SETTING_TOOL_CURSOR         "ToolCursors" // migrated to CursorStyle
 #define SETTING_CANVAS_CURSOR       "DottedCursors" // migrated to CursorStyle
@@ -287,6 +293,8 @@ const static int MaxFramesBound = 9999;
 #define SETTING_LAYOUT_LOCK         "LayoutLock"
 #define SETTING_ROTATION_INCREMENT  "RotationIncrement"
 #define SETTING_SHOW_SELECTION_INFO "ShowSelectionInfo"
+#define SETTING_STARTUP_ACTION      "StartupAction"
+// Old startup keys: read only to migrate to SETTING_STARTUP_ACTION.
 #define SETTING_ASK_FOR_PRESET      "AskForPreset"
 #define SETTING_SHOW_WELCOME_SCREEN "ShowWelcomeScreen"
 #define SETTING_LOAD_MOST_RECENT    "LoadMostRecent"
@@ -347,6 +355,7 @@ const static int MaxFramesBound = 9999;
 #define SETTING_LAYER_VISIBILITY_THRESHOLD "LayerVisibilityThreshold"
 #define SETTING_XSHEET_LAYOUT "XSheetLayout" // 0 Western, 1 Timesheet
 #define SETTING_LAST_TEMPLATE "LastTemplate" // Welcome template name, not its index
+#define SETTING_INBETWEEN_EASING "InbetweenEasing" // CameraEasingType of the last Create Inbetweens
 
 #define SETTING_DRAW_ON_EMPTY_FRAME_ACTION  "DrawOnEmptyFrameAction"
 

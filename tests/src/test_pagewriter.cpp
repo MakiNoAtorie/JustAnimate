@@ -170,6 +170,23 @@ TEST_CASE("A failed writePages keeps the old files and leaves no partial file", 
     CHECK(content("sheets.pdf") == old);
 }
 
+TEST_CASE("Cancelling writePages after the first page leaves no output files", "[PageWriter]")
+{
+    PageSpec spec;
+    spec.dpi = 30;
+    const PagePaintFn paint = [](QPainter& p, const QRectF& page, int) { p.drawRect(page.adjusted(10, 10, -10, -10)); };
+    for (const QString& name : { QString("sheets.png"), QString("sheets.pdf") })
+    {
+        QTemporaryDir dir;
+        REQUIRE(dir.isValid());
+        QList<int> done;
+        const Status st = writePages(dir.filePath(name), spec, 3, paint, [&done](int pages) { done << pages; return pages < 1; });
+        CHECK(st == Status::CANCELED);
+        CHECK(done == QList<int>{ 1 });
+        CHECK(QDir(dir.path()).entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty());
+    }
+}
+
 TEST_CASE("The command line exports a frame range on paper", "[PageWriter]")
 {
     CommandLineParser parser;

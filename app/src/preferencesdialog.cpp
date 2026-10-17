@@ -78,6 +78,7 @@ void PreferencesDialog::init(PreferenceManager* m)
     ui->shortcuts->setManager(mPrefManager);
 
     connect(ui->general, &GeneralPage::windowOpacityChange, this, &PreferencesDialog::windowOpacityChange);
+    connect(ui->tools, &ToolsPage::resetToolsRequested, this, &PreferencesDialog::resetToolsRequested);
     connect(ui->timeline, &TimelinePage::soundScrubChanged, this, &PreferencesDialog::soundScrubChanged);
     connect(ui->timeline, &TimelinePage::soundScrubMsecChanged, this, &PreferencesDialog::soundScrubMsecChanged);
     connect(ui->filesPage, &FilesPage::clearRecentList, this, &PreferencesDialog::clearRecentList);
@@ -133,16 +134,14 @@ void PreferencesDialog::addTooltips()
         { "safeHelperTextCheckbox labSafeHelperText", tr("Write a label on each safe area line.") },
         { "invertScrollDirectionBox", tr("Zoom in when you scroll the wheel the other way.") },
         { "cacheLabel framePoolSizeSpin", tr("The most memory used to keep drawn frames ready. A larger value is faster but uses more RAM.") },
+        { "invertZoomDirectionBox", tr("Zoom in by dragging the hand tool up instead of down.") },
         { "undoStepsBox", tr("How many steps you can undo and redo.") },
-        { "undoRedoGroupApplyButton", tr("Use the new number of undo steps.") },
-        { "undoRedoGroupCancelButton", tr("Keep the current number of undo steps.") },
         { "presetListWidget", tr("Presets you can start a new project from.") },
         { "removePreset", tr("Remove the selected preset.") },
         { "setDefaultPreset", tr("Use the selected preset when the app starts with the default preset.") },
-        { "askPresetRbtn", tr("Ask which preset to use each time the app starts.") },
+        { "welcomeRbtn", tr("Show the Welcome screen when the app starts.") },
         { "loadDefaultPresetRbtn", tr("Start a new project from the default preset.") },
         { "loadLastActiveRbtn", tr("Open the project you used last.") },
-        { "showWelcomeCheckBox", tr("Show the welcome screen when the app starts.") },
         { "autosaveCheckBox autosaveNumberLabel autosaveNumberBox", tr("Save a backup after this many changes.") },
         { "autosaveByTimeCheckBox autosaveByTimeNumberBox autosaveByTimeLabel", tr("Save a backup after this many minutes.") },
         { "lengthSizeLabel timelineLength", tr("Number of frames the timeline shows.") },

@@ -2,6 +2,7 @@
 #define LAYEROPACITYDIALOG_H
 
 #include <QDialog>
+#include <QMap>
 #include "editor.h"
 
 class QTimer;
@@ -57,6 +58,10 @@ private:
 
     void updateSelectedFramesUI();
 
+    // An edit records one undo step at its end: a slider drag on release, a typed value at once.
+    void beginOpacityEdit();
+    void endOpacityEdit(const QString& description);
+
     Ui::LayerOpacityDialog *ui;
 
     Editor* mEditor = nullptr;
@@ -64,6 +69,8 @@ private:
     PlaybackManager* mPlayBack = nullptr;
 
     bool mPlayerIsPlaying = false;
+    int mEditLayerId = 0;
+    QMap<int, qreal> mOpacitiesBefore;
 
     qreal mMultiplier = 500.0;
     qreal mSpinBoxMultiplier = 0.2;

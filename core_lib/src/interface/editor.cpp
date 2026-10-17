@@ -582,7 +582,6 @@ void Editor::updateObject()
     scrubTo(mObject->data()->getCurrentFrame());
 
     mAutosaveCounter = 0;
-    mAutosaveNeverAskAgain = false;
 
     if (mPreferenceManager)
     {
@@ -599,12 +598,7 @@ Status Editor::importBitmapImage(const QString& filePath, const QTransform& impo
     Q_ASSERT(layers()->currentLayer()->type() == Layer::BITMAP);
     const auto layer = static_cast<LayerBitmap*>(layers()->currentLayer());
 
-    if (!layer->visible())
-    {
-        mScribbleArea->showLayerNotVisibleWarning();
-        return Status::SAFE;
-    }
-    if (refusesEdit(layer)) { return Status::SAFE; }
+    if (refuses(layer)) { return Status::SAFE; }
 
     Status status = Status::OK;
     DebugDetails dd;
@@ -667,12 +661,7 @@ Status Editor::importVectorImage(const QString& filePath)
 
     auto layer = static_cast<LayerVector*>(layers()->currentLayer());
 
-    if (!layer->visible())
-    {
-        mScribbleArea->showLayerNotVisibleWarning();
-        return Status::SAFE;
-    }
-    if (refusesEdit(layer)) { return Status::SAFE; }
+    if (refuses(layer)) { return Status::SAFE; }
 
     Status status = Status::OK;
     DebugDetails dd;
@@ -767,12 +756,7 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
     }
     LayerBitmap* bitmapLayer = static_cast<LayerBitmap*>(layers()->currentLayer());
 
-    if (!bitmapLayer->visible())
-    {
-        mScribbleArea->showLayerNotVisibleWarning();
-        return Status::SAFE;
-    }
-    if (refusesEdit(bitmapLayer)) { return Status::SAFE; }
+    if (refuses(bitmapLayer)) { return Status::SAFE; }
 
     QImageReader reader(filePath);
     dd << QString("QImageReader format: %1").arg(QString(reader.format()));
@@ -956,12 +940,7 @@ KeyFrame* Editor::addKeyFrame(const int layerNumber, int frameIndex)
     Layer* layer = mObject->getLayer(layerNumber);
     Q_ASSERT(layer);
 
-    if (!layer->visible())
-    {
-        mScribbleArea->showLayerNotVisibleWarning();
-        return nullptr;
-    }
-    if (refusesEdit(layer)) { return nullptr; }
+    if (refuses(layer)) { return nullptr; }
 
     // Find next available space for a keyframe (where either no key exists or there is an empty sound key)
     while (layer->keyExists(frameIndex))
@@ -997,16 +976,11 @@ void Editor::removeKey()
     Layer* layer = layers()->currentLayer();
     Q_ASSERT(layer != nullptr);
 
-    if (!layer->visible())
-    {
-        mScribbleArea->showLayerNotVisibleWarning();
-        return;
-    }
-    if (refusesEdit(layer)) { return; }
+    if (refuses(layer)) { return; }
 
     if (!layer->keyExistsWhichCovers(currentFrame()))
     {
-        scrubBackward();
+        notice(tr("No Drawing to remove on frame %1").arg(currentFrame()));
         return;
     }
 
@@ -1042,8 +1016,21 @@ void Editor::scrubPreviousKeyFrame()
 bool Editor::refusesEdit(const Layer* layer)
 {
     if (layer == nullptr || !layer->lockAll()) { return false; }
-    emit statusMessage(tr("Layer \"%1\" is locked").arg(layer->name()));
+    notice(tr("Layer \"%1\" is locked").arg(layer->name()), layer);
     return true;
+}
+
+bool Editor::refusesHidden(const Layer* layer)
+{
+    if (layer == nullptr || layer->visible()) { return false; }
+    notice(tr("Layer \"%1\" is hidden").arg(layer->name()), layer);
+    return true;
+}
+
+void Editor::notice(const QString& text, const Layer* layer)
+{
+    emit statusMessage(text);
+    if (layer != nullptr) { emit layerRefused(layer->id()); }
 }
 
 void Editor::setPaperTemplate(const PaperTemplate& paper)

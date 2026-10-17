@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QCheckBox>
 #include <QDir>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QtMath>
 
@@ -54,9 +55,19 @@ ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
         mManager->set(SETTING::PRESSURE_CURVE, QString());
     });
 
+    auto* resetTools = new QPushButton(tr("Reset all tools to default"), this);
+    resetTools->setObjectName("resetToolsButton");
+    resetTools->setToolTip(tr("Reset every tool setting to its default"));
+    ui->verticalLayout_2->addWidget(resetTools, 0, Qt::AlignLeft);
+    confirmReset = [this] {
+        return QMessageBox::question(this, tr("Reset all tools"), tr("Reset every tool setting to its default?")) == QMessageBox::Yes;
+    };
+    connect(resetTools, &QPushButton::clicked, this, [this] {
+        if (confirmReset()) { emit resetToolsRequested(); }
+    });
+
     connect(ui->useQuickSizingBox, &QCheckBox::stateChanged, this, &ToolsPage::quickSizingChange);
     connect(ui->rotationIncrementSlider, &QSlider::valueChanged, this, &ToolsPage::rotationIncrementChange);
-    connect(ui->invertZoomDirectionBox, &QCheckBox::stateChanged, this, &ToolsPage::invertZoomDirectionChange);
 }
 
 ToolsPage::~ToolsPage()
@@ -67,7 +78,6 @@ ToolsPage::~ToolsPage()
 void ToolsPage::updateValues()
 {
     ui->useQuickSizingBox->setChecked(mManager->isOn(SETTING::QUICK_SIZING));
-    ui->invertZoomDirectionBox->setChecked(mManager->isOn(SETTING::INVERT_DRAG_ZOOM_DIRECTION));
     setRotationIncrement(mManager->getInt(SETTING::ROTATION_INCREMENT));
     mPressureCurve->setCurve(PressureCurve::fromString(mManager->getString(SETTING::PRESSURE_CURVE)));
     mPressureLog->setChecked(mManager->isOn(SETTING::PRESSURE_DEBUG_LOG));
@@ -76,11 +86,6 @@ void ToolsPage::updateValues()
 void ToolsPage::quickSizingChange(int b)
 {
     mManager->set(SETTING::QUICK_SIZING, b != Qt::Unchecked);
-}
-
-void ToolsPage::invertZoomDirectionChange(int b)
-{
-    mManager->set(SETTING::INVERT_DRAG_ZOOM_DIRECTION, b != Qt::Unchecked);
 }
 
 void ToolsPage::setRotationIncrement(int angle)

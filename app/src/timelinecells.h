@@ -33,6 +33,8 @@ class QResizeEvent;
 class Editor;
 class PreferenceManager;
 class QMenu;
+class QLineEdit;
+class QTimer;
 class QAction;
 enum class SETTING;
 
@@ -50,18 +52,16 @@ public:
     TimeLineCells( TimeLine* parent, Editor* editor, TIMELINE_CELL_TYPE );
     ~TimeLineCells() override;
 
-    /** A small plot of the easing curve for the tween menu. */
-    static QPixmap easingPreview(CameraEasingType easing);
     static int getOffsetX() { return mOffsetX; }
     static int getOffsetY() { return mOffsetY; }
     int getLayerHeight() const { return mLayerHeight; }
+    /** Opens the inline name editor on the current layer. */
+    void renameCurrentLayer();
 
     int getFrameLength() const { return mFrameLength; }
     int getFrameSize() const { return mFrameSize; }
 
     void setFrameLength(int n) { mFrameLength = n; }
-    /// Key, Breakdown, Inbetween, Clear Mark: the cell menu shows their text for the clicked Drawing.
-    void setMarkActions(const QList<QAction*>& actions) { mMarkActions = actions; }
     void setFrameSize(int size);
     void clearCache() { delete mCache; mCache = nullptr; }
 
@@ -98,6 +98,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
     void loadSetting(SETTING setting);
@@ -110,8 +111,6 @@ private:
     int getFrameNumber(int x) const;
     /** The frame whose right edge is under pos and ends a Drawing's Exposure, or 0. */
     int exposureEdgeAt(const QPoint& pos) const;
-    void showMarkerMenu(int frame, int layerId, const QPoint& globalPos);
-    void showTweenMenu(int frame, const QPoint& globalPos);
 
     void onDidLeaveWidget();
 
@@ -130,12 +129,14 @@ private:
     void paintSelection(QPainter& painter, int x, int y, int width, int height) const;
     void paintHighlightedFrame(QPainter& painter, int framePos, int recTop, int recWidth, int recHeight) const;
 
-    void editLayerProperties(Layer* layer) const;
     void editLayerProperties(LayerCamera *layer) const;
-    void editLayerName(Layer* layer) const;
+    void startRename(Layer* layer);
+    void finishRename(bool accept);
+
+    QLineEdit* mRenameEdit = nullptr;
+    int mRenameLayerId = -1;
 
     TimeLine* mTimeLine;
-    QList<QAction*> mMarkActions;
     Editor* mEditor; // the editor for which this timeLine operates
     PreferenceManager* mPrefs;
 
@@ -172,6 +173,12 @@ private:
     Qt::MouseButton primaryButton = Qt::NoButton;
 
     bool mScrollingVertically = false;
+
+    // A refused layer's eye or lock icon blinks while mFlashTicks counts down.
+    void flashLayer(int layerId);
+    QTimer* mFlashTimer = nullptr;
+    int mFlashLayerId = 0;
+    int mFlashTicks = 0;
 
     bool mCanMoveFrame   = false;
     bool mMovingFrames   = false;

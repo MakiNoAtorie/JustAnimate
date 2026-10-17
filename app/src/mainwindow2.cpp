@@ -18,6 +18,7 @@ GNU General Public License for more details.
 
 #include "mainwindow2.h"
 #include "appinfo.h"
+#include "cellmenus.h"
 #include "defaultlayout.h"
 #include <QScreen>
 #include "ui_mainwindow2.h"
@@ -173,6 +174,7 @@ void MainWindow2::setIcons()
         { ui->actionNew_Bitmap_Layer, "photo" },
         { ui->actionNew_Vector_Layer, "vector" },
         { ui->actionNew_Sound_Layer, "volume" },
+        { ui->actionNew_Storyboard_Layer, "clipboard" },
         { ui->actionNew_Camera_Layer, "video" },
         { ui->actionDelete_Current_Layer, "minus" },
         { ui->actionShowInvisibleLines, "line-dotted" },
@@ -425,8 +427,10 @@ void MainWindow2::createMenus()
     connect(ui->actionNew_Bitmap_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewBitmapLayer);
     connect(ui->actionNew_Vector_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewVectorLayer);
     connect(ui->actionNew_Sound_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewSoundLayer);
-    connect(ui->actionNew_Camera_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewCameraLayer);
+    connect(ui->actionNew_Storyboard_Layer, &QAction::triggered, mCommands, &ActionCommands::addNewStoryboardLayer);
+    connect(ui->actionNew_Camera_Layer, &QAction::triggered, mCommands, qOverload<>(&ActionCommands::addNewCameraLayer));
     connect(ui->actionDelete_Current_Layer, &QAction::triggered, mCommands, &ActionCommands::deleteCurrentLayer);
+    connect(ui->actionRename_Layer, &QAction::triggered, mTimeLine, &TimeLine::renameCurrentLayer);
     connect(ui->actionChangeLineColorCurrent_keyframe, &QAction::triggered, mCommands, &ActionCommands::changeKeyframeLineColor);
     connect(ui->actionChangeLineColorAll_keyframes_on_layer, &QAction::triggered, mCommands, &ActionCommands::changeallKeyframeLineColor);
     connect(ui->actionChangeLayerOpacity, &QAction::triggered, this, &MainWindow2::openLayerOpacityDialog);
@@ -581,19 +585,13 @@ void MainWindow2::createMenus()
         connect(action, &QAction::triggered, this, [this, mark = mark] { mEditor->layers()->setKeyMark(mEditor->currentFrame(), mark); });
     }
     connect(ui->actionCreate_Inbetweens, &QAction::triggered, this, &MainWindow2::createInbetweens);
-    mTimeLine->setMarkActions({ ui->actionMark_Key, ui->actionMark_Breakdown, ui->actionMark_Inbetween, ui->actionClear_Mark });
     mXSheet->setEditActions({ ui->actionAdd_Frame, ui->actionExposure_Add, ui->actionExposure_Subtract,
                               ui->actionRipple_Insert_Frame, ui->actionRipple_Delete_Frame });
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
-    auto rippleEdit = [this](bool (LayerManager::*edit)())
-    {
-        if (!mEditor->layers()->currentLayer()->visible()) { ui->scribbleArea->showLayerNotVisibleWarning(); return; }
-        (mEditor->layers()->*edit)();
-    };
-    connect(ui->actionRipple_Insert_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleInsertFrame); });
-    connect(ui->actionRipple_Delete_Frame, &QAction::triggered, this, [=] { rippleEdit(&LayerManager::rippleRemoveFrame); });
+    connect(ui->actionRipple_Insert_Frame, &QAction::triggered, this, [this] { mEditor->layers()->rippleInsertFrame(); });
+    connect(ui->actionRipple_Delete_Frame, &QAction::triggered, this, [this] { mEditor->layers()->rippleRemoveFrame(); });
     connect(ui->actionExposure_Add, &QAction::triggered, this, [this] { mEditor->layers()->changeExposure(mEditor->currentFrame(), 1); });
     connect(ui->actionExposure_Subtract, &QAction::triggered, this, [this] { mEditor->layers()->changeExposure(mEditor->currentFrame(), -1); });
     connect(ui->actionAdd_Frame_Exposure, &QAction::triggered, mCommands, &ActionCommands::addExposureToSelectedFrames);
@@ -631,7 +629,6 @@ void MainWindow2::createMenus()
     toolsActionGroup->addAction(ui->actionBucket);
     toolsActionGroup->addAction(ui->actionEyedropper);
     toolsActionGroup->addAction(ui->actionEraser);
-    toolsActionGroup->addAction(ui->actionResetToolsDefault);
 
     connect(toolsActionGroup, &QActionGroup::triggered, this, [&](QAction* action) {
         if (action == ui->actionMove) mToolBox->setActiveTool(MOVE);
@@ -649,7 +646,6 @@ void MainWindow2::createMenus()
         else if (action == ui->actionBucket) mToolBox->setActiveTool(BUCKET);
         else if (action == ui->actionEyedropper) mToolBox->setActiveTool(EYEDROPPER);
         else if (action == ui->actionEraser) mToolBox->setActiveTool(ERASER);
-        else if (action == ui->actionResetToolsDefault) mCommands->resetAllTools();
         else Q_UNREACHABLE();
     });
 
@@ -716,10 +712,7 @@ void MainWindow2::createMenus()
 
     //--- Help Menu ---
     connect(ui->actionHelp, &QAction::triggered, mCommands, &ActionCommands::help);
-    connect(ui->actionQuick_Guide, &QAction::triggered, mCommands, &ActionCommands::quickGuide);
     connect(ui->actionWebsite, &QAction::triggered, mCommands, &ActionCommands::website);
-    connect(ui->actionForum, &QAction::triggered, mCommands, &ActionCommands::forum);
-    connect(ui->actionDiscord, &QAction::triggered, mCommands, &ActionCommands::discord);
     connect(ui->actionCheck_for_Updates, &QAction::triggered, mCommands, &ActionCommands::checkForUpdates);
     connect(ui->actionReport_Bug, &QAction::triggered, mCommands, &ActionCommands::reportbug);
     connect(ui->actionOpen_Temporary_Directory, &QAction::triggered, mCommands, &ActionCommands::openTemporaryDirectory);
@@ -760,9 +753,8 @@ void MainWindow2::openPegAlignDialog()
 {
     if (mPegAlign != nullptr)
     {
-        QMessageBox::information(this, nullptr,
-                                 tr("Dialog is already open!"),
-                                 QMessageBox::Ok);
+        mPegAlign->activateWindow();
+        mPegAlign->raise();
         return;
     }
 
@@ -784,9 +776,8 @@ void MainWindow2::openLayerOpacityDialog()
 {
     if (mLayerOpacityDialog != nullptr)
     {
-        QMessageBox::information(this, nullptr,
-                                 tr("Dialog is already open!"),
-                                 QMessageBox::Ok);
+        mLayerOpacityDialog->activateWindow();
+        mLayerOpacityDialog->raise();
         return;
     }
     mLayerOpacityDialog = new LayerOpacityDialog(this);
@@ -951,12 +942,17 @@ void MainWindow2::openStartupFile(const QString& filename)
     }
 
     PreferenceManager* prefs = mEditor->preference();
-    if (Welcome::showAtStartup(prefs->isOn(SETTING::SHOW_WELCOME_SCREEN), prefs->isOn(SETTING::ASK_FOR_PRESET), filename))
+    const int action = prefs->getInt(SETTING::STARTUP_ACTION);
+    if (action == STARTUP_LAST_PROJECT && loadMostRecent())
+    {
+        return;
+    }
+    if (filename.isEmpty() && action == STARTUP_WELCOME)
     {
         showWelcomeDialog();
         return;
     }
-    loadMostRecent() || newObjectFromPresets(prefs->getInt(SETTING::DEFAULT_PRESET));
+    newObjectFromPresets(prefs->getInt(SETTING::DEFAULT_PRESET));
 }
 
 void MainWindow2::openFile(const QString& filename)
@@ -1136,28 +1132,11 @@ bool MainWindow2::autoSave()
         return saveDocument();
     }
 
-    if (mEditor->autoSaveNeverAskAgain())
-        return false;
-
-    if(mSuppressAutoSaveDialog)
-        return false;
-
-    QMessageBox msgBox(this);
-    msgBox.setIcon(QMessageBox::Question);
-    msgBox.setWindowTitle(tr("AutoSave Reminder"));
-    msgBox.setText(tr("The animation is not saved yet.\n Do you want to save now?"));
-    msgBox.addButton(tr("Never ask again", "AutoSave reminder button"), QMessageBox::RejectRole);
-    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-    msgBox.setDefaultButton(QMessageBox::Yes);
-
-    int ret = msgBox.exec();
-    if (ret == QMessageBox::Yes)
+    if (!mSuppressAutoSaveDialog && mEditor->preference()->isOn(SETTING::AUTO_SAVE_REMINDER))
     {
-        return saveDocument();
-    }
-    if (ret != QMessageBox::No) // Never ask again
-    {
-        mEditor->dontAskAutoSave(true);
+        const QKeySequence key = ui->actionSave->shortcut();
+        mEditor->notice(key.isEmpty() ? tr("Unsaved project: save it to keep autosaving")
+                                      : tr("Unsaved project: press %1").arg(key.toString(QKeySequence::NativeText)));
     }
 
     return false;
@@ -1313,6 +1292,7 @@ void MainWindow2::preferences()
     mPrefDialog->init(mEditor->preference());
 
     connect(mPrefDialog, &PreferencesDialog::windowOpacityChange, this, &MainWindow2::setOpacity);
+    connect(mPrefDialog, &PreferencesDialog::resetToolsRequested, mCommands, &ActionCommands::resetAllTools);
     connect(mPrefDialog, &PreferencesDialog::soundScrubChanged, mEditor->playback(), &PlaybackManager::setSoundScrubActive);
     connect(mPrefDialog, &PreferencesDialog::soundScrubMsecChanged, mEditor->playback(), &PlaybackManager::setSoundScrubMsec);
     connect(mPrefDialog, &PreferencesDialog::finished, [&]
@@ -1403,11 +1383,6 @@ bool MainWindow2::newObjectFromPresets(int presetIndex)
 
 bool MainWindow2::loadMostRecent()
 {
-    if(!mEditor->preference()->isOn(SETTING::LOAD_MOST_RECENT))
-    {
-        return false;
-    }
-
     QSettings& settings = pencilSettings();
     QString myPath = settings.value(LAST_PCLX_PATH, QVariant("")).toString();
     if (myPath.isEmpty() || !QFile::exists(myPath))
@@ -1419,7 +1394,7 @@ bool MainWindow2::loadMostRecent()
 
 bool MainWindow2::tryLoadPreset()
 {
-    if (!mEditor->preference()->isOn(SETTING::ASK_FOR_PRESET))
+    if (mEditor->preference()->getInt(SETTING::STARTUP_ACTION) != STARTUP_WELCOME)
     {
         return newObjectFromPresets(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET));
     }
@@ -1438,6 +1413,15 @@ void MainWindow2::showWelcomeDialog()
         if (result != QDialog::Accepted)
         {
             return;
+        }
+
+        if (presetDialog->shouldHide())
+        {
+            mEditor->preference()->set(SETTING::STARTUP_ACTION, Welcome::hiddenStartupAction(!mRecentFileMenu->getRecentFiles().isEmpty()));
+            if (presetDialog->templateIndex() < 0)
+            {
+                mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetDialog->presetIndex());
+            }
         }
 
         if (presetDialog->browseRequested())
@@ -1465,12 +1449,6 @@ void MainWindow2::showWelcomeDialog()
         }
 
         int presetIndex = presetDialog->presetIndex();
-        if (presetDialog->shouldAlwaysUse())
-        {
-            mEditor->preference()->set(SETTING::ASK_FOR_PRESET, false);
-            mEditor->preference()->set(SETTING::SHOW_WELCOME_SCREEN, false);
-            mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetIndex);
-        }
         if (!newObjectFromPresets(presetIndex))
         {
             newObject();
@@ -1643,7 +1621,6 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionBucket->setShortcut(cmdKeySeq(CMD_TOOL_BUCKET));
     ui->actionEyedropper->setShortcut(cmdKeySeq(CMD_TOOL_EYEDROPPER));
     ui->actionEraser->setShortcut(cmdKeySeq(CMD_TOOL_ERASER));
-    ui->actionResetToolsDefault->setShortcut(cmdKeySeq(CMD_RESET_ALL_TOOLS));
     mRadialToolAction->setShortcut(cmdKeySeq(CMD_RADIAL_TOOL_MENU));
     mShiftAndTraceAction->setShortcut(cmdKeySeq(CMD_SHIFT_AND_TRACE));
     mPresetPickerAction->setShortcut(cmdKeySeq(CMD_QUICK_PRESET_PICKER));
@@ -1655,6 +1632,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionNew_Camera_Layer->setShortcut(cmdKeySeq(CMD_NEW_CAMERA_LAYER));
     ui->actionNew_Sound_Layer->setShortcut(cmdKeySeq(CMD_NEW_SOUND_LAYER));
     ui->actionDelete_Current_Layer->setShortcut(cmdKeySeq(CMD_DELETE_CUR_LAYER));
+    ui->actionRename_Layer->setShortcut(cmdKeySeq(CMD_RENAME_LAYER));
     ui->actionChangeLineColorCurrent_keyframe->setShortcut(cmdKeySeq(CMD_CHANGE_LINE_COLOR_KEYFRAME));
     ui->actionChangeLineColorAll_keyframes_on_layer->setShortcut(cmdKeySeq(CMD_CHANGE_LINE_COLOR_LAYER));
     ui->actionChangeLayerOpacity->setShortcut(cmdKeySeq(CMD_CHANGE_LAYER_OPACITY));
@@ -1669,6 +1647,8 @@ void MainWindow2::setupKeyboardShortcuts()
     mColorPalette->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_LIBRARY));
     mTimeLine->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_TIMELINE));
     mXSheet->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_XSHEET));
+    mBrushPresets->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_BRUSH_PRESETS));
+    mStoryboard->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_STORYBOARD));
     mColorInspector->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_INSPECTOR));
     mOnionSkinWidget->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_ONION_SKIN));
 
@@ -1796,7 +1776,8 @@ void MainWindow2::makeConnections(Editor* pEditor, TimeLine* pTimeline)
     connect(pTimeline, &TimeLine::newBitmapLayer, mCommands, &ActionCommands::addNewBitmapLayer);
     connect(pTimeline, &TimeLine::newVectorLayer, mCommands, &ActionCommands::addNewVectorLayer);
     connect(pTimeline, &TimeLine::newSoundLayer, mCommands, &ActionCommands::addNewSoundLayer);
-    connect(pTimeline, &TimeLine::newCameraLayer, mCommands, &ActionCommands::addNewCameraLayer);
+    connect(pTimeline, &TimeLine::newStoryboardLayer, mCommands, &ActionCommands::addNewStoryboardLayer);
+    connect(pTimeline, &TimeLine::newCameraLayer, mCommands, qOverload<>(&ActionCommands::addNewCameraLayer));
     connect(mTimeLine, &TimeLine::playButtonTriggered, mCommands, &ActionCommands::PlayStop);
     connect(pTimeline, &TimeLine::deleteCurrentLayerClick, mCommands, &ActionCommands::deleteCurrentLayer);
 
@@ -1818,6 +1799,7 @@ void MainWindow2::makeConnections(Editor* pEditor, TimeLine* pTimeline)
     connect(pEditor, &Editor::updateTimeLineCached, pTimeline, &TimeLine::updateUICached);
 
     connect(pEditor->layers(), &LayerManager::currentLayerChanged, this, &MainWindow2::updateLayerMenu);
+    connect(pEditor->layers(), &LayerManager::layerCountChanged, this, &MainWindow2::updateLayerMenu);
 }
 
 void MainWindow2::makeConnections(Editor*, OnionSkinWidget*)
@@ -1871,14 +1853,8 @@ void MainWindow2::createInbetweens()
     LayerManager* layers = mEditor->layers();
     // Other layer types refuse before the easing is asked.
     if (layers->currentLayer()->type() != Layer::VECTOR) { layers->createInbetweens(CameraEasingType::LINEAR); return; }
-    QStringList names;
-    for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
-    {
-        names << getInterpolationText(static_cast<CameraEasingType>(i));
-    }
-    bool ok = false;
-    const QString name = QInputDialog::getItem(this, tr("Create Inbetweens"), tr("Easing:"), names, 0, false, &ok);
-    if (ok) { layers->createInbetweens(static_cast<CameraEasingType>(names.indexOf(name))); }
+    CameraEasingType easing;
+    if (CellMenus::chooseInbetweenEasing(mEditor, QCursor::pos(), easing)) { layers->createInbetweens(easing); }
 }
 
 void MainWindow2::changePlayState(bool isPlaying)

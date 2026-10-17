@@ -15,6 +15,13 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <QAction>
+#include <QApplication>
+#include <QToolButton>
+#include "mainwindow2.h"
+#include "undoredomanager.h"
+#include "layercamera.h"
+
 #include "object.h"
 #include "editor.h"
 #include "layermanager.h"
@@ -180,4 +187,37 @@ TEST_CASE("Duplicate Layer copies the keys and the blend mode", "[LayerManager]"
     CHECK(copy->keyExists(1));
     CHECK(copy->keyExists(3));
     CHECK(copy->getKeyFrameAt(3) != from->getKeyFrameAt(3));
+}
+
+// Needs MainWindow2: it enables the Delete Layer menu action.
+TEST_CASE("Delete Layer is disabled on the last camera and deletes without a dialog", "[LayerManager]")
+{
+    MainWindow2 window;
+    window.show();
+    QApplication::processEvents();
+    Editor* editor = window.findChild<Editor*>();
+    REQUIRE(editor);
+    auto* action = window.findChild<QAction*>("actionDelete_Current_Layer");
+    auto* button = window.findChild<QToolButton*>("LayerDeleteButton");
+    REQUIRE(action);
+    REQUIRE(button);
+    LayerManager* layers = editor->layers();
+
+    layers->setCurrentLayer(0);
+    REQUIRE(layers->currentLayer()->type() == Layer::CAMERA);
+    CHECK_FALSE(action->isEnabled());
+    CHECK_FALSE(button->isEnabled());
+
+    LayerBitmap* bitmap = layers->createBitmapLayer("Doomed");
+    layers->setCurrentLayer(bitmap);
+    CHECK(action->isEnabled());
+    CHECK(button->isEnabled());
+    const int count = layers->count();
+    action->trigger();
+    CHECK(layers->count() == count - 1);
+
+    QAction* undo = editor->undoRedo()->createUndoAction(&window, QIcon());
+    undo->trigger();
+    CHECK(layers->count() == count);
+    CHECK(layers->getLayer(count - 1)->name() == "Doomed");
 }

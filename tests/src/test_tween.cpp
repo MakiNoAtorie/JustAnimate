@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "playbackmanager.h"
 #include "testfixture.h"
 #include "timeline.h"
+#include "cellmenus.h"
 #include "timelinecells.h"
 #include "tiledbuffer.h"
 #include "toolmanager.h"
@@ -386,7 +387,7 @@ TEST_CASE("Tool settings fields edit the current Drawing's key transform", "[Twe
 
 TEST_CASE("The tween menu previews each easing curve", "[Tween]")
 {
-    const QImage linear = TimeLineCells::easingPreview(CameraEasingType::LINEAR).toImage();
+    const QImage linear = CellMenus::easingPreview(CameraEasingType::LINEAR).toImage();
     REQUIRE_FALSE(linear.isNull());
-    CHECK(linear != TimeLineCells::easingPreview(CameraEasingType::INQUAD).toImage());
+    CHECK(linear != CellMenus::easingPreview(CameraEasingType::INQUAD).toImage());
 }

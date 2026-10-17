@@ -20,6 +20,7 @@ GNU General Public License for more details.
 
 #include "basemanager.h"
 #include <QHash>
+#include <QSize>
 #include "layer.h"
 
 class LayerBitmap;
@@ -28,6 +29,7 @@ class LayerCamera;
 class LayerSound;
 struct TweenState;
 struct LayerArrangement;
+struct FrameMarker;
 enum class CameraEasingType;
 enum class Mark;
 
@@ -71,6 +73,8 @@ public:
     void setStoryboard(Layer* layer, bool storyboard);
     /** Sets the saved project length (0 unsets it), one undo step. Returns false when nothing changed or the length is out of range. */
     bool setSceneLength(int length);
+    /** Sets the camera layer size, centred on the origin, as one undo step. Marks the project modified. */
+    void setCameraSize(LayerCamera* layer, QSize size);
     /** Sets the Panel fields of the layer's Drawing shown at `frame`. One undo step.
      *  Returns false when nothing changes: no Drawing at `frame`, the same fields, or a refused edit. */
     bool setPanelFields(Layer* layer, int frame, const PanelFields& fields);
@@ -160,6 +164,11 @@ public:
     /** After clips of a sound layer moved (`fromTo` keyframe positions), moves the layer's markers inside
      *  each clip's old span with it. Does nothing on other layer types. */
     void moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo);
+    /** Adds or replaces the marker at `frame` of `layerId` (0: global). One undo step each. */
+    void setMarker(int layerId, int frame, const FrameMarker& marker);
+    /** Moves the marker at `from` to `to`, replacing a marker there. False when there is none at `from`. */
+    bool moveMarker(int layerId, int from, int to);
+    void removeMarker(int layerId, int frame);
 
     /** This should be emitted whenever the animation length frames, eg. adding, removing, duplicating */
     void notifyAnimationLengthChanged();
@@ -179,6 +188,8 @@ private:
     void recordLayerAdd(const Layer* layer);
     /// True, with a status message, when a layer with selected frames is lock-all.
     bool selectionRefusesEdit();
+    /// Records a Marker edit, marks the project modified and repaints the timeline.
+    void markersChanged(int layerId, const QMap<int, FrameMarker>& before, const QString& description);
 
     int mLastCameraLayerIdx = 0;
     QHash<int, bool> mSoloVisibility; // layer id to visibility before the solo; empty when nothing is soloed

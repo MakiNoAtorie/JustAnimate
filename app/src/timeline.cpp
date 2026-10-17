@@ -78,6 +78,7 @@ void TimeLine::initUI()
     addLayerButton->setToolTip(tr("Add Layer"));
 
     mLayerDeleteButton = new QToolButton(this);
+    mLayerDeleteButton->setObjectName("LayerDeleteButton");
     mLayerDeleteButton->setIcon(Theme::icon(":/icons/tabler/minus.svg"));
     mLayerDeleteButton->setToolTip(tr("Delete Layer"));
 
@@ -99,12 +100,14 @@ void TimeLine::initUI()
     QAction* newBitmapLayerAct = new QAction(Theme::icon(":/icons/tabler/photo.svg"), tr("New Bitmap Layer"), this);
     QAction* newVectorLayerAct = new QAction(Theme::icon(":/icons/tabler/vector.svg"), tr("New Vector Layer"), this);
     QAction* newSoundLayerAct = new QAction(Theme::icon(":/icons/tabler/volume.svg"), tr("New Sound Layer"), this);
+    QAction* newStoryboardLayerAct = new QAction(Theme::icon(":/icons/tabler/clipboard.svg"), tr("New Storyboard Layer"), this);
     QAction* newCameraLayerAct = new QAction(Theme::icon(":/icons/tabler/video.svg"), tr("New Camera Layer"), this);
 
     QMenu* layerMenu = new QMenu(tr("Layer", "Timeline add-layer menu"), this);
     layerMenu->addAction(newBitmapLayerAct);
     layerMenu->addAction(newVectorLayerAct);
     layerMenu->addAction(newSoundLayerAct);
+    layerMenu->addAction(newStoryboardLayerAct);
     layerMenu->addAction(newCameraLayerAct);
     addLayerButton->setMenu(layerMenu);
     addLayerButton->setPopupMode(QToolButton::InstantPopup);
@@ -222,6 +225,7 @@ void TimeLine::initUI()
     connect(newBitmapLayerAct, &QAction::triggered, this, &TimeLine::newBitmapLayer);
     connect(newVectorLayerAct, &QAction::triggered, this, &TimeLine::newVectorLayer);
     connect(newSoundLayerAct, &QAction::triggered, this, &TimeLine::newSoundLayer);
+    connect(newStoryboardLayerAct, &QAction::triggered, this, &TimeLine::newStoryboardLayer);
     connect(newCameraLayerAct, &QAction::triggered, this, &TimeLine::newCameraLayer);
     connect(mLayerDeleteButton, &QPushButton::clicked, this, &TimeLine::deleteCurrentLayerClick);
 
@@ -238,6 +242,7 @@ void TimeLine::initUI()
     LayerManager* layer = editor()->layers();
     connect(layer, &LayerManager::layerCountChanged, this, &TimeLine::updateLayerNumber);
     connect(layer, &LayerManager::currentLayerChanged, this, &TimeLine::onCurrentLayerChanged);
+    connect(layer, &LayerManager::layerCountChanged, this, &TimeLine::onCurrentLayerChanged);
     mNumLayers = layer->count();
 
     scrubbing = false;
@@ -259,11 +264,6 @@ void TimeLine::updateUICached()
  *
  *  @param[in] frame The new animation length
  */
-void TimeLine::setMarkActions(const QList<QAction*>& actions)
-{
-    mTracks->setMarkActions(actions);
-}
-
 void TimeLine::extendLength(int frame)
 {
     int currentLength = mTracks->getFrameLength();
@@ -373,6 +373,11 @@ void TimeLine::onObjectLoaded()
 {
     mTimeControls->updateUI();
     updateLayerNumber(editor()->layers()->count());
+}
+
+void TimeLine::renameCurrentLayer()
+{
+    mLayerList->renameCurrentLayer();
 }
 
 void TimeLine::onCurrentLayerChanged()

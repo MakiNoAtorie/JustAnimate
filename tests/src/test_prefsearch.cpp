@@ -1,11 +1,24 @@
 #include "catch.hpp"
 
 #include "prefsearch.h"
+#include "actioncommands.h"
+#include "generalpage.h"
+#include "stroketool.h"
+#include "toolmanager.h"
 #include "preferencesdialog.h"
 #include "shortcutspage.h"
+#include "toolspage.h"
 #include "pencilsettings.h"
+#include "editor.h"
+#include "preferencemanager.h"
+#include "testfixture.h"
 
+#include <QApplication>
 #include <QLabel>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QSpinBox>
+#include <QTimer>
 #include <QStandardItemModel>
 #include <QTreeView>
 
@@ -60,4 +73,64 @@ TEST_CASE("Shortcuts page names the Layout commands with Glossary terms", "[Pref
     CHECK(page.filter("Lock Panels"));
     CHECK_FALSE(page.filter("Reset Windows"));
     CHECK_FALSE(page.filter("Lock Windows"));
+}
+TEST_CASE("Preferences - undo steps apply when editing finishes after one confirmation", "[PrefSearch]")
+{
+    const SettingsGuard guard({ SETTING_UNDO_REDO_MAX_STEPS });
+    Editor editor;
+    PreferenceManager prefs(&editor);
+    prefs.loadPrefs();
+    prefs.set(SETTING::UNDO_REDO_MAX_STEPS, 100);
+    PreferencesDialog dialog(nullptr);
+    dialog.init(&prefs);
+    auto* box = dialog.findChild<QSpinBox*>("undoStepsBox");
+    REQUIRE(box);
+    CHECK_FALSE(dialog.findChild<QPushButton*>("undoRedoGroupApplyButton"));
+
+    auto* page = dialog.findChild<GeneralPage*>();
+    REQUIRE(page);
+    int asked = 0;
+    bool answer = false;
+    page->confirmUndoStepsChange = [&] { ++asked; return answer; };
+    box->setValue(150);
+    CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 100);
+    emit box->editingFinished();
+    CHECK(asked == 1);
+    CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 100);
+    CHECK(box->value() == 100);
+
+    answer = true;
+    box->setValue(150);
+    emit box->editingFinished();
+    CHECK(asked == 2);
+    CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 150);
+}
+
+TEST_CASE("Reset all tools button asks first and resets only on yes", "[PrefSearch]")
+{
+    TestSession s;
+    REQUIRE(s.start());
+    auto* pencil = static_cast<StrokeTool*>(s.editor->tools()->getTool(PENCIL));
+    const ToolSettingsGuard toolGuard(pencil);
+    pencil->resetSettings();
+    const qreal defaultWidth = pencil->strokeToolProperties().width();
+    pencil->setWidth(defaultWidth + 7);
+
+    ActionCommands commands(nullptr);
+    commands.setCore(s.editor.get());
+    PreferencesDialog dialog(nullptr);
+    dialog.init(s.editor->preference());
+    // Same wiring as MainWindow2.
+    QObject::connect(&dialog, &PreferencesDialog::resetToolsRequested, &commands, &ActionCommands::resetAllTools);
+    auto* page = dialog.findChild<ToolsPage*>();
+    auto* button = dialog.findChild<QPushButton*>("resetToolsButton");
+    REQUIRE(page);
+    REQUIRE(button);
+    bool answer = false;
+    page->confirmReset = [&answer] { return answer; };
+    button->click();
+    CHECK(pencil->strokeToolProperties().width() == defaultWidth + 7);
+    answer = true;
+    button->click();
+    CHECK(pencil->strokeToolProperties().width() == defaultWidth);
 }

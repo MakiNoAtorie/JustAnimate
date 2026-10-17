@@ -5,6 +5,31 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Review fixes: New Camera Layer asks for name and size in Camera Properties as one undo step; Preferences > Files has "Remind me to save an untitled project", and the reminder names your Save key; Layer > Rename Layer (F2) works anywhere in the main window; the open Opacity dialog follows undo and redo; Change Line Color refuses a hidden layer; an unknown startup choice opens the Welcome screen; shortcut names match the menus (#215).
+- New default keys, only where the command has none and the key is free: Ctrl+5 X-sheet, Ctrl+9 Brush Presets, Ctrl+0 Storyboard, Ctrl+M Export Movie, Ctrl+Shift+I Create Inbetweens (#241).
+- The autosave reminder for an untitled project is a non-modal notice, "Unsaved project: press Ctrl+S"; Esc no longer turns it off for good (#225).
+- Help > User Manual opens the JustAnimate documentation; the Pencil2D forum, Discord and Quick Reference Guide items and the bundled PDF are gone (#226).
+- The Opacity dialog records one undo step per slider release, typed value or fade; Opacity and Peg Bar Alignment come to the front when already open (#223).
+- A camera size change in Camera Properties is one undo step and marks the project modified (#221).
+- The empty Storyboard Panel explains how to make a Storyboard layer and has a button for the current layer; Layer > New Storyboard Layer and the timeline add-layer menu create one with no dialog (#240).
+- Create Inbetweens picks the easing from the tween icon menu at the cursor; the last easing is preselected and Enter accepts it (#239).
+- Reset to default leaves the Tools menu and Command search and becomes a button on Preferences > Tools that asks first (#238).
+- Preferences: both invert-zoom settings sit in one Navigation group on the General page, and the undo steps apply when you finish editing (#237).
+- Right-click on an X-sheet cell or column header opens the timeline's cell or layer menu (#229).
+- Smudge, Eyedropper and Move hints match the tools, grouped Tool column buttons say "Long press or right-click for more", and the Tools menu follows the Tool groups (#236).
+- Delete Layer deletes at once (undoable) with no confirmation; it is disabled on the last camera layer (#230).
+- Playback starts at 12 fps on an empty settings store, so the timeline no longer divides by zero before a project sets the frame rate (#215).
+- Menu, Panel and tooltip names match the app and GLOSSARY: Drawing for Frame, Mirror for Flip, Window menu, Palette and Onion skin Panels, "..." on dialog items, clearer export range tooltip (#235).
+- Timed autosave is on by default, every 5 minutes, so startup recovery has an autosave after a crash; saved settings are kept (#219).
+- Export On Paper, Export Storyboard and Export Timesheet show page progress and can be aborted between pages; an aborted export writes no files (#232).
+- New Bitmap, Vector and Sound layers are added at once with a generated name, with no name dialog; Sound import asks only for the file (#227).
+- Double-clicking a layer name in the timeline, or F2, renames it in place: Enter accepts, Esc cancels, an empty name is refused; the rename dialog is gone (#228).
+- Export Timesheet prefills Scene, Shot and Animator from the Title block and remembers the last typed values (#231).
+- Adding, editing, moving and removing a timeline Marker is one undo step each; a set Marker has Move Marker... in its menu (#222).
+- The Welcome screen has one New project row (templates, a separator, then presets), hides Recent projects while empty, and "Don't show this screen again" writes the startup choice (#234).
+- Layer > Change line color can be undone: one undo step for the current Drawing, or for all Drawings on the layer (#220).
+- Preferences > Files has one startup choice: Show the Welcome screen, Open the last project or New project from the default preset; old startup settings migrate once (#233).
+- Refused edits show one notice in the status bar and on the canvas and flash the layer's eye or lock icon; the hidden-layer dialog is gone, and Remove drawing on an empty frame no longer moves the playhead (#224).
 - The last storyboard panel's Time is editable: it sets a saved project length, so the Drawing holds that long in playback and every export; one undo step (#211).
 - Layers that share a Timesheet column all show, side by side bottom-up, in the X-sheet Panel and the Timesheet export (#209, #210).
 - The Timesheet layout of the X-sheet Panel shows every fixed column, Key A to Camera, with empty columns that take no edits (#209).

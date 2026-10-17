@@ -5,8 +5,6 @@ future work; delete lines that stop being true.
 
 ## Build and test
 
-Cloud sessions: `.claude/hooks/session-start.sh` sets up Qt 6.
-
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|FAILED' | head -40
@@ -14,7 +12,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 ```
 
 - Build with `-j2`, one build per worktree; stop only processes you
-  started. Re-run cmake after a `*.cmake` change.
+  started, by path (a kill by name ends other worktrees' suites). Re-run
+  cmake after a `*.cmake` change.
 - Warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON` on Qt 6.4
   (Linux) and 6.5.3, GCC, Clang and MSVC: no Qt 6.5+ API.
 - CI runs the suite in random order (rerun: `--order rand --rng-seed
@@ -30,22 +29,20 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Catch2, `tests/src/test_<area>.cpp`, registered in `tests/tests.cmake`.
   Test names have no commas.
 - Every fix ships with a test you ran red on the old code (a compile
-  failure counts for new API). These rules beat Ponytail's; its markers
-  are `// shortcut:`.
+  failure counts for new API). These rules beat Ponytail's.
 - Test at a public interface (`Editor`, `FileManager`, a tool, a manager;
   `MainWindow2` only for whole-UI sweeps).
-- Settings go through `pencilSettings()` (`util/pencilsettings.h`), one
-  shared `QSettings&`. Tests run on an empty temporary INI store, restore
+- Settings go through `pencilSettings()`, one shared `QSettings&`. Tests run on an empty temporary INI store, restore
   what they change and set up what they read.
 - No QtTest: count signals with a lambda `connect`. Tool tests send
   `QTabletEvent`s at `view()->mapCanvasToScreen()`; paint checks call
   `grab()` on a shown area (offscreen glyphs are boxes); sizes compare
-  to a `sizeHint` (styles differ
-  by OS). Timing: `QEvent::setTimestamp`, no sleeps. `Status` in `((...))`.
+  to a `sizeHint` (styles differ by OS). Timing: `QEvent::setTimestamp`, no sleeps. `Status` in `((...))`.
 - Tests write files only under their own `QTemporaryDir`.
 - Fixtures are stack objects or `unique_ptr`; every `new` QObject in app
   code gets a parent.
-- No modal dialog in a test path or on the command line.
+- No modal dialog in a test path or on the command line; a UI
+  confirmation is an injectable `std::function<bool()>`.
 - A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
   on Windows.
 - Golden values change only in a commit that means to change output.
@@ -69,9 +66,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Untrusted files: reject the whole archive before writing anything; return
   a failed `Status`. A bad value loads as the default; unknown tags are
   skipped; never `Q_ASSERT` on file data or disk state.
-- A tool property a test may leave unregistered gets a getter that returns
-  the default when it is missing.
-- CPU-parallel loops use `parallelFor` (`util.h`, at most 8 threads); tasks
+- A tool property getter returns the default when it is unregistered.
+- CPU-parallel loops use `parallelFor` (at most 8 threads); tasks
   touch only their own item; signals stay on the calling thread. Never
   `waitForDone` a shared pool. Fetch `QImage::bits()` before the loop.
 - Layer blending goes through `blendPixels`; its SIMD path stays byte-exact
@@ -84,19 +80,19 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Saving goes through `FileManager::save` (`<name>.tmp`, renamed only on
   success); movie export through `MovieExporter::writeThenReplace`; ffmpeg
   pipe writes only through `executeFFMpegPipe`, bounded by `bytesToWrite()`.
-- Zip and unzip run through `FileManager::runArchiveJob` (worker thread;
-  the caller emits progress). One `FileManager::save` at a time.
+- Zip and unzip run through `FileManager::runArchiveJob` (worker thread,
+  caller emits progress). One `FileManager::save` at a time.
 - New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
   `loadPrefs` and `set()` in `preferencemanager.cpp`. A renamed setting
   migrates the old key once, only while the new key is absent.
-- Read `docs/brush-engine.md` before editing dab, tiled-buffer, stroke,
-  tool-property or brush-preset code.
+- Read `docs/brush-engine.md` before editing dab, stroke, tiled-buffer,
+  tool-property or preset code.
 - Bitmap shape and path strokes go through `DabTool::dabPath`. A tool
   subclass skips its base's legacy settings migration. A tool that uses
   Shift or Alt clears `mQuickSizingProperties`. A vector fill from a new
   loop is `BezierCurve(points, false)` plus a `BezierArea`, not
   `VectorImage::fillContour`.
-- Dark/light: `Theme::isDark()`, never `PlatformHandler::isDarkMode()`.
+- Dark/light: `Theme::isDark()` only.
 - Dock layouts: `app/src/defaultlayout.*`; dock `objectName`s are stable;
   a Layout change raises the version in `dropOutdatedLayouts`.
 - New app files go in `app/app.cmake` only. A new `ToolType` goes before
@@ -127,22 +123,20 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   and warn.
 - Page exports: painters in `paperpainter.*`, files via `writePages`.
 - Camera-frame overlays apply `getViewAtFrame(frame)`.
-- Non-QObject text: `QCoreApplication::translate` on literals.
-- User-visible strings go through `tr()`.
+- User-visible strings go through `tr()` (`QCoreApplication::translate`
+  outside QObjects).
 - Colours come from the palette (Accent = `Highlight`), never hex; icons
   from `Theme::icon`.
 - Copy new `KeyFrame` fields in its copy constructor and `operator=`. Mark filter only from `PreferenceManager::markFilter()`.
-
-- Lock-all: an edit starts with `editor->refusesEdit(layer)`; View tools
-  (`BaseTool::isViewTool`) are exempt. Notices: `Editor::statusMessage`.
+- An edit starts with `editor->refuses(layer)` (View tools exempt).
+  Refusals and notices go only through `Editor::notice`.
+- Cell, layer and easing menus: only `app/src/cellmenus.*`.
 - Linked Drawings (ADR 0001): only `linkDrawing` sets a `linkId`; a pixel
   edit outside `KEYFRAME_MODIFY` calls `syncLinkedDrawings`.
 
 ## Commits
 
-- One commit per ticket: code, test and a one-line `ChangeLog.md` entry at
-  the top of "JustAnimate - Unreleased".
-- The message ends `Fixes #<ticket>` (`Refs #<n>` for follow-ups), then the
-  attribution trailers.
+- One commit per ticket (`CLAUDE.md`); its `ChangeLog.md` line goes at the
+  top of "JustAnimate - Unreleased". Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
