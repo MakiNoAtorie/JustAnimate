@@ -582,7 +582,6 @@ void Editor::updateObject()
     scrubTo(mObject->data()->getCurrentFrame());
 
     mAutosaveCounter = 0;
-    mAutosaveNeverAskAgain = false;
 
     if (mPreferenceManager)
     {

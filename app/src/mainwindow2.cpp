@@ -1131,29 +1131,8 @@ bool MainWindow2::autoSave()
         return saveDocument();
     }
 
-    if (mEditor->autoSaveNeverAskAgain())
-        return false;
-
-    if(mSuppressAutoSaveDialog)
-        return false;
-
-    QMessageBox msgBox(this);
-    msgBox.setIcon(QMessageBox::Question);
-    msgBox.setWindowTitle(tr("AutoSave Reminder"));
-    msgBox.setText(tr("The animation is not saved yet.\n Do you want to save now?"));
-    msgBox.addButton(tr("Never ask again", "AutoSave reminder button"), QMessageBox::RejectRole);
-    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-    msgBox.setDefaultButton(QMessageBox::Yes);
-
-    int ret = msgBox.exec();
-    if (ret == QMessageBox::Yes)
-    {
-        return saveDocument();
-    }
-    if (ret != QMessageBox::No) // Never ask again
-    {
-        mEditor->dontAskAutoSave(true);
-    }
+    if (!mSuppressAutoSaveDialog)
+        mEditor->notice(tr("Unsaved project: press Ctrl+S"));
 
     return false;
 }

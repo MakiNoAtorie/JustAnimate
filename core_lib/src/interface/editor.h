@@ -243,8 +243,6 @@ public: //slots
 
     void settingUpdated(SETTING);
 
-    void dontAskAutoSave(bool b) { mAutosaveNeverAskAgain = b; }
-    bool autoSaveNeverAskAgain() const { return mAutosaveNeverAskAgain; }
     void resetAutoSaveCounter();
 
 private:
@@ -284,7 +282,6 @@ private:
     bool mIsAutosave = true;
     int mAutosaveNumber = 12;
     int mAutosaveCounter = 0;
-    bool mAutosaveNeverAskAgain = false;
 
     void makeConnections();
 

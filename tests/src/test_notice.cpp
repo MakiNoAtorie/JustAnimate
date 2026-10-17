@@ -16,11 +16,14 @@ GNU General Public License for more details.
 
 #include <QApplication>
 #include <QPointingDevice>
+#include <QTimer>
 #include <QTabletEvent>
 
 #include "editor.h"
 #include "layerbitmap.h"
 #include "layermanager.h"
+#include "mainwindow2.h"
+#include "preferencemanager.h"
 #include "object.h"
 #include "scribblearea.h"
 #include "testfixture.h"
@@ -112,4 +115,38 @@ TEST_CASE("Ripple edits and Mark refuse through the notice", "[Notice]")
         CHECK(n.refusedLayers == QList<int>({ n.layer->id() }));
         CHECK(n.s.area->note() == n.notices.first());
     }
+}
+
+TEST_CASE("Autosave count on an untitled project shows a notice and no dialog", "[Notice]")
+{
+    const SettingsGuard guard({ SETTING_AUTO_SAVE, SETTING_AUTO_SAVE_NUMBER });
+    MainWindow2 window;
+    Editor* editor = window.findChild<Editor*>();
+    REQUIRE(editor);
+    REQUIRE(editor->object()->filePath().isEmpty());
+    editor->preference()->set(SETTING::AUTO_SAVE, true);
+    editor->preference()->set(SETTING::AUTO_SAVE_NUMBER, 1);
+    editor->resetAutoSaveCounter();
+
+    QStringList notices;
+    QObject::connect(editor, &Editor::statusMessage, &window, [&](const QString& t) { notices << t; });
+    bool dialogOpened = false;
+    QTimer::singleShot(0, [&]
+    {
+        if (QWidget* modal = QApplication::activeModalWidget())
+        {
+            dialogOpened = true;
+            modal->close();
+        }
+    });
+
+    auto* layer = static_cast<LayerBitmap*>(editor->layers()->currentLayer());
+    REQUIRE(layer->type() == Layer::BITMAP);
+    REQUIRE(layer->addNewKeyFrameAt(7));
+    editor->scrubTo(7);
+    editor->removeKey();
+    QCoreApplication::processEvents();
+
+    CHECK_FALSE(dialogOpened);
+    CHECK(notices.contains("Unsaved project: press Ctrl+S"));
 }
