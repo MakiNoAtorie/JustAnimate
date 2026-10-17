@@ -187,6 +187,28 @@ TEST_CASE("A Paper template edit is one undo step per changed field", "[PaperTem
     CHECK(editor->object()->data()->paperTemplate() == two);
 }
 
+TEST_CASE("Editing every Paper template field is one undo step per field", "[PaperTemplate]")
+{
+    TestSession s;
+    s.object->addNewCameraLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    REQUIRE_FALSE(undo->isEnabled());
+
+    // filledTemplate changes on and the six Title block fields.
+    editor->setPaperTemplate(filledTemplate());
+    int steps = 0;
+    while (undo->isEnabled() && steps < 20)
+    {
+        undo->trigger();
+        ++steps;
+    }
+    CHECK(steps == 7);
+    CHECK(editor->object()->data()->paperTemplate() == PaperTemplate());
+}
+
 TEST_CASE("The canvas shows the Title block and exports leave it out", "[PaperTemplate]")
 {
     TestSession s;

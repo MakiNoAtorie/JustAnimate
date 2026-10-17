@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Project files no longer write the Paper template `kind` attribute; files that have it still load (#248).
 - Preference search and shortcut-conflict code now live in the app utilities (#243).
 - One `setTip(type, value)` replaces the four Stroke tool tip setters (#247).
 - The Classic brush preset is a JSON file in the preset pack, with the same values as before (#245).
