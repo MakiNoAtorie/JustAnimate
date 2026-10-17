@@ -212,3 +212,33 @@ TEST_CASE("Default shortcuts: Ctrl+K opens Preferences and Ctrl+Shift+P opens Co
     CHECK(findShortcutConflict(preset, "", QKeySequence("Ctrl+K")) == CMD_PREFERENCE);
     CHECK(findShortcutConflict(preset, "", QKeySequence("Ctrl+Shift+P")) == CMD_COMMAND_SEARCH);
 }
+
+TEST_CASE("v1.x default keys apply on a fresh keymap and skip a bound command or a taken key", "[Shortcuts]")
+{
+    const SettingsGuard guard({ "ShortcutDefaultsV15", "shortcuts/CmdToggleXSheet", "shortcuts/CmdToggleBrushPresets", "shortcuts/CmdToggleStoryboard",
+                                "shortcuts/CmdExportMovie", "shortcuts/CmdCreateInbetweens", "shortcuts/CmdToggleTimeline" });
+    QSettings& s = pencilSettings();
+    const auto reset = [&] {
+        s.remove("ShortcutDefaultsV15");
+        for (const char* c : { CMD_TOGGLE_XSHEET, CMD_TOGGLE_BRUSH_PRESETS, CMD_TOGGLE_STORYBOARD, CMD_EXPORT_MOVIE, CMD_CREATE_INBETWEENS })
+        {
+            s.remove(QStringLiteral("shortcuts/") + c);
+        }
+    };
+    reset();
+    checkExistingShortcuts();
+    CHECK(s.value("shortcuts/" CMD_TOGGLE_XSHEET).toString() == "Ctrl+5");
+    CHECK(s.value("shortcuts/" CMD_TOGGLE_BRUSH_PRESETS).toString() == "Ctrl+9");
+    CHECK(s.value("shortcuts/" CMD_TOGGLE_STORYBOARD).toString() == "Ctrl+0");
+    CHECK(s.value("shortcuts/" CMD_EXPORT_MOVIE).toString() == "Ctrl+M");
+    CHECK(s.value("shortcuts/" CMD_CREATE_INBETWEENS).toString() == "Ctrl+Shift+I");
+
+    reset();
+    s.setValue("shortcuts/" CMD_EXPORT_MOVIE, "Ctrl+Alt+E"); // command already bound
+    s.setValue("shortcuts/" CMD_TOGGLE_TIMELINE, "Ctrl+5");               // key already used
+    checkExistingShortcuts();
+    CHECK(s.value("shortcuts/" CMD_EXPORT_MOVIE).toString() == "Ctrl+Alt+E");
+    CHECK(s.value("shortcuts/" CMD_TOGGLE_XSHEET).toString().isEmpty());
+    CHECK(s.value("shortcuts/" CMD_TOGGLE_TIMELINE).toString() == "Ctrl+5");
+    CHECK(s.value("shortcuts/" CMD_TOGGLE_STORYBOARD).toString() == "Ctrl+0");
+}

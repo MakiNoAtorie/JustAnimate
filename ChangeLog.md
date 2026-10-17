@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- New default keys, only where the command has none and the key is free: Ctrl+5 X-sheet, Ctrl+9 Brush Presets, Ctrl+0 Storyboard, Ctrl+M Export Movie, Ctrl+Shift+I Create Inbetweens (#241).
 - Help > User Manual opens the JustAnimate documentation; the Pencil2D forum, Discord and Quick Reference Guide items and the bundled PDF are gone (#226).
 - The Opacity dialog records one undo step per slider release, typed value or fade; Opacity and Peg Bar Alignment come to the front when already open (#223).
 - A camera size change in Camera Properties is one undo step and marks the project modified (#221).

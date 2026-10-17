@@ -476,12 +476,12 @@ TEST_CASE("Layers that share a Timesheet column each get a sub-column bottom-up"
     CHECK(xsheet.cellRect(1, 1).left() == b.left() + b.width());
 }
 
-TEST_CASE("X-sheet visibility has a command with no default key", "[XSheet]")
+TEST_CASE("X-sheet visibility has a command with the default key Ctrl+5", "[XSheet]")
 {
     QSettings preset(":resources/kb.ini", QSettings::IniFormat);
     preset.beginGroup("shortcuts");
     REQUIRE(preset.contains(CMD_TOGGLE_XSHEET));
-    CHECK(preset.value(CMD_TOGGLE_XSHEET).toString().isEmpty());
+    CHECK(preset.value(CMD_TOGGLE_XSHEET).toString() == "Ctrl+5");
 }
 
 TEST_CASE("A Timesheet export has one sheet per 144 frames", "[XSheet]")

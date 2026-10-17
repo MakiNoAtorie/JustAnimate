@@ -1662,6 +1662,8 @@ void MainWindow2::setupKeyboardShortcuts()
     mColorPalette->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_LIBRARY));
     mTimeLine->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_TIMELINE));
     mXSheet->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_XSHEET));
+    mBrushPresets->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_BRUSH_PRESETS));
+    mStoryboard->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_STORYBOARD));
     mColorInspector->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_INSPECTOR));
     mOnionSkinWidget->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_ONION_SKIN));
 
