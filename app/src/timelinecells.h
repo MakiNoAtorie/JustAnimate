@@ -50,6 +50,8 @@ public:
     TimeLineCells( TimeLine* parent, Editor* editor, TIMELINE_CELL_TYPE );
     ~TimeLineCells() override;
 
+    /** A small plot of the easing curve for the tween menu. */
+    static QPixmap easingPreview(CameraEasingType easing);
     static int getOffsetX() { return mOffsetX; }
     static int getOffsetY() { return mOffsetY; }
     int getLayerHeight() const { return mLayerHeight; }
@@ -66,6 +68,11 @@ public:
     bool didDetachLayer() const;
 
     void showFrameMenu(QPoint pos);
+
+    /** Draws a Drawing's Mark shape centred in its cell: Key diamond, Breakdown triangle, Inbetween dot. */
+    static void paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour);
+    /** Draws the Linked Drawing bar along the bottom of a Drawing's cell. */
+    static void paintLink(QPainter& painter, const QRect& cell, const QColor& colour);
 
 signals:
     void mouseMovedY(int);
@@ -119,8 +126,6 @@ private:
     void paintCurrentFrameBorder(QPainter& painter, int recLeft, int recTop, int recWidth, int recHeight) const;
     void paintFrameCursorOnCurrentLayer(QPainter& painter, int recTop, int recWidth, int recHeight) const;
     void paintSelectedFrames(QPainter& painter, const Layer* layer, const int layerIndex) const;
-    /** Draws a Drawing's Mark shape centred in its cell: Key diamond, Breakdown triangle, Inbetween dot. */
-    void paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour) const;
     void paintLabel(QPainter& painter, const Layer* layer, int x, int y, int height, int width, bool selected, LayerVisibility layerVisibility) const;
     void paintSelection(QPainter& painter, int x, int y, int width, int height) const;
     void paintHighlightedFrame(QPainter& painter, int framePos, int recTop, int recWidth, int recHeight) const;
@@ -177,6 +182,7 @@ private:
     bool mClickSelecting = false;
     int mExposureEdge = 0; // the frame whose right edge is being dragged, or 0
     int mRangeDragStart = 0; // ruler frame where a Shift-drag loop range started, or 0
+    int mLinkFrom = 0; // the key being Alt-dragged to make a Linked Drawing, or 0
 
     int mFramePosMoveX = 0;
     int mLayerPosMoveY = 0;

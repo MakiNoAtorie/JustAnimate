@@ -44,6 +44,7 @@ public:
     BitmapImage& operator=(const BitmapImage& a);
 
     BitmapImage* clone() const override;
+    void copyImageFrom(KeyFrame* source) override;
 
     /** Loads the backing image data from disk and into memory if it exists but hasn't been loaded yet */
     void loadFile() override;

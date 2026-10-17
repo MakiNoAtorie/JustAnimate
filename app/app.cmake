@@ -49,6 +49,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/duplicatepressfilter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutspage.h
@@ -57,6 +58,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/statusbar.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timecontrols.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timeline.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/xsheet.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinecells.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/strokeoptionswidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinepage.h
@@ -116,6 +118,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/welcomehelper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/repositionframesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/defaultlayout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/duplicatepressfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutfilter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutconflict.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/shortcutspage.cpp
@@ -125,6 +128,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/strokeoptionswidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timecontrols.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timeline.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/xsheet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinecells.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinepage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.cpp

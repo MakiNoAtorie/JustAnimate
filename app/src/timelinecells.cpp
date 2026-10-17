@@ -55,7 +55,10 @@ namespace
 // Layer row: visibility dot, onion toggle, type icon, then the name.
 constexpr int kOnionToggleLeft = 17;
 constexpr int kOnionToggleRight = 35;
-constexpr int kLayerNameLeft = 58;
+// The layer type icon sits between kOnionToggleRight and kLockAlphaLeft.
+constexpr int kLockAlphaLeft = 57;
+constexpr int kLockAllLeft = 75;
+constexpr int kLayerNameLeft = 94;
 }
 
 TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYPE type) : QWidget(parent)
@@ -500,12 +503,12 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
     QMenu* easingMenu = menu.addMenu(tr("Tween Easing"));
     for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
     {
-        QAction* action = easingMenu->addAction(getInterpolationText(static_cast<CameraEasingType>(i)));
+        const CameraEasingType type = static_cast<CameraEasingType>(i);
+        QAction* action = easingMenu->addAction(QIcon(easingPreview(type)), getInterpolationText(type));
         action->setCheckable(true);
         action->setChecked(static_cast<int>(easing) == i);
         action->setData(i);
     }
-    QAction* transform = menu.addAction(tr("Key Transform..."));
     menu.addSeparator();
     // Same labels as the Mark actions; these act on the clicked Drawing, not the playhead.
     const Mark marks[] = { Mark::Key, Mark::Breakdown, Mark::Inbetween, Mark::None };
@@ -516,8 +519,19 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
         action->setCheckable(marks[i] != Mark::None);
         action->setChecked(marks[i] != Mark::None && key->mark() == marks[i]);
     }
+    QAction* unlink = nullptr;
+    if (mEditor->layers()->currentLayer()->isLinked(key))
+    {
+        menu.addSeparator();
+        unlink = menu.addAction(tr("Unlink Drawing"));
+    }
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) { return; }
+    if (chosen == unlink)
+    {
+        mEditor->layers()->unlinkDrawing(frame);
+        return;
+    }
     if (chosen->actionGroup() == &markGroup)
     {
         mEditor->layers()->setKeyMark(frame, marks[markGroup.actions().indexOf(chosen)]);
@@ -528,36 +542,31 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
     {
         tween = !tween;
     }
-    else if (chosen == transform)
-    {
-        QDialog dialog(this);
-        dialog.setWindowTitle(tr("Key Transform"));
-        QFormLayout* form = new QFormLayout(&dialog);
-        auto spin = [&](const QString& label, qreal value, qreal min, qreal max) {
-            QDoubleSpinBox* box = new QDoubleSpinBox(&dialog);
-            box->setRange(min, max);
-            box->setDecimals(2);
-            box->setValue(value);
-            form->addRow(label, box);
-            return box;
-        };
-        QDoubleSpinBox* tx = spin(tr("Move X:"), state.tx, -100000, 100000);
-        QDoubleSpinBox* ty = spin(tr("Move Y:"), state.ty, -100000, 100000);
-        QDoubleSpinBox* rot = spin(tr("Rotation:"), state.rot, -3600, 3600);
-        QDoubleSpinBox* scale = spin(tr("Scale:"), state.scale, 0.01, 100);
-        QDialogButtonBox* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-        form->addRow(buttons);
-        if (dialog.exec() != QDialog::Accepted) { return; }
-        state = TweenState{ tx->value(), ty->value(), rot->value(), scale->value(), state.opacity };
-    }
     else if (chosen->data().isValid())
     {
         easing = static_cast<CameraEasingType>(chosen->data().toInt());
         tween = true;
     }
     mEditor->layers()->setKeyTween(frame, tween, easing, state);
+}
+
+QPixmap TimeLineCells::easingPreview(CameraEasingType easing)
+{
+    const int size = 16;
+    QPixmap pixmap(size, size);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(QApplication::palette().color(QPalette::WindowText), 1.2));
+    // Progress runs bottom to top; elastic and back curves may leave the box and clip.
+    QPolygonF curve;
+    for (int i = 0; i <= size; ++i)
+    {
+        const qreal t = qreal(i) / size;
+        curve << QPointF(1 + t * (size - 2), size - 1 - easedProgress(easing, t) * (size - 2));
+    }
+    painter.drawPolyline(curve);
+    return pixmap;
 }
 
 void TimeLineCells::paintTrack(QPainter& painter, const Layer* layer,
@@ -657,6 +666,7 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
 
         painter.drawRect(recLeft, recTop, recWidth, recHeight);
         paintMark(painter, key->mark(), QRect(recLeft, recTop, standardWidth, recHeight), palette().color(QPalette::Shadow));
+        if (layer->isLinked(key)) { paintLink(painter, QRect(recLeft, recTop, standardWidth, recHeight), palette().color(QPalette::Highlight)); }
 
         if (layer->type() == Layer::SOUND)
         {
@@ -779,12 +789,13 @@ void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, c
             painter.drawRect(currentFrameX, recTop, recWidth, recHeight);
             paintMark(painter, key->mark(), QRect(currentFrameX, recTop, standardWidth, recHeight),
                       palette().color(QPalette::HighlightedText));
+            if (layer->isLinked(key)) { paintLink(painter, QRect(currentFrameX, recTop, standardWidth, recHeight), palette().color(QPalette::Highlight)); }
         }
     }
     painter.restore();
 }
 
-void TimeLineCells::paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour) const
+void TimeLineCells::paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour)
 {
     if (mark == Mark::None) { return; }
     const qreal r = std::min(cell.width(), cell.height()) * 0.3;
@@ -806,6 +817,11 @@ void TimeLineCells::paintMark(QPainter& painter, Mark mark, const QRect& cell, c
         break;
     }
     painter.restore();
+}
+
+void TimeLineCells::paintLink(QPainter& painter, const QRect& cell, const QColor& colour)
+{
+    painter.fillRect(cell.left() + 1, cell.bottom() - 2, cell.width() - 1, 3, colour);
 }
 
 void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
@@ -876,6 +892,17 @@ void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
     if (layer->type() == Layer::CAMERA) typeIcon = &cameraIcon;
     if (typeIcon)
         typeIcon->paint(&painter, QRect(kOnionToggleRight + 2, y - 1, 18, 18), Qt::AlignCenter, selected ? QIcon::Selected : QIcon::Normal);
+
+    auto paintToggle = [&](const QIcon& icon, int left, bool on) {
+        icon.paint(&painter, QRect(left + 1, y, 16, 16), Qt::AlignCenter, on ? (selected ? QIcon::Selected : QIcon::Normal) : QIcon::Disabled);
+    };
+    if (layer->type() == Layer::BITMAP)
+    {
+        static const QIcon lockAlphaIcon = Theme::icon(":/icons/tabler/lock-square.svg");
+        paintToggle(lockAlphaIcon, kLockAlphaLeft, static_cast<const LayerBitmap*>(layer)->lockAlpha());
+    }
+    static const QIcon lockAllIcon = Theme::icon(":/icons/tabler/lock.svg");
+    paintToggle(lockAllIcon, kLockAllLeft, layer->lockAll());
 
     if (selected)
     {
@@ -1144,6 +1171,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     mBoxSelecting = false;
 
     mClickSelecting = false;
+    mLinkFrom = 0;
 
     primaryButton = event->button();
 
@@ -1161,9 +1189,28 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
         {
             const Layer* clicked = mEditor->object()->getLayer(layerNumber);
             const LayerGroup* clickedGroup = mEditor->object()->findLayerGroup(clicked->groupId());
-            if (event->pos().x() < 15)
+            if (event->pos().x() < 15 && event->button() == Qt::LeftButton && event->modifiers() == Qt::AltModifier)
+            {
+                mEditor->layers()->toggleSolo(layerNumber);
+            }
+            else if (event->pos().x() < 15)
             {
                 mEditor->switchVisibilityOfLayer(layerNumber);
+            }
+            else if (event->button() == Qt::LeftButton && event->pos().x() >= kLockAlphaLeft && event->pos().x() < kLockAllLeft &&
+                     clicked->type() == Layer::BITMAP)
+            {
+                Layer* layer = mEditor->object()->getLayer(layerNumber);
+                static_cast<LayerBitmap*>(layer)->setLockAlpha(!static_cast<LayerBitmap*>(layer)->lockAlpha());
+                mEditor->object()->modification();
+                emit mEditor->updateTimeLine();
+            }
+            else if (event->button() == Qt::LeftButton && event->pos().x() >= kLockAllLeft && event->pos().x() < kLayerNameLeft)
+            {
+                Layer* layer = mEditor->object()->getLayer(layerNumber);
+                layer->setLockAll(!layer->lockAll());
+                mEditor->object()->modification();
+                emit mEditor->updateTimeLine();
             }
             else if (event->button() == Qt::LeftButton && event->pos().x() >= kOnionToggleLeft && event->pos().x() < kOnionToggleRight &&
                      clicked->type() != Layer::SOUND)
@@ -1327,8 +1374,15 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                         emit mEditor->selectedFramesChanged();
                     }
 
+                    // Alt on a Drawing drags a Linked Drawing of it
+                    if (event->modifiers() == Qt::AltModifier && event->button() == Qt::LeftButton &&
+                        currentLayer->isPaintable() && currentLayer->keyExists(frameNumber))
+                    {
+                        mEditor->layers()->setCurrentLayer(layerNumber);
+                        mLinkFrom = frameNumber;
+                    }
                     // Check if we are using the alt key
-                    if (event->modifiers() == Qt::AltModifier)
+                    else if (event->modifiers() == Qt::AltModifier)
                     {
                         // If it is the case, we select everything that is after the selected frame
                         mClickSelecting = true;
@@ -1510,7 +1564,12 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
         Layer* currentLayer = mEditor->layers()->getLayer(mCurrentLayerNumber);
         Q_ASSERT(currentLayer);
 
-        if (mExposureEdge > 0)
+        if (mLinkFrom > 0)
+        {
+            mEditor->layers()->linkDrawing(mLinkFrom, frameNumber);
+            updateContent();
+        }
+        else if (mExposureEdge > 0)
         {
             mEditor->layers()->changeExposure(mExposureEdge, frameNumber - mExposureEdge);
             updateContent();
@@ -1554,6 +1613,7 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
     mMovingFrames = false;
     mExposureEdge = 0;
     mRangeDragStart = 0;
+    mLinkFrom = 0;
 }
 
 void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
@@ -1582,7 +1642,8 @@ void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
             // deselected now instead.
             layer->setFrameSelected(frameNumber, true);
         }
-        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight)
+        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight &&
+                 (event->pos().x() < kLockAlphaLeft || event->pos().x() >= kLayerNameLeft))
         {
             editLayerProperties(layer);
         }

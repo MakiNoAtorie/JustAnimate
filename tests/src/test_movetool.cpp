@@ -31,27 +31,29 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "testfixture.h"
 #include "toolmanager.h"
+#include "transformtool.h"
 #include "undoredomanager.h"
 #include "viewmanager.h"
 
 namespace
 {
 
-void tablet(ScribbleArea* area, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
+void tablet(ScribbleArea* area, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons,
+            Qt::KeyboardModifiers mods = Qt::NoModifier)
 {
     QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
-                   1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+                   1.0, 0, 0, 0, 0, 0, mods, Qt::LeftButton, buttons);
     QApplication::sendEvent(area, &e);
 }
 
 /// Hovers at `from` so the tool picks its handle, then drags to `to`.
-void drag(ScribbleArea* area, QPointF from, QPointF to)
+void drag(ScribbleArea* area, QPointF from, QPointF to, Qt::KeyboardModifiers mods = Qt::NoModifier)
 {
-    tablet(area, QEvent::TabletMove, from, Qt::NoButton);
-    tablet(area, QEvent::TabletPress, from, Qt::LeftButton);
+    tablet(area, QEvent::TabletMove, from, Qt::NoButton, mods);
+    tablet(area, QEvent::TabletPress, from, Qt::LeftButton, mods);
     for (int i = 1; i <= 5; ++i)
-        tablet(area, QEvent::TabletMove, from + (to - from) * i / 5.0, Qt::LeftButton);
-    tablet(area, QEvent::TabletRelease, to, Qt::NoButton);
+        tablet(area, QEvent::TabletMove, from + (to - from) * i / 5.0, Qt::LeftButton, mods);
+    tablet(area, QEvent::TabletRelease, to, Qt::NoButton, mods);
 }
 
 } // namespace
@@ -125,8 +127,8 @@ TEST_CASE("MoveTool: a corner drag on a skewed selection follows the cursor")
     drag(area, screen(QPointF(20, 0)), screen(QPointF(40, 0)));
     const QPolygonF before = select->mapToSelection(QPolygonF(select->mySelectionRect()));
 
-    // Drag the bottom-right corner 10 right and 10 down: the top-left corner stays.
-    drag(area, screen(before[2]), screen(before[2] + QPointF(10, 10)));
+    // Shift frees the aspect ratio. Drag the bottom-right corner 10 right and 10 down: the top-left corner stays.
+    drag(area, screen(before[2]), screen(before[2] + QPointF(10, 10)), Qt::ShiftModifier);
     const QPolygonF after = select->mapToSelection(QPolygonF(select->mySelectionRect()));
     CHECK(after[0].x() == Approx(before[0].x()).margin(0.5));
     CHECK(after[0].y() == Approx(before[0].y()).margin(0.5));
@@ -298,4 +300,83 @@ TEST_CASE("Polyline and bucket apply a pending selection transform before they p
     CHECK(editor->select()->selectionTransform().isIdentity());
     CHECK_FALSE(blackAt(5));
     CHECK(blackAt(11));
+}
+
+TEST_CASE("MoveTool: corner scaling keeps the aspect ratio unless Shift is held")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(MOVE);
+    SelectionManager* select = editor->select();
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+
+    select->setSelection(QRectF(0, 0, 40, 40), true);
+    // Bottom-right corner 20 right, 0 down.
+    drag(area, screen(QPointF(40, 40)), screen(QPointF(60, 40)));
+    CHECK(select->myScaleX() == Approx(1.5).margin(0.05));
+    CHECK(select->myScaleY() == Approx(1.5).margin(0.05));
+
+    select->setSelection(QRectF(0, 0, 40, 40), true);
+    drag(area, screen(QPointF(40, 40)), screen(QPointF(60, 40)), Qt::ShiftModifier);
+    CHECK(select->myScaleX() == Approx(1.5).margin(0.05));
+    CHECK(select->myScaleY() == Approx(1.0).margin(0.05));
+}
+
+TEST_CASE("MoveTool: Transform key drags write the current Drawing's key transform")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(5);
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(3); // inside key 1's hold
+    editor->tools()->setCurrentTool(MOVE);
+    auto* move = static_cast<TransformTool*>(editor->tools()->getTool(MOVE));
+    move->setKeyTransformEnabled(true);
+    REQUIRE(move->transformSettings().keyTransformEnabled());
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+    auto state = [&] { return layer->getKeyFrameAt(1)->tweenState(); };
+
+    drag(area, screen(QPointF(0, 0)), screen(QPointF(30, 10)));
+    CHECK(state().tx == Approx(30).margin(0.5));
+    CHECK(state().ty == Approx(10).margin(0.5));
+    CHECK(editor->currentFrame() == 3);
+    CHECK(layer->getKeyFrameAt(5)->tweenState().isIdentity());
+
+    // Ctrl rotates around the Drawing's origin.
+    drag(area, screen(QPointF(40, 10)), screen(QPointF(30, 20)), Qt::ControlModifier);
+    CHECK(state().rot == Approx(90).margin(1));
+    CHECK(state().tx == Approx(30).margin(0.5));
+
+    // Shift scales around the Drawing's origin: twice as far from it is twice the size.
+    drag(area, screen(QPointF(40, 10)), screen(QPointF(50, 10)), Qt::ShiftModifier);
+    CHECK(state().scale == Approx(2).margin(0.05));
+    CHECK(state().rot == Approx(90).margin(1));
+    CHECK(state().tx == Approx(30).margin(0.5));
+
+    undoAction->trigger();
+    CHECK(state().scale == 1);
+    undoAction->trigger();
+    CHECK(state().rot == 0);
+    CHECK(state().tx == Approx(30).margin(0.5));
+    undoAction->trigger(); // one step per gesture
+    CHECK(state().isIdentity());
+    redoAction->trigger();
+    CHECK(state().tx == Approx(30).margin(0.5));
+    move->setKeyTransformEnabled(false);
 }

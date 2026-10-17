@@ -66,7 +66,9 @@ TEST_CASE("FileManager invalid operations")
 
     SECTION("Bad XML")
     {
-        QString strBadXMLPath = QDir::tempPath() + "/bad.pcl";
+        QTemporaryDir dir;
+        REQUIRE(dir.isValid());
+        QString strBadXMLPath = dir.filePath("bad.pcl");
 
         // make a fake xml.
         QFile badXMLFile(strBadXMLPath);
@@ -85,7 +87,9 @@ TEST_CASE("FileManager invalid operations")
 
     SECTION("A valid xml, but doesn't follow pencil2d's rule")
     {
-        QString strBadXMLPath = QDir::tempPath() + "/bad.pcl";
+        QTemporaryDir dir;
+        REQUIRE(dir.isValid());
+        QString strBadXMLPath = dir.filePath("bad.pcl");
 
         QFile badXMLFile(strBadXMLPath);
         badXMLFile.open(QIODevice::WriteOnly);

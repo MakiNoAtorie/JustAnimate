@@ -32,6 +32,7 @@ CameraContextMenu::CameraContextMenu(Editor* editor, int frameNumber, const Laye
     // Each menu edit is one undo step.
     auto undoable = [editor, layer](const QString& description, std::function<void()> change) {
         return [=] {
+            if (editor->refusesEdit(layer)) { return; }
             const SAVESTATE_ID state = editor->undoRedo()->createState(UndoRedoRecordType::CAMERA_MODIFY, layer);
             change();
             editor->undoRedo()->record(state, description);

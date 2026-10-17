@@ -30,10 +30,13 @@ SoundPlayer::SoundPlayer()
 
 SoundPlayer::~SoundPlayer()
 {
-#ifdef Q_OS_WIN
-    // Qt Multimedia's DirectShow backend segfaults when it is destroyed while paused
-    stop();
-#endif
+    if (mMediaPlayer)
+    {
+        // Qt 6.4 GStreamer links outputs from its streaming thread while it loads; ~QMediaPlayer rewires them
+        // without a lock. An empty source stops the pipeline and joins that thread first.
+        mMediaPlayer->disconnect();
+        mMediaPlayer->setSource(QUrl());
+    }
     // Members die before child objects: delete the player while mBuffer, its source device, still exists.
     delete mMediaPlayer;
 }

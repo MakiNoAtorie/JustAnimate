@@ -78,6 +78,12 @@ public:
     Mark mark() const { return mMark; }
     void setMark(Mark mark) { mMark = mark; }
 
+    /// Keys of one layer with the same non-zero link id are one Linked Drawing (GLOSSARY.md).
+    int linkId() const { return mLinkId; }
+    void setLinkId(int id) { mLinkId = id; }
+    /// Takes the image of `source`, a key of the same type, and keeps this key's position and attributes.
+    virtual void copyImageFrom(KeyFrame* source) { Q_UNUSED(source) }
+
     QString fileName() const { return mAttachedFileName; }
     void    setFileName(QString strFileName) { mAttachedFileName = strFileName; }
 
@@ -106,6 +112,7 @@ private:
     CameraEasingType mTweenEasing = CameraEasingType::LINEAR;
     TweenState mTweenState;
     Mark mMark = Mark::None;
+    int mLinkId = 0;
     QString mAttachedFileName;
 
     std::vector<KeyFrameEventListener*> mEventListeners;

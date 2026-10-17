@@ -55,6 +55,7 @@ GNU General Public License for more details.
 #include "filemanager.h"
 #include "colormanager.h"
 #include "layermanager.h"
+#include "cameraeasingtype.h"
 #include "toolmanager.h"
 #include "playbackmanager.h"
 #include "selectionmanager.h"
@@ -77,6 +78,7 @@ GNU General Public License for more details.
 #include "tooloptionwidget.h"
 #include "preferencesdialog.h"
 #include "timeline.h"
+#include "xsheet.h"
 #include "toolbox.h"
 #include "onionskinwidget.h"
 #include "brushpresetdock.h"
@@ -161,6 +163,7 @@ void MainWindow2::setIcons()
         { ui->actionPen, "ballpen" },
         { ui->actionHand, "hand-stop" },
         { ui->actionRotateView, "rotate-clockwise-2" },
+        { ui->actionZoomTool, "zoom" },
         { ui->actionPencil, "pencil" },
         { ui->actionBucket, "bucket-droplet" },
         { ui->actionEyedropper, "color-picker" },
@@ -252,6 +255,9 @@ void MainWindow2::createDockWidgets()
     mTimeLine = new TimeLine(this);
     mTimeLine->setObjectName("TimeLine");
 
+    mXSheet = new XSheet(this);
+    mXSheet->setObjectName("XSheet");
+
     mColorBox = new ColorBox(this);
     mColorBox->setToolTip(tr("color palette:<br>use <b>(C)</b><br>toggle at cursor"));
     mColorBox->setObjectName("ColorWheel");
@@ -278,6 +284,7 @@ void MainWindow2::createDockWidgets()
 
     mDockWidgets
         << mTimeLine
+        << mXSheet
         << mColorBox
         << mColorInspector
         << mColorPalette
@@ -485,6 +492,12 @@ void MainWindow2::createMenus()
     });
     connect(ui->actionOnionSkin, &QAction::triggered, mEditor, &Editor::toggleOnionSkin);
 
+    mShiftAndTraceAction = new QAction(tr("Shift and Trace"), this);
+    mShiftAndTraceAction->setCheckable(true);
+    mShiftAndTraceAction->setStatusTip(tr("Move and rotate the onion skins in the view to trace an inbetween. Drawings stay unchanged."));
+    ui->menuOnion_Skin->addAction(mShiftAndTraceAction);
+    connect(mShiftAndTraceAction, &QAction::toggled, ui->scribbleArea, &ScribbleArea::setShiftAndTrace);
+
     bool enableSafeArea = (prefs->isOn(SETTING::ACTION_SAFE_ON) || prefs->isOn(SETTING::TITLE_SAFE_ON));
     ui->actionSafeAreas->setEnabled(enableSafeArea);
 
@@ -545,7 +558,10 @@ void MainWindow2::createMenus()
     {
         connect(action, &QAction::triggered, this, [this, mark = mark] { mEditor->layers()->setKeyMark(mEditor->currentFrame(), mark); });
     }
+    connect(ui->actionCreate_Inbetweens, &QAction::triggered, this, &MainWindow2::createInbetweens);
     mTimeLine->setMarkActions({ ui->actionMark_Key, ui->actionMark_Breakdown, ui->actionMark_Inbetween, ui->actionClear_Mark });
+    mXSheet->setEditActions({ ui->actionAdd_Frame, ui->actionExposure_Add, ui->actionExposure_Subtract,
+                              ui->actionRipple_Insert_Frame, ui->actionRipple_Delete_Frame });
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
@@ -588,6 +604,7 @@ void MainWindow2::createMenus()
     toolsActionGroup->addAction(ui->actionPen);
     toolsActionGroup->addAction(ui->actionHand);
     toolsActionGroup->addAction(ui->actionRotateView);
+    toolsActionGroup->addAction(ui->actionZoomTool);
     toolsActionGroup->addAction(ui->actionPencil);
     toolsActionGroup->addAction(ui->actionBucket);
     toolsActionGroup->addAction(ui->actionEyedropper);
@@ -605,6 +622,7 @@ void MainWindow2::createMenus()
         else if (action == ui->actionPen) mToolBox->setActiveTool(PEN);
         else if (action == ui->actionHand) mToolBox->setActiveTool(HAND);
         else if (action == ui->actionRotateView) mToolBox->setActiveTool(ROTATE);
+        else if (action == ui->actionZoomTool) mToolBox->setActiveTool(ZOOM);
         else if (action == ui->actionPencil) mToolBox->setActiveTool(PENCIL);
         else if (action == ui->actionBucket) mToolBox->setActiveTool(BUCKET);
         else if (action == ui->actionEyedropper) mToolBox->setActiveTool(EYEDROPPER);
@@ -641,6 +659,7 @@ void MainWindow2::createMenus()
         mColorBox->toggleViewAction(),
         mColorPalette->toggleViewAction(),
         mTimeLine->toggleViewAction(),
+        mXSheet->toggleViewAction(),
         mColorInspector->toggleViewAction(),
         mOnionSkinWidget->toggleViewAction(),
         mBrushPresets->toggleViewAction()
@@ -1294,7 +1313,7 @@ void MainWindow2::resetAndDockAllSubWidgets()
 DefaultDockLayout MainWindow2::dockLayout() const
 {
     return {mToolOptions, {mToolBox}, {mBrushPresets, mColorBox, mColorPalette}, mTimeLine,
-            {{mColorPalette, mColorInspector}, {mTimeLine, mOnionSkinWidget}}};
+            {{mColorPalette, mColorInspector}, {mTimeLine, mXSheet}, {mTimeLine, mOnionSkinWidget}}};
 }
 
 QSize MainWindow2::availableScreenSize() const
@@ -1581,6 +1600,7 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionMark_Breakdown->setShortcut(cmdKeySeq(CMD_MARK_BREAKDOWN));
     ui->actionMark_Inbetween->setShortcut(cmdKeySeq(CMD_MARK_INBETWEEN));
     ui->actionClear_Mark->setShortcut(cmdKeySeq(CMD_MARK_CLEAR));
+    ui->actionCreate_Inbetweens->setShortcut(cmdKeySeq(CMD_CREATE_INBETWEENS));
     ui->actionReposition_Selected_Frames->setShortcut(cmdKeySeq(CMD_SELECTION_REPOSITION_FRAMES));
 
     ui->actionMove->setShortcut(cmdKeySeq(CMD_TOOL_MOVE));
@@ -1593,12 +1613,14 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionPen->setShortcut(cmdKeySeq(CMD_TOOL_PEN));
     ui->actionHand->setShortcut(cmdKeySeq(CMD_TOOL_HAND));
     ui->actionRotateView->setShortcut(cmdKeySeq(CMD_TOOL_ROTATE));
+    ui->actionZoomTool->setShortcut(cmdKeySeq(CMD_TOOL_ZOOM));
     ui->actionPencil->setShortcut(cmdKeySeq(CMD_TOOL_PENCIL));
     ui->actionBucket->setShortcut(cmdKeySeq(CMD_TOOL_BUCKET));
     ui->actionEyedropper->setShortcut(cmdKeySeq(CMD_TOOL_EYEDROPPER));
     ui->actionEraser->setShortcut(cmdKeySeq(CMD_TOOL_ERASER));
     ui->actionResetToolsDefault->setShortcut(cmdKeySeq(CMD_RESET_ALL_TOOLS));
     mRadialToolAction->setShortcut(cmdKeySeq(CMD_RADIAL_TOOL_MENU));
+    mShiftAndTraceAction->setShortcut(cmdKeySeq(CMD_SHIFT_AND_TRACE));
     mPresetPickerAction->setShortcut(cmdKeySeq(CMD_QUICK_PRESET_PICKER));
 
 
@@ -1621,6 +1643,7 @@ void MainWindow2::setupKeyboardShortcuts()
     mColorBox->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_WHEEL));
     mColorPalette->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_LIBRARY));
     mTimeLine->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_TIMELINE));
+    mXSheet->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_XSHEET));
     mColorInspector->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_INSPECTOR));
     mOnionSkinWidget->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_ONION_SKIN));
 
@@ -1800,6 +1823,7 @@ void MainWindow2::makeConnections(Editor* editor, StatusBar *statusBar)
 
     connect(editor->view(), &ViewManager::viewChanged, statusBar, &StatusBar::updateZoomStatus);
     connect(statusBar, &StatusBar::zoomChanged, editor->view(), &ViewManager::scale);
+    connect(editor, &Editor::statusMessage, statusBar, [statusBar](const QString& text) { statusBar->showMessage(text, 3000); });
 }
 
 void MainWindow2::updateCopyCutPasteEnabled()
@@ -1815,6 +1839,21 @@ void MainWindow2::updateCopyCutPasteEnabled()
 void MainWindow2::updateLayerMenu()
 {
     ui->actionDelete_Current_Layer->setEnabled(mEditor->layers()->canDeleteLayer(mEditor->currentLayerIndex()));
+}
+
+void MainWindow2::createInbetweens()
+{
+    LayerManager* layers = mEditor->layers();
+    // Other layer types refuse before the easing is asked.
+    if (layers->currentLayer()->type() != Layer::VECTOR) { layers->createInbetweens(CameraEasingType::LINEAR); return; }
+    QStringList names;
+    for (int i = 0; i <= static_cast<int>(CameraEasingType::OUTINBOUNCE); ++i)
+    {
+        names << getInterpolationText(static_cast<CameraEasingType>(i));
+    }
+    bool ok = false;
+    const QString name = QInputDialog::getItem(this, tr("Create Inbetweens"), tr("Easing:"), names, 0, false, &ok);
+    if (ok) { layers->createInbetweens(static_cast<CameraEasingType>(names.indexOf(name))); }
 }
 
 void MainWindow2::changePlayState(bool isPlaying)

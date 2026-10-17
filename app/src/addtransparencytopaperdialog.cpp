@@ -195,7 +195,7 @@ void AddTransparencyToPaperDialog::layerChanged(int index)
 
 void AddTransparencyToPaperDialog::traceScannedDrawings()
 {
-    if (mEditor->layers()->currentLayer()->type() != Layer::BITMAP) { return; }
+    if (mEditor->layers()->currentLayer()->type() != Layer::BITMAP || mEditor->refusesEdit(mEditor->layers()->currentLayer())) { return; }
 
     LayerBitmap* layer = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
     BitmapImage* img = new BitmapImage();

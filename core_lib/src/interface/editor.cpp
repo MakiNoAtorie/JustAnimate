@@ -211,6 +211,7 @@ void Editor::copyAndCut()
     copy();
 
     Layer* currentLayer = layers()->currentLayer();
+    if (refusesEdit(currentLayer)) { return; }
 
     if (currentLayer->hasAnySelectedFrames() && !select()->somethingSelected()) {
         removeSelectedKeyFrames(tr("Cut"));
@@ -227,6 +228,7 @@ void Editor::copyAndCut()
 void Editor::removeSelectedKeyFrames(const QString& undoText)
 {
     Layer* currentLayer = layers()->currentLayer();
+    if (refusesEdit(currentLayer)) { return; }
     const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_REMOVE);
     for (int pos : currentLayer->selectedKeyFramesPositions()) {
         currentLayer->removeKeyFrame(pos);
@@ -239,7 +241,7 @@ void Editor::pasteFromPreviousFrame()
 {
     Layer* currentLayer = layers()->currentLayer();
     int prevFrame = currentLayer->getPreviousKeyFramePosition(mFrame);
-    if (!currentLayer->keyExists(mFrame) || prevFrame == mFrame)
+    if (!currentLayer->keyExists(mFrame) || prevFrame == mFrame || refusesEdit(currentLayer))
     {
         return;
     }
@@ -355,7 +357,7 @@ void Editor::paste()
 
     Q_ASSERT(currentLayer != nullptr);
 
-    if (!canPaste()) { return; }
+    if (!canPaste() || refusesEdit(currentLayer)) { return; }
 
     if (clipboards()->framesIsEmpty()) {
 
@@ -386,7 +388,7 @@ void Editor::paste()
 
 void Editor::flipSelection(bool flipVertical)
 {
-    if (!select()->somethingSelected()) { return; }
+    if (!select()->somethingSelected() || refusesEdit(layers()->currentLayer())) { return; }
 
     const QString undoText = flipVertical ? tr("Flip selection vertically") : tr("Flip selection horizontally");
     const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
@@ -396,7 +398,7 @@ void Editor::flipSelection(bool flipVertical)
 
 void Editor::repositionImage(QPoint transform, int frame)
 {
-    if (layers()->currentLayer()->type() == Layer::BITMAP)
+    if (layers()->currentLayer()->type() == Layer::BITMAP && !refusesEdit(layers()->currentLayer()))
     {
         scrubTo(frame);
         const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
@@ -602,6 +604,7 @@ Status Editor::importBitmapImage(const QString& filePath, const QTransform& impo
         mScribbleArea->showLayerNotVisibleWarning();
         return Status::SAFE;
     }
+    if (refusesEdit(layer)) { return Status::SAFE; }
 
     Status status = Status::OK;
     DebugDetails dd;
@@ -669,6 +672,7 @@ Status Editor::importVectorImage(const QString& filePath)
         mScribbleArea->showLayerNotVisibleWarning();
         return Status::SAFE;
     }
+    if (refusesEdit(layer)) { return Status::SAFE; }
 
     Status status = Status::OK;
     DebugDetails dd;
@@ -768,6 +772,7 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
         mScribbleArea->showLayerNotVisibleWarning();
         return Status::SAFE;
     }
+    if (refusesEdit(bitmapLayer)) { return Status::SAFE; }
 
     QImageReader reader(filePath);
     dd << QString("QImageReader format: %1").arg(QString(reader.format()));
@@ -956,6 +961,7 @@ KeyFrame* Editor::addKeyFrame(const int layerNumber, int frameIndex)
         mScribbleArea->showLayerNotVisibleWarning();
         return nullptr;
     }
+    if (refusesEdit(layer)) { return nullptr; }
 
     // Find next available space for a keyframe (where either no key exists or there is an empty sound key)
     while (layer->keyExists(frameIndex))
@@ -996,6 +1002,7 @@ void Editor::removeKey()
         mScribbleArea->showLayerNotVisibleWarning();
         return;
     }
+    if (refusesEdit(layer)) { return; }
 
     if (!layer->keyExistsWhichCovers(currentFrame()))
     {
@@ -1030,6 +1037,13 @@ void Editor::scrubPreviousKeyFrame()
 
     int prevPosition = layer->getPreviousKeyFramePosition(currentFrame());
     scrubTo(prevPosition);
+}
+
+bool Editor::refusesEdit(const Layer* layer)
+{
+    if (layer == nullptr || !layer->lockAll()) { return false; }
+    emit statusMessage(tr("Layer \"%1\" is locked").arg(layer->name()));
+    return true;
 }
 
 void Editor::switchVisibilityOfLayer(int layerNumber)

@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define ONIONSKINSUBPAINTER_H
 
 #include <functional>
+#include <QVector>
 
 #include "onionskinpaintstate.h"
 
@@ -32,6 +33,11 @@ class OnionSkinSubPainter
 {
 public:
     explicit OnionSkinSubPainter();
+
+    struct Neighbour { OnionSkinPaintState state; int frame; qreal opacity; };
+    /// The onion-skinned frames around frameIndex, nearest first in each direction, previous ones first.
+    QVector<Neighbour> neighbours(const Layer* layer, const OnionSkinPainterOptions& options, int frameIndex) const;
+
     void paint(QPainter& painter, const Layer* layer, const OnionSkinPainterOptions& options, int frameIndex, const std::function<void(OnionSkinPaintState, int)>& state) const;
 };
 

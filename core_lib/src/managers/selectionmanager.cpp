@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 #include "selectionmanager.h"
 #include "editor.h"
+#include "layermanager.h"
 #include "undoredomanager.h"
 
 #include "vectorimage.h"
@@ -290,7 +291,7 @@ void SelectionManager::setTransformAnchor(const QPointF& point)
 
 void SelectionManager::setNumericTransform(const QPointF& centre, qreal rotation, qreal scaleX, qreal scaleY)
 {
-    if (!somethingSelected()) { return; }
+    if (!somethingSelected() || editor()->refusesEdit(editor()->layers()->currentLayer())) { return; }
 
     UndoRedoManager* undoRedo = editor()->undoRedo();
     const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY);

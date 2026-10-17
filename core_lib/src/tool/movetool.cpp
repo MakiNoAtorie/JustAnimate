@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include "movetool.h"
 
 #include <cassert>
+#include <cmath>
+#include <QtMath>
+#include <QLineF>
 #include <QMessageBox>
 #include <QSettings>
 
@@ -52,10 +55,12 @@ void MoveTool::loadSettings()
 
     mPropertyUsed[TransformToolProperties::SHOWSELECTIONINFO_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
     mPropertyUsed[TransformToolProperties::ANTI_ALIASING_ENABLED] = { Layer::BITMAP };
+    mPropertyUsed[TransformToolProperties::KEYTRANSFORM_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
     QHash<int, PropertyInfo> info;
 
     info[TransformToolProperties::SHOWSELECTIONINFO_ENABLED] = false;
     info[TransformToolProperties::ANTI_ALIASING_ENABLED] = true;
+    info[TransformToolProperties::KEYTRANSFORM_ENABLED] = false;
 
     toolProperties().insertProperties(info);
     toolProperties().loadFrom(typeName(), settings);
@@ -72,7 +77,11 @@ QCursor MoveTool::cursor()
 {
     MoveMode mode = MoveMode::NONE;
     SelectionManager* selectMan = mEditor->select();
-    if (selectMan->somethingSelected())
+    if (mSettings.keyTransformEnabled())
+    {
+        mode = MoveMode::MIDDLE;
+    }
+    else if (selectMan->somethingSelected())
     {
         mode = mEditor->select()->getMoveMode();
     }
@@ -110,6 +119,17 @@ void MoveTool::pointerPressEvent(PointerEvent* event)
     Layer* currentLayer = currentPaintableLayer();
     if (currentLayer == nullptr) return;
 
+    if (mSettings.keyTransformEnabled())
+    {
+        const KeyFrame* key = currentLayer->getLastKeyFrameAtPosition(mEditor->currentFrame());
+        if (key == nullptr) return;
+        mKeyFrame = key->pos();
+        mKeyStart = key->tweenState();
+        mKeyPress = event->canvasPos();
+        mKeyMods = event->modifiers();
+        return;
+    }
+
     if (mEditor->select()->somethingSelected())
     {
         beginInteraction(canvasToKey().map(event->canvasPos()), event->modifiers(), currentLayer);
@@ -133,6 +153,18 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
 {
     Layer* currentLayer = currentPaintableLayer();
     if (currentLayer == nullptr) return;
+
+    if (mSettings.keyTransformEnabled())
+    {
+        KeyFrame* key = mKeyFrame > 0 ? currentLayer->getKeyFrameAt(mKeyFrame) : nullptr;
+        if (key && mScribbleArea->isPointerInUse())
+        {
+            // Live preview; the release records the gesture through LayerManager::setKeyTween.
+            key->setTweenState(keyTransformAt(event->canvasPos()));
+            emit mEditor->frameModified(mEditor->currentFrame());
+        }
+        return;
+    }
 
     // The selection lives in the space of the current key.
     const QPointF keyPos = canvasToKey().map(event->canvasPos());
@@ -173,8 +205,25 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
     mEditor->updateFrame();
 }
 
-void MoveTool::pointerReleaseEvent(PointerEvent*)
+void MoveTool::pointerReleaseEvent(PointerEvent* event)
 {
+    if (mKeyFrame > 0)
+    {
+        Layer* layer = currentPaintableLayer();
+        KeyFrame* key = layer ? layer->getKeyFrameAt(mKeyFrame) : nullptr;
+        const int frame = mKeyFrame;
+        mKeyFrame = 0;
+        if (key == nullptr) return;
+        // Put the start state back so the undo state captures it, then record the gesture once.
+        key->setTweenState(mKeyStart);
+        if (event->canvasPos() != mKeyPress)
+        {
+            mEditor->layers()->setKeyTween(frame, key->tween(), key->tweenEasing(), keyTransformAt(event->canvasPos()));
+        }
+        emit mEditor->frameModified(mEditor->currentFrame());
+        return;
+    }
+
     mEditor->undoRedo()->record(mUndoSaveStateId, typeName());
 
     if (mEditor->overlays()->anyOverlayEnabled())
@@ -202,7 +251,7 @@ void MoveTool::transformSelection(const QPointF& pos, Qt::KeyboardModifiers keyM
             rotationIncrement = mRotationIncrement;
         }
 
-        selectMan->maintainAspectRatio(keyMod == Qt::ShiftModifier);
+        selectMan->maintainAspectRatio(keyMod != Qt::ShiftModifier);
         selectMan->alignPositionToAxis(keyMod == Qt::ShiftModifier);
 
         qreal newAngle = 0;
@@ -360,7 +409,32 @@ bool MoveTool::leavingThisTool()
 
 bool MoveTool::isActive() const {
     return mScribbleArea->isPointerInUse() &&
-           (mEditor->select()->somethingSelected() || mEditor->overlays()->getMoveMode() != MoveMode::NONE);
+           (mKeyFrame > 0 || mEditor->select()->somethingSelected() || mEditor->overlays()->getMoveMode() != MoveMode::NONE);
+}
+
+TweenState MoveTool::keyTransformAt(const QPointF& canvasPos) const
+{
+    TweenState s = mKeyStart;
+    // Rotation and scale pivot on the Drawing's origin, which the key moves to (tx, ty).
+    const QPointF origin(s.tx, s.ty);
+    if (mKeyMods & Qt::ControlModifier)
+    {
+        auto angle = [&origin](const QPointF& p) { return qRadiansToDegrees(std::atan2(p.y() - origin.y(), p.x() - origin.x())); };
+        s.rot += angle(canvasPos) - angle(mKeyPress);
+    }
+    else if (mKeyMods & Qt::ShiftModifier)
+    {
+        const qreal from = QLineF(origin, mKeyPress).length();
+        const qreal to = QLineF(origin, canvasPos).length();
+        // A press on the origin gives no ratio; 1% matches the Scale field's minimum.
+        if (from > 0) { s.scale = qMax(0.01, s.scale * to / from); }
+    }
+    else
+    {
+        s.tx += canvasPos.x() - mKeyPress.x();
+        s.ty += canvasPos.y() - mKeyPress.y();
+    }
+    return s;
 }
 
 Layer* MoveTool::currentPaintableLayer()

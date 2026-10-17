@@ -69,6 +69,9 @@ public:
     /** A Rough layer paints tinted and faded on the canvas and never exports. */
     bool isRough() const { return mRough; }
     void setRough(bool b) { mRough = b; }
+    /** A lock-all layer refuses every edit; see Editor::refusesEdit. */
+    bool lockAll() const { return mLockAll; }
+    void setLockAll(bool b) { mLockAll = b; }
     /** Id of the LayerGroup in Object that holds this layer, 0 for none */
     int groupId() const { return mGroupId; }
     void setGroupId(int groupId) { mGroupId = groupId; }
@@ -132,6 +135,12 @@ public:
     KeyFrame *getKeyFrameWhichCovers(int frameNumber) const;
 
     void foreachKeyFrame(std::function<void(KeyFrame*)>) const;
+
+    /// The other keys of this layer linked to `key` (Linked Drawing, GLOSSARY.md).
+    QList<KeyFrame*> linkedKeys(const KeyFrame* key) const;
+    bool isLinked(const KeyFrame* key) const { return !linkedKeys(key).isEmpty(); }
+    /// A link id that no key of this layer has.
+    int newLinkId() const;
 
     void setModified(int position, bool isModified) const;
 
@@ -200,6 +209,9 @@ protected:
     /** Optional tween and mark attributes of an <image> key element. */
     static void writeKeyTween(QDomElement& image, const KeyFrame* key);
     static void readKeyTween(const QDomElement& image, KeyFrame* key);
+    /** ADR 0001: each linked copy stays a full image; `linkedTo` on its <image> names the src of the first copy. */
+    void writeLinks(QDomElement& layerElem) const;
+    void readLinks(const QDomElement& layerElem);
     bool loadKey(KeyFrame*);
 
 private:
@@ -211,6 +223,7 @@ private:
     bool       mOnionSkin = true;
     BlendMode  mBlendMode = BlendMode::Normal;
     bool       mRough = false;
+    bool       mLockAll = false;
     int mGroupId = 0;
     QString    mName;
 

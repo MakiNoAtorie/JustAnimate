@@ -27,11 +27,13 @@ GNU General Public License for more details.
 #include "undoredomanager.h"
 #include "bitmapimage.h"
 #include "vectorimage.h"
+#include "cameraeasingtype.h"
 #include "scribblearea.h"
 #include "soundclip.h"
 #include "soundmanager.h"
 
 #include <algorithm>
+#include <memory>
 
 #include <QXmlStreamWriter>
 
@@ -51,6 +53,7 @@ bool LayerManager::init()
 Status LayerManager::load(Object*)
 {
     mLastCameraLayerIdx = 0;
+    mSoloVisibility.clear();
     // Do not emit layerCountChanged here because the editor has not updated to this object yet
     // Leave that to the caller of this function
     return Status::OK;
@@ -230,6 +233,7 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     to->setVisible(from->visible());
     to->setOnionSkin(from->onionSkin());
     to->setRough(from->isRough());
+    to->setLockAll(from->lockAll());
     if (to->type() == Layer::BITMAP)
     {
         static_cast<LayerBitmap*>(to)->setLockAlpha(static_cast<LayerBitmap*>(from)->lockAlpha());
@@ -425,6 +429,38 @@ Status LayerManager::renameLayer(Layer* layer, const QString& newName)
     return Status::OK;
 }
 
+void LayerManager::toggleSolo(int index)
+{
+    Layer* solo = getLayer(index);
+    if (solo == nullptr) { return; }
+    Object* o = object();
+    if (!mSoloVisibility.isEmpty() && mSoloLayerId == solo->id())
+    {
+        for (int i = 0; i < o->getLayerCount(); ++i)
+        {
+            Layer* layer = o->getLayer(i);
+            layer->setVisible(mSoloVisibility.value(layer->id(), layer->visible()));
+        }
+        mSoloVisibility.clear();
+    }
+    else
+    {
+        if (mSoloVisibility.isEmpty())
+        {
+            for (int i = 0; i < o->getLayerCount(); ++i) { mSoloVisibility.insert(o->getLayer(i)->id(), o->getLayer(i)->visible()); }
+        }
+        // Sound and camera layers are not drawn: hiding them would mute the sound or the camera frame.
+        for (int i = 0; i < o->getLayerCount(); ++i)
+        {
+            Layer* layer = o->getLayer(i);
+            if (layer == solo || layer->isPaintable()) { layer->setVisible(layer == solo); }
+        }
+        mSoloLayerId = solo->id();
+    }
+    editor()->getScribbleArea()->onLayerChanged();
+    emit editor()->updateTimeLine();
+}
+
 void LayerManager::notifyLayerChanged(Layer* layer)
 {
     emit currentLayerChanged(getIndex(layer));
@@ -591,24 +627,27 @@ bool LayerManager::moveLayer(int from, int to)
 void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state)
 {
     Layer* layer = currentLayer();
-    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { return; }
+    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
     KeyFrame* key = layer->getKeyFrameAt(frame);
     if (key == nullptr) { return; }
-    // The keyframe undo state captures the key at the current frame.
-    if (editor()->currentFrame() != frame) { editor()->scrubTo(frame); }
+    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
+    const int playhead = editor()->currentFrame();
+    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
+    if (visit) { editor()->scrubTo(frame); }
 
     const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
     key->setTween(tween);
     key->setTweenEasing(easing);
     key->setTweenState(state);
     editor()->undoRedo()->record(saveStateId, tr("Tween"));
+    if (visit) { editor()->scrubTo(playhead); }
     notifyLayerChanged(layer);
 }
 
 void LayerManager::setKeyMark(int frame, Mark mark)
 {
     Layer* layer = currentLayer();
-    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { return; }
+    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
     KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr || key->mark() == mark) { return; }
     // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
@@ -621,6 +660,100 @@ void LayerManager::setKeyMark(int frame, Mark mark)
     editor()->undoRedo()->record(saveStateId, mark == Mark::None ? tr("Clear Mark") : tr("Mark"));
     if (visit) { editor()->scrubTo(playhead); }
     notifyLayerChanged(layer);
+}
+
+namespace
+{
+// Splits the longest segment of the curve until it has `count` vertices. A curve without segments stays.
+void splitToVertexCount(VectorImage& image, int curve, int count)
+{
+    while (image.curve(curve).getVertexSize() > 0 && image.curve(curve).getVertexSize() < count)
+    {
+        const BezierCurve& c = image.curve(curve);
+        int longest = 0;
+        for (int i = 1; i < c.getVertexSize(); ++i)
+        {
+            if (QLineF(c.getVertex(i - 1), c.getVertex(i)).length() > QLineF(c.getVertex(longest - 1), c.getVertex(longest)).length())
+            {
+                longest = i;
+            }
+        }
+        image.addPoint(curve, longest, 0.5);
+    }
+}
+
+QPointF lerp(const QPointF& a, const QPointF& b, qreal t) { return a + (b - a) * t; }
+}
+
+Status LayerManager::createInbetweens(CameraEasingType easing)
+{
+    Layer* layer = currentLayer();
+    if (layer == nullptr || editor()->refusesEdit(layer)) { return Status::FAIL; }
+    auto refuse = [this](const QString& text) {
+        emit editor()->statusMessage(text);
+        return Status(Status::FAIL, text);
+    };
+    if (layer->type() != Layer::VECTOR) { return refuse(tr("Create inbetweens works only on vector layers")); }
+    QList<int> selected = layer->selectedKeyFramesPositions();
+    if (selected.size() != 2) { return refuse(tr("Select two Drawings to create inbetweens")); }
+    std::sort(selected.begin(), selected.end());
+    const int from = selected[0];
+    const int to = selected[1];
+
+    auto vectorLayer = static_cast<LayerVector*>(layer);
+    VectorImage* first = vectorLayer->getVectorImageAtFrame(from);
+    VectorImage* last = vectorLayer->getVectorImageAtFrame(to);
+    first->loadFile();
+    last->loadFile();
+    if (first->curveCount() != last->curveCount())
+    {
+        return refuse(tr("Cannot create inbetweens: the Drawings have %1 and %2 strokes").arg(first->curveCount()).arg(last->curveCount()));
+    }
+    QList<int> empty;
+    for (int f = from + 1; f < to; ++f)
+    {
+        if (!layer->keyExists(f)) { empty.append(f); }
+    }
+    if (empty.isEmpty()) { return refuse(tr("No empty frames between the two Drawings")); }
+
+    // Pair strokes by order; give each pair the same vertex count.
+    std::unique_ptr<VectorImage> start(first->clone());
+    std::unique_ptr<VectorImage> end(last->clone());
+    for (int i = 0; i < start->curveCount(); ++i)
+    {
+        splitToVertexCount(*start, i, end->curve(i).getVertexSize());
+        splitToVertexCount(*end, i, start->curve(i).getVertexSize());
+    }
+    start->deselectAll();
+
+    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_PASTE, layer);
+    for (int f : empty)
+    {
+        const qreal t = easedProgress(easing, qreal(f - from) / (to - from));
+        VectorImage* image = start->clone();
+        for (int i = 0; i < image->curveCount(); ++i)
+        {
+            BezierCurve& c = image->curve(i);
+            const BezierCurve& e = end->curve(i);
+            c.setOrigin(lerp(c.getOrigin(), e.getOrigin(), t));
+            for (int v = 0; v < std::min(c.getVertexSize(), e.getVertexSize()); ++v)
+            {
+                c.setC1(v, lerp(c.getC1(v), e.getC1(v), t));
+                c.setC2(v, lerp(c.getC2(v), e.getC2(v), t));
+                c.setVertex(v, lerp(c.getVertex(v), e.getVertex(v), t));
+            }
+            c.setWidth(c.getWidth() + (e.getWidth() - c.getWidth()) * t);
+        }
+        image->setTween(false);
+        image->setMark(Mark::Inbetween);
+        image->setLinkId(0);
+        image->modification();
+        layer->addKeyFrame(f, image);
+    }
+    editor()->undoRedo()->record(saveStateId, tr("Create Inbetweens"));
+    notifyLayerChanged(layer);
+    emit editor()->framesModified();
+    return Status::OK;
 }
 
 /**
@@ -666,8 +799,19 @@ void LayerManager::notifyAnimationLengthChanged()
     emit animationLengthChanged(animationLength(true));
 }
 
+bool LayerManager::selectionRefusesEdit()
+{
+    for (int i = 0; i < count(); ++i)
+    {
+        const Layer* layer = object()->getLayer(i);
+        if (layer->hasAnySelectedFrames() && editor()->refusesEdit(layer)) { return true; }
+    }
+    return false;
+}
+
 void LayerManager::setExposureForSelectedFrames(int value, bool hold)
 {
+    if (selectionRefusesEdit()) { return; }
     UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = hold ? tr("Set exposure") : value > 0 ? tr("Add exposure") : tr("Subtract exposure");
     const UndoMacro macro(undoRedo, description);
@@ -701,6 +845,7 @@ static bool sameDrawing(Layer::LAYER_TYPE type, KeyFrame* a, KeyFrame* b)
 
 void LayerManager::cleanExposureOfSelectedFrames()
 {
+    if (selectionRefusesEdit()) { return; }
     UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = tr("Clean exposure");
     const UndoMacro macro(undoRedo, description);
@@ -773,7 +918,7 @@ static void shiftFramesAfter(LayerManager* layers, UndoRedoManager* undoRedo, La
 bool LayerManager::rippleInsertFrame()
 {
     Layer* layer = currentLayer();
-    if (!layer->visible()) { return false; }
+    if (!layer->visible() || editor()->refusesEdit(layer)) { return false; }
 
     const int position = editor()->currentFrame();
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -790,7 +935,7 @@ bool LayerManager::rippleRemoveFrame()
     Layer* layer = currentLayer();
     const int position = editor()->currentFrame();
     const bool onKey = layer->keyExists(position);
-    if (!layer->visible()) { return false; }
+    if (!layer->visible() || editor()->refusesEdit(layer)) { return false; }
     if (onKey ? layer->keyFrameCount() == 1 : layer->getMaxKeyFramePosition() <= position) { return false; }
 
     UndoRedoManager* undoRedo = editor()->undoRedo();
@@ -813,7 +958,7 @@ bool LayerManager::rippleRemoveFrame()
 bool LayerManager::changeExposure(int frame, int delta)
 {
     Layer* layer = currentLayer(0);
-    if (layer == nullptr || !layer->visible()) { return false; }
+    if (layer == nullptr || !layer->visible() || editor()->refusesEdit(layer)) { return false; }
     const KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr) { return false; }
     const int position = key->pos();
@@ -828,6 +973,56 @@ bool LayerManager::changeExposure(int frame, int delta)
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
     return true;
+}
+
+bool LayerManager::linkDrawing(int from, int to)
+{
+    Layer* layer = currentLayer(0);
+    if (layer == nullptr || !layer->visible() || !layer->isPaintable() || to < 1 || layer->keyExists(to) ||
+        editor()->refusesEdit(layer)) { return false; }
+    KeyFrame* source = layer->getLastKeyFrameAtPosition(from);
+    if (source == nullptr) { return false; }
+    // A link id left on a key with no copy is harmless, so undo need not clear it.
+    if (source->linkId() == 0) { source->setLinkId(layer->newLinkId()); }
+
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAMES_PASTE, layer);
+    layer->addKeyFrame(to, source->clone());
+    undoRedo->record(saveStateId, tr("Link Drawing"));
+    notifyAnimationLengthChanged();
+    emit editor()->frameModified(to);
+    return true;
+}
+
+bool LayerManager::unlinkDrawing(int frame)
+{
+    Layer* layer = currentLayer(0);
+    if (layer == nullptr) { return false; }
+    KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    if (!layer->isLinked(key) || editor()->refusesEdit(layer)) { return false; }
+    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
+    const int playhead = editor()->currentFrame();
+    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
+    if (visit) { editor()->scrubTo(key->pos()); }
+
+    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    key->setLinkId(0);
+    key->modification();
+    editor()->undoRedo()->record(saveStateId, tr("Unlink Drawing"));
+    if (visit) { editor()->scrubTo(playhead); }
+    emit editor()->frameModified(key->pos());
+    return true;
+}
+
+void LayerManager::syncLinkedDrawings(Layer* layer, int frame)
+{
+    if (layer == nullptr) { return; }
+    KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    for (KeyFrame* copy : layer->linkedKeys(key))
+    {
+        copy->copyImageFrom(key);
+        emit editor()->frameModified(copy->pos());
+    }
 }
 
 void LayerManager::moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo)
@@ -862,7 +1057,7 @@ bool LayerManager::moveSelectedFrames(int offset)
         selected.append(layer);
         firstFrame = qMin(firstFrame, layer->selectedKeyFramesPositions().first());
     }
-    if (selected.isEmpty()) { return false; }
+    if (selected.isEmpty() || selectionRefusesEdit()) { return false; }
 
     offset = qMax(offset, 1 - firstFrame);
     if (offset == 0) { return false; }

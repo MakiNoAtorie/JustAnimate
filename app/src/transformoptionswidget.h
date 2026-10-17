@@ -27,6 +27,7 @@ class TransformTool;
 class Editor;
 class BaseTool;
 class QDoubleSpinBox;
+class QCheckBox;
 
 namespace Ui {
 class TransformOptionsWidget;
@@ -57,8 +58,15 @@ private:
     void applyNumericTransform();
     // Position X, position Y, scale X, scale Y, rotation: the order of mShownValues.
     std::array<QDoubleSpinBox*, 5> numericBoxes() const;
+    void updateKeyTransform();
+    void applyKeyTransform();
 
     Ui::TransformOptionsWidget *ui;
+    QCheckBox* mKeyTransformCheckBox = nullptr;
+    QWidget* mKeyFields = nullptr;
+    // Move X, move Y, rotation, scale (%), opacity (%) of the current Drawing's key.
+    std::array<QDoubleSpinBox*, 5> mKeyBoxes = {};
+    qreal mKeyShown[5] = {};
 
     TransformTool* mTransformTool = nullptr;
     Editor* mEditor = nullptr;

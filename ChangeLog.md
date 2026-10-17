@@ -5,6 +5,18 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Sound: removing a sound while it still loads no longer sometimes crashes the app on Linux.
+- Shift and Trace (View > Onion Skin, Shift+T): drag handles to move and rotate each onion skin in the view to trace an inbetween; Drawings stay unchanged and the offsets clear on a frame change (#195).
+- A pen tap on a menu, context menu or combo box no longer opens and closes it at once: the app drops the second mouse press a tablet driver sends for the same tap (#203).
+- Animation > Create Inbetweens fills the empty frames between two selected vector Drawings, stroke by stroke with a chosen easing, each marked Inbetween; one undo step (#196).
+- Zoom tool (Z, in the Hand group): click zooms in at the pointer, Alt+click zooms out, a horizontal drag zooms about the press point (#198).
+- Tool column: Pencil, Pen and Brush; Eraser and Smudge; Move and Select; Fill and Lasso fill; Hand, Zoom and Rotate view share one button each; a long press or right-click lists the group, and the button shows the tool used last (#198).
+- Move tool "Transform Key" mode sets a Drawing's key transform on the canvas (drag moves, Ctrl rotates, Shift scales), with its fields in Tool settings; the tween menu previews each easing and the Key Transform dialog is gone (#197).
+- Linked Drawings: Alt-drag a Drawing in the timeline or X-sheet to make a copy that changes with it; linked cells show a bar, and Unlink Drawing in the cell menu makes one copy independent (#194).
+- Corner-handle scaling keeps the aspect ratio by default; hold Shift to scale freely (#200).
+- Canvas wheel: the plain wheel pans up and down, Ctrl+wheel zooms at the pointer, Shift+wheel pans sideways and Alt+wheel rotates the View about the pointer (#201).
+- An X-sheet Panel, tabbed with the timeline, shows each layer as a column of frames with Drawing numbers, Marks and Exposure lines, and edits them like the timeline (#193).
+- Layer rows: Alt+click an eye to solo that layer (again to restore), plus Lock transparency and lock-all icons; a lock-all layer refuses edits (#199).
 - Theme: System after Dark restores the platform colours and style instead of keeping the dark panels (#192).
 - The Brush outline paints its centre cross, so quick-sizing shows the cross in the outline (#184).
 - A double click that Windows makes from a pen tap no longer starts a full-pressure mouse stroke (#175).

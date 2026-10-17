@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <memory>
 
 #include <QColor>
+#include <QMap>
 #include <QPoint>
 #include <QStringList>
 #include <QWidget>
@@ -152,6 +153,17 @@ public:
     bool isTabletInUse() const { return mTabletInUse; }
     bool isPointerInUse() const { return mMouseInUse || mTabletInUse; }
 
+    /// Shift and Trace: the onion neighbours of the current Drawing move and rotate in the View only.
+    void setShiftAndTrace(bool on);
+    bool isShiftAndTrace() const { return mShiftAndTrace; }
+    /// The onion frames of the current layer that show handles.
+    QVector<int> shiftAndTraceFrames() const;
+    /// Canvas-space offset of an onion frame, applied after its tween.
+    QTransform shiftAndTraceOffset(int frame) const { return mShiftAndTraceOffsets.value(frame); }
+    /// Widget positions of a neighbour's move and rotate handles.
+    QPointF shiftAndTraceHandle(int frame) const;
+    QPointF shiftAndTraceRotateHandle(int frame) const;
+
     void keyEvent(QKeyEvent* event);
     void keyEventForSelection(QKeyEvent* event);
 
@@ -254,6 +266,11 @@ private:
     /// Whether this key event is the Flip key (`CMD_FLIP_HOLD`).
     bool isPenFlipKey(const QKeyEvent* event) const;
 
+    bool shiftAndTracePress(const PointerEvent* event);
+    void shiftAndTraceDrag(const PointerEvent* event);
+    void clearShiftAndTraceOffsets();
+    void paintShiftAndTraceHandles(QPainter& painter) const;
+
     BitmapImage* currentBitmapImage(Layer* layer) const;
     VectorImage* currentVectorImage(Layer* layer) const;
 
@@ -277,6 +294,11 @@ private:
     bool mMouseInUse = false;
     bool mTabletInUse = false;
     bool mPenFlipDrag = false; // this pen stroke drives a Pen-drag Flip, not the tool
+
+    bool mShiftAndTrace = false;
+    QMap<int, QTransform> mShiftAndTraceOffsets; // View state only, never in Object
+    struct ShiftAndTraceDrag { int frame = -1; bool rotate = false; QPointF press; QPointF pivot; QTransform start; };
+    ShiftAndTraceDrag mShiftAndTraceDrag; // canvas space; frame -1 when no handle is held
     qreal mDevicePixelRatio = 1.;
 
     // Double click handling for tablet input

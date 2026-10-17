@@ -27,6 +27,8 @@ GNU General Public License for more details.
 #include "toolboxlayout.h"
 
 class Editor;
+class QMenu;
+class QTimer;
 
 namespace Ui {
 class ToolBoxWidget;
@@ -67,12 +69,24 @@ public:
     void toolOn(ToolType toolType, QToolButton* toolButton);
 
 protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
     int getMinHeightForWidth(int width) const;
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
     void resizeEvent(QResizeEvent* event) override;
 
 private:
+    struct Member { ToolType type; QToolButton* source; QIcon icon; QString toolTip; };
+    struct Group { QString key; QToolButton* button; QList<Member> members; QMenu* menu; ToolType last; };
+
+    void initGroups();
+    void showGroupMenu(Group& group);
+    void setGroupLast(Group& group, ToolType type);
+    Group* groupOf(ToolType type);
+
+    QList<Group> mGroups;
+    QTimer* mPressTimer = nullptr;
+    Group* mPressed = nullptr;
     FlowLayout* mFlowlayout = nullptr;
 
     Ui::ToolBoxWidget* ui = nullptr;

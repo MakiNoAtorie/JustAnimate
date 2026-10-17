@@ -214,6 +214,7 @@ Status ActionCommands::importSound(FileType type)
         mEditor->getScribbleArea()->showLayerNotVisibleWarning();
         return Status::SAFE;
     }
+    if (mEditor->refusesEdit(layer)) { return Status::SAFE; }
     QString strSoundFile = FileDialog::getOpenFileName(mParent, type);
 
     Status st = Status::FAIL;
@@ -822,6 +823,7 @@ Status ActionCommands::insertKeyFrameAtCurrentPosition()
 {
     Layer* currentLayer = mEditor->layers()->currentLayer();
     int currentPosition = mEditor->currentFrame();
+    if (mEditor->refusesEdit(currentLayer)) { return Status::SAFE; }
 
     const UndoMacro macro(mEditor->undoRedo(), tr("New drawing"));
     const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
@@ -842,6 +844,7 @@ void ActionCommands::removeSelectedFrames()
 void ActionCommands::reverseSelectedFrames()
 {
     Layer* currentLayer = mEditor->layers()->currentLayer();
+    if (mEditor->refusesEdit(currentLayer)) { return; }
 
     const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
     const bool reversed = currentLayer->reverseOrderOfSelection();
@@ -878,6 +881,7 @@ void ActionCommands::duplicateKey()
         mEditor->getScribbleArea()->showLayerNotVisibleWarning();
         return;
     }
+    if (mEditor->refusesEdit(layer)) { return; }
 
     KeyFrame* key = layer->getKeyFrameAt(mEditor->currentFrame());
     if (key == nullptr) return;
@@ -887,6 +891,7 @@ void ActionCommands::duplicateKey()
     deselectAll();
 
     KeyFrame* dupKey = key->clone();
+    dupKey->setLinkId(0); // a duplicate is independent; Alt-drag links
 
     int nextEmptyFrame = mEditor->currentFrame() + 1;
     while (layer->keyExistsWhichCovers(nextEmptyFrame))

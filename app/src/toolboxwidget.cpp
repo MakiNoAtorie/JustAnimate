@@ -22,7 +22,11 @@ GNU General Public License for more details.
 #include <QResizeEvent>
 #include <QDebug>
 #include <QButtonGroup>
+#include <QMenu>
+#include <QMouseEvent>
+#include <QTimer>
 
+#include "basetool.h"
 #include "layermanager.h"
 #include "toolmanager.h"
 #include "editor.h"
@@ -63,6 +67,7 @@ void ToolBoxWidget::initUI()
         { ui->penButton, "ballpen" },
         { ui->handButton, "hand-stop" },
         { ui->rotateButton, "rotate-clockwise-2" },
+        { ui->zoomButton, "zoom" },
         { ui->polylineButton, "polygon" },
         { ui->shapeButton, "shape" },
         { ui->lassoFillButton, "lasso" },
@@ -84,6 +89,8 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_HAND ) ) );
     ui->rotateButton->setToolTip( tr( "Rotate View Tool (%1): Rotate the canvas" )
         .arg( GetToolTips( CMD_TOOL_ROTATE ) ) );
+    ui->zoomButton->setToolTip( tr( "Zoom Tool (%1): Click to zoom in, Alt+click to zoom out, drag to zoom" )
+        .arg( GetToolTips( CMD_TOOL_ZOOM ) ) );
     ui->penButton->setToolTip( tr( "Pen Tool (%1): Sketch with pen" )
         .arg( GetToolTips( CMD_TOOL_PEN ) ) );
     ui->eraserButton->setToolTip( tr( "Eraser Tool (%1): Erase" )
@@ -116,6 +123,8 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_HAND ) ) );
     ui->rotateButton->setWhatsThis( tr( "Rotate View Tool (%1)" )
         .arg( GetToolTips( CMD_TOOL_ROTATE ) ) );
+    ui->zoomButton->setWhatsThis( tr( "Zoom Tool (%1)" )
+        .arg( GetToolTips( CMD_TOOL_ZOOM ) ) );
     ui->penButton->setWhatsThis( tr( "Pen Tool (%1)" )
         .arg( GetToolTips( CMD_TOOL_PEN ) ) );
     ui->eraserButton->setWhatsThis( tr( "Eraser Tool (%1)" )
@@ -142,6 +151,7 @@ void ToolBoxWidget::initUI()
     connect(ui->penButton, &QToolButton::clicked, this, &ToolBoxWidget::penOn);
     connect(ui->handButton, &QToolButton::clicked, this, &ToolBoxWidget::handOn);
     connect(ui->rotateButton, &QToolButton::clicked, this, [this] { toolOn(ROTATE, ui->rotateButton); });
+    connect(ui->zoomButton, &QToolButton::clicked, this, [this] { toolOn(ZOOM, ui->zoomButton); });
     connect(ui->polylineButton, &QToolButton::clicked, this, &ToolBoxWidget::polylineOn);
     connect(ui->shapeButton, &QToolButton::clicked, this, &ToolBoxWidget::shapeOn);
     connect(ui->lassoFillButton, &QToolButton::clicked, this, &ToolBoxWidget::lassoFillOn);
@@ -152,20 +162,15 @@ void ToolBoxWidget::initUI()
 
     mFlowlayout = new ToolBoxLayout(nullptr, 3,3,3);
 
+    // Only the first tool's button of each Tool group is in the layout.
     mFlowlayout->addWidget(ui->pencilButton);
     mFlowlayout->addWidget(ui->eraserButton);
-    mFlowlayout->addWidget(ui->selectButton);
     mFlowlayout->addWidget(ui->moveButton);
-    mFlowlayout->addWidget(ui->penButton);
     mFlowlayout->addWidget(ui->handButton);
-    mFlowlayout->addWidget(ui->rotateButton);
     mFlowlayout->addWidget(ui->polylineButton);
     mFlowlayout->addWidget(ui->shapeButton);
-    mFlowlayout->addWidget(ui->lassoFillButton);
     mFlowlayout->addWidget(ui->bucketButton);
     mFlowlayout->addWidget(ui->eyedropperButton);
-    mFlowlayout->addWidget(ui->brushButton);
-    mFlowlayout->addWidget(ui->smudgeButton);
 
     delete ui->scrollAreaWidgetContents_2->layout();
     ui->scrollAreaWidgetContents_2->setLayout(mFlowlayout);
@@ -181,6 +186,7 @@ void ToolBoxWidget::initUI()
     buttonGroup->addButton(ui->moveButton);
     buttonGroup->addButton(ui->penButton);
     buttonGroup->addButton(ui->handButton);
+    buttonGroup->addButton(ui->zoomButton);
     buttonGroup->addButton(ui->rotateButton);
     buttonGroup->addButton(ui->polylineButton);
     buttonGroup->addButton(ui->shapeButton);
@@ -189,6 +195,113 @@ void ToolBoxWidget::initUI()
     buttonGroup->addButton(ui->eyedropperButton);
     buttonGroup->addButton(ui->brushButton);
     buttonGroup->addButton(ui->smudgeButton);
+
+    initGroups();
+}
+
+void ToolBoxWidget::initGroups()
+{
+    struct Def { const char* key; QToolButton* button; QList<std::pair<ToolType, QToolButton*>> members; };
+    const Def defs[] = {
+        { CMD_TOOL_PENCIL, ui->pencilButton, { { PENCIL, ui->pencilButton }, { PEN, ui->penButton }, { BRUSH, ui->brushButton } } },
+        { CMD_TOOL_ERASER, ui->eraserButton, { { ERASER, ui->eraserButton }, { SMUDGE, ui->smudgeButton } } },
+        { CMD_TOOL_MOVE, ui->moveButton, { { MOVE, ui->moveButton }, { SELECT, ui->selectButton } } },
+        { CMD_TOOL_BUCKET, ui->bucketButton, { { BUCKET, ui->bucketButton }, { LASSOFILL, ui->lassoFillButton } } },
+        { CMD_TOOL_HAND, ui->handButton, { { HAND, ui->handButton }, { ZOOM, ui->zoomButton }, { ROTATE, ui->rotateButton } } },
+    };
+
+    mPressTimer = new QTimer(this);
+    mPressTimer->setObjectName("ToolGroupPress");
+    mPressTimer->setSingleShot(true);
+    mPressTimer->setInterval(300);
+    connect(mPressTimer, &QTimer::timeout, this, [this] {
+        if (mPressed) showGroupMenu(*mPressed);
+    });
+
+    for (const Def& def : defs)
+    {
+        Group group{ QStringLiteral("ToolGroup/") + def.key, def.button, {}, new QMenu(this), def.members.first().first };
+        group.menu->setObjectName(QStringLiteral("ToolGroupMenu_") + def.key);
+        for (int i = 0; i < def.members.size(); ++i)
+        {
+            const auto [type, source] = def.members[i];
+            group.members.append({ type, source, source->icon(), source->toolTip() });
+            QAction* action = group.menu->addAction(source->icon(), BaseTool::TypeName(type));
+            action->setData(type);
+            connect(action, &QAction::triggered, this, [this, type = type] { setActiveTool(type); });
+            if (source != def.button)
+                source->hide();
+        }
+        mGroups.append(group);
+    }
+    for (Group& group : mGroups)
+    {
+        const int saved = pencilSettings().value(group.key, int(group.last)).toInt();
+        for (const Member& m : group.members)
+            if (m.type == saved)
+                group.last = m.type;
+        setGroupLast(group, group.last);
+        group.button->disconnect(this);
+        group.button->installEventFilter(this);
+        connect(group.button, &QToolButton::clicked, this, [this, g = &group] { setActiveTool(g->last); });
+    }
+}
+
+ToolBoxWidget::Group* ToolBoxWidget::groupOf(ToolType type)
+{
+    if (type == CAMERA) type = MOVE;
+    for (Group& group : mGroups)
+        for (const Member& m : group.members)
+            if (m.type == type)
+                return &group;
+    return nullptr;
+}
+
+void ToolBoxWidget::setGroupLast(Group& group, ToolType type)
+{
+    if (type == CAMERA) type = MOVE;
+    group.last = type;
+    for (const Member& m : group.members)
+    {
+        if (m.type != type) continue;
+        group.button->setIcon(m.icon);
+        group.button->setToolTip(m.toolTip);
+    }
+}
+
+void ToolBoxWidget::showGroupMenu(Group& group)
+{
+    group.menu->popup(group.button->mapToGlobal(group.button->rect().bottomLeft()));
+}
+
+bool ToolBoxWidget::eventFilter(QObject* watched, QEvent* event)
+{
+    Group* group = nullptr;
+    for (Group& g : mGroups)
+        if (g.button == watched) group = &g;
+    if (!group)
+        return QWidget::eventFilter(watched, event);
+
+    switch (event->type())
+    {
+    case QEvent::MouseButtonPress:
+        if (static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton)
+        {
+            mPressed = group;
+            mPressTimer->start();
+        }
+        break;
+    case QEvent::MouseButtonRelease:
+    case QEvent::MouseButtonDblClick:
+        mPressTimer->stop();
+        break;
+    case QEvent::ContextMenu:
+        showGroupMenu(*group);
+        return true;
+    default:
+        break;
+    }
+    return false;
 }
 
 int ToolBoxWidget::getMinHeightForWidth(int width) const
@@ -250,6 +363,9 @@ void ToolBoxWidget::setActiveTool(ToolType toolType)
         break;
     case ToolType::ROTATE:
         toolOn(ROTATE, ui->rotateButton);
+        break;
+    case ToolType::ZOOM:
+        toolOn(ZOOM, ui->zoomButton);
         break;
     case ToolType::MOVE:
     case ToolType::CAMERA:
@@ -358,6 +474,7 @@ void ToolBoxWidget::deselectAllTools()
     ui->moveButton->setChecked(false);
     ui->handButton->setChecked(false);
     ui->rotateButton->setChecked(false);
+    ui->zoomButton->setChecked(false);
     ui->penButton->setChecked(false);
     ui->polylineButton->setChecked(false);
     ui->shapeButton->setChecked(false);
@@ -370,6 +487,11 @@ void ToolBoxWidget::deselectAllTools()
 
 void ToolBoxWidget::toolOn(ToolType toolType, QToolButton* toolButton)
 {
+    if (Group* group = groupOf(toolType)) {
+        setGroupLast(*group, toolType);
+        pencilSettings().setValue(group->key, int(group->last));
+        toolButton = group->button;
+    }
     if (mEditor->tools()->currentTool()->type() == toolType) {
         // Prevent un-checking the current tool and do nothing
         toolButton->setChecked(true);

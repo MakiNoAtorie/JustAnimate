@@ -48,6 +48,8 @@ UndoRedoManager::UndoRedoManager(Editor* editor) : BaseManager(editor, "UndoRedo
 
 UndoRedoManager::~UndoRedoManager()
 {
+    // ~QUndoStack clears the stack and signals; the window that listens may already be gone.
+    mUndoStack.disconnect(this);
     clearSaveStates();
     qDebug() << "UndoRedoManager: destroyed";
 }
@@ -246,6 +248,8 @@ void UndoRedoManager::replaceKeyFrame(const UndoSaveState& undoState, const QStr
     } else {
         // Implement other cases
     }
+    // One record covers every Linked Drawing: undo and redo copy the image again.
+    editor()->layers()->syncLinkedDrawings(editor()->layers()->findLayerById(undoState.layerId), undoState.currentFrameIndex);
 }
 
 void UndoRedoManager::moveKeyFrames(const UndoSaveState& undoState, const QString& description)

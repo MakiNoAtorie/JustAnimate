@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define LAYER_MANAGER_H
 
 #include "basemanager.h"
+#include <QHash>
 #include "layer.h"
 
 class LayerBitmap;
@@ -66,10 +67,16 @@ public:
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
     void setRough(Layer* layer, bool rough);
+    /// Shows only the layer at index; again on the same layer restores the visibility from before. Unsaved, no undo.
+    void toggleSolo(int index);
     /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */
     void setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state);
     /** Sets the Mark of the current layer's Drawing shown at frame as one undo step. */
     void setKeyMark(int frame, Mark mark);
+    /** Fills the empty frames between the two selected Drawings of the current vector layer with Drawings
+     *  interpolated stroke by stroke through easing, each marked Inbetween. One undo step. Refuses with a
+     *  status message on other layer types, without two selected Drawings or when the stroke counts differ. */
+    Status createInbetweens(CameraEasingType easing);
 
     /** Makes a new group that holds the layer. Returns its id, or 0 when the layer is already in a group. One undo step. */
     int createLayerGroup(Layer* layer);
@@ -135,6 +142,14 @@ public:
      *  and moves every later keyframe with it. One undo step. Returns false when nothing changes: a hidden
      *  layer, no Drawing at `frame`, the last Drawing, or an Exposure already at one frame. */
     bool changeExposure(int frame, int delta);
+
+    /** Adds a Linked Drawing of the current layer's Drawing shown at `from` on the empty frame `to`. One undo step.
+     *  Returns false on a hidden or non-drawing layer, an occupied `to`, or no Drawing at `from`. */
+    bool linkDrawing(int from, int to);
+    /** The current layer's Drawing shown at `frame` stops following its links. One undo step. */
+    bool unlinkDrawing(int frame);
+    /** Copies the image of the layer's Drawing shown at `frame` to the Drawings linked to it. */
+    void syncLinkedDrawings(Layer* layer, int frame);
     /** After clips of a sound layer moved (`fromTo` keyframe positions), moves the layer's markers inside
      *  each clip's old span with it. Does nothing on other layer types. */
     void moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo);
@@ -155,8 +170,12 @@ signals:
 private:
     int getIndex(Layer*) const;
     void recordLayerAdd(const Layer* layer);
+    /// True, with a status message, when a layer with selected frames is lock-all.
+    bool selectionRefusesEdit();
 
     int mLastCameraLayerIdx = 0;
+    QHash<int, bool> mSoloVisibility; // layer id to visibility before the solo; empty when nothing is soloed
+    int mSoloLayerId = 0;
 };
 
 #endif

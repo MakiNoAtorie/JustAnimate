@@ -12,7 +12,9 @@ Pencil2D drops groups and tweens if it re-saves the file.
 | Opacity tween | Same `tween` flag interpolates the existing `opacity` attribute | #91 |
 | Mark | `<image mark="key\|breakdown\|inbetween">` on bitmap and vector keys (omitted when none; another value loads as none); `KeyFrame::mark()` | #186 |
 | Rough layer | `<layer rough="1">` (omitted when off; another value loads as off); `Layer::isRough()`. Pencil2D shows and exports it as a normal layer | #192 |
+| Lock-all | `<layer lockAll="1">` on every layer type (omitted when off; another value loads as off); `Layer::lockAll()`. Pencil2D ignores it | #199 |
 | Frame markers | `<projectdata><markers><marker frame name color="#rrggbb"/></markers>`, in `ObjectData` | #92 |
 | Lock transparency | `<layer lockAlpha="1">` on bitmap layers (omitted when off); field on `LayerBitmap` | #100 |
 | Lip-sync markers | Frame markers with an optional `layer="id"` naming the sound layer they belong to (omitted for global markers); `layerId` on the marker struct in `ObjectData` | #108 |
 | Ping-pong playback | `<projectdata><pingPong value="true"/>`, in `ObjectData`. Playback speed is not saved | #97 |
+| Linked Drawing | `<image linkedTo="<src>">` on bitmap and vector keys: names the `src` of the earliest copy in the same layer (omitted on that copy and on unlinked keys). Each copy is still saved as a full image (ADR 0001), so Pencil2D opens independent copies. A `linkedTo` that names no image of the layer, or the image itself, is ignored. `KeyFrame::linkId()` | #194 |

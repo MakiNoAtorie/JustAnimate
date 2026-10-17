@@ -28,6 +28,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layervector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_object.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_onionskin.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shiftandtrace.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pegbaraligner.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_playbackmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pointerevent.cpp
@@ -37,7 +38,11 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_roughlayer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tween.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_mark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_inbetweens.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_exposure.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_xsheet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_sololock.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_linkeddrawing.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapbucket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_brushpresets.cpp
@@ -50,6 +55,9 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_qminiz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_rotateviewtool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_zoomtool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolgroups.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_penmenu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_scribblearea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_commandsearch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shortcutfilter.cpp

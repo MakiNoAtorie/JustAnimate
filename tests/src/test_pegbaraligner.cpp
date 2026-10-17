@@ -67,3 +67,60 @@ TEST_CASE("PegBarAligner: align from a held frame, then undo and redo")
     REQUIRE(qAlpha(layer->getBitmapImageAtFrame(5)->pixel(10, 10)) == 255);
     REQUIRE(qAlpha(layer->getBitmapImageAtFrame(5)->pixel(13, 14)) == 0);
 }
+
+TEST_CASE("PegBarAligner moves every Linked Drawing and one undo restores them all")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->setName("Drawing");
+    const QRgb black = qRgba(0, 0, 0, 255);
+    layer->getBitmapImageAtFrame(1)->setPixel(10, 10, black);
+    layer->addNewKeyFrameAt(5);
+    layer->getBitmapImageAtFrame(5)->setPixel(13, 14, black);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    editor->layers()->setCurrentLayer(layer);
+    REQUIRE(editor->layers()->linkDrawing(5, 7));
+    editor->scrubTo(1);
+
+    REQUIRE(PegBarAligner(editor, QRect(0, 0, 30, 30)).align({ "Drawing" }).ok());
+    for (int frame : { 5, 7 })
+    {
+        INFO(frame);
+        CHECK(qAlpha(layer->getBitmapImageAtFrame(frame)->pixel(10, 10)) == 255);
+        CHECK(qAlpha(layer->getBitmapImageAtFrame(frame)->pixel(13, 14)) == 0);
+    }
+
+    undoAction->trigger();
+    for (int frame : { 5, 7 })
+    {
+        INFO(frame);
+        CHECK(qAlpha(layer->getBitmapImageAtFrame(frame)->pixel(13, 14)) == 255);
+        CHECK(qAlpha(layer->getBitmapImageAtFrame(frame)->pixel(10, 10)) == 0);
+    }
+}
+
+TEST_CASE("PegBarAligner changes no layer when a later layer is locked")
+{
+    TestSession session;
+    const QRgb black = qRgba(0, 0, 0, 255);
+    LayerBitmap* first = session.object->addNewBitmapLayer();
+    first->setName("First");
+    first->getBitmapImageAtFrame(1)->setPixel(10, 10, black);
+    first->addNewKeyFrameAt(5);
+    first->getBitmapImageAtFrame(5)->setPixel(13, 14, black);
+    LayerBitmap* locked = session.object->addNewBitmapLayer();
+    locked->setName("Locked");
+    locked->getBitmapImageAtFrame(1)->setPixel(12, 12, black);
+    locked->setLockAll(true);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(first);
+    editor->scrubTo(1);
+
+    PegBarAligner(editor, QRect(0, 0, 30, 30)).align({ "First", "Locked" });
+    CHECK(qAlpha(first->getBitmapImageAtFrame(5)->pixel(13, 14)) == 255);
+    CHECK(qAlpha(locked->getBitmapImageAtFrame(1)->pixel(12, 12)) == 255);
+}

@@ -46,9 +46,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   code gets a parent.
 - No modal dialog in a test path: put the logic in helpers the test can
   call. Command-line paths never prompt.
-- A test that crashes a child process on purpose faults for real (null
-  write in a `no_sanitize` function), sets `SEM_NOGPFAULTERRORBOX` on
-  Windows and forwards the child's stderr.
+- A test that crashes a child on purpose faults for real and sets
+  `SEM_NOGPFAULTERRORBOX` on Windows.
 - Golden values change only in a commit that means to change output.
 
 ## Code
@@ -88,7 +87,6 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   pipe writes only through `executeFFMpegPipe`, bounded by `bytesToWrite()`.
 - Zip and unzip run through `FileManager::runArchiveJob` (worker thread;
   the caller emits progress). One `FileManager::save` at a time.
-- `.gitignore` ignores `*.rc`; add a `!` exception to commit one.
 - New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
   `loadPrefs` and `set()` in `preferencemanager.cpp`. A renamed setting
   migrates the old key once, only while the new key is absent.
@@ -102,17 +100,18 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Dark/light: `Theme::isDark()`, never `PlatformHandler::isDarkMode()`.
 - Dock layouts: `app/src/defaultlayout.*`; dock `objectName`s are stable;
   a Layout change raises the version in `dropOutdatedLayouts`.
-- New app files go in `app/app.cmake` only. New tools append to `ToolType`
-  before `TOOL_TYPE_COUNT`.
+- New app files go in `app/app.cmake` only. A new `ToolType` goes before
+  `TOOL_TYPE_COUNT` with a `BaseTool::TypeName`, a `StatusBar` icon and an
+  `initGroups` entry.
 - Speed-ups: Release `benchmark`, before/after on one machine, numbers in
-  the commit; noise-level wins go to `docs/rejected-optimizations.md`.
+  the commit.
   Caches match `CanvasPainter::paint` pixel for pixel and clear on
   modification signals; reuse `LayerCellCache`/`layersKey`; output-changing
   settings join `invalidateAllCache`. A cache that survives a scrub is keyed
   by content and carries a golden hash.
 - Frame pool: frames over 50 from the playhead unload unless modified;
   viewing never marks modified. Playback preloads through
-  `Object::preloadFrames`. Memory claims use the benchmark's peak RAM line.
+  `Object::preloadFrames`.
 - Frame selections span layers. Multi-layer edits: one `createState` per
   layer in one `UndoMacro`; a re-time ends in one `moveKeyFrames`.
 - Snapping: viewport-px guides added in `StrokeTool::prepareInput`; ruler
@@ -124,15 +123,19 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Stroke buffer composition: only `ScribbleArea::bufferCompositionMode()`.
   `duplicateLayer` copies every saved layer attribute.
 - Sound: timing via `SoundClip::msAtFrame`/`waveformPeaks`; preview via
-  `PlaybackManager::startSound`; tests use
-  `setSamples`, or a valid WAV when they need a player. A clip put back in
+  `PlaybackManager::startSound`; tests use `setSamples`. A clip put back in
   a layer gets a player from `SoundManager::processSound`; taking a layer
   out stops its clips. A missing clip file never fails save or export: skip
-  and warn, naming it with `LayerSound::clipLabel()`.
+  and warn.
 - User-visible strings go through `tr()`.
 - Colours come from the palette (Accent = `Highlight`), never hex; icons
   from `Theme::icon`.
 - Copy new `KeyFrame` fields in its copy constructor and `operator=`. Mark filter only from `PreferenceManager::markFilter()`.
+
+- Lock-all: an edit starts with `editor->refusesEdit(layer)`; View tools
+  (`BaseTool::isViewTool`) are exempt. Notices: `Editor::statusMessage`.
+- Linked Drawings (ADR 0001): only `linkDrawing` sets a `linkId`; a pixel
+  edit outside `KEYFRAME_MODIFY` calls `syncLinkedDrawings`.
 
 ## Commits
 
@@ -142,4 +145,3 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   attribution trailers.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
-

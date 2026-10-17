@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QPainter>
 #include <QDomElement>
+#include <QHash>
 #include <QFile>
 #include <QSet>
 #include "keyframe.h"
@@ -57,6 +58,62 @@ void Layer::foreachKeyFrame(std::function<void(KeyFrame*)> action) const
     for (auto pair : mKeyFrames)
     {
         action(pair.second);
+    }
+}
+
+QList<KeyFrame*> Layer::linkedKeys(const KeyFrame* key) const
+{
+    QList<KeyFrame*> result;
+    if (key == nullptr || key->linkId() == 0) { return result; }
+    foreachKeyFrame([&](KeyFrame* other) {
+        if (other != key && other->linkId() == key->linkId()) { result.append(other); }
+    });
+    return result;
+}
+
+int Layer::newLinkId() const
+{
+    int id = 0;
+    foreachKeyFrame([&id](KeyFrame* key) { id = qMax(id, key->linkId()); });
+    return id + 1;
+}
+
+void Layer::writeLinks(QDomElement& layerElem) const
+{
+    QHash<int, QDomElement> first; // link id to the <image> of its earliest copy
+    for (QDomElement image = layerElem.firstChildElement("image"); !image.isNull(); image = image.nextSiblingElement("image"))
+    {
+        const KeyFrame* key = getKeyFrameAt(image.attribute("frame").toInt());
+        if (!isLinked(key)) { continue; }
+        QDomElement& f = first[key->linkId()];
+        if (f.isNull() || f.attribute("frame").toInt() > key->pos()) { f = image; }
+    }
+    for (QDomElement image = layerElem.firstChildElement("image"); !image.isNull(); image = image.nextSiblingElement("image"))
+    {
+        const KeyFrame* key = getKeyFrameAt(image.attribute("frame").toInt());
+        const QDomElement f = key ? first.value(key->linkId()) : QDomElement();
+        if (!f.isNull() && f != image) { image.setAttribute("linkedTo", f.attribute("src")); }
+    }
+}
+
+void Layer::readLinks(const QDomElement& layerElem)
+{
+    // Untrusted file: a linkedTo that names no image of this layer, or the image itself, is ignored.
+    QHash<QString, KeyFrame*> keyOfSrc;
+    for (QDomElement image = layerElem.firstChildElement("image"); !image.isNull(); image = image.nextSiblingElement("image"))
+    {
+        KeyFrame* key = getKeyFrameAt(image.attribute("frame").toInt());
+        if (key && image.hasAttribute("src")) { keyOfSrc.insert(image.attribute("src"), key); }
+    }
+    for (QDomElement image = layerElem.firstChildElement("image"); !image.isNull(); image = image.nextSiblingElement("image"))
+    {
+        if (!image.hasAttribute("linkedTo")) { continue; }
+        KeyFrame* key = getKeyFrameAt(image.attribute("frame").toInt());
+        KeyFrame* target = keyOfSrc.value(image.attribute("linkedTo"));
+        if (key == nullptr || target == nullptr || key == target) { continue; }
+        if (target->linkId() == 0) { target->setLinkId(key->linkId() != 0 ? key->linkId() : newLinkId()); }
+        key->setLinkId(target->linkId());
+        key->copyImageFrom(target);
     }
 }
 
@@ -714,6 +771,7 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     if (blendMode() != BlendMode::Normal) { layerTag.setAttribute("blend", static_cast<int>(blendMode())); }
     if (groupId() != 0) { layerTag.setAttribute("group", groupId()); }
     if (isRough()) { layerTag.setAttribute("rough", 1); }
+    if (lockAll()) { layerTag.setAttribute("lockAll", 1); }
     return layerTag;
 }
 
@@ -731,6 +789,7 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     setBlendMode(blend >= 0 && blend < kBlendModeCount ? static_cast<BlendMode>(blend) : BlendMode::Normal);
     setGroupId(elem.attribute("group", "0").toInt());
     setRough(elem.attribute("rough", "0").toInt() == 1);
+    setLockAll(elem.attribute("lockAll") == "1");
 }
 
 TweenState Layer::tweenStateAt(int frame) const

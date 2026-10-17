@@ -64,6 +64,10 @@ public:
     void rotateRelative(float delta);
     /// Turns the View by the pointer's angle change about centre. A flipped View turns the other way.
     void rotateByDrag(QPointF centre, QPointF from, QPointF to);
+    /// Turns the View by degrees; the canvas point under the screen point stays there.
+    void rotateAtOffset(float degrees, QPointF screenPoint);
+    /// Moves the View content by a screen-pixel offset.
+    void panByScreen(QPointF screenDelta);
     void resetRotation();
 
     qreal scaling();

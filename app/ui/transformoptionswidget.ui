@@ -94,6 +94,9 @@
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="scaleLabel">
+         <property name="toolTip">
+          <string>Corner handles keep the aspect ratio. Hold Shift to scale freely.</string>
+         </property>
          <property name="text">
           <string>Scale</string>
          </property>

@@ -148,6 +148,7 @@ QDomElement LayerVector::createDomElement(QDomDocument& doc) const
 
         Q_ASSERT(QFileInfo(keyframe->fileName()).fileName() == fileName(keyframe));
     });
+    writeLinks(layerElem);
 
     return layerElem;
 }
@@ -186,6 +187,7 @@ void LayerVector::loadDomElement(const QDomElement& element, QString dataDirPath
         }
         imageTag = imageTag.nextSibling();
     }
+    readLinks(element);
 }
 
 VectorImage* LayerVector::getVectorImageAtFrame(int frameNumber) const

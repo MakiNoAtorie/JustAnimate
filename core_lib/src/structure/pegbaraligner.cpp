@@ -55,6 +55,7 @@ Status PegBarAligner::align(const QStringList& layers)
     for (int i = 0; i < layers.count(); i++)
     {
         layerBitmap = static_cast<LayerBitmap*>(mEditor->layers()->findLayerByName(layers.at(i)));
+        if (mEditor->refusesEdit(layerBitmap)) { return Status::SAFE; }
         for (int k = layerBitmap->firstKeyFramePosition(); k <= layerBitmap->getMaxKeyFramePosition(); k++)
         {
             if (!layerBitmap->keyExists(k)) { continue; }

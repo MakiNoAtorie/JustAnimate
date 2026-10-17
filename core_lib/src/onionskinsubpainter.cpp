@@ -41,63 +41,60 @@ OnionSkinSubPainter::OnionSkinSubPainter()
 {
 }
 
-void OnionSkinSubPainter::paint(QPainter& painter, const Layer* layer, const OnionSkinPainterOptions& options, int frameIndex, const std::function<void(OnionSkinPaintState, int)>& state) const
+QVector<OnionSkinSubPainter::Neighbour> OnionSkinSubPainter::neighbours(const Layer* layer, const OnionSkinPainterOptions& options, int frameIndex) const
 {
-    if (!options.enabledWhilePlaying && options.isPlaying) { return; }
-
-    if (layer->visible() == false)
-        return;
-
-    if (layer->keyFrameCount() == 0)
-        return;
+    QVector<Neighbour> result;
+    if (!layer->onionSkin()) { return result; }
 
     // Marks belong to Drawings; camera keys always onion-skin.
     const bool hasDrawings = layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR;
     const MarkFilter filter = hasDrawings ? options.markFilter : MarkFilter();
 
-    if (layer->onionSkin() && options.skinPrevFrames && frameIndex >= 1)
+    if (options.skinPrevFrames && frameIndex >= 1)
     {
-        // Paint onion skin before current frame.
         int onionFrameNumber = layer->getPreviousFrameNumber(frameIndex, options.isAbsolute, filter);
         KeyFrame* currentAbsoluteFrame = layer->getLastKeyFrameAtPosition(frameIndex);
         int currentAbsoluteFrameNumber = currentAbsoluteFrame ? currentAbsoluteFrame->pos() : -1;
 
         int onionPosition = 0;
-        while (onionPosition < options.framesToSkinPrev)
+        while (onionPosition < options.framesToSkinPrev && onionFrameNumber >= 1)
         {
-            // We've gone below the first frame, stop iterating
-            if (onionFrameNumber < 1) {
-                break;
-            }
-            painter.setOpacity(onionOpacity(options, onionPosition, options.framesToSkinPrev));
-
-            // When in absolute mode, we don't skin the current absolute frame
-            // otherwise, if absolute is off and the current frame is in range, will be painted
+            // In absolute mode the current absolute frame is not skinned.
             if (!options.isAbsolute || onionFrameNumber != currentAbsoluteFrameNumber) {
-                state(OnionSkinPaintState::PREV, onionFrameNumber);
+                result.append({ OnionSkinPaintState::PREV, onionFrameNumber, onionOpacity(options, onionPosition, options.framesToSkinPrev) });
                 onionPosition++;
             }
-
             onionFrameNumber = layer->getPreviousFrameNumber(onionFrameNumber, options.isAbsolute, filter);
         }
     }
 
-    state(OnionSkinPaintState::CURRENT, frameIndex);
-
-    if (layer->onionSkin() && options.skinNextFrames)
+    if (options.skinNextFrames)
     {
-        // Paint onion skin after current frame.
         int onionFrameNumber = layer->getNextFrameNumber(frameIndex, options.isAbsolute, filter);
-        int onionPosition = 0;
-
-        while (onionPosition < options.framesToSkinNext && onionFrameNumber > 0)
+        for (int onionPosition = 0; onionPosition < options.framesToSkinNext && onionFrameNumber > 0; onionPosition++)
         {
-            painter.setOpacity(onionOpacity(options, onionPosition, options.framesToSkinNext));
-
-            state(OnionSkinPaintState::NEXT, onionFrameNumber);
-
+            result.append({ OnionSkinPaintState::NEXT, onionFrameNumber, onionOpacity(options, onionPosition, options.framesToSkinNext) });
             onionFrameNumber = layer->getNextFrameNumber(onionFrameNumber, options.isAbsolute, filter);
-            onionPosition++;
         }
     }
+    return result;
+}
+
+void OnionSkinSubPainter::paint(QPainter& painter, const Layer* layer, const OnionSkinPainterOptions& options, int frameIndex, const std::function<void(OnionSkinPaintState, int)>& state) const
+{
+    if (!options.enabledWhilePlaying && options.isPlaying) { return; }
+    if (!layer->visible() || layer->keyFrameCount() == 0) { return; }
+
+    bool currentPainted = false;
+    for (const Neighbour& n : neighbours(layer, options, frameIndex))
+    {
+        if (n.state == OnionSkinPaintState::NEXT && !currentPainted)
+        {
+            state(OnionSkinPaintState::CURRENT, frameIndex);
+            currentPainted = true;
+        }
+        painter.setOpacity(n.opacity);
+        state(n.state, n.frame);
+    }
+    if (!currentPainted) { state(OnionSkinPaintState::CURRENT, frameIndex); }
 }

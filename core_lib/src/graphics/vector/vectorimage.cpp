@@ -65,6 +65,16 @@ VectorImage* VectorImage::clone() const
     return v;
 }
 
+void VectorImage::copyImageFrom(KeyFrame* source)
+{
+    const VectorImage* other = static_cast<const VectorImage*>(source);
+    if (other == this) { return; }
+    deselectAll();
+    mCurves = other->mCurves;
+    mArea = other->mArea;
+    modification();
+}
+
 /**
  * @brief VectorImage::read
  * @return True if file was read successfully from path

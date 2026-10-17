@@ -150,6 +150,12 @@ void CanvasPainter::resetLayerCache()
 QVector<qint64> CanvasPainter::layersKey(int startPos, int endPos) const
 {
     QVector<qint64> key{ qint64(quintptr(mObject)), mCurrentLayerIndex, mFrameNumber };
+    for (auto it = mShiftAndTraceOffsets.cbegin(); it != mShiftAndTraceOffsets.cend(); ++it)
+    {
+        const QTransform& t = it.value();
+        key << it.key() << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6)
+            << qRound64(t.m22() * 1e6) << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6);
+    }
     for (int i = startPos; i <= endPos; ++i)
     {
         Layer* layer = mObject->getLayer(mPaintOrder[i]);
@@ -321,10 +327,12 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     const TweenState tween = layer->tweenStateAt(nFrame);
     const qreal opacity = tween.opacity - (1.0 - painter.opacity());
     const QPoint topLeft = bitmapImage->topLeft();
+    const QTransform canvasTransform = onionTransform(layer, nFrame);
     const QVector<qint64> key{ bitmapImage->image()->cacheKey(), topLeft.x(), topLeft.y(), colorize,
                                colorize ? qint64(tint.rgba64()) : 0, colorize ? qRound64(opacity * 1e6) : 0,
-                               qRound64(tween.tx * 1e6), qRound64(tween.ty * 1e6), qRound64(tween.rot * 1e6),
-                               qRound64(tween.scale * 1e6) };
+                               qRound64(canvasTransform.m11() * 1e6), qRound64(canvasTransform.m12() * 1e6),
+                               qRound64(canvasTransform.m21() * 1e6), qRound64(canvasTransform.m22() * 1e6),
+                               qRound64(canvasTransform.dx() * 1e6), qRound64(canvasTransform.dy() * 1e6) };
 
     OnionFrame frame;
     if (const OnionFrame* cached = mOnionCache.object(key))
@@ -335,7 +343,7 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     {
         // Outside the image the onion pixmap stays transparent, so only its bounds are rendered.
         const QRect canvasRect(QPoint(), mOnionSkinPixmap.deviceIndependentSize().toSize());
-        const QTransform world = tween.transform() * mViewTransform;
+        const QTransform world = canvasTransform * mViewTransform;
         const QRect r = world.mapRect(QRectF(bitmapImage->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1) & canvasRect;
         if (!r.isEmpty())
         {
@@ -367,10 +375,17 @@ void CanvasPainter::paintVectorOnionSkinFrame(QPainter& painter, const QRect& bl
     initializePainter(onionSkinPainter, mOnionSkinPixmap, blitRect);
 
     const TweenState tween = layer->tweenStateAt(nFrame);
-    onionSkinPainter.setWorldTransform(tween.transform() * mViewTransform);
+    onionSkinPainter.setWorldTransform(onionTransform(layer, nFrame) * mViewTransform);
     vectorImage->paintImage(onionSkinPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
     tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
     painter.drawPixmap(mPointZero, mOnionSkinPixmap);
+}
+
+QTransform CanvasPainter::onionTransform(const Layer* layer, int nFrame) const
+{
+    const QTransform tween = layer->tweenStateAt(nFrame).transform();
+    if (layer != mObject->getLayer(mCurrentLayerIndex)) { return tween; }
+    return tween * mShiftAndTraceOffsets.value(nFrame);
 }
 
 void CanvasPainter::tintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPainter, int nFrame, bool colorize, qreal frameOpacity)

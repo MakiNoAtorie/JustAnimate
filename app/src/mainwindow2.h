@@ -30,6 +30,7 @@ class ScribbleArea;
 class BaseDockWidget;
 class ColorPaletteWidget;
 class OnionSkinWidget;
+class XSheet;
 class BrushPresetDock;
 class ToolOptionWidget;
 class TimeLine;
@@ -150,6 +151,7 @@ private:
     QSize availableScreenSize() const;
 
     void changePlayState(bool isPlaying);
+    void createInbetweens();
 
     void setIcons();
     void makeConnections(Editor*);
@@ -177,9 +179,11 @@ private:
     TimeLine*             mTimeLine = nullptr;
     ColorInspector*       mColorInspector = nullptr;
     OnionSkinWidget*      mOnionSkinWidget = nullptr;
+    XSheet*               mXSheet = nullptr;
     BrushPresetDock*      mBrushPresets = nullptr;
     QAction*              mRadialToolAction = nullptr;
     QAction*              mPresetPickerAction = nullptr;
+    QAction*              mShiftAndTraceAction = nullptr;
     QToolBar*             mCommandBar = nullptr;
 
     PegBarAlignmentDialog* mPegAlign = nullptr;

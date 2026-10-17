@@ -127,6 +127,18 @@ BitmapImage* BitmapImage::clone() const
     return b;
 }
 
+void BitmapImage::copyImageFrom(KeyFrame* source)
+{
+    BitmapImage* other = static_cast<BitmapImage*>(source);
+    if (other == this) { return; }
+    other->loadFile();
+    mImage = other->mImage; // implicitly shared until one copy is painted
+    mBounds = other->mBounds;
+    mMinBound = other->mMinBound;
+    mPendingLoad = {};
+    modification();
+}
+
 static QImage readImageFile(const QString& path)
 {
     return QImage(path).convertToFormat(QImage::Format_ARGB32_Premultiplied);

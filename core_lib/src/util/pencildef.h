@@ -52,6 +52,7 @@ enum ToolType : int
     SHAPE,
     LASSOFILL,
     ROTATE,
+    ZOOM,
     TOOL_TYPE_COUNT
 };
 
@@ -177,6 +178,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_MARK_BREAKDOWN "CmdMarkBreakdown"
 #define CMD_MARK_INBETWEEN "CmdMarkInbetween"
 #define CMD_MARK_CLEAR "CmdMarkClear"
+#define CMD_CREATE_INBETWEENS "CmdCreateInbetweens"
 #define CMD_GOTO_NEXT_FRAME "CmdGotoNextFrame"
 #define CMD_GOTO_PREV_FRAME "CmdGotoPreviousFrame"
 #define CMD_GOTO_NEXT_KEY_FRAME "CmdGotoNextKeyFrame"
@@ -211,6 +213,7 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOOL_PEN "CmdToolPen"
 #define CMD_TOOL_HAND "CmdToolHand"
 #define CMD_TOOL_ROTATE "CmdToolRotate"
+#define CMD_TOOL_ZOOM "CmdToolZoom"
 #define CMD_TOOL_PENCIL "CmdToolPencil"
 #define CMD_TOOL_BUCKET "CmdToolBucket"
 #define CMD_TOOL_EYEDROPPER "CmdToolEyedropper"
@@ -237,6 +240,8 @@ const static int MaxFramesBound = 9999;
 #define CMD_TOGGLE_COLOR_LIBRARY "CmdToggleColorLibrary"
 #define CMD_TOGGLE_ONION_SKIN "CmdToggleOnionSkin"
 #define CMD_TOGGLE_TIMELINE "CmdToggleTimeline"
+#define CMD_TOGGLE_XSHEET "CmdToggleXSheet"
+#define CMD_SHIFT_AND_TRACE "CmdShiftAndTrace"
 #define CMD_INCREASE_SIZE "CmdIncreaseSize"
 #define CMD_DECREASE_SIZE "CmdDecreaseSize"
 #define CMD_EXIT "CmdExit"
