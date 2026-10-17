@@ -43,6 +43,7 @@ public:
     Status exportMovie(bool isGif = false);
     Status exportImageSequence();
     Status exportImage();
+    Status exportOnPaper();
     Status exportGif();
 
     // edit

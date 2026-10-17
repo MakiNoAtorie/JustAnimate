@@ -359,6 +359,9 @@ void MainWindow2::createMenus()
     connect(ui->actionExport_Animated_GIF, &QAction::triggered, mCommands, &ActionCommands::exportGif);
 
     connect(ui->actionExport_Palette, &QAction::triggered, this, &MainWindow2::exportPalette);
+    QAction* exportOnPaper = new QAction(tr("On Paper..."), this);
+    connect(exportOnPaper, &QAction::triggered, mCommands, &ActionCommands::exportOnPaper);
+    ui->menuExport->insertAction(ui->actionExport_Palette, exportOnPaper);
 
     //--- Import Menu ---
     //connect( ui->actionExport_Svg_Image, &QAction::triggered, editor, &Editor::saveSvg );

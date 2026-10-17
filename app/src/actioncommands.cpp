@@ -26,6 +26,10 @@ GNU General Public License for more details.
 #include <QFileDialog>
 #include <QElapsedTimer>
 #include <QKeyEvent>
+#include <QComboBox>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QSpinBox>
 
 #include "pencildef.h"
 #include "editor.h"
@@ -49,6 +53,8 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 #include "soundclip.h"
 #include "camera.h"
+#include "pagewriter.h"
+#include "paperpainter.h"
 
 #include "importimageseqdialog.h"
 #include "importpositiondialog.h"
@@ -630,6 +636,51 @@ Status ActionCommands::exportImage()
         return st;
     }
     return Status::OK;
+}
+
+Status ActionCommands::exportOnPaper()
+{
+    QDialog dialog(mParent);
+    dialog.setWindowTitle(tr("Export on Paper"));
+    auto form = new QFormLayout(&dialog);
+    auto size = new QComboBox(&dialog);
+    size->addItems({ tr("A4 landscape"), tr("B4 landscape") });
+    auto camera = new QComboBox(&dialog);
+    for (const LayerCamera* layer : mEditor->object()->getLayersByType<LayerCamera>()) { camera->addItem(layer->name()); }
+    if (mEditor->layers()->currentLayer()->type() == Layer::CAMERA) { camera->setCurrentText(mEditor->layers()->currentLayer()->name()); }
+    const int length = std::max(1, mEditor->layers()->animationLength(false));
+    auto from = new QSpinBox(&dialog);
+    auto to = new QSpinBox(&dialog);
+    from->setRange(1, 9999);
+    to->setRange(1, 9999);
+    from->setValue(1);
+    to->setValue(length);
+    auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    form->addRow(tr("Paper:"), size);
+    form->addRow(tr("Camera:"), camera);
+    form->addRow(tr("From frame:"), from);
+    form->addRow(tr("To frame:"), to);
+    form->addRow(buttons);
+    if (dialog.exec() != QDialog::Accepted) { return Status::SAFE; }
+
+    const QString path = QFileDialog::getSaveFileName(mParent, tr("Export on Paper"), QString(),
+                                                      tr("PDF (*.pdf);;PNG pages (*.png)"));
+    if (path.isEmpty()) { return Status::SAFE; }
+    PageSpec spec;
+    spec.size = size->currentIndex() == 1 ? PageSpec::B4 : PageSpec::A4;
+    const auto* cameraLayer = static_cast<const LayerCamera*>(mEditor->layers()->findLayerByName(camera->currentText(), Layer::CAMERA));
+    if (cameraLayer == nullptr) { return Status::FAIL; }
+    const int first = std::min(from->value(), to->value());
+    const Status st = writePages(path, spec, std::abs(to->value() - from->value()) + 1,
+                                 paperFramePages(*mEditor->object(), *cameraLayer, first));
+    if (!st.ok())
+    {
+        ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), mParent);
+        errorDialog.exec();
+    }
+    return st;
 }
 
 void ActionCommands::flipSelectionX()

@@ -37,6 +37,8 @@ public:
     int startFrame() const { return mStartFrame; }
     int endFrame() const { return mEndFrame; }
     bool transparency() const { return mTransparency; }
+    /// "A4" or "B4" to export on paper, else empty.
+    QString paper() const { return mPaper; }
 
 private:
     QCommandLineParser mParser;
@@ -49,6 +51,7 @@ private:
     int mStartFrame = 1;
     int mEndFrame = -1;
     bool mTransparency = false;
+    QString mPaper;
 };
 
 #endif // COMMANDLINEPARSER_H

@@ -104,7 +104,8 @@ Status Pencil2D::handleCommandLineOptions()
                                  parser.height(),
                                  parser.startFrame(),
                                  parser.endFrame(),
-                                 parser.transparency());
+                                 parser.transparency(),
+                                 parser.paper());
     return st.ok() ? Status::SAFE : st;
 }
 

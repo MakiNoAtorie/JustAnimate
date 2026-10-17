@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- File > Export > On Paper... writes a frame range as Paper template sheets with the Title block, one page per frame, as PDF or PNG on A4 or B4 landscape; the command line does the same with `--paper A4|B4` (#208).
 - View > Paper Template draws a genga sheet with a Title block (TITLE, ID, NAME, STATE, DATE, NOTES) around the camera frame; saved with the project, one undo step per edit, never in image or movie exports (#207).
 - X-sheet Timesheet layout (X-sheet toolbar > Timesheet): Keyframe A-F, Dialogue, In-between A-F and Camera columns; set a layer's column from its menu (#209).
 - Storyboard layer (layer menu): each Drawing is a storyboard panel; the Storyboard Panel lists the panels with Scene, Cut, Notes, Audio and Time (seconds+frames, its Exposure), edits them with undo and jumps to a panel (#211).
