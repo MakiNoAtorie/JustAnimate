@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Smudge, Eyedropper and Move hints match the tools, grouped Tool column buttons say "Long press or right-click for more", and the Tools menu follows the Tool groups (#236).
 - Delete Layer deletes at once (undoable) with no confirmation; it is disabled on the last camera layer (#230).
 - Menu, Panel and tooltip names match the app and GLOSSARY: Drawing for Frame, Mirror for Flip, Window menu, Palette and Onion skin Panels, "..." on dialog items, clearer export range tooltip (#235).
 - Timed autosave is on by default, every 5 minutes, so startup recovery has an autosave after a crash; saved settings are kept (#219).

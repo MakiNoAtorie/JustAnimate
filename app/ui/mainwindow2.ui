@@ -272,20 +272,26 @@
      <string>Tools</string>
     </property>
     <addaction name="actionPencil"/>
-    <addaction name="actionEraser"/>
-    <addaction name="actionSelect"/>
-    <addaction name="actionMove"/>
     <addaction name="actionPen"/>
+    <addaction name="actionBrush"/>
+    <addaction name="separator"/>
+    <addaction name="actionEraser"/>
+    <addaction name="actionSmudge"/>
+    <addaction name="separator"/>
+    <addaction name="actionMove"/>
+    <addaction name="actionSelect"/>
+    <addaction name="separator"/>
     <addaction name="actionHand"/>
     <addaction name="actionZoomTool"/>
     <addaction name="actionRotateView"/>
+    <addaction name="separator"/>
     <addaction name="actionPolyline"/>
     <addaction name="actionShape"/>
-    <addaction name="actionLassoFill"/>
+    <addaction name="separator"/>
     <addaction name="actionBucket"/>
+    <addaction name="actionLassoFill"/>
+    <addaction name="separator"/>
     <addaction name="actionEyedropper"/>
-    <addaction name="actionBrush"/>
-    <addaction name="actionSmudge"/>
     <addaction name="separator"/>
     <addaction name="actionResetToolsDefault"/>
    </widget>

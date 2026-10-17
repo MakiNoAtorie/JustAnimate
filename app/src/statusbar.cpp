@@ -104,7 +104,7 @@ void StatusBar::updateToolStatus(ToolType tool)
             mToolLabel->setText(tr("Click and drag to create or modify a selection. Hold Alt to modify its contents or press Backspace to clear them."));
             break;
         case MOVE:
-            mToolLabel->setText(tr("Click and drag to move an object. Hold Ctrl to rotate."));
+            mToolLabel->setText(tr("Click and drag to move an object. Hold Ctrl to rotate or Shift to scale. With Transform Key on, it moves, rotates or scales the whole Drawing."));
             break;
         case CAMERA:
             mToolLabel->setText(tr("Click and drag to move the camera. While on in-between frames, drag handle to change interpolation."));
@@ -113,7 +113,7 @@ void StatusBar::updateToolStatus(ToolType tool)
             mToolLabel->setText(tr("Click and drag to pan. Hold Ctrl to zoom or Alt to rotate."));
             break;
         case SMUDGE:
-            mToolLabel->setText(tr("Click to liquefy pixels or modify a vector line. Hold Alt to smooth."));
+            mToolLabel->setText(tr("Click and drag to smudge pixels or reshape a vector line."));
             break;
         case PEN:
             mToolLabel->setText(tr("Click to draw. Hold Ctrl and Shift to erase or Alt to select a color from the canvas."));
@@ -132,7 +132,7 @@ void StatusBar::updateToolStatus(ToolType tool)
             mToolLabel->setText(tr("Click to fill an area with the current color. Hold Alt to select a color from the canvas."));
             break;
         case EYEDROPPER:
-            mToolLabel->setText(tr("Click to select a color from the canvas."));
+            mToolLabel->setText(tr("Click to pick a color from the canvas."));
             break;
         case BRUSH:
             mToolLabel->setText(tr("Click to paint. Hold Ctrl and Shift to erase or Alt to select a color from the canvas."));
