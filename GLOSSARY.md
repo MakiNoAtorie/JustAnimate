@@ -105,7 +105,7 @@ _Avoid_: Clone, instance, cel reference
 
 **X-sheet**:
 A Panel that shows the timeline as a table, one column per layer and one row per frame.
-_Avoid_: Exposure sheet, timesheet, dope sheet
+_Avoid_: Exposure sheet, dope sheet
 
 **Shift and Trace**:
 A mode in which the onion-skinned Drawings around the current one can be moved and rotated in the View, to trace an Inbetween. It never changes a Drawing.
@@ -114,3 +114,27 @@ _Avoid_: Out of pegs
 **Tool group**:
 Tools that share one button in the Tool column; a long press on the button shows the others.
 _Avoid_: Tool flyout, tool set
+
+**Genga palette**:
+The built-in palette of standard genga line colours: black main line, red shadow line, blue highlight line, green second-shadow line.
+_Avoid_: Trace colours, sakuga palette
+
+**Paper template**:
+The genga or layout sheet drawn on the canvas around the camera frame. It is project data, and only Export on paper prints it.
+_Avoid_: Overlay, frame guide
+
+**Title block**:
+The fields of a Paper template: TITLE, ID, NAME, STATE, DATE and NOTES.
+_Avoid_: Header, info box
+
+**Timesheet**:
+The Japanese layout of the X-sheet: Keyframe A–F, Dialogue, In-between A–F and Camera columns, 144 frames per sheet.
+_Avoid_: Time sheet, exposure sheet
+
+**Storyboard layer**:
+A layer whose Drawings are storyboard panels. A panel's Exposure is its time, so playback is an animatic.
+_Avoid_: E-konte layer, animatic layer
+
+**Panel field**:
+A text field of a storyboard panel: Scene, Cut, Notes or Audio.
+_Avoid_: Panel note, caption

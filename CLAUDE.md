@@ -18,6 +18,7 @@ by native "blocked by" edges:
 | v1.1 Fixes | #169 | `integration/v1.1` |
 | v1.2 UI refresh | #176 | `integration/v1.2` |
 | v1.3 Animation tools | #177 | `integration/v1.3` |
+| v1.4 Anime workflow | #204 | `integration/v1.4` |
 
 To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
 
