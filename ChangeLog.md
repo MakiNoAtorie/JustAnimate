@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Menu, Panel and tooltip names match the app and GLOSSARY: Drawing for Frame, Mirror for Flip, Window menu, Palette and Onion skin Panels, "..." on dialog items, clearer export range tooltip (#235).
+- Timed autosave is on by default, every 5 minutes, so startup recovery has an autosave after a crash; saved settings are kept (#219).
 - Export On Paper, Export Storyboard and Export Timesheet show page progress and can be aborted between pages; an aborted export writes no files (#232).
 - New Bitmap, Vector and Sound layers are added at once with a generated name, with no name dialog; Sound import asks only for the file (#227).
 - Export Timesheet prefills Scene, Shot and Animator from the Title block and remembers the last typed values (#231).

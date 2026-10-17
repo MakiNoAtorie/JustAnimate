@@ -52,3 +52,26 @@ TEST_CASE("Test settings stay out of the native store", "[Settings]")
     pencilSettings().remove("TestOnlySettingKey");
     REQUIRE_FALSE(leaked);
 }
+
+TEST_CASE("Preferences - a fresh profile autosaves by time every 5 minutes and not by count", "[Settings]")
+{
+    const SettingsGuard guard({ SETTING_AUTO_SAVE, SETTING_AUTO_SAVE_BY_TIME, SETTING_AUTO_SAVE_BY_TIME_TIMER });
+    QSettings& store = pencilSettings();
+    store.remove(SETTING_AUTO_SAVE);
+    store.remove(SETTING_AUTO_SAVE_BY_TIME);
+    store.remove(SETTING_AUTO_SAVE_BY_TIME_TIMER);
+
+    Editor editor;
+    PreferenceManager prefs(&editor);
+    prefs.loadPrefs();
+    CHECK(prefs.isOn(SETTING::AUTO_SAVE_BY_TIME));
+    CHECK(prefs.getInt(SETTING::AUTO_SAVE_BY_TIME_TIMER) == 5);
+    CHECK_FALSE(prefs.isOn(SETTING::AUTO_SAVE));
+
+    store.setValue(SETTING_AUTO_SAVE_BY_TIME, false);
+    store.setValue(SETTING_AUTO_SAVE_BY_TIME_TIMER, 15);
+    PreferenceManager saved(&editor);
+    saved.loadPrefs();
+    CHECK_FALSE(saved.isOn(SETTING::AUTO_SAVE_BY_TIME));
+    CHECK(saved.getInt(SETTING::AUTO_SAVE_BY_TIME_TIMER) == 15);
+}

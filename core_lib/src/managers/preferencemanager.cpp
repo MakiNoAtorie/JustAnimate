@@ -112,8 +112,8 @@ void PreferenceManager::loadPrefs()
     // Files
     set(SETTING::AUTO_SAVE,                settings.value(SETTING_AUTO_SAVE,              false).toBool());
     set(SETTING::AUTO_SAVE_NUMBER,         settings.value(SETTING_AUTO_SAVE_NUMBER,       256).toInt());
-    set(SETTING::AUTO_SAVE_BY_TIME,        settings.value(SETTING_AUTO_SAVE_BY_TIME,      false).toBool());
-    set(SETTING::AUTO_SAVE_BY_TIME_TIMER,  settings.value(SETTING_AUTO_SAVE_BY_TIME_TIMER,15).toInt());
+    set(SETTING::AUTO_SAVE_BY_TIME,        settings.value(SETTING_AUTO_SAVE_BY_TIME,      true).toBool());
+    set(SETTING::AUTO_SAVE_BY_TIME_TIMER,  settings.value(SETTING_AUTO_SAVE_BY_TIME_TIMER,5).toInt());
     if (!settings.contains(SETTING_STARTUP_ACTION))
     {
         // The old flags showed the Welcome screen when either flag was on; LoadDefaultPreset never changed startup.
