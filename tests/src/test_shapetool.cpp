@@ -270,7 +270,12 @@ TEST_CASE("ShapeTool - a tablet double click follows the system interval and dis
     vector->getVectorImageAtFrame(1)->addCurve(first, 1.0);
 
     QStyleHints* hints = QGuiApplication::styleHints();
-    const int interval = hints->mouseDoubleClickInterval();
+    struct IntervalGuard
+    {
+        QStyleHints* hints;
+        int saved = hints->mouseDoubleClickInterval();
+        ~IntervalGuard() { hints->setMouseDoubleClickInterval(saved); }
+    } restore{ hints };
     const qreal distance = hints->mouseDoubleClickDistance(); // no setter in Qt
     hints->setMouseDoubleClickInterval(300);
 
@@ -289,8 +294,6 @@ TEST_CASE("ShapeTool - a tablet double click follows the system interval and dis
     SECTION("Outside the interval") { CHECK(curves(400, QPointF(300, 400)) == 0); }
     SECTION("Inside the distance") { CHECK(curves(100, QPointF(300, 400 + distance)) == 1); }
     SECTION("Outside the distance") { CHECK(curves(100, QPointF(300, 402 + distance)) == 0); }
-
-    hints->setMouseDoubleClickInterval(interval);
 }
 
 TEST_CASE("ShapeTool - an open polygon ends on layer change or Esc")
