@@ -19,6 +19,10 @@ by native "blocked by" edges:
 | v1.2 UI refresh | #176 | `integration/v1.2` |
 | v1.3 Animation tools | #177 | `integration/v1.3` |
 | v1.4 Anime workflow | #204 | `integration/v1.4` |
+| v1.5 Polish | #215 | `integration/v1.5` |
+| v1.6 Lean | #216 | `integration/v1.6` |
+| v1.7 Deep modules | #217 | `integration/v1.7` |
+| v1.8 Speed | #218 | `integration/v1.8` |
 
 To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
 
