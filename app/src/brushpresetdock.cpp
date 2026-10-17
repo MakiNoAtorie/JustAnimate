@@ -91,6 +91,14 @@ void BrushPresetDock::updateUI()
     }
 }
 
+Status BrushPresetDock::importPreset(const QString& fileName)
+{
+    const Status st = mPresets.importPreset(fileName);
+    if (st.ok())
+        updateUI();
+    return st;
+}
+
 void BrushPresetDock::applyRow(int row)
 {
     QListWidgetItem* item = mList->item(row);

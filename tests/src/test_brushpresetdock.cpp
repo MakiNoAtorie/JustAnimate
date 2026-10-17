@@ -105,6 +105,20 @@ TEST_CASE("Selecting a preset row applies it and refreshes tool options", "[Brus
     CHECK(d.brush->strokeToolProperties().width() == 7);
 }
 
+TEST_CASE("Importing a preset file lists it in the dock", "[BrushPresetDock]")
+{
+    DockSession d;
+    QTemporaryDir other;
+    REQUIRE(BrushPresets(other.path()).save("Fine", *d.brush));
+    const QString file = other.filePath("Fine.jabrush");
+    REQUIRE(BrushPresets(other.path()).exportPreset("Fine", file).ok());
+
+    d.openDock();
+    REQUIRE(d.list()->count() == 0);
+    REQUIRE(d.dock->importPreset(file).ok());
+    CHECK(d.list()->count() == 1);
+}
+
 TEST_CASE("Preset rows show a rendered sample stroke and the description", "[BrushPresetDock]")
 {
     DockSession d;

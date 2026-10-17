@@ -39,6 +39,8 @@ public:
 
     void initUI() override;
     void updateUI() override;
+    /// Adds a preset file to the folder and lists it.
+    Status importPreset(const QString& fileName);
 
     static QSize sampleSize() { return QSize(160, 40); }
 
