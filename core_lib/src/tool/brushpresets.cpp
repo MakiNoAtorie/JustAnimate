@@ -233,13 +233,6 @@ QString BrushPresets::description(const QString& name) const
     return preset ? preset->value("description").toString() : QString();
 }
 
-bool BrushPresets::addClassic() const
-{
-    // Missing keys give each tool's default; only these differ from the defaults.
-    const QJsonObject settings{ { "Flow", 50 }, { "FlowPerDab", true }, { "PressureEnabled", true } };
-    return seed("Classic", QJsonDocument(QJsonObject{ { "settings", settings }, { "tipImage", "" } }).toJson());
-}
-
 bool BrushPresets::rename(const QString& from, const QString& to) const
 {
     if (!isValidName(from) || !isValidName(to) || exists(to))

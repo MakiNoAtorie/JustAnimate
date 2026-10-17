@@ -923,7 +923,7 @@ TEST_CASE("DabTool - Classic with pressure off paints full alpha like before v0.
     BrushTool* brush = static_cast<BrushTool*>(s.editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
     QTemporaryDir dir;
-    REQUIRE(BrushPresets(dir.path()).addClassic());
+    BrushPresets(dir.path()).addDefaults();
     REQUIRE(BrushPresets(dir.path()).apply("Classic", *brush));
     brush->setWidth(20);
     brush->setFeather(1);

@@ -620,7 +620,7 @@ TEST_CASE("Brush replay: today's Pencil, Brush and Eraser match the golden hashe
 TEST_CASE("Brush replay: the Classic preset draws like Pencil, Brush and Eraser before v0.3", "[BrushReplay]")
 {
     QTemporaryDir dir;
-    REQUIRE(BrushPresets(dir.path()).addClassic());
+    BrushPresets(dir.path()).addDefaults();
     checkGolden(kClassicGolden, dir.path());
 }
 

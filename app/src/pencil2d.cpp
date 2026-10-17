@@ -161,7 +161,6 @@ void Pencil2D::installTranslators()
 void Pencil2D::prepareGuiStartup(const QString& inputPath)
 {
     PlatformHandler::configurePlatformSpecificSettings();
-    BrushPresets().addClassic();
     BrushPresets().addDefaults();
 
     mainWindow.reset(new MainWindow2);

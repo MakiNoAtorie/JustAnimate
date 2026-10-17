@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QJsonDocument>
 #include <QPointingDevice>
 #include <QTabletEvent>
 #include <QTemporaryDir>
@@ -238,7 +239,7 @@ TEST_CASE("Bad brush preset values fall back to defaults", "[BrushPresets]")
 namespace
 {
 
-const QStringList DEFAULT_PRESETS{ "2B Pencil", "Chalk", "G-Pen", "HB Pencil", "Hard Eraser", "Marker", "Soft Airbrush", "Soft Eraser", "Watercolour" };
+const QStringList DEFAULT_PRESETS{ "2B Pencil", "Chalk", "Classic", "G-Pen", "HB Pencil", "Hard Eraser", "Marker", "Soft Airbrush", "Soft Eraser", "Watercolour" };
 
 void tabletStroke(ScribbleArea* area, qreal y)
 {
@@ -294,11 +295,10 @@ TEST_CASE("A deleted built-in preset stays deleted after a restart", "[BrushPres
     CHECK_FALSE(presets.names().contains("Marker"));
     CHECK(presets.names().contains("Chalk"));
 
-    // A built-in that was never added is added, once.
-    REQUIRE(presets.addClassic());
+    // Classic is seeded like the rest, once.
     CHECK(presets.names().contains("Classic"));
     REQUIRE(presets.remove("Classic"));
-    REQUIRE(presets.addClassic());
+    BrushPresets(dir.path()).addDefaults();
     CHECK_FALSE(presets.names().contains("Classic"));
 }
 
@@ -484,4 +484,15 @@ TEST_CASE("Malformed jabrush files are rejected before writing", "[BrushPresets]
     CHECK_FALSE(st.ok());
     CHECK_FALSE(QDir(folder).exists());
     CHECK_FALSE(QFile::exists(dir.filePath("evil.png")));
+}
+
+TEST_CASE("The seeded Classic preset equals the fixture of the old C++ writer", "[BrushPresets]")
+{
+    QTemporaryDir dir;
+    BrushPresets(dir.path()).addDefaults();
+    QFile seeded(dir.filePath("Classic.json"));
+    QFile fixture(":/classic-preset.json");
+    REQUIRE(seeded.open(QIODevice::ReadOnly));
+    REQUIRE(fixture.open(QIODevice::ReadOnly));
+    CHECK(QJsonDocument::fromJson(seeded.readAll()) == QJsonDocument::fromJson(fixture.readAll()));
 }
