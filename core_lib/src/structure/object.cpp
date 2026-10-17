@@ -841,6 +841,24 @@ void Object::loadDefaultPalette()
     addColor(ColorRef(QColor(227, 177, 105), tr("Light Grayish Orange Yellow")));
 }
 
+void Object::loadGengaPalette()
+{
+    mPalette.clear();
+    addColor(ColorRef(QColor(0, 0, 0), tr("Main line")));
+    addColor(ColorRef(QColor(220, 0, 0), tr("Shadow line")));
+    addColor(ColorRef(QColor(0, 90, 255), tr("Highlight line")));
+    addColor(ColorRef(QColor(0, 160, 0), tr("Second shadow line")));
+}
+
+bool Object::isPaletteInUse() const
+{
+    for (int i = 0; i < getColorCount(); i++)
+    {
+        if (isColorInUse(i)) { return true; }
+    }
+    return false;
+}
+
 void Object::paintImage(QPainter& painter,int frameNumber,
                         bool background,
                         bool antialiasing) const

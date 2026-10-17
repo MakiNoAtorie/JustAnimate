@@ -29,6 +29,24 @@ GNU General Public License for more details.
 #include "layersound.h"
 
 
+TEST_CASE("Object::loadGengaPalette() loads the four named line colours", "[Palette]")
+{
+    Object obj;
+    obj.init();
+    obj.loadGengaPalette();
+
+    REQUIRE(obj.getColorCount() == 4);
+    CHECK(obj.getColor(0).name == "Main line");
+    CHECK(obj.getColor(0).color == QColor(0, 0, 0));
+    CHECK(obj.getColor(1).name == "Shadow line");
+    CHECK(obj.getColor(1).color.red() > 200);
+    CHECK(obj.getColor(2).name == "Highlight line");
+    CHECK(obj.getColor(2).color.blue() > 200);
+    CHECK(obj.getColor(3).name == "Second shadow line");
+    CHECK(obj.getColor(3).color.green() > 100);
+    CHECK_FALSE(obj.isPaletteInUse());
+}
+
 TEST_CASE("Object::addXXXLayer()")
 {
     Object* obj = new Object;

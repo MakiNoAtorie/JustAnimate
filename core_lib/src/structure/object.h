@@ -123,6 +123,8 @@ public:
     QString savePalette(const QString& filePath) const;
 
     void loadDefaultPalette();
+    void loadGengaPalette();
+    bool isPaletteInUse() const;
 
     LayerBitmap* addNewBitmapLayer();
     LayerVector* addNewVectorLayer();
