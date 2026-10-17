@@ -34,10 +34,6 @@ GNU General Public License for more details.
 #define APP_NEW_ISSUE_URL   APP_REPO_URL "/issues/new"
 #define APP_RELEASES_URL    APP_REPO_URL "/releases"
 #define APP_RELEASES_FEED   APP_REPO_URL "/releases.atom"
-
-// JustAnimate is based on Pencil2D, whose user manual still applies
-#define UPSTREAM_NAME       "Pencil2D"
-#define UPSTREAM_URL        "https://www.pencil2d.org"
 #define APP_DOCS_URL        APP_REPO_URL "#readme"
 
 #endif // APPINFO_H
