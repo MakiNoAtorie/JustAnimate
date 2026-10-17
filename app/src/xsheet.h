@@ -32,13 +32,14 @@ class XSheet : public BaseDockWidget
     Q_OBJECT
 
 public:
-    /// One Drawing's cells: its first and last frame, its number on the layer and its Mark.
+    /// One Drawing's cells: its first and last frame, its number on the layer, its Mark and whether it is linked.
     struct Run
     {
         int first;
         int last;
         int number;
         Mark mark;
+        bool linked;
     };
     /// The Drawings of `layer`; the last one runs to `sceneLength`, a sound clip to its own end.
     static QList<Run> runs(const Layer* layer, int sceneLength);

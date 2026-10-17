@@ -519,8 +519,19 @@ void TimeLineCells::showTweenMenu(int frame, const QPoint& globalPos)
         action->setCheckable(marks[i] != Mark::None);
         action->setChecked(marks[i] != Mark::None && key->mark() == marks[i]);
     }
+    QAction* unlink = nullptr;
+    if (mEditor->layers()->currentLayer()->isLinked(key))
+    {
+        menu.addSeparator();
+        unlink = menu.addAction(tr("Unlink Drawing"));
+    }
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) { return; }
+    if (chosen == unlink)
+    {
+        mEditor->layers()->unlinkDrawing(frame);
+        return;
+    }
     if (chosen->actionGroup() == &markGroup)
     {
         mEditor->layers()->setKeyMark(frame, marks[markGroup.actions().indexOf(chosen)]);
@@ -655,6 +666,7 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
 
         painter.drawRect(recLeft, recTop, recWidth, recHeight);
         paintMark(painter, key->mark(), QRect(recLeft, recTop, standardWidth, recHeight), palette().color(QPalette::Shadow));
+        if (layer->isLinked(key)) { paintLink(painter, QRect(recLeft, recTop, standardWidth, recHeight), palette().color(QPalette::Highlight)); }
 
         if (layer->type() == Layer::SOUND)
         {
@@ -777,6 +789,7 @@ void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, c
             painter.drawRect(currentFrameX, recTop, recWidth, recHeight);
             paintMark(painter, key->mark(), QRect(currentFrameX, recTop, standardWidth, recHeight),
                       palette().color(QPalette::HighlightedText));
+            if (layer->isLinked(key)) { paintLink(painter, QRect(currentFrameX, recTop, standardWidth, recHeight), palette().color(QPalette::Highlight)); }
         }
     }
     painter.restore();
@@ -804,6 +817,11 @@ void TimeLineCells::paintMark(QPainter& painter, Mark mark, const QRect& cell, c
         break;
     }
     painter.restore();
+}
+
+void TimeLineCells::paintLink(QPainter& painter, const QRect& cell, const QColor& colour)
+{
+    painter.fillRect(cell.left() + 1, cell.bottom() - 2, cell.width() - 1, 3, colour);
 }
 
 void TimeLineCells::paintLabel(QPainter& painter, const Layer* layer,
@@ -1153,6 +1171,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     mBoxSelecting = false;
 
     mClickSelecting = false;
+    mLinkFrom = 0;
 
     primaryButton = event->button();
 
@@ -1355,8 +1374,15 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                         emit mEditor->selectedFramesChanged();
                     }
 
+                    // Alt on a Drawing drags a Linked Drawing of it
+                    if (event->modifiers() == Qt::AltModifier && event->button() == Qt::LeftButton &&
+                        currentLayer->isPaintable() && currentLayer->keyExists(frameNumber))
+                    {
+                        mEditor->layers()->setCurrentLayer(layerNumber);
+                        mLinkFrom = frameNumber;
+                    }
                     // Check if we are using the alt key
-                    if (event->modifiers() == Qt::AltModifier)
+                    else if (event->modifiers() == Qt::AltModifier)
                     {
                         // If it is the case, we select everything that is after the selected frame
                         mClickSelecting = true;
@@ -1538,7 +1564,12 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
         Layer* currentLayer = mEditor->layers()->getLayer(mCurrentLayerNumber);
         Q_ASSERT(currentLayer);
 
-        if (mExposureEdge > 0)
+        if (mLinkFrom > 0)
+        {
+            mEditor->layers()->linkDrawing(mLinkFrom, frameNumber);
+            updateContent();
+        }
+        else if (mExposureEdge > 0)
         {
             mEditor->layers()->changeExposure(mExposureEdge, frameNumber - mExposureEdge);
             updateContent();
@@ -1582,6 +1613,7 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
     mMovingFrames = false;
     mExposureEdge = 0;
     mRangeDragStart = 0;
+    mLinkFrom = 0;
 }
 
 void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)

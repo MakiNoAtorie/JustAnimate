@@ -891,6 +891,7 @@ void ActionCommands::duplicateKey()
     deselectAll();
 
     KeyFrame* dupKey = key->clone();
+    dupKey->setLinkId(0); // a duplicate is independent; Alt-drag links
 
     int nextEmptyFrame = mEditor->currentFrame() + 1;
     while (layer->keyExistsWhichCovers(nextEmptyFrame))

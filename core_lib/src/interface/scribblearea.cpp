@@ -983,6 +983,7 @@ void ScribbleArea::handleDrawingOnEmptyFrame()
     {
         if (previousKeyFrame != nullptr) {
             KeyFrame* dupKey = previousKeyFrame->clone();
+            dupKey->setLinkId(0); // a duplicate is independent; Alt-drag links
             layer->addKeyFrame(frameNumber, dupKey);
             mEditor->scrubTo(frameNumber);
             break;

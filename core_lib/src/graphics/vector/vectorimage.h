@@ -38,6 +38,7 @@ public:
     VectorImage& operator=(const VectorImage& a);
 
     VectorImage* clone() const override;
+    void copyImageFrom(KeyFrame* source) override;
 
     bool read(QString filePath);
     Status write(QString filePath, QString format);

@@ -88,6 +88,7 @@ void ClipboardManager::copySelectedFrames(const Layer* currentLayer)
         Q_ASSERT(keyframe != nullptr);
 
         KeyFrame* newKeyframe = keyframe->clone();
+        newKeyframe->setLinkId(0); // link ids mean nothing on another layer
         // Unload unmodified keyframes now as they won't ever get unloaded
         // by activeframepool while in clipboard manager.
         newKeyframe->unloadFile();

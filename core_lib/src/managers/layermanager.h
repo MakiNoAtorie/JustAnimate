@@ -138,6 +138,14 @@ public:
      *  and moves every later keyframe with it. One undo step. Returns false when nothing changes: a hidden
      *  layer, no Drawing at `frame`, the last Drawing, or an Exposure already at one frame. */
     bool changeExposure(int frame, int delta);
+
+    /** Adds a Linked Drawing of the current layer's Drawing shown at `from` on the empty frame `to`. One undo step.
+     *  Returns false on a hidden or non-drawing layer, an occupied `to`, or no Drawing at `from`. */
+    bool linkDrawing(int from, int to);
+    /** The current layer's Drawing shown at `frame` stops following its links. One undo step. */
+    bool unlinkDrawing(int frame);
+    /** Copies the image of the layer's Drawing shown at `frame` to the Drawings linked to it. */
+    void syncLinkedDrawings(Layer* layer, int frame);
     /** After clips of a sound layer moved (`fromTo` keyframe positions), moves the layer's markers inside
      *  each clip's old span with it. Does nothing on other layer types. */
     void moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo);

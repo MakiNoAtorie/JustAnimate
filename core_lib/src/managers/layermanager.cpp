@@ -879,6 +879,56 @@ bool LayerManager::changeExposure(int frame, int delta)
     return true;
 }
 
+bool LayerManager::linkDrawing(int from, int to)
+{
+    Layer* layer = currentLayer(0);
+    if (layer == nullptr || !layer->visible() || !layer->isPaintable() || to < 1 || layer->keyExists(to) ||
+        editor()->refusesEdit(layer)) { return false; }
+    KeyFrame* source = layer->getLastKeyFrameAtPosition(from);
+    if (source == nullptr) { return false; }
+    // A link id left on a key with no copy is harmless, so undo need not clear it.
+    if (source->linkId() == 0) { source->setLinkId(layer->newLinkId()); }
+
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAMES_PASTE, layer);
+    layer->addKeyFrame(to, source->clone());
+    undoRedo->record(saveStateId, tr("Link Drawing"));
+    notifyAnimationLengthChanged();
+    emit editor()->frameModified(to);
+    return true;
+}
+
+bool LayerManager::unlinkDrawing(int frame)
+{
+    Layer* layer = currentLayer(0);
+    if (layer == nullptr) { return false; }
+    KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    if (!layer->isLinked(key) || editor()->refusesEdit(layer)) { return false; }
+    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
+    const int playhead = editor()->currentFrame();
+    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
+    if (visit) { editor()->scrubTo(key->pos()); }
+
+    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    key->setLinkId(0);
+    key->modification();
+    editor()->undoRedo()->record(saveStateId, tr("Unlink Drawing"));
+    if (visit) { editor()->scrubTo(playhead); }
+    emit editor()->frameModified(key->pos());
+    return true;
+}
+
+void LayerManager::syncLinkedDrawings(Layer* layer, int frame)
+{
+    if (layer == nullptr) { return; }
+    KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    for (KeyFrame* copy : layer->linkedKeys(key))
+    {
+        copy->copyImageFrom(key);
+        emit editor()->frameModified(copy->pos());
+    }
+}
+
 void LayerManager::moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo)
 {
     if (layer->type() != Layer::SOUND || fromTo.isEmpty()) { return; }

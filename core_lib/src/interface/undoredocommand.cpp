@@ -327,6 +327,7 @@ void BitmapReplaceCommand::undo()
     UndoRedoCommand::undo();
 
     static_cast<LayerBitmap*>(layer)->replaceKeyFrame(&undoBitmap);
+    editor()->layers()->syncLinkedDrawings(layer, undoBitmap.pos());
 
     editor()->scrubTo(undoBitmap.pos());
 }
@@ -344,6 +345,7 @@ void BitmapReplaceCommand::redo()
     if (isFirstRedo()) { setFirstRedo(false); return; }
 
     static_cast<LayerBitmap*>(layer)->replaceKeyFrame(&redoBitmap);
+    editor()->layers()->syncLinkedDrawings(layer, redoBitmap.pos());
 
     editor()->scrubTo(redoBitmap.pos());
 }
@@ -375,6 +377,7 @@ void VectorReplaceCommand::undo()
     UndoRedoCommand::undo();
 
     static_cast<LayerVector*>(layer)->replaceKeyFrame(&undoVector);
+    editor()->layers()->syncLinkedDrawings(layer, undoVector.pos());
 
     editor()->scrubTo(undoVector.pos());
 }
@@ -392,6 +395,7 @@ void VectorReplaceCommand::redo()
     if (isFirstRedo()) { setFirstRedo(false); return; }
 
     static_cast<LayerVector*>(layer)->replaceKeyFrame(&redoVector);
+    editor()->layers()->syncLinkedDrawings(layer, redoVector.pos());
 
     editor()->scrubTo(redoVector.pos());
 }

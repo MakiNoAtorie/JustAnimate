@@ -71,6 +71,8 @@ public:
 
     /** Draws a Drawing's Mark shape centred in its cell: Key diamond, Breakdown triangle, Inbetween dot. */
     static void paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour);
+    /** Draws the Linked Drawing bar along the bottom of a Drawing's cell. */
+    static void paintLink(QPainter& painter, const QRect& cell, const QColor& colour);
 
 signals:
     void mouseMovedY(int);
@@ -180,6 +182,7 @@ private:
     bool mClickSelecting = false;
     int mExposureEdge = 0; // the frame whose right edge is being dragged, or 0
     int mRangeDragStart = 0; // ruler frame where a Shift-drag loop range started, or 0
+    int mLinkFrom = 0; // the key being Alt-dragged to make a Linked Drawing, or 0
 
     int mFramePosMoveX = 0;
     int mLayerPosMoveY = 0;

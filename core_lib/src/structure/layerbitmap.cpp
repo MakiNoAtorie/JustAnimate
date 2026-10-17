@@ -214,6 +214,7 @@ QDomElement LayerBitmap::createDomElement(QDomDocument& doc) const
             Q_ASSERT(QFileInfo(pKeyFrame->fileName()).fileName() == fileName(pKeyFrame));
         }
     });
+    writeLinks(layerElem);
 
     return layerElem;
 }
@@ -245,4 +246,5 @@ void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath
         }
         imageTag = imageTag.nextSibling();
     }
+    readLinks(element);
 }

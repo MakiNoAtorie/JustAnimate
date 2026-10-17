@@ -48,7 +48,7 @@ QList<XSheet::Run> XSheet::runs(const Layer* layer, int sceneLength)
         const int next = layer->getNextKeyFramePosition(pos);
         const bool last = next <= pos;
         const int end = layer->type() == Layer::SOUND ? pos + key->length() - 1 : last ? qMax(pos, sceneLength) : next - 1;
-        result.append({ pos, end, static_cast<int>(result.size()) + 1, key->mark() });
+        result.append({ pos, end, static_cast<int>(result.size()) + 1, key->mark(), layer->isLinked(key) });
         if (last) { return result; }
         pos = next;
     }
@@ -112,7 +112,11 @@ protected:
         mEditor->layers()->setCurrentLayer(layerIndex);
         mExposureEnd = event->modifiers() == Qt::NoModifier ? exposureEndAt(event->pos()) : 0;
         mDragTo = mExposureEnd;
-        mScrubbing = mExposureEnd == 0;
+        const Layer* layer = mEditor->object()->getLayer(layerIndex);
+        const int frame = frameAt(event->pos().y());
+        const bool link = event->modifiers() == Qt::AltModifier && layer->isPaintable() && layer->getLastKeyFrameAtPosition(frame);
+        mLinkFrom = link ? frame : 0;
+        mScrubbing = mExposureEnd == 0 && mLinkFrom == 0;
         if (mScrubbing) { mEditor->scrubTo(frameAt(event->pos().y())); }
     }
 
@@ -129,10 +133,12 @@ protected:
         else { viewport()->unsetCursor(); }
     }
 
-    void mouseReleaseEvent(QMouseEvent*) override
+    void mouseReleaseEvent(QMouseEvent* event) override
     {
         if (mExposureEnd > 0) { mEditor->layers()->changeExposure(mExposureEnd, mDragTo - mExposureEnd); }
+        if (mLinkFrom > 0) { mEditor->layers()->linkDrawing(mLinkFrom, frameAt(event->pos().y())); }
         mExposureEnd = 0;
+        mLinkFrom = 0;
         mScrubbing = false;
         viewport()->update();
     }
@@ -180,6 +186,7 @@ protected:
                 painter.setPen(pal.color(QPalette::Text));
                 painter.drawText(cell.adjusted(4, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, QString::number(run.number));
                 TimeLineCells::paintMark(painter, run.mark, QRect(cell.right() - kRow, cell.top(), kRow, kRow), pal.color(QPalette::Text));
+                if (run.linked) { TimeLineCells::paintLink(painter, cell.adjusted(0, 0, -1, -1), pal.color(QPalette::Highlight)); }
                 if (run.last == run.first) { continue; }
                 // The Exposure line runs from the first cell to the bottom of the last.
                 painter.setPen(QPen(pal.color(QPalette::Text), 2));
@@ -244,6 +251,7 @@ private:
     Editor* mEditor;
     int mExposureEnd = 0; // the frame whose bottom edge is being dragged, or 0
     int mDragTo = 0;
+    int mLinkFrom = 0; // the frame of the Drawing being Alt-dragged to link it, or 0
     bool mScrubbing = false;
 };
 
