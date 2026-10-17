@@ -24,7 +24,7 @@ GNU General Public License for more details.
 #include <QLineEdit>
 #include <QPushButton>
 
-#include "prefsearch.h"
+#include "app_util.h"
 #include "theme.h"
 
 PreferencesDialog::PreferencesDialog(QWidget* parent) :

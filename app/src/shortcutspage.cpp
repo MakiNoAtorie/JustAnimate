@@ -24,8 +24,7 @@ GNU General Public License for more details.
 #include <QKeySequence>
 #include <QMessageBox>
 #include "pencilsettings.h"
-#include "prefsearch.h"
-#include "shortcutconflict.h"
+#include "app_util.h"
 #include <QFile>
 #include <QFileDialog>
 
