@@ -26,12 +26,12 @@ class QPainter;
 /// A paper page: size, orientation and the pixels per inch its painter works in.
 struct PageSpec
 {
-    enum Size { A4, B4 };
+    enum Size { A4, B4 }; // B4 is JIS B4 (257 x 364 mm)
     Size size = A4;
     QPageLayout::Orientation orientation = QPageLayout::Landscape;
     int dpi = 150;
 
-    QPageSize pageSize() const { return QPageSize(size == B4 ? QPageSize::B4 : QPageSize::A4); }
+    QPageSize pageSize() const { return QPageSize(size == B4 ? QPageSize::JisB4 : QPageSize::A4); }
     /// The page in pixels at dpi, oriented.
     QSize pixelSize() const;
 };

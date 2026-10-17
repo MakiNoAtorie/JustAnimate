@@ -192,3 +192,12 @@ TEST_CASE("The command line exports a frame range on paper", "[PageWriter]")
     REQUIRE(exporter.process(project, { dir.filePath("out.pdf") }, "", -1, -1, 1, 4, false, PageSpec::A4).ok());
     CHECK(pdfPageCount(dir.filePath("out.pdf")) == 4);
 }
+
+TEST_CASE("B4 pages are JIS B4, 257 x 364 mm", "[PageWriter]")
+{
+    PageSpec spec;
+    spec.size = PageSpec::B4;
+    const QSizeF mm = spec.pageSize().size(QPageSize::Millimeter);
+    CHECK(mm.width() == Approx(257).margin(0.5));
+    CHECK(mm.height() == Approx(364).margin(0.5));
+}
