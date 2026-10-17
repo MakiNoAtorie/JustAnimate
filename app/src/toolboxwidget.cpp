@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <QMouseEvent>
 #include <QTimer>
 
+#include "basetool.h"
 #include "layermanager.h"
 #include "toolmanager.h"
 #include "editor.h"
@@ -200,18 +201,13 @@ void ToolBoxWidget::initUI()
 
 void ToolBoxWidget::initGroups()
 {
-    struct Def { const char* key; QToolButton* button; QList<std::pair<ToolType, QToolButton*>> members; QStringList names; };
+    struct Def { const char* key; QToolButton* button; QList<std::pair<ToolType, QToolButton*>> members; };
     const Def defs[] = {
-        { CMD_TOOL_PENCIL, ui->pencilButton, { { PENCIL, ui->pencilButton }, { PEN, ui->penButton }, { BRUSH, ui->brushButton } },
-          { tr("Pencil"), tr("Pen"), tr("Brush") } },
-        { CMD_TOOL_ERASER, ui->eraserButton, { { ERASER, ui->eraserButton }, { SMUDGE, ui->smudgeButton } },
-          { tr("Eraser"), tr("Smudge") } },
-        { CMD_TOOL_MOVE, ui->moveButton, { { MOVE, ui->moveButton }, { SELECT, ui->selectButton } },
-          { tr("Move"), tr("Select") } },
-        { CMD_TOOL_BUCKET, ui->bucketButton, { { BUCKET, ui->bucketButton }, { LASSOFILL, ui->lassoFillButton } },
-          { tr("Fill"), tr("Lasso fill") } },
-        { CMD_TOOL_HAND, ui->handButton, { { HAND, ui->handButton }, { ZOOM, ui->zoomButton }, { ROTATE, ui->rotateButton } },
-          { tr("Hand"), tr("Zoom"), tr("Rotate view") } },
+        { CMD_TOOL_PENCIL, ui->pencilButton, { { PENCIL, ui->pencilButton }, { PEN, ui->penButton }, { BRUSH, ui->brushButton } } },
+        { CMD_TOOL_ERASER, ui->eraserButton, { { ERASER, ui->eraserButton }, { SMUDGE, ui->smudgeButton } } },
+        { CMD_TOOL_MOVE, ui->moveButton, { { MOVE, ui->moveButton }, { SELECT, ui->selectButton } } },
+        { CMD_TOOL_BUCKET, ui->bucketButton, { { BUCKET, ui->bucketButton }, { LASSOFILL, ui->lassoFillButton } } },
+        { CMD_TOOL_HAND, ui->handButton, { { HAND, ui->handButton }, { ZOOM, ui->zoomButton }, { ROTATE, ui->rotateButton } } },
     };
 
     mPressTimer = new QTimer(this);
@@ -230,7 +226,7 @@ void ToolBoxWidget::initGroups()
         {
             const auto [type, source] = def.members[i];
             group.members.append({ type, source, source->icon(), source->toolTip() });
-            QAction* action = group.menu->addAction(source->icon(), def.names[i]);
+            QAction* action = group.menu->addAction(source->icon(), BaseTool::TypeName(type));
             action->setData(type);
             connect(action, &QAction::triggered, this, [this, type = type] { setActiveTool(type); });
             if (source != def.button)

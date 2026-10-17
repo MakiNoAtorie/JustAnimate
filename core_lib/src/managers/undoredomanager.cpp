@@ -249,7 +249,7 @@ void UndoRedoManager::replaceKeyFrame(const UndoSaveState& undoState, const QStr
         // Implement other cases
     }
     // One record covers every Linked Drawing: undo and redo copy the image again.
-    editor()->layers()->syncLinkedDrawings(editor()->layers()->currentLayer(), editor()->currentFrame());
+    editor()->layers()->syncLinkedDrawings(editor()->layers()->findLayerById(undoState.layerId), undoState.currentFrameIndex);
 }
 
 void UndoRedoManager::moveKeyFrames(const UndoSaveState& undoState, const QString& description)

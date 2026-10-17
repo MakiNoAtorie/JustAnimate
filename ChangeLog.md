@@ -10,7 +10,7 @@ the original Pencil2D history is kept below for reference.
 - A pen tap on a menu, context menu or combo box no longer opens and closes it at once: the app drops the second mouse press a tablet driver sends for the same tap (#203).
 - Animation > Create Inbetweens fills the empty frames between two selected vector Drawings, stroke by stroke with a chosen easing, each marked Inbetween; one undo step (#196).
 - Zoom tool (Z, in the Hand group): click zooms in at the pointer, Alt+click zooms out, a horizontal drag zooms about the press point (#198).
-- Tool column: Pencil, Pen and Brush; Eraser and Smudge; Move and Select; Fill and Lasso fill; Hand and Rotate view share one button each; a long press or right-click lists the group, and the button shows the tool used last (#198).
+- Tool column: Pencil, Pen and Brush; Eraser and Smudge; Move and Select; Fill and Lasso fill; Hand, Zoom and Rotate view share one button each; a long press or right-click lists the group, and the button shows the tool used last (#198).
 - Move tool "Transform Key" mode sets a Drawing's key transform on the canvas (drag moves, Ctrl rotates, Shift scales), with its fields in Tool settings; the tween menu previews each easing and the Key Transform dialog is gone (#197).
 - Linked Drawings: Alt-drag a Drawing in the timeline or X-sheet to make a copy that changes with it; linked cells show a bar, and Unlink Drawing in the cell menu makes one copy independent (#194).
 - Corner-handle scaling keeps the aspect ratio by default; hold Shift to scale freely (#200).

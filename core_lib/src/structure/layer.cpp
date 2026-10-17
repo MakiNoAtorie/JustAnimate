@@ -113,6 +113,7 @@ void Layer::readLinks(const QDomElement& layerElem)
         if (key == nullptr || target == nullptr || key == target) { continue; }
         if (target->linkId() == 0) { target->setLinkId(key->linkId() != 0 ? key->linkId() : newLinkId()); }
         key->setLinkId(target->linkId());
+        key->copyImageFrom(target);
     }
 }
 

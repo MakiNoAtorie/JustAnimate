@@ -195,6 +195,9 @@ TEST_CASE("Linked Drawings save as full copies with linkedTo and load linked aga
         paintSquare(editor, bitmap, 1, QRect(0, 0, 4, 4));
         REQUIRE(editor->layers()->linkDrawing(1, 4));
         REQUIRE(editor->layers()->linkDrawing(1, 6));
+        // An older program edits one copy only: the file holds copies that disagree.
+        bitmap->getBitmapImageAtFrame(6)->drawRect(QRect(20, 20, 4, 4), Qt::NoPen, QBrush(Qt::black),
+                                                   QPainter::CompositionMode_SourceOver, false);
         editor->layers()->setCurrentLayer(vector);
         REQUIRE(editor->layers()->linkDrawing(1, 3));
         FileManager fm;
@@ -211,6 +214,8 @@ TEST_CASE("Linked Drawings save as full copies with linkedTo and load linked aga
     auto* copy = static_cast<BitmapImage*>(bitmap->getKeyFrameAt(6));
     copy->loadFile();
     CHECK(qAlpha(copy->pixel(QPoint(1, 1))) == 255);
+    // On load the copies join the source's image.
+    CHECK(qAlpha(copy->pixel(QPoint(21, 21))) == 0);
     Layer* vector = loaded->findLayerById(vectorId);
     CHECK(vector->isLinked(vector->getKeyFrameAt(3)));
 
@@ -224,6 +229,25 @@ TEST_CASE("Linked Drawings save as full copies with linkedTo and load linked aga
     }
     const QString src = QString::asprintf("%03d.%03d.png", bitmapId, 1);
     CHECK(linkedTo == QHash<int, QString>({ { 1, QString() }, { 2, QString() }, { 4, src }, { 6, src } }));
+}
+
+TEST_CASE("A keyframe record syncs the Linked Drawings of its own layer", "[LinkedDrawing]")
+{
+    TestSession session;
+    LayerBitmap* linked = session.object->addNewBitmapLayer();
+    LayerBitmap* other = session.object->addNewBitmapLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(linked);
+    REQUIRE(editor->layers()->linkDrawing(1, 3));
+    editor->layers()->setCurrentLayer(other);
+    editor->scrubTo(1);
+
+    const SAVESTATE_ID state = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY, linked);
+    linked->getBitmapImageAtFrame(1)->drawRect(QRect(0, 0, 4, 4), Qt::NoPen, QBrush(Qt::black),
+                                               QPainter::CompositionMode_SourceOver, false);
+    editor->undoRedo()->record(state, "Paint");
+    CHECK(qAlpha(pixelAt(linked, 3, QPoint(1, 1))) == 255);
 }
 
 TEST_CASE("Images without linkedTo or with a bad linkedTo load as independent copies", "[LinkedDrawing]")

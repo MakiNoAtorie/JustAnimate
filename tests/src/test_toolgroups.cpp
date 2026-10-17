@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <QContextMenuEvent>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QRegularExpression>
 #include <QTimer>
 #include <QToolButton>
 
@@ -133,4 +134,18 @@ TEST_CASE("The Hand group lists Zoom between Hand and Rotate view and Z selects 
         CHECK(pencilSettings().value(key).toInt() == ZOOM);
     }
     pencilSettings().remove(key);
+}
+
+TEST_CASE("Tool group menus name each tool as the tool names itself", "[ToolGroups]")
+{
+    MainWindow2 window;
+    const QList<QMenu*> menus = window.findChildren<QMenu*>(QRegularExpression("^ToolGroupMenu_"));
+    REQUIRE(menus.size() == 5);
+    for (QMenu* menu : menus)
+    {
+        for (QAction* action : menu->actions())
+        {
+            CHECK(action->text() == BaseTool::TypeName(static_cast<ToolType>(action->data().toInt())));
+        }
+    }
 }

@@ -758,7 +758,7 @@ void ScribbleArea::pointerPressEvent(PointerEvent* event)
     }
     if (mShiftAndTrace && event->button() == Qt::LeftButton && shiftAndTracePress(event)) { return; }
     bool isCameraLayer = mEditor->layers()->currentLayer()->type() == Layer::CAMERA;
-    if ((currentTool()->type() != HAND || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
+    if ((!currentTool()->isViewTool() || isCameraLayer) && (event->button() != Qt::RightButton) && (event->button() != Qt::MiddleButton || isCameraLayer))
     {
         Layer* layer = mEditor->layers()->currentLayer();
         if (!layer->visible())

@@ -134,11 +134,12 @@ void BaseTool::pointerDoubleClickEvent(PointerEvent* event)
  */
 bool BaseTool::isDrawingTool()
 {
-    if (type() == ToolType::HAND || type() == ToolType::ROTATE || type() == ToolType::ZOOM || type() == ToolType::MOVE || type() == ToolType::CAMERA || type() == ToolType::SELECT )
-    {
-        return false;
-    }
-    return true;
+    return !isViewTool() && type() != ToolType::MOVE && type() != ToolType::CAMERA && type() != ToolType::SELECT;
+}
+
+bool BaseTool::isViewTool() const
+{
+    return type() == ToolType::HAND || type() == ToolType::ROTATE || type() == ToolType::ZOOM;
 }
 
 bool BaseTool::isActive() const

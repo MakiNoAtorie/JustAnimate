@@ -99,6 +99,8 @@ public:
 
     bool isPropertyEnabled(int rawType);
     bool isDrawingTool();
+    /// Hand, Zoom and Rotate view change only the view, so they work on hidden and locked layers.
+    bool isViewTool() const;
 
 signals:
     bool isActiveChanged(ToolType, bool);
