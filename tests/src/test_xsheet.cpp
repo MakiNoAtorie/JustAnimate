@@ -330,6 +330,39 @@ TEST_CASE("MainWindow2 X-sheet edits give the same project as timeline edits", "
     CHECK(timelineUndos == sheetUndos);
 }
 
+TEST_CASE("The Timesheet layout shows every fixed column and an empty one takes no edits", "[XSheet]")
+{
+    const SettingsGuard guard({ SETTING_XSHEET_LAYOUT });
+    TestSession s;
+    LayerBitmap* key = s.object->addNewBitmapLayer();
+    s.object->addNewCameraLayer();
+    key->setTimesheetColumn(TimesheetColumn::KeyA);
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    editor->preference()->set(SETTING::XSHEET_LAYOUT, 1);
+    XSheet xsheet(nullptr);
+    xsheet.setEditor(editor);
+    xsheet.initUI();
+    xsheet.resize(1600, 400);
+    xsheet.show();
+    QApplication::processEvents();
+
+    const int keyIndex = 0;
+    const int cameraIndex = 1;
+    const QRect first = xsheet.cellRect(keyIndex, 3);
+    // Key A-F, Dialogue, In-between A-F, Camera: Camera is 13 columns right of Key A.
+    CHECK(xsheet.cellRect(cameraIndex, 3).left() - first.left() == 13 * first.width());
+
+    editor->layers()->setCurrentLayer(cameraIndex);
+    editor->scrubTo(1);
+    QWidget* cells = xsheet.findChild<QAbstractScrollArea*>()->viewport();
+    const QPoint keyC = first.center() + QPoint(2 * first.width(), 0);
+    mouse(cells, QEvent::MouseButtonPress, keyC, Qt::LeftButton);
+    mouse(cells, QEvent::MouseButtonRelease, keyC, Qt::NoButton);
+    CHECK(editor->currentFrame() == 1);
+    CHECK(editor->layers()->currentLayerIndex() == cameraIndex);
+}
+
 TEST_CASE("X-sheet visibility has a command with no default key", "[XSheet]")
 {
     QSettings preset(":resources/kb.ini", QSettings::IniFormat);

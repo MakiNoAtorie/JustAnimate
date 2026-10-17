@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 #include "xsheet.h"
 
-#include <algorithm>
 #include <QAbstractScrollArea>
 #include <QMouseEvent>
 #include <QPainter>
@@ -53,29 +52,53 @@ public:
         horizontalScrollBar()->setSingleStep(kColumn / 4);
     }
 
-    /// Layer indices left to right: the timeline's rows top to bottom, without folded group members.
-    /// The Timesheet layout orders them by column, Keyframe A first.
-    QList<int> columns() const
+    struct Column
     {
-        QList<int> result;
+        int layer; // -1: a Timesheet column no layer fills
+        TimesheetColumn sheet;
+    };
+
+    /// The columns left to right, without folded group members. Western: the timeline's rows top to bottom.
+    /// Timesheet: every fixed column Key A to Camera, each with its layers or empty.
+    QList<Column> columns() const
+    {
+        QList<Column> result;
         const Object* object = mEditor->object();
-        for (int i = object->getLayerCount() - 1; i >= 0; --i)
+        if (!isTimesheet())
         {
-            if (!object->isLayerFolded(i)) { result << i; }
+            for (int i = object->getLayerCount() - 1; i >= 0; --i)
+            {
+                if (!object->isLayerFolded(i)) { result << Column{ i, TimesheetColumn::Default }; }
+            }
+            return result;
         }
-        if (isTimesheet())
+        for (int c = static_cast<int>(TimesheetColumn::KeyA); c <= static_cast<int>(TimesheetColumn::Camera); ++c)
         {
-            std::stable_sort(result.begin(), result.end(), [object](int a, int b) {
-                return effectiveTimesheetColumn(*object, a) < effectiveTimesheetColumn(*object, b); });
+            const TimesheetColumn sheet = static_cast<TimesheetColumn>(c);
+            const int before = result.size();
+            for (int i = object->getLayerCount() - 1; i >= 0; --i)
+            {
+                if (!object->isLayerFolded(i) && effectiveTimesheetColumn(*object, i) == sheet) { result << Column{ i, sheet }; }
+            }
+            if (result.size() == before) { result << Column{ -1, sheet }; }
         }
         return result;
+    }
+
+    static int indexOf(const QList<Column>& cols, int layerIndex)
+    {
+        for (int i = 0; i < cols.size(); ++i)
+        {
+            if (cols[i].layer == layerIndex) { return i; }
+        }
+        return -1;
     }
 
     bool isTimesheet() const { return isTimesheetLayout(mEditor); }
 
     QRect cellRect(int layerIndex, int frame) const
     {
-        return QRect(kFrameColumn + columns().indexOf(layerIndex) * kColumn - horizontalScrollBar()->value(),
+        return QRect(kFrameColumn + indexOf(columns(), layerIndex) * kColumn - horizontalScrollBar()->value(),
                      kHeader + (frame - 1) * kRow - verticalScrollBar()->value(), kColumn, kRow);
     }
 
@@ -145,7 +168,7 @@ protected:
         QPainter painter(viewport());
         const QPalette& pal = palette();
         const QRect area = viewport()->rect();
-        const QList<int> cols = columns();
+        const QList<Column> cols = columns();
         const Object* object = mEditor->object();
         const int currentLayer = mEditor->layers()->currentLayerIndex();
         const int sceneLength = mEditor->layers()->animationLength();
@@ -153,7 +176,7 @@ protected:
         const int lastFrame = firstFrame + area.height() / kRow + 1;
         painter.fillRect(area, pal.color(QPalette::Base));
 
-        const int column = cols.indexOf(currentLayer);
+        const int column = indexOf(cols, currentLayer);
         if (column >= 0)
         {
             painter.fillRect(cellRect(currentLayer, 1).x(), 0, kColumn, area.height(), pal.color(QPalette::AlternateBase));
@@ -174,8 +197,10 @@ protected:
             painter.drawLine(x, 0, x, area.height());
         }
 
-        for (int layerIndex : cols)
+        for (const Column& col : cols)
         {
+            if (col.layer < 0) { continue; }
+            const int layerIndex = col.layer;
             for (const Layer::Run& run : object->getLayer(layerIndex)->runs(sceneLength))
             {
                 if (run.last < firstFrame || run.first > lastFrame) { continue; }
@@ -208,14 +233,15 @@ protected:
             painter.drawText(row, Qt::AlignRight | Qt::AlignVCenter, QString::number(frame));
         }
         painter.fillRect(0, 0, area.width(), kHeader, pal.color(QPalette::Button));
-        for (int layerIndex : cols)
+        for (int i = 0; i < cols.size(); ++i)
         {
-            const QRect name = cellRect(layerIndex, 1).adjusted(4, -kHeader, -4, -kRow);
+            const int layerIndex = cols[i].layer;
+            const QRect name(kFrameColumn + i * kColumn - horizontalScrollBar()->value() + 4, 0, kColumn - 8, kHeader);
             QFont font = painter.font();
-            font.setBold(layerIndex == currentLayer);
+            font.setBold(layerIndex >= 0 && layerIndex == currentLayer);
             painter.setFont(font);
-            QString text = object->getLayer(layerIndex)->name();
-            if (isTimesheet()) { text = Layer::timesheetColumnName(effectiveTimesheetColumn(*object, layerIndex)) + " " + text; }
+            QString text = layerIndex >= 0 ? object->getLayer(layerIndex)->name() : QString();
+            if (isTimesheet()) { text = (Layer::timesheetColumnName(cols[i].sheet) + " " + text).trimmed(); }
             painter.drawText(name, Qt::AlignLeft | Qt::AlignVCenter, QFontMetrics(font).elidedText(text, Qt::ElideRight, name.width()));
         }
     }
@@ -228,10 +254,10 @@ private:
     /// The layer whose column holds pos, or -1 outside the cells.
     int layerAt(const QPoint& pos) const
     {
-        const QList<int> cols = columns();
+        const QList<Column> cols = columns();
         const int column = (pos.x() - kFrameColumn + horizontalScrollBar()->value()) / kColumn;
         if (pos.x() < kFrameColumn || pos.y() < kHeader || column >= cols.size()) { return -1; }
-        return cols[column];
+        return cols[column].layer;
     }
 
     /// The frame whose bottom edge is under pos and ends a Drawing's Exposure, or 0.
