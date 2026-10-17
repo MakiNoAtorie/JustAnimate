@@ -15,6 +15,10 @@ GNU General Public License for more details.
 #ifndef BRUSHPRESETS_H
 #define BRUSHPRESETS_H
 
+#include <optional>
+
+#include <QJsonObject>
+#include <QList>
 #include <QString>
 #include <QStringList>
 
@@ -34,9 +38,21 @@ public:
     /// An empty folder means the default folder in the app data location.
     explicit BrushPresets(const QString& folder = QString());
 
-    /// Names of the readable presets for `tool` (a `toolKey`; empty = every preset),
-    /// sorted. Corrupt files are skipped with a warning.
+    /// The listed fields of one preset and the parsed file they come from.
+    struct Entry
+    {
+        QString name, tool, description;
+        QJsonObject json;
+    };
+
+    /// The readable presets for `tool` (a `toolKey`; empty = every preset), sorted
+    /// by name; each file is parsed once. Corrupt files are skipped with a warning.
+    QList<Entry> entries(const QString& tool = QString()) const;
+    /// The names of `entries(tool)`.
     QStringList names(const QString& tool = QString()) const;
+
+    /// The parsed preset file; empty when the name is invalid or the file is missing or corrupt.
+    std::optional<QJsonObject> read(const QString& name) const;
 
     /// The preset group of a tool: "eraser" for the Eraser, "brush" for every other tool.
     static QString toolKey(ToolType type);
@@ -53,6 +69,8 @@ public:
     /// that cannot load gives the generated tip. Returns false and changes
     /// nothing when the preset is missing or corrupt.
     bool apply(const QString& name, StrokeTool& tool) const;
+    /// Sets every tool property, the tip image and the pressure curve from a parsed preset (`read`).
+    void apply(const QJsonObject& preset, StrokeTool& tool) const;
 
     /// Copies each default in the pack (resources under `:/brushpresets`) into the
     /// folder once: an existing file stays, so user edits stay, and a deleted default

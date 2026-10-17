@@ -10,6 +10,7 @@ the original Pencil2D history is kept below for reference.
 - BaseTool supplies default tool properties and settings loading, so tools without settings no longer declare them (#249).
 - The benchmark uses the shared test session instead of its own copy (#244).
 - Project files no longer write the Paper template `kind` attribute; files that have it still load (#248).
+- The Brush Presets Panel parses each preset file once per refresh and no longer watches the preset folder (#246).
 - Preference search and shortcut-conflict code now live in the app utilities (#243).
 - One `setTip(type, value)` replaces the four Stroke tool tip setters (#247).
 - The Classic brush preset is a JSON file in the preset pack, with the same values as before (#245).

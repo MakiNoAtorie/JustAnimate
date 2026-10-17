@@ -68,9 +68,9 @@ PresetSampler::~PresetSampler()
         editor->tools()->getTool(static_cast<ToolType>(t))->loadSettings();
 }
 
-QImage PresetSampler::paint(const BrushPresets& presets, const QString& name, QSize size)
+QImage PresetSampler::paint(const BrushPresets& presets, const QJsonObject& preset, QSize size)
 {
-    presets.apply(name, *brush);
+    presets.apply(preset, *brush);
     return paint(size);
 }
 

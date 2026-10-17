@@ -39,8 +39,8 @@ struct PresetSampler
 
     /// Paints an S stroke with the brush's current settings, scaled to fit `size`.
     QImage paint(QSize size);
-    /// Applies the preset to the brush, then paints.
-    QImage paint(const BrushPresets& presets, const QString& name, QSize size);
+    /// Applies the parsed preset (`BrushPresets::read`) to the brush, then paints.
+    QImage paint(const BrushPresets& presets, const QJsonObject& preset, QSize size);
 
     std::unique_ptr<ScribbleArea> area;
     std::unique_ptr<Editor> editor; // destroyed before the area

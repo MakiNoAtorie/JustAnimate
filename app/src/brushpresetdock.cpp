@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 #include "brushpresetdock.h"
 
-#include <QDir>
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QPushButton>
@@ -58,16 +57,12 @@ BrushPresetDock::BrushPresetDock(QWidget* parent, const QString& folder) : BaseD
     });
     connect(mList, &QListWidget::currentRowChanged, this, &BrushPresetDock::applyRow);
     connect(mList, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) { applyRow(mList->row(item)); });
-    connect(&mWatcher, &QFileSystemWatcher::directoryChanged, this, &BrushPresetDock::updateUI);
-    connect(&mWatcher, &QFileSystemWatcher::fileChanged, this, &BrushPresetDock::updateUI);
 }
 
 BrushPresetDock::~BrushPresetDock() = default;
 
 void BrushPresetDock::initUI()
 {
-    QDir().mkpath(mPresets.folder());
-    mWatcher.addPath(mPresets.folder());
     connect(editor()->tools(), &ToolManager::toolChanged, this, &BrushPresetDock::updateUI);
     updateUI();
 }
@@ -86,21 +81,14 @@ void BrushPresetDock::updateUI()
     const QString current = currentName();
     const QSignalBlocker blocker(mList);
     mList->clear();
-    const QStringList names = mPresets.names(currentTool());
-    for (const QString& name : names)
+    for (const BrushPresets::Entry& entry : mPresets.entries(currentTool()))
     {
-        const QString description = mPresets.description(name);
-        auto item = new QListWidgetItem(sample(name), description.isEmpty() ? name : name + "\n" + description, mList);
-        item->setData(Qt::UserRole, name);
-        if (name == current)
+        const QString text = entry.description.isEmpty() ? entry.name : entry.name + "\n" + entry.description;
+        auto item = new QListWidgetItem(sample(entry.json), text, mList);
+        item->setData(Qt::UserRole, entry.name);
+        if (entry.name == current)
             mList->setCurrentItem(item);
     }
-
-    // Saving a preset replaces its file, which drops the file watch on some platforms.
-    if (!mWatcher.files().isEmpty())
-        mWatcher.removePaths(mWatcher.files());
-    for (const QString& name : names)
-        mWatcher.addPath(mPresets.filePath(name));
 }
 
 void BrushPresetDock::applyRow(int row)
@@ -116,9 +104,9 @@ void BrushPresetDock::applyRow(int row)
         emit tools->toolsReset(); // the tool options show the new values
 }
 
-QIcon BrushPresetDock::sample(const QString& name)
+QIcon BrushPresetDock::sample(const QJsonObject& preset)
 {
-    return QIcon(QPixmap::fromImage(mSampler->paint(mPresets, name, sampleSize())));
+    return QIcon(QPixmap::fromImage(mSampler->paint(mPresets, preset, sampleSize())));
 }
 
 QString BrushPresetDock::currentName() const
