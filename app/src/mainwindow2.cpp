@@ -77,6 +77,7 @@ GNU General Public License for more details.
 #include "tooloptionwidget.h"
 #include "preferencesdialog.h"
 #include "timeline.h"
+#include "xsheet.h"
 #include "toolbox.h"
 #include "onionskinwidget.h"
 #include "brushpresetdock.h"
@@ -252,6 +253,9 @@ void MainWindow2::createDockWidgets()
     mTimeLine = new TimeLine(this);
     mTimeLine->setObjectName("TimeLine");
 
+    mXSheet = new XSheet(this);
+    mXSheet->setObjectName("XSheet");
+
     mColorBox = new ColorBox(this);
     mColorBox->setToolTip(tr("color palette:<br>use <b>(C)</b><br>toggle at cursor"));
     mColorBox->setObjectName("ColorWheel");
@@ -278,6 +282,7 @@ void MainWindow2::createDockWidgets()
 
     mDockWidgets
         << mTimeLine
+        << mXSheet
         << mColorBox
         << mColorInspector
         << mColorPalette
@@ -546,6 +551,8 @@ void MainWindow2::createMenus()
         connect(action, &QAction::triggered, this, [this, mark = mark] { mEditor->layers()->setKeyMark(mEditor->currentFrame(), mark); });
     }
     mTimeLine->setMarkActions({ ui->actionMark_Key, ui->actionMark_Breakdown, ui->actionMark_Inbetween, ui->actionClear_Mark });
+    mXSheet->setEditActions({ ui->actionAdd_Frame, ui->actionExposure_Add, ui->actionExposure_Subtract,
+                              ui->actionRipple_Insert_Frame, ui->actionRipple_Delete_Frame });
 
     connect(ui->actionAdd_Frame, &QAction::triggered, mCommands, &ActionCommands::insertKeyFrameAtCurrentPosition);
     connect(ui->actionRemove_Frame, &QAction::triggered, mCommands, &ActionCommands::removeKey);
@@ -641,6 +648,7 @@ void MainWindow2::createMenus()
         mColorBox->toggleViewAction(),
         mColorPalette->toggleViewAction(),
         mTimeLine->toggleViewAction(),
+        mXSheet->toggleViewAction(),
         mColorInspector->toggleViewAction(),
         mOnionSkinWidget->toggleViewAction(),
         mBrushPresets->toggleViewAction()
@@ -1294,7 +1302,7 @@ void MainWindow2::resetAndDockAllSubWidgets()
 DefaultDockLayout MainWindow2::dockLayout() const
 {
     return {mToolOptions, {mToolBox}, {mBrushPresets, mColorBox, mColorPalette}, mTimeLine,
-            {{mColorPalette, mColorInspector}, {mTimeLine, mOnionSkinWidget}}};
+            {{mColorPalette, mColorInspector}, {mTimeLine, mXSheet}, {mTimeLine, mOnionSkinWidget}}};
 }
 
 QSize MainWindow2::availableScreenSize() const
@@ -1621,6 +1629,7 @@ void MainWindow2::setupKeyboardShortcuts()
     mColorBox->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_WHEEL));
     mColorPalette->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_LIBRARY));
     mTimeLine->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_TIMELINE));
+    mXSheet->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_XSHEET));
     mColorInspector->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_COLOR_INSPECTOR));
     mOnionSkinWidget->toggleViewAction()->setShortcut(cmdKeySeq(CMD_TOGGLE_ONION_SKIN));
 

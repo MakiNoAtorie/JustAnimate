@@ -38,6 +38,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tween.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_mark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_exposure.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_xsheet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_bitmapbucket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_brushpresets.cpp

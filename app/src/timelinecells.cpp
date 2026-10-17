@@ -784,7 +784,7 @@ void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, c
     painter.restore();
 }
 
-void TimeLineCells::paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour) const
+void TimeLineCells::paintMark(QPainter& painter, Mark mark, const QRect& cell, const QColor& colour)
 {
     if (mark == Mark::None) { return; }
     const qreal r = std::min(cell.width(), cell.height()) * 0.3;

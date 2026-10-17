@@ -30,6 +30,7 @@ class ScribbleArea;
 class BaseDockWidget;
 class ColorPaletteWidget;
 class OnionSkinWidget;
+class XSheet;
 class BrushPresetDock;
 class ToolOptionWidget;
 class TimeLine;
@@ -177,6 +178,7 @@ private:
     TimeLine*             mTimeLine = nullptr;
     ColorInspector*       mColorInspector = nullptr;
     OnionSkinWidget*      mOnionSkinWidget = nullptr;
+    XSheet*               mXSheet = nullptr;
     BrushPresetDock*      mBrushPresets = nullptr;
     QAction*              mRadialToolAction = nullptr;
     QAction*              mPresetPickerAction = nullptr;

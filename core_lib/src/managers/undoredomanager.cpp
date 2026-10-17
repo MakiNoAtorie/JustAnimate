@@ -48,6 +48,8 @@ UndoRedoManager::UndoRedoManager(Editor* editor) : BaseManager(editor, "UndoRedo
 
 UndoRedoManager::~UndoRedoManager()
 {
+    // ~QUndoStack clears the stack and signals; the window that listens may already be gone.
+    mUndoStack.disconnect(this);
     clearSaveStates();
     qDebug() << "UndoRedoManager: destroyed";
 }

@@ -54,8 +54,8 @@ void applyPreset(QMainWindow* window, const DefaultDockLayout& docks, QSize scre
 {
     applyDefaultDockLayout(window, docks, screen);
     QStringList hidden;
-    if (name == "Draw") { hidden = {"TimeLine", "Onion Skin"}; }
-    if (name == "Ink") { hidden = {"TimeLine", "Onion Skin", "Color Inspector", "ColorPalette"}; }
+    if (name == "Draw") { hidden = {"TimeLine", "XSheet", "Onion Skin"}; }
+    if (name == "Ink") { hidden = {"TimeLine", "XSheet", "Onion Skin", "Color Inspector", "ColorPalette"}; }
     for (QDockWidget* dock : window->findChildren<QDockWidget*>())
     {
         if (hidden.contains(dock->objectName())) { dock->hide(); }
@@ -103,7 +103,8 @@ bool dropOutdatedLayouts(QSettings& settings)
 {
     // 2: v1.2, Panels docked by default. Older states restored floating tool windows.
     // 3: v1.2, Tool settings strip at the top, tabbed Panels.
-    const int version = 3;
+    // 4: v1.3, X-sheet tabbed with the timeline.
+    const int version = 4;
     if (settings.value(SETTING_LAYOUT_VERSION).toInt() >= version) { return false; }
     settings.remove(SETTING_WINDOW_STATE);
     settings.remove(QString(SETTING_WORKSPACE_STATE).chopped(1));
