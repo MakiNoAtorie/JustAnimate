@@ -58,3 +58,13 @@ Read `docs/conventions-code.md` before you edit code.
   top of "JustAnimate - Unreleased". Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
+
+## v1.6 homes
+
+- #242: the trace switch is `static bool on = qEnvironmentVariableIntValue("JUSTANIMATE_PRESSURE_LOG") == 1;` in `dabtool.cpp`, as in `stageprofiler.h`. The stale key stays in user INI files, unread.
+- #243: `prefsearch` and `shortcutconflict` functions keep their names and signatures, declared in `app/src/app_util.h`, bodies in `app_util.cpp`.
+- #245: `core_lib/data/brushpresets/Classic.json`, listed in the same qrc as the other presets. Fixture of today's C++ output: `tests/data/classic-preset.json`, captured before the writer goes.
+- #246: `std::optional<QJsonObject> BrushPresets::read(const QString& name) const` (public). Listing: `struct BrushPresets::Entry { QString name, tool, description; }` and `QList<Entry> entries(const QString& tool = {}) const`, sorted by name; `names()` stays as a wrapper only if callers remain.
+- #247: `void StrokeTool::setTip(int type, qreal value)` with `StrokeToolProperties::TIP_*`; bool fields take `value != 0`.
+- #249: BaseTool holds the default `ToolProperties` member; `toolProperties()` returns it and `loadSettings()` does nothing by default.
+- #250: `QGuiApplication::styleHints()->mouseDoubleClickInterval()` and `->mouseDoubleClickDistance()`, read at each press. Tests set them with the `QStyleHints` setters and restore them.
