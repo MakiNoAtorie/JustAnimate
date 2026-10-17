@@ -47,7 +47,8 @@ static Status pageError(const QString& path, const QString& error)
                   QCoreApplication::translate("PageWriter", "Could not write %1.").arg(QDir::toNativeSeparators(path)));
 }
 
-static Status writePdf(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint)
+static Status writePdf(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint,
+                       const PageProgressFn& progress)
 {
     QPdfWriter writer(path);
     writer.setResolution(spec.dpi);
@@ -60,11 +61,17 @@ static Status writePdf(const QString& path, const PageSpec& spec, int pageCount,
     {
         if (i > 0) { writer.newPage(); }
         paint(painter, page, i);
+        if (progress && !progress(i + 1))
+        {
+            painter.end();
+            return Status::CANCELED;
+        }
     }
     return painter.end() ? Status::OK : pageError(path, "cannot finish the file");
 }
 
-Status writePages(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint)
+Status writePages(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint,
+                  const PageProgressFn& progress)
 {
     const QFileInfo info(path);
     const QString suffix = info.suffix().toLower();
@@ -82,11 +89,12 @@ Status writePages(const QString& path, const PageSpec& spec, int pageCount, cons
         const QString tmp = files[i] + ".tmp";
         QFile::remove(tmp);
         Status st = Status::OK;
-        if (suffix == "pdf") { st = writePdf(tmp, spec, pageCount, paint); }
+        if (suffix == "pdf") { st = writePdf(tmp, spec, pageCount, paint, progress); }
         else
         {
             QImageWriter writer(tmp, "PNG");
             if (!writer.write(renderPage(spec, paint, i))) { st = pageError(files[i], writer.errorString()); }
+            else if (progress && !progress(i + 1)) { st = Status::CANCELED; }
         }
         if (!st.ok())
         {

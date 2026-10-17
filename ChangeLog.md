@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Export On Paper, Export Storyboard and Export Timesheet show page progress and can be aborted between pages; an aborted export writes no files (#232).
 - Export Timesheet prefills Scene, Shot and Animator from the Title block and remembers the last typed values (#231).
 - Adding, editing, moving and removing a timeline Marker is one undo step each; a set Marker has Move Marker... in its menu (#222).
 - Layer > Change line color can be undone: one undo step for the current Drawing, or for all Drawings on the layer (#220).

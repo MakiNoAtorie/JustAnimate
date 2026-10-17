@@ -42,8 +42,13 @@ using PagePaintFn = std::function<void(QPainter& painter, const QRectF& page, in
 /// One page as an image, for tests and PNG output.
 QImage renderPage(const PageSpec& spec, const PagePaintFn& paint, int page);
 
+/// Gets the number of pages done after each page; returns false to cancel.
+using PageProgressFn = std::function<bool(int pagesDone)>;
+
 /// Writes pageCount pages: a .pdf is one file, a .png path writes <base>_0001.png, <base>_0002.png, ...
 /// Each file is written as <name>.tmp and renamed when all are written; a failure leaves the old files.
-Status writePages(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint);
+/// A cancel from progress returns Status::CANCELED and also leaves the old files.
+Status writePages(const QString& path, const PageSpec& spec, int pageCount, const PagePaintFn& paint,
+                  const PageProgressFn& progress = {});
 
 #endif // PAGEWRITER_H

@@ -641,7 +641,18 @@ Status savePages(QWidget* parent, const QString& title, const PageSpec& spec, in
 {
     const QString path = QFileDialog::getSaveFileName(parent, title, QString(), ActionCommands::tr("PDF (*.pdf);;PNG pages (*.png)"));
     if (path.isEmpty()) { return Status::SAFE; }
-    const Status st = writePages(path, spec, pageCount, paint);
+    QProgressDialog progress(ActionCommands::tr("Exporting page 1 of %1...").arg(pageCount), ActionCommands::tr("Abort"), 0, pageCount, parent);
+    hideQuestionMark(progress);
+    progress.setWindowModality(Qt::WindowModal);
+    progress.show();
+    // A window-modal setValue processes events, so Abort is seen between pages.
+    const Status st = writePages(path, spec, pageCount, paint, [&progress, pageCount](int done) {
+        progress.setValue(done);
+        progress.setLabelText(ActionCommands::tr("Exporting page %1 of %2...").arg(std::min(done + 1, pageCount)).arg(pageCount));
+        return !progress.wasCanceled();
+    });
+    progress.close();
+    if (st == Status::CANCELED) { return Status::SAFE; }
     if (!st.ok())
     {
         ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), parent);
