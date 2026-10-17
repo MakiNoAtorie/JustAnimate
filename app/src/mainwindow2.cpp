@@ -626,7 +626,6 @@ void MainWindow2::createMenus()
     toolsActionGroup->addAction(ui->actionBucket);
     toolsActionGroup->addAction(ui->actionEyedropper);
     toolsActionGroup->addAction(ui->actionEraser);
-    toolsActionGroup->addAction(ui->actionResetToolsDefault);
 
     connect(toolsActionGroup, &QActionGroup::triggered, this, [&](QAction* action) {
         if (action == ui->actionMove) mToolBox->setActiveTool(MOVE);
@@ -644,7 +643,6 @@ void MainWindow2::createMenus()
         else if (action == ui->actionBucket) mToolBox->setActiveTool(BUCKET);
         else if (action == ui->actionEyedropper) mToolBox->setActiveTool(EYEDROPPER);
         else if (action == ui->actionEraser) mToolBox->setActiveTool(ERASER);
-        else if (action == ui->actionResetToolsDefault) mCommands->resetAllTools();
         else Q_UNREACHABLE();
     });
 
@@ -1313,6 +1311,7 @@ void MainWindow2::preferences()
     mPrefDialog->init(mEditor->preference());
 
     connect(mPrefDialog, &PreferencesDialog::windowOpacityChange, this, &MainWindow2::setOpacity);
+    connect(mPrefDialog, &PreferencesDialog::resetToolsRequested, mCommands, &ActionCommands::resetAllTools);
     connect(mPrefDialog, &PreferencesDialog::soundScrubChanged, mEditor->playback(), &PlaybackManager::setSoundScrubActive);
     connect(mPrefDialog, &PreferencesDialog::soundScrubMsecChanged, mEditor->playback(), &PlaybackManager::setSoundScrubMsec);
     connect(mPrefDialog, &PreferencesDialog::finished, [&]
@@ -1641,7 +1640,6 @@ void MainWindow2::setupKeyboardShortcuts()
     ui->actionBucket->setShortcut(cmdKeySeq(CMD_TOOL_BUCKET));
     ui->actionEyedropper->setShortcut(cmdKeySeq(CMD_TOOL_EYEDROPPER));
     ui->actionEraser->setShortcut(cmdKeySeq(CMD_TOOL_ERASER));
-    ui->actionResetToolsDefault->setShortcut(cmdKeySeq(CMD_RESET_ALL_TOOLS));
     mRadialToolAction->setShortcut(cmdKeySeq(CMD_RADIAL_TOOL_MENU));
     mShiftAndTraceAction->setShortcut(cmdKeySeq(CMD_SHIFT_AND_TRACE));
     mPresetPickerAction->setShortcut(cmdKeySeq(CMD_QUICK_PRESET_PICKER));

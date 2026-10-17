@@ -292,8 +292,6 @@
     <addaction name="actionLassoFill"/>
     <addaction name="separator"/>
     <addaction name="actionEyedropper"/>
-    <addaction name="separator"/>
-    <addaction name="actionResetToolsDefault"/>
    </widget>
    <widget class="QMenu" name="menuLayer">
     <property name="title">
@@ -756,14 +754,6 @@
   <action name="actionAbout">
    <property name="text">
     <string>About...</string>
-   </property>
-  </action>
-  <action name="actionResetToolsDefault">
-   <property name="text">
-    <string>Reset to default</string>
-   </property>
-   <property name="toolTip">
-    <string>Reset to default</string>
    </property>
   </action>
   <action name="actionNext_KeyFrame">

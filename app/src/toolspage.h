@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define TOOLSPAGE_H
 
 #include <QList>
+#include <functional>
 #include <utility>
 #include "preferencesdef.h"
 
@@ -37,6 +38,11 @@ public:
     ToolsPage();
     ~ToolsPage() override;
     void setManager(PreferenceManager* p) { mManager = p; }
+    // Asks before reset; tests replace it so no modal opens.
+    std::function<bool()> confirmReset;
+
+signals:
+    void resetToolsRequested();
 
 public slots:
     void updateValues();

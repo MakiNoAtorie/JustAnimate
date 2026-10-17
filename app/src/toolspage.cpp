@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include <QCheckBox>
 #include <QDir>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QtMath>
 
@@ -52,6 +53,17 @@ ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
     connect(resetCurve, &QPushButton::clicked, this, [this] {
         mPressureCurve->setCurve(PressureCurve());
         mManager->set(SETTING::PRESSURE_CURVE, QString());
+    });
+
+    auto* resetTools = new QPushButton(tr("Reset all tools to default"), this);
+    resetTools->setObjectName("resetToolsButton");
+    resetTools->setToolTip(tr("Reset every tool setting to its default"));
+    ui->verticalLayout_2->addWidget(resetTools, 0, Qt::AlignLeft);
+    confirmReset = [this] {
+        return QMessageBox::question(this, tr("Reset all tools"), tr("Reset every tool setting to its default?")) == QMessageBox::Yes;
+    };
+    connect(resetTools, &QPushButton::clicked, this, [this] {
+        if (confirmReset()) { emit resetToolsRequested(); }
     });
 
     connect(ui->useQuickSizingBox, &QCheckBox::stateChanged, this, &ToolsPage::quickSizingChange);

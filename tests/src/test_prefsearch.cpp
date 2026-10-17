@@ -3,6 +3,7 @@
 #include "prefsearch.h"
 #include "preferencesdialog.h"
 #include "shortcutspage.h"
+#include "toolspage.h"
 #include "pencilsettings.h"
 #include "editor.h"
 #include "preferencemanager.h"
@@ -97,4 +98,26 @@ TEST_CASE("Preferences - undo steps apply when editing finishes after one confir
     emit box->editingFinished();
     CHECK(asked == 1);
     CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 150);
+}
+
+TEST_CASE("Reset all tools button asks first and resets only on yes", "[PrefSearch]")
+{
+    Editor editor;
+    PreferenceManager prefs(&editor);
+    prefs.loadPrefs();
+    PreferencesDialog dialog(nullptr);
+    dialog.init(&prefs);
+    auto* page = dialog.findChild<ToolsPage*>();
+    auto* button = dialog.findChild<QPushButton*>("resetToolsButton");
+    REQUIRE(page);
+    REQUIRE(button);
+    int resets = 0;
+    QObject::connect(&dialog, &PreferencesDialog::resetToolsRequested, [&resets] { ++resets; });
+    bool answer = false;
+    page->confirmReset = [&answer] { return answer; };
+    button->click();
+    CHECK(resets == 0);
+    answer = true;
+    button->click();
+    CHECK(resets == 1);
 }

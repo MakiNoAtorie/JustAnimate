@@ -78,6 +78,7 @@ void PreferencesDialog::init(PreferenceManager* m)
     ui->shortcuts->setManager(mPrefManager);
 
     connect(ui->general, &GeneralPage::windowOpacityChange, this, &PreferencesDialog::windowOpacityChange);
+    connect(ui->tools, &ToolsPage::resetToolsRequested, this, &PreferencesDialog::resetToolsRequested);
     connect(ui->timeline, &TimelinePage::soundScrubChanged, this, &PreferencesDialog::soundScrubChanged);
     connect(ui->timeline, &TimelinePage::soundScrubMsecChanged, this, &PreferencesDialog::soundScrubMsecChanged);
     connect(ui->filesPage, &FilesPage::clearRecentList, this, &PreferencesDialog::clearRecentList);
