@@ -94,8 +94,11 @@ QList<BrushPresets::Entry> BrushPresets::entries(const QString& tool) const
     {
         const QString name = info.completeBaseName();
         const std::optional<QJsonObject> preset = read(name);
-        if (preset && (tool.isEmpty() || toolOf(*preset) == tool))
-            result.append({ name, toolOf(*preset), preset->value("description").toString(), *preset });
+        if (!preset)
+            continue;
+        const QString presetTool = toolOf(*preset);
+        if (tool.isEmpty() || presetTool == tool)
+            result.append({ name, presetTool, preset->value("description").toString(), *preset });
     }
     return result;
 }
@@ -155,11 +158,11 @@ bool BrushPresets::apply(const QString& name, StrokeTool& tool) const
     const std::optional<QJsonObject> preset = read(name);
     if (!preset)
         return false;
-    apply(*preset, tool);
+    apply(*preset, tool, name);
     return true;
 }
 
-void BrushPresets::apply(const QJsonObject& preset, StrokeTool& tool) const
+void BrushPresets::apply(const QJsonObject& preset, StrokeTool& tool, const QString& name) const
 {
     const QJsonObject settings = preset.value("settings").toObject();
     ToolProperties& properties = tool.toolProperties();
@@ -195,7 +198,7 @@ void BrushPresets::apply(const QJsonObject& preset, StrokeTool& tool) const
     const QString tipImage = preset.value("tipImage").toString();
     if (!tool.setTipImage(tipImage).ok())
     {
-        qWarning() << "Brush preset uses the generated tip: cannot load" << tipImage;
+        qWarning() << "Brush preset" << name << "uses the generated tip: cannot load" << tipImage;
         tool.setTipImage(QString());
     }
     tool.setPressureCurve(preset.value("pressureCurve").toString());

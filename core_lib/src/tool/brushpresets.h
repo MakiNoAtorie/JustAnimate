@@ -69,8 +69,8 @@ public:
     /// that cannot load gives the generated tip. Returns false and changes
     /// nothing when the preset is missing or corrupt.
     bool apply(const QString& name, StrokeTool& tool) const;
-    /// Sets every tool property, the tip image and the pressure curve from a parsed preset (`read`).
-    void apply(const QJsonObject& preset, StrokeTool& tool) const;
+    /// Sets every tool property, the tip image and the pressure curve from a parsed preset (`read`). The name is for log messages.
+    void apply(const QJsonObject& preset, StrokeTool& tool, const QString& name = QString()) const;
 
     /// Copies each default in the pack (resources under `:/brushpresets`) into the
     /// folder once: an existing file stays, so user edits stay, and a deleted default
