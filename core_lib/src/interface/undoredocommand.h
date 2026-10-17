@@ -326,6 +326,22 @@ private:
     LayerArrangement after;
 };
 
+/// Undo and redo of a Paper template edit.
+class PaperTemplateCommand : public UndoRedoCommand
+{
+public:
+    PaperTemplateCommand(const PaperTemplate& before, const PaperTemplate& after, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(const PaperTemplate& paper);
+
+    PaperTemplate before;
+    PaperTemplate after;
+};
+
 /// Undo and redo of a change to the camera keys of a camera layer, by key position.
 class CameraModifyCommand : public UndoRedoCommand
 {

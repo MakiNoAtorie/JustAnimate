@@ -663,6 +663,35 @@ void LayerArrangementCommand::apply(const LayerArrangement& arrangement)
     editor()->layers()->applyLayerArrangement(arrangement);
 }
 
+PaperTemplateCommand::PaperTemplateCommand(const PaperTemplate& before, const PaperTemplate& after,
+                                           const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), before(before), after(after)
+{
+    setText(description);
+}
+
+void PaperTemplateCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void PaperTemplateCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void PaperTemplateCommand::apply(const PaperTemplate& paper)
+{
+    editor()->object()->data()->setPaperTemplate(paper);
+    emit editor()->framesModified();
+}
+
 CameraModifyCommand::CameraModifyCommand(const std::vector<std::unique_ptr<KeyFrame>>& before,
                                          const std::vector<std::unique_ptr<Camera>>& after,
                                          int layerId, const QString& description, Editor* editor)

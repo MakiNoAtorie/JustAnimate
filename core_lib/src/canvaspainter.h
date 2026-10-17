@@ -97,6 +97,7 @@ private:
      * @param blitRect The rect where the blitting will occur
      */
     void initializePainter(QPainter& painter, QPaintDevice& device, const QRect& blitRect);
+    void paintPaper(QPainter& painter) const;
 
     void paintOnionSkinOnLayer(QPainter& painter, const QRect& blitRect, Layer* layer);
     void paintOnionSkin(QPainter& painter, const QRect& blitRect);

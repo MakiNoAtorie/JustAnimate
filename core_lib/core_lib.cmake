@@ -45,6 +45,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/movieimporter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/onionskinsubpainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/overlaypainter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/paperpainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/qminiz.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/selectionpainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/soundplayer.h
@@ -154,6 +155,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/movieimporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/onionskinsubpainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/overlaypainter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/paperpainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/qminiz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/selectionpainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/soundplayer.cpp

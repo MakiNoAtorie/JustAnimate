@@ -1046,6 +1046,15 @@ bool Editor::refusesEdit(const Layer* layer)
     return true;
 }
 
+void Editor::setPaperTemplate(const PaperTemplate& paper)
+{
+    const PaperTemplate before = mObject->data()->paperTemplate();
+    if (paper == before) { return; }
+    mObject->data()->setPaperTemplate(paper);
+    mUndoRedoManager->recordPaperTemplate(before, paper, tr("Paper Template"));
+    emit framesModified();
+}
+
 void Editor::switchVisibilityOfLayer(int layerNumber)
 {
     Layer* layer = mObject->getLayer(layerNumber);

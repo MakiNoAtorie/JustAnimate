@@ -100,6 +100,7 @@ GNU General Public License for more details.
 #include "welcomehelper.h"
 #include "pegbaralignmentdialog.h"
 #include "autosaverbytime.h"
+#include "papertemplatedialog.h"
 
 
 #ifdef GIT_TIMESTAMP
@@ -534,6 +535,13 @@ void MainWindow2::createMenus()
     case 20: ui->action20Degrees->setChecked(true); break;
     case 30: ui->action30Degrees->setChecked(true); break;
     }
+
+    QAction* paperAction = ui->menuView->addAction(tr("Paper Template..."));
+    paperAction->setStatusTip(tr("Show the genga sheet with its title block around the camera frame"));
+    connect(paperAction, &QAction::triggered, this, [this] {
+        PaperTemplateDialog dialog(mEditor->object()->data()->paperTemplate(), this);
+        if (dialog.exec() == QDialog::Accepted) { mEditor->setPaperTemplate(dialog.paperTemplate()); }
+    });
 
     //--- Animation Menu ---
     PlaybackManager* pPlaybackManager = mEditor->playback();

@@ -419,6 +419,11 @@ void UndoRedoManager::recordLayerRough(int layerId, bool rough, const QString& d
     pushCommand(new LayerRoughCommand(layerId, rough, description, editor()));
 }
 
+void UndoRedoManager::recordPaperTemplate(const PaperTemplate& before, const PaperTemplate& after, const QString& description)
+{
+    pushCommand(new PaperTemplateCommand(before, after, description, editor()));
+}
+
 void UndoRedoManager::recordLayerArrangement(const LayerArrangement& before, const QString& description)
 {
     const LayerArrangement after = object()->layerArrangement();

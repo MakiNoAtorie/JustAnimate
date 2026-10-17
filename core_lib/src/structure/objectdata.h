@@ -31,6 +31,21 @@ struct FrameMarker
     QColor color;
 };
 
+/// The Paper template of a project and its Title block fields.
+struct PaperTemplate
+{
+    bool on = false;
+    QString kind = "genga";
+    QString title, id, name, state, date, notes;
+
+    bool operator==(const PaperTemplate& o) const
+    {
+        return on == o.on && kind == o.kind && title == o.title && id == o.id && name == o.name
+            && state == o.state && date == o.date && notes == o.notes;
+    }
+    bool operator!=(const PaperTemplate& o) const { return !(*this == o); }
+};
+
 class ObjectData
 {
 public:
@@ -78,8 +93,12 @@ public:
         if (m.isEmpty()) { mMarkers.remove(layerId); } else { mMarkers.insert(layerId, m); }
     }
 
+    const PaperTemplate& paperTemplate() const { return mPaperTemplate; }
+    void setPaperTemplate(const PaperTemplate& t) { mPaperTemplate = t; }
+
 private:
     QMap<int, QMap<int, FrameMarker>> mMarkers;
+    PaperTemplate mPaperTemplate;
     int mCurrentFrame = 1;
     QColor mCurrentColor{ 0, 0, 0, 255 };
     int mCurrentLayer = 0;

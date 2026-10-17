@@ -21,6 +21,9 @@ GNU General Public License for more details.
 #include "object.h"
 #include "layerbitmap.h"
 #include "layervector.h"
+#include "layercamera.h"
+#include "objectdata.h"
+#include "paperpainter.h"
 #include "bitmapimage.h"
 #include "tile.h"
 #include "tiledbuffer.h"
@@ -102,6 +105,7 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 
     QPainter mainPainter;
     initializePainter(mainPainter, mCanvas, blitRect);
+    paintPaper(mainPainter);
     mainPainter.setWorldMatrixEnabled(false);
     mainPainter.drawPixmap(mPointZero, mPreLayersPixmap);
     mainPainter.setWorldMatrixEnabled(true);
@@ -137,6 +141,17 @@ void CanvasPainter::paintCached(const QRect& blitRect)
     mainPainter.setWorldMatrixEnabled(false);
     mainPainter.drawPixmap(mPointZero, mPostLayersPixmap);
     mainPainter.setWorldMatrixEnabled(true);
+}
+
+// Under every layer, around the frame of the camera layer the canvas shows.
+void CanvasPainter::paintPaper(QPainter& painter) const
+{
+    const PaperTemplate& paper = mObject->data()->paperTemplate();
+    if (!paper.on) { return; }
+    const Layer* camera = mObject->getLayerBelow(mCurrentLayerIndex, Layer::CAMERA);
+    if (camera == nullptr) { camera = mObject->getLayerBelow(mObject->getLayerCount() - 1, Layer::CAMERA); }
+    if (camera == nullptr) { return; }
+    paintPaperTemplate(painter, static_cast<const LayerCamera*>(camera)->getViewRect(), paper);
 }
 
 void CanvasPainter::resetLayerCache()

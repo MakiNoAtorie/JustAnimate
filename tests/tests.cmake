@@ -28,6 +28,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layervector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_object.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_onionskin.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_papertemplate.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_shiftandtrace.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pegbaraligner.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_playbackmanager.cpp
