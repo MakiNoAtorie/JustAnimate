@@ -66,6 +66,7 @@ void ToolBoxWidget::initUI()
         { ui->penButton, "ballpen" },
         { ui->handButton, "hand-stop" },
         { ui->rotateButton, "rotate-clockwise-2" },
+        { ui->zoomButton, "zoom" },
         { ui->polylineButton, "polygon" },
         { ui->shapeButton, "shape" },
         { ui->lassoFillButton, "lasso" },
@@ -87,6 +88,8 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_HAND ) ) );
     ui->rotateButton->setToolTip( tr( "Rotate View Tool (%1): Rotate the canvas" )
         .arg( GetToolTips( CMD_TOOL_ROTATE ) ) );
+    ui->zoomButton->setToolTip( tr( "Zoom Tool (%1): Click to zoom in, Alt+click to zoom out, drag to zoom" )
+        .arg( GetToolTips( CMD_TOOL_ZOOM ) ) );
     ui->penButton->setToolTip( tr( "Pen Tool (%1): Sketch with pen" )
         .arg( GetToolTips( CMD_TOOL_PEN ) ) );
     ui->eraserButton->setToolTip( tr( "Eraser Tool (%1): Erase" )
@@ -119,6 +122,8 @@ void ToolBoxWidget::initUI()
         .arg( GetToolTips( CMD_TOOL_HAND ) ) );
     ui->rotateButton->setWhatsThis( tr( "Rotate View Tool (%1)" )
         .arg( GetToolTips( CMD_TOOL_ROTATE ) ) );
+    ui->zoomButton->setWhatsThis( tr( "Zoom Tool (%1)" )
+        .arg( GetToolTips( CMD_TOOL_ZOOM ) ) );
     ui->penButton->setWhatsThis( tr( "Pen Tool (%1)" )
         .arg( GetToolTips( CMD_TOOL_PEN ) ) );
     ui->eraserButton->setWhatsThis( tr( "Eraser Tool (%1)" )
@@ -145,6 +150,7 @@ void ToolBoxWidget::initUI()
     connect(ui->penButton, &QToolButton::clicked, this, &ToolBoxWidget::penOn);
     connect(ui->handButton, &QToolButton::clicked, this, &ToolBoxWidget::handOn);
     connect(ui->rotateButton, &QToolButton::clicked, this, [this] { toolOn(ROTATE, ui->rotateButton); });
+    connect(ui->zoomButton, &QToolButton::clicked, this, [this] { toolOn(ZOOM, ui->zoomButton); });
     connect(ui->polylineButton, &QToolButton::clicked, this, &ToolBoxWidget::polylineOn);
     connect(ui->shapeButton, &QToolButton::clicked, this, &ToolBoxWidget::shapeOn);
     connect(ui->lassoFillButton, &QToolButton::clicked, this, &ToolBoxWidget::lassoFillOn);
@@ -179,6 +185,7 @@ void ToolBoxWidget::initUI()
     buttonGroup->addButton(ui->moveButton);
     buttonGroup->addButton(ui->penButton);
     buttonGroup->addButton(ui->handButton);
+    buttonGroup->addButton(ui->zoomButton);
     buttonGroup->addButton(ui->rotateButton);
     buttonGroup->addButton(ui->polylineButton);
     buttonGroup->addButton(ui->shapeButton);
@@ -203,8 +210,8 @@ void ToolBoxWidget::initGroups()
           { tr("Move"), tr("Select") } },
         { CMD_TOOL_BUCKET, ui->bucketButton, { { BUCKET, ui->bucketButton }, { LASSOFILL, ui->lassoFillButton } },
           { tr("Fill"), tr("Lasso fill") } },
-        { CMD_TOOL_HAND, ui->handButton, { { HAND, ui->handButton }, { ROTATE, ui->rotateButton } },
-          { tr("Hand"), tr("Rotate view") } },
+        { CMD_TOOL_HAND, ui->handButton, { { HAND, ui->handButton }, { ZOOM, ui->zoomButton }, { ROTATE, ui->rotateButton } },
+          { tr("Hand"), tr("Zoom"), tr("Rotate view") } },
     };
 
     mPressTimer = new QTimer(this);
@@ -361,6 +368,9 @@ void ToolBoxWidget::setActiveTool(ToolType toolType)
     case ToolType::ROTATE:
         toolOn(ROTATE, ui->rotateButton);
         break;
+    case ToolType::ZOOM:
+        toolOn(ZOOM, ui->zoomButton);
+        break;
     case ToolType::MOVE:
     case ToolType::CAMERA:
         moveOn();
@@ -468,6 +478,7 @@ void ToolBoxWidget::deselectAllTools()
     ui->moveButton->setChecked(false);
     ui->handButton->setChecked(false);
     ui->rotateButton->setChecked(false);
+    ui->zoomButton->setChecked(false);
     ui->penButton->setChecked(false);
     ui->polylineButton->setChecked(false);
     ui->shapeButton->setChecked(false);

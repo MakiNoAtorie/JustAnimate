@@ -171,12 +171,12 @@ TEST_CASE("The default shortcut preset has no duplicate keys")
     }
 }
 
-TEST_CASE("Default shortcuts: R selects the Rotate view tool and Z rotates nothing")
+TEST_CASE("Default shortcuts: R selects the Rotate view tool, Z the Zoom tool and neither rotates")
 {
     QSettings preset(":resources/kb.ini", QSettings::IniFormat);
     preset.beginGroup("shortcuts");
     CHECK(findShortcutConflict(preset, "", QKeySequence("R")) == CMD_TOOL_ROTATE);
-    CHECK(findShortcutConflict(preset, "", QKeySequence("Z")).isEmpty());
+    CHECK(findShortcutConflict(preset, "", QKeySequence("Z")) == CMD_TOOL_ZOOM);
     CHECK(preset.value(CMD_ROTATE_CLOCK).toString().isEmpty());
     CHECK(preset.value(CMD_ROTATE_ANTI_CLOCK).toString().isEmpty());
 }

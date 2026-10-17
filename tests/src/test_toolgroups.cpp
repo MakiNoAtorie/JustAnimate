@@ -103,3 +103,34 @@ TEST_CASE("Tool groups share one button that shows the last tool used", "[ToolGr
     }
     pencilSettings().remove(key);
 }
+
+TEST_CASE("The Hand group lists Zoom between Hand and Rotate view and Z selects it", "[ToolGroups]")
+{
+    const QString key = "ToolGroup/CmdToolHand";
+    pencilSettings().remove(key);
+    {
+        MainWindow2 window;
+        window.show();
+        QApplication::processEvents();
+        Editor* editor = window.findChild<Editor*>();
+        auto* hand = window.findChild<QToolButton*>("handButton");
+        auto* menu = window.findChild<QMenu*>("ToolGroupMenu_CmdToolHand");
+        auto* zoom = window.findChild<QAction*>("actionZoomTool");
+        REQUIRE(editor);
+        REQUIRE(hand);
+        REQUIRE(menu);
+        REQUIRE(zoom);
+
+        QList<int> order;
+        for (QAction* a : menu->actions()) order << a->data().toInt();
+        CHECK(order == QList<int>{ HAND, ZOOM, ROTATE });
+        CHECK(zoom->shortcut() == QKeySequence("Z"));
+
+        zoom->trigger();
+        CHECK(editor->tools()->currentTool()->type() == ZOOM);
+        CHECK(shows(hand, "Zoom Tool"));
+        CHECK(hand->isChecked());
+        CHECK(pencilSettings().value(key).toInt() == ZOOM);
+    }
+    pencilSettings().remove(key);
+}

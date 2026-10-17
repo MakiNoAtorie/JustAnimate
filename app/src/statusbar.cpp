@@ -146,6 +146,9 @@ void StatusBar::updateToolStatus(ToolType tool)
         case ROTATE:
             mToolLabel->setText(tr("Click and drag to rotate the view."));
             break;
+        case ZOOM:
+            mToolLabel->setText(tr("Click to zoom in or Alt+click to zoom out. Drag left or right to zoom."));
+            break;
         default:
             Q_ASSERT(false);
     }
@@ -173,6 +176,7 @@ void StatusBar::updateIcons()
         Theme::icon(":/icons/tabler/shape.svg"),
         Theme::icon(":/icons/tabler/lasso.svg"),
         Theme::icon(":/icons/tabler/rotate-clockwise-2.svg"),
+        Theme::icon(":/icons/tabler/zoom.svg"),
     };
     static const QIcon saveIcon = Theme::icon(":/icons/tabler/device-floppy.svg");
     // QLabel keeps a fixed pixmap: redraw it for the current colours.

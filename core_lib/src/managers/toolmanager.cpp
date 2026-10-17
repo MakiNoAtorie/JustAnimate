@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include "eyedroppertool.h"
 #include "handtool.h"
 #include "rotateviewtool.h"
+#include "zoomtool.h"
 #include "movetool.h"
 #include "polylinetool.h"
 #include "selecttool.h"
@@ -60,6 +61,7 @@ bool ToolManager::init()
     mToolSetHash.insert(EYEDROPPER, new EyedropperTool(this));
     mToolSetHash.insert(HAND, new HandTool(this));
     mToolSetHash.insert(ROTATE, new RotateViewTool(this));
+    mToolSetHash.insert(ZOOM, new ZoomTool(this));
     mToolSetHash.insert(MOVE, new MoveTool(this));
     mToolSetHash.insert(POLYLINE, new PolylineTool(this));
     mToolSetHash.insert(SELECT, new SelectTool(this));
