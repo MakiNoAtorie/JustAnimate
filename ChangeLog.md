@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Sound: removing a sound while it still loads no longer sometimes crashes the app on Linux.
 - Shift and Trace (View > Onion Skin, Shift+T): drag handles to move and rotate each onion skin in the view to trace an inbetween; Drawings stay unchanged and the offsets clear on a frame change (#195).
 - A pen tap on a menu, context menu or combo box no longer opens and closes it at once: the app drops the second mouse press a tablet driver sends for the same tap (#203).
 - Animation > Create Inbetweens fills the empty frames between two selected vector Drawings, stroke by stroke with a chosen easing, each marked Inbetween; one undo step (#196).
