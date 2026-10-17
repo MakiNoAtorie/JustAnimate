@@ -77,3 +77,24 @@ TEST_CASE("Welcome screen shows at startup unless turned off or a file is given"
     CHECK_FALSE(Welcome::showAtStartup(false, false, QString()));
     CHECK_FALSE(Welcome::showAtStartup(true, true, "shot.pclx"));
 }
+
+TEST_CASE("Welcome anime presets", "[Welcome]")
+{
+    const QList<QPair<QString, QSize>> expected = { { "Anime 1080p", QSize(1920, 1080) }, { "Anime 720p", QSize(1280, 720) } };
+    for (const auto& e : expected)
+    {
+        int index = -1;
+        for (int i = 0; i < Welcome::templates().size(); ++i)
+        {
+            if (Welcome::templates().at(i).name == e.first) { index = i; }
+        }
+        REQUIRE(index >= 0);
+        std::unique_ptr<Object> obj(Welcome::newObjectFromTemplate(index));
+        REQUIRE(obj);
+        CHECK(obj->data()->getFrameRate() == 24);
+        auto cameras = obj->getLayersByType<LayerCamera>();
+        REQUIRE(cameras.size() == 1);
+        CHECK(cameras.front()->getViewSize() == e.second);
+        CHECK(cameras.front()->getViewRect() == QRect(QPoint(-e.second.width() / 2, -e.second.height() / 2), e.second));
+    }
+}

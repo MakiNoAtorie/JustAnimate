@@ -33,6 +33,8 @@ static const QSize THUMBNAIL_SIZE(256, 144);
 const QList<Template>& templates()
 {
     static const QList<Template> list = {
+        { "Anime 1080p", QSize(1920, 1080), 24 },
+        { "Anime 720p", QSize(1280, 720), 24 },
         { "HD 1080p", QSize(1920, 1080), 24 },
         { "HD 720p", QSize(1280, 720), 24 },
         { "4K UHD", QSize(3840, 2160), 24 },
