@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include <QFontMetrics>
 #include <QFormLayout>
 #include <QInputDialog>
+#include <QLineEdit>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QPainter>
@@ -1182,6 +1183,10 @@ void TimeLineCells::keyPressEvent(QKeyEvent* event)
     case Qt::Key_Left: mEditor->scrubBackward(); break;
     case Qt::Key_Up: mEditor->layers()->gotoNextLayer(); break;
     case Qt::Key_Down: mEditor->layers()->gotoPreviouslayer(); break;
+    case Qt::Key_F2:
+        if (mType != TIMELINE_CELL_TYPE::Layers) { QWidget::keyPressEvent(event); return; }
+        startRename(mEditor->layers()->currentLayer());
+        break;
     default: QWidget::keyPressEvent(event); return;
     }
     event->accept();
@@ -1708,26 +1713,17 @@ void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
             // deselected now instead.
             layer->setFrameSelected(frameNumber, true);
         }
-        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight &&
-                 (event->pos().x() < kLockAlphaLeft || event->pos().x() >= kLayerNameLeft))
+        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kLayerNameLeft)
         {
-            editLayerProperties(layer);
+            startRename(layer);
+        }
+        else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kOnionToggleRight && event->pos().x() < kLockAlphaLeft &&
+                 layer->type() == Layer::CAMERA)
+        {
+            editLayerProperties(static_cast<LayerCamera*>(layer));
         }
     }
     QWidget::mouseDoubleClickEvent(event);
-}
-
-void TimeLineCells::editLayerProperties(Layer *layer) const
-{
-    if (layer->type() != Layer::CAMERA)
-    {
-        editLayerName(layer);
-        return;
-    }
-
-    auto cameraLayer = dynamic_cast<LayerCamera*>(layer);
-    Q_ASSERT(cameraLayer);
-    editLayerProperties(cameraLayer);
 }
 
 void TimeLineCells::editLayerProperties(LayerCamera* cameraLayer) const
@@ -1753,23 +1749,62 @@ void TimeLineCells::editLayerProperties(LayerCamera* cameraLayer) const
     mEditor->view()->forceUpdateViewTransform();
 }
 
-void TimeLineCells::editLayerName(Layer* layer) const
+void TimeLineCells::startRename(Layer* layer)
 {
-    QRegularExpression regex("([\\x{FFEF}-\\x{FFFF}])+");
-
-    bool ok;
-    QString name = QInputDialog::getText(nullptr, tr("Layer Properties"),
-                                         tr("Layer name:"), QLineEdit::Normal,
-                                         layer->name(), &ok);
-    name.replace(regex, "");
-    if (!ok || name.isEmpty())
-    {
-        return;
-    }
-
-    mEditor->layers()->renameLayer(layer, name);
+    if (!layer) { return; }
+    finishRename(false);
+    const Object* object = mEditor->object();
+    int number = 0;
+    while (number < object->getLayerCount() - 1 && object->getLayer(number) != layer) { ++number; }
+    mRenameLayerId = layer->id();
+    mRenameEdit = new QLineEdit(layer->name(), this);
+    mRenameEdit->setGeometry(kLayerNameLeft, getLayerY(number), width() - kLayerNameLeft, mLayerHeight);
+    mRenameEdit->installEventFilter(this);
+    mRenameEdit->selectAll();
+    mRenameEdit->show();
+    mRenameEdit->setFocus();
 }
 
+void TimeLineCells::finishRename(bool accept)
+{
+    if (!mRenameEdit) { return; }
+    QLineEdit* edit = mRenameEdit;
+    mRenameEdit = nullptr;
+    static const QRegularExpression regex("([\\x{FFEF}-\\x{FFFF}])+");
+    QString name = edit->text();
+    name.replace(regex, "");
+    Layer* layer = mEditor->object()->findLayerById(mRenameLayerId);
+    edit->removeEventFilter(this);
+    edit->deleteLater();
+    edit->hide();
+    if (accept && layer && name != layer->name())
+    {
+        mEditor->layers()->renameLayer(layer, name);
+    }
+}
+
+bool TimeLineCells::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == mRenameEdit)
+    {
+        if (event->type() == QEvent::KeyPress)
+        {
+            const int key = static_cast<QKeyEvent*>(event)->key();
+            if (key == Qt::Key_Escape) { finishRename(false); return true; }
+            if (key == Qt::Key_Return || key == Qt::Key_Enter)
+            {
+                // An empty name is refused: the editor stays open.
+                if (!mRenameEdit->text().trimmed().isEmpty()) { finishRename(true); }
+                return true;
+            }
+        }
+        else if (event->type() == QEvent::FocusOut)
+        {
+            finishRename(!mRenameEdit->text().trimmed().isEmpty());
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
 void TimeLineCells::hScrollChange(int x)
 {
     mFrameOffset = x;

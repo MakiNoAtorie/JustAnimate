@@ -33,6 +33,7 @@ class QResizeEvent;
 class Editor;
 class PreferenceManager;
 class QMenu;
+class QLineEdit;
 class QTimer;
 class QAction;
 enum class SETTING;
@@ -99,6 +100,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
     void loadSetting(SETTING setting);
@@ -131,9 +133,12 @@ private:
     void paintSelection(QPainter& painter, int x, int y, int width, int height) const;
     void paintHighlightedFrame(QPainter& painter, int framePos, int recTop, int recWidth, int recHeight) const;
 
-    void editLayerProperties(Layer* layer) const;
     void editLayerProperties(LayerCamera *layer) const;
-    void editLayerName(Layer* layer) const;
+    void startRename(Layer* layer);
+    void finishRename(bool accept);
+
+    QLineEdit* mRenameEdit = nullptr;
+    int mRenameLayerId = -1;
 
     TimeLine* mTimeLine;
     QList<QAction*> mMarkActions;
