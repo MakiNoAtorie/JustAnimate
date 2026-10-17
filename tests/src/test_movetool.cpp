@@ -37,21 +37,22 @@ GNU General Public License for more details.
 namespace
 {
 
-void tablet(ScribbleArea* area, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
+void tablet(ScribbleArea* area, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons,
+            Qt::KeyboardModifiers mods = Qt::NoModifier)
 {
     QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos),
-                   1.0, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
+                   1.0, 0, 0, 0, 0, 0, mods, Qt::LeftButton, buttons);
     QApplication::sendEvent(area, &e);
 }
 
 /// Hovers at `from` so the tool picks its handle, then drags to `to`.
-void drag(ScribbleArea* area, QPointF from, QPointF to)
+void drag(ScribbleArea* area, QPointF from, QPointF to, Qt::KeyboardModifiers mods = Qt::NoModifier)
 {
-    tablet(area, QEvent::TabletMove, from, Qt::NoButton);
-    tablet(area, QEvent::TabletPress, from, Qt::LeftButton);
+    tablet(area, QEvent::TabletMove, from, Qt::NoButton, mods);
+    tablet(area, QEvent::TabletPress, from, Qt::LeftButton, mods);
     for (int i = 1; i <= 5; ++i)
-        tablet(area, QEvent::TabletMove, from + (to - from) * i / 5.0, Qt::LeftButton);
-    tablet(area, QEvent::TabletRelease, to, Qt::NoButton);
+        tablet(area, QEvent::TabletMove, from + (to - from) * i / 5.0, Qt::LeftButton, mods);
+    tablet(area, QEvent::TabletRelease, to, Qt::NoButton, mods);
 }
 
 } // namespace
@@ -125,8 +126,8 @@ TEST_CASE("MoveTool: a corner drag on a skewed selection follows the cursor")
     drag(area, screen(QPointF(20, 0)), screen(QPointF(40, 0)));
     const QPolygonF before = select->mapToSelection(QPolygonF(select->mySelectionRect()));
 
-    // Drag the bottom-right corner 10 right and 10 down: the top-left corner stays.
-    drag(area, screen(before[2]), screen(before[2] + QPointF(10, 10)));
+    // Shift frees the aspect ratio. Drag the bottom-right corner 10 right and 10 down: the top-left corner stays.
+    drag(area, screen(before[2]), screen(before[2] + QPointF(10, 10)), Qt::ShiftModifier);
     const QPolygonF after = select->mapToSelection(QPolygonF(select->mySelectionRect()));
     CHECK(after[0].x() == Approx(before[0].x()).margin(0.5));
     CHECK(after[0].y() == Approx(before[0].y()).margin(0.5));
@@ -298,4 +299,31 @@ TEST_CASE("Polyline and bucket apply a pending selection transform before they p
     CHECK(editor->select()->selectionTransform().isIdentity());
     CHECK_FALSE(blackAt(5));
     CHECK(blackAt(11));
+}
+
+TEST_CASE("MoveTool: corner scaling keeps the aspect ratio unless Shift is held")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(MOVE);
+    SelectionManager* select = editor->select();
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+
+    select->setSelection(QRectF(0, 0, 40, 40), true);
+    // Bottom-right corner 20 right, 0 down.
+    drag(area, screen(QPointF(40, 40)), screen(QPointF(60, 40)));
+    CHECK(select->myScaleX() == Approx(1.5).margin(0.05));
+    CHECK(select->myScaleY() == Approx(1.5).margin(0.05));
+
+    select->setSelection(QRectF(0, 0, 40, 40), true);
+    drag(area, screen(QPointF(40, 40)), screen(QPointF(60, 40)), Qt::ShiftModifier);
+    CHECK(select->myScaleX() == Approx(1.5).margin(0.05));
+    CHECK(select->myScaleY() == Approx(1.0).margin(0.05));
 }

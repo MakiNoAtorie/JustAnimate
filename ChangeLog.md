@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Corner-handle scaling keeps the aspect ratio by default; hold Shift to scale freely (#200).
 - Canvas wheel: the plain wheel pans up and down, Ctrl+wheel zooms at the pointer, Shift+wheel pans sideways and Alt+wheel rotates the View about the pointer (#201).
 - Theme: System after Dark restores the platform colours and style instead of keeping the dark panels (#192).
 - The Brush outline paints its centre cross, so quick-sizing shows the cross in the outline (#184).
