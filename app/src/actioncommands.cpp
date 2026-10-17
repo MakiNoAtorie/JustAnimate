@@ -1147,33 +1147,40 @@ void ActionCommands::setLayerVisibilityIndex(int index)
     mEditor->setLayerVisibility(static_cast<LayerVisibility>(index));
 }
 
+// Recolours the Drawing at frame as one KEYFRAME_MODIFY record. The state captures the Drawing at the playhead, so visit the key first.
+static void recolourDrawing(Editor* editor, LayerBitmap* layer, int frame, QRgb color, const QString& description)
+{
+    if (editor->currentFrame() != frame) { editor->scrubTo(frame); }
+    const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY, layer);
+    layer->getBitmapImageAtFrame(frame)->fillNonAlphaPixels(color);
+    editor->undoRedo()->record(saveStateId, description);
+}
+
 void ActionCommands::changeKeyframeLineColor()
 {
-    if (mEditor->layers()->currentLayer()->type() == Layer::BITMAP &&
-            mEditor->layers()->currentLayer()->keyExists(mEditor->currentFrame()))
-    {
-        QRgb color = mEditor->color()->frontColor().rgb();
-        LayerBitmap* layer = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
-        layer->getBitmapImageAtFrame(mEditor->currentFrame())->fillNonAlphaPixels(color);
-        mEditor->updateFrame();
-    }
+    Layer* layer = mEditor->layers()->currentLayer();
+    const int frame = mEditor->currentFrame();
+    if (layer->type() != Layer::BITMAP || !layer->keyExists(frame) || mEditor->refusesEdit(layer)) { return; }
+    recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), frame, mEditor->color()->frontColor().rgb(), tr("Change Line Color"));
+    mEditor->updateFrame();
 }
 
 void ActionCommands::changeallKeyframeLineColor()
 {
-    if (mEditor->layers()->currentLayer()->type() == Layer::BITMAP)
+    Layer* layer = mEditor->layers()->currentLayer();
+    if (layer->type() != Layer::BITMAP || mEditor->refusesEdit(layer)) { return; }
+    const QRgb color = mEditor->color()->frontColor().rgb();
+    const QString description = tr("Change Line Color");
+    const int playhead = mEditor->currentFrame();
     {
-        QRgb color = mEditor->color()->frontColor().rgb();
-        LayerBitmap* layer = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
-        for (int i = layer->firstKeyFramePosition(); i <= layer->getMaxKeyFramePosition(); i++)
-        {
-            if (layer->keyExists(i))
-                layer->getBitmapImageAtFrame(i)->fillNonAlphaPixels(color);
-        }
-        mEditor->updateFrame();
+        const UndoMacro macro(mEditor->undoRedo(), description);
+        QList<int> positions;
+        layer->foreachKeyFrame([&](KeyFrame* key) { positions.append(key->pos()); });
+        for (int pos : positions) { recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), pos, color, description); }
     }
+    mEditor->scrubTo(playhead);
+    mEditor->updateFrame();
 }
-
 
 void ActionCommands::resetAllTools()
 {

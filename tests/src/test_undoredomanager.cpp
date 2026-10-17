@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include <QTabletEvent>
 #include <QTemporaryDir>
 
+#include "actioncommands.h"
 #include "beziercurve.h"
 #include "camera.h"
 #include "cameracontextmenu.h"
@@ -1646,4 +1647,64 @@ TEST_CASE("UndoRedoManager: deleting a sound layer stops its playing clip")
     REQUIRE(clip->isPlaying());
     REQUIRE(editor->layers()->deleteLayer(editor->layers()->currentLayerIndex()) == Status::OK);
     CHECK_FALSE(clip->isPlaying()); // the undo stack keeps the layer and its clip alive
+}
+
+TEST_CASE("UndoRedoManager: change line color is one undo step")
+{
+    TestSession session;
+    Object* object = session.object;
+    object->addNewCameraLayer();
+    LayerBitmap* layer = object->addNewBitmapLayer();
+    for (int pos : { 1, 3, 6 })
+    {
+        layer->addNewKeyFrameAt(pos);
+        layer->getBitmapImageAtFrame(pos)->setPixel(pos, 0, qRgba(0, 0, 0, 255));
+    }
+
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(3);
+    editor->color()->setFrontColor(QColor(255, 0, 0));
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+
+    // Lists "position=pixel" for every Drawing, last to first.
+    auto pixels = [&]
+    {
+        QString list;
+        layer->foreachKeyFrame([&](KeyFrame* key)
+        {
+            list += QString("%1=%2 ").arg(key->pos()).arg(static_cast<BitmapImage*>(key)->pixel(key->pos(), 0), 8, 16);
+        });
+        return list.trimmed().toStdString();
+    };
+    const std::string before = pixels();
+    REQUIRE(before == "6=ff000000 3=ff000000 1=ff000000");
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto checkUndoRedo = [&](const std::string& after)
+    {
+        REQUIRE(pixels() == after);
+        REQUIRE(editor->currentFrame() == 3);
+        undoAction->trigger();
+        REQUIRE(pixels() == before);
+        REQUIRE_FALSE(undoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(pixels() == after);
+    };
+
+    SECTION("Current Drawing")
+    {
+        commands.changeKeyframeLineColor();
+        checkUndoRedo("6=ff000000 3=ffff0000 1=ff000000");
+    }
+
+    SECTION("All Drawings on the layer")
+    {
+        commands.changeallKeyframeLineColor();
+        checkUndoRedo("6=ffff0000 3=ffff0000 1=ffff0000");
+    }
 }
