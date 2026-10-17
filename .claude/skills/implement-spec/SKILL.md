@@ -26,7 +26,7 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration.
 
-3. Create the integration branch. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
+3. Check main's latest CI run is green (`gh run list -b <main> -L 1`). A red main is a finding: fix it on main first, since every ticket inherits it and the integration CI can never go green. Then create the integration branch. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
 
 4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. Write the shared rules once to [`IMPLEMENTER.md`](IMPLEMENTER.md)'s copy in your scratchpad; each prompt then names only the ticket, its branch, and the files other implementers are editing now. Each implementer subagent:
    - starts its branch on the integration tip (`git checkout -B <branch> <integration branch>`);

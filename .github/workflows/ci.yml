@@ -25,6 +25,8 @@ jobs:
         run: |
           if git grep -L TEST_CASE -- 'tests/src/test_*.cpp' | grep .; then exit 1; fi
           if git grep -nE '#include\s*[<"](qpa/|private/|[^>"]*_p\.h)' -- '*.cpp' '*.h' ':!core_lib/src/external'; then exit 1; fi
+      - name: ChangeLog has clean UTF-8 and no entry inside a heading
+        run: bash tools/check-changelog.sh
       - name: No new hard-coded UI colours
         if: github.event_name == 'pull_request'
         run: |

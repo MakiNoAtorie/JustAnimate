@@ -23,13 +23,16 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   source guards and the suite offscreen.
 - Keep each file's line endings (`git ls-files --eol`); Git Bash `sed -i`
   drops CRLF. Commit with `git commit -F <file>` (UTF-8, no BOM).
+  Stage files by name: the tree can hold the user's untracked files.
 
 ## Tests
 
 - Catch2, `tests/src/test_<area>.cpp`, registered in `tests/tests.cmake`.
   Test names have no commas.
 - Every fix ships with a test you ran red on the old code (a compile
-  failure counts for new API). These rules beat Ponytail's.
+  failure counts for new API). These rules beat Ponytail's. Restore old
+  code with `git stash` or `git checkout`: a `Copy-Item` restore keeps the
+  old modification time, so Ninja skips the rebuild.
 - Test at a public interface (`Editor`, `FileManager`, a tool, a manager;
   `MainWindow2` only for whole-UI sweeps).
 - Settings go through `pencilSettings()`, one shared `QSettings&`. Tests run on an empty temporary INI store, restore
@@ -57,8 +60,7 @@ Read `docs/conventions-code.md` before you edit code.
 ## Commits
 
 - One commit per ticket (`CLAUDE.md`); its `ChangeLog.md` line goes at the
-  top of the list under "## JustAnimate - Unreleased", never in the
-  heading; write it as UTF-8 without BOM (PowerShell `Get-Content`
-  mangles it). Follow-ups end `Refs #<n>`.
+  top of the list under "## JustAnimate - Unreleased"
+  (`tools/check-changelog.sh` guards it). Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
