@@ -8,6 +8,7 @@ the original Pencil2D history is kept below for reference.
 - Deleted the unused upstream name and URL macros (#251).
 - The pressure log checkbox is gone; set JUSTANIMATE_PRESSURE_LOG=1 to print each dab (#242).
 - BaseTool supplies default tool properties and settings loading, so tools without settings no longer declare them (#249).
+- The benchmark uses the shared test session instead of its own copy (#244).
 - Project files no longer write the Paper template `kind` attribute; files that have it still load (#248).
 - Preference search and shortcut-conflict code now live in the app utilities (#243).
 - One `setTip(type, value)` replaces the four Stroke tool tip setters (#247).
