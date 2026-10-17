@@ -44,6 +44,7 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 #include "fileformat.h"
 #include "activeframepool.h"
+#include "framerenderer.h"
 
 
 Object::Object()
@@ -900,73 +901,9 @@ bool Object::isPaletteInUse() const
     return false;
 }
 
-void Object::paintImage(QPainter& painter,int frameNumber,
-                        bool background,
-                        bool antialiasing) const
+void Object::paintImage(QPainter& painter, int frameNumber, bool background, bool antialiasing) const
 {
-    updateActiveFrames(frameNumber);
-
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-
-    // paints the background
-    if (background)
-    {
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(Qt::white);
-        painter.setWorldMatrixEnabled(false);
-        painter.drawRect(QRect(0, 0, painter.device()->width(), painter.device()->height()));
-        painter.setWorldMatrixEnabled(true);
-    }
-
-    auto paintLayer = [&](QPainter& target, Layer* layer)
-    {
-        // Every export renders through here; Rough layers show only on the canvas.
-        if (!isLayerVisible(layer) || layer->isRough()) { return; }
-
-        std::function<void(QPainter&)> paint;
-        if (layer->type() == Layer::BITMAP)
-        {
-            BitmapImage* bitmap = static_cast<LayerBitmap*>(layer)->getLastBitmapImageAtFrame(frameNumber);
-            if (bitmap)
-            {
-                paint = [bitmap](QPainter& p) { bitmap->paintImage(p); };
-            }
-        }
-        if (layer->type() == Layer::VECTOR)
-        {
-            VectorImage* vec = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(frameNumber);
-            if (vec)
-            {
-                paint = [this, vec, antialiasing](QPainter& p) { vec->paintImage(p, *this, false, false, antialiasing); };
-            }
-        }
-        if (!paint) { return; }
-        const TweenState tween = layer->tweenStateAt(frameNumber);
-        target.save();
-        target.setOpacity(tween.opacity);
-        target.setTransform(tween.transform(), true);
-        if (layer->blendMode() == BlendMode::Normal) { paint(target); }
-        else { drawBlendedLayer(target, layer->blendMode(), paint); }
-        target.restore();
-    };
-
-    for (int i = 0; i < mLayers.size(); ++i)
-    {
-        const LayerGroup* group = findLayerGroup(mLayers[i]->groupId());
-        if (group == nullptr || group->opacity >= 1.0)
-        {
-            paintLayer(painter, mLayers[i]);
-            continue;
-        }
-        const int first = i;
-        i = layerGroupRange(group->id).second;
-        if (!group->visible || group->opacity <= 0.0) { continue; }
-        drawWithOpacity(painter, group->opacity, [&](QPainter& p) {
-            for (int j = first; j <= i; ++j) { paintLayer(p, mLayers[j]); }
-        });
-    }
+    FrameRenderer::paint(*this, frameNumber, painter, { antialiasing, background });
 }
 
 QString Object::copyFileToDataFolder(const QString& strFilePath)
@@ -1128,6 +1065,7 @@ Status Object::exportSpriteSheet(int frameStart, int frameEnd, const LayerCamera
     QImage sheet(frameSize.width() * grid.columns, frameSize.height() * grid.rows, QImage::Format_ARGB32_Premultiplied);
     sheet.fill(transparency ? QColor(Qt::transparent) : QColor(Qt::white));
 
+    const FrameRenderer::ExportOptions options{ frameSize, transparency, antialiasing };
     for (int i = 0; i < count; ++i)
     {
         if (progress != nullptr)
@@ -1138,8 +1076,7 @@ Status Object::exportSpriteSheet(int frameStart, int frameEnd, const LayerCamera
         }
         const int frame = frameStart + i;
         QPainter painter(&sheet);
-        painter.drawImage(grid.cell(i, frameSize).topLeft(),
-                          renderFrame(frame, cameraLayer->getViewAtFrame(frame), cameraLayer->getViewSize(), frameSize, antialiasing, transparency));
+        painter.drawImage(grid.cell(i, frameSize).topLeft(), FrameRenderer::renderForExport(*this, frame, *cameraLayer, options));
     }
 
     QImageWriter writer(filePath, "PNG");
@@ -1153,22 +1090,7 @@ Status Object::exportSpriteSheet(int frameStart, int frameEnd, const LayerCamera
 
 QImage Object::renderFrame(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, bool antialiasing, bool transparency) const
 {
-    QImage imageToExport(exportSize, QImage::Format_ARGB32_Premultiplied);
-
-    QColor bgColor = Qt::white;
-    if (transparency)
-        bgColor.setAlpha(0);
-    imageToExport.fill(bgColor);
-
-    QTransform centralizeCamera;
-    centralizeCamera.translate(cameraSize.width() / 2, cameraSize.height() / 2);
-
-    QPainter painter(&imageToExport);
-    painter.setWorldTransform(view * centralizeCamera);
-    painter.setWindow(QRect(0, 0, cameraSize.width(), cameraSize.height()));
-
-    paintImage(painter, frame, false, antialiasing);
-    return imageToExport;
+    return FrameRenderer::renderForExport(*this, frame, view, cameraSize, { exportSize, transparency, antialiasing });
 }
 
 Status Object::exportIm(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, const QString& filePath, const QString& format, bool antialiasing, bool transparency) const
