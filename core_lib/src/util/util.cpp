@@ -141,6 +141,12 @@ quint64 imageSize(const QImage& img)
     return img.sizeInBytes();
 }
 
+QString formatSecondsFrames(int frames, int fps)
+{
+    if (fps <= 0) { return QString("0+%1").arg(frames); }
+    return QString("%1+%2").arg(frames / fps).arg(frames % fps);
+}
+
 QString uniqueString(int len)
 {
     static const char alphanum[] = "0123456789abcdefghijklmnopqrstuvwxyz";

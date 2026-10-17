@@ -68,6 +68,10 @@ public:
     void setBlendMode(Layer* layer, BlendMode mode);
     void setRough(Layer* layer, bool rough);
     void setTimesheetColumn(Layer* layer, TimesheetColumn column);
+    void setStoryboard(Layer* layer, bool storyboard);
+    /** Sets the Panel fields of the layer's Drawing shown at `frame`. One undo step.
+     *  Returns false when nothing changes: no Drawing at `frame`, the same fields, or a refused edit. */
+    bool setPanelFields(Layer* layer, int frame, const PanelFields& fields);
     /// Shows only the layer at index; again on the same layer restores the visibility from before. Unsaved, no undo.
     void toggleSolo(int index);
     /** Sets the tween of the current layer's key at frame as one undo step; scrubs to frame. */

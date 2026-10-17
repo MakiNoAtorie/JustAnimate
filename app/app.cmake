@@ -60,6 +60,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timecontrols.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timeline.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/xsheet.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/storyboardpanel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinecells.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/strokeoptionswidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinepage.h
@@ -131,6 +132,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timecontrols.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timeline.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/xsheet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/storyboardpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinecells.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinepage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.cpp

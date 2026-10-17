@@ -79,6 +79,7 @@ GNU General Public License for more details.
 #include "preferencesdialog.h"
 #include "timeline.h"
 #include "xsheet.h"
+#include "storyboardpanel.h"
 #include "toolbox.h"
 #include "onionskinwidget.h"
 #include "brushpresetdock.h"
@@ -283,6 +284,9 @@ void MainWindow2::createDockWidgets()
     mToolBox = new ToolBoxDockWidget(this);
     mToolBox->setObjectName("ToolBox");
 
+    mStoryboard = new StoryboardPanel(this);
+    mStoryboard->setObjectName("Storyboard");
+
     mDockWidgets
         << mTimeLine
         << mXSheet
@@ -292,7 +296,8 @@ void MainWindow2::createDockWidgets()
         << mOnionSkinWidget
         << mBrushPresets
         << mToolOptions
-        << mToolBox;
+        << mToolBox
+        << mStoryboard;
 
 
     for (BaseDockWidget* pWidget : mDockWidgets)
@@ -670,7 +675,8 @@ void MainWindow2::createMenus()
         mXSheet->toggleViewAction(),
         mColorInspector->toggleViewAction(),
         mOnionSkinWidget->toggleViewAction(),
-        mBrushPresets->toggleViewAction()
+        mBrushPresets->toggleViewAction(),
+        mStoryboard->toggleViewAction()
     };
 
     for (QAction* action : actions)
@@ -1321,7 +1327,7 @@ void MainWindow2::resetAndDockAllSubWidgets()
 DefaultDockLayout MainWindow2::dockLayout() const
 {
     return {mToolOptions, {mToolBox}, {mBrushPresets, mColorBox, mColorPalette}, mTimeLine,
-            {{mColorPalette, mColorInspector}, {mTimeLine, mXSheet}, {mTimeLine, mOnionSkinWidget}}};
+            {{mColorPalette, mColorInspector}, {mTimeLine, mXSheet}, {mTimeLine, mOnionSkinWidget}, {mColorPalette, mStoryboard}}};
 }
 
 QSize MainWindow2::availableScreenSize() const

@@ -104,7 +104,8 @@ bool dropOutdatedLayouts(QSettings& settings)
     // 2: v1.2, Panels docked by default. Older states restored floating tool windows.
     // 3: v1.2, Tool settings strip at the top, tabbed Panels.
     // 4: v1.3, X-sheet tabbed with the timeline.
-    const int version = 4;
+    // 5: v1.4, Storyboard Panel tabbed on the right.
+    const int version = 5;
     if (settings.value(SETTING_LAYOUT_VERSION).toInt() >= version) { return false; }
     settings.remove(SETTING_WINDOW_STATE);
     settings.remove(QString(SETTING_WORKSPACE_STATE).chopped(1));

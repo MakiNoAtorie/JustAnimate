@@ -233,12 +233,13 @@ TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayo
     {
         CHECK(window.dockWidgetArea(dock("ToolOption")) == Qt::TopDockWidgetArea);
         CHECK(window.dockWidgetArea(dock("ToolBox")) == Qt::LeftDockWidgetArea);
-        for (const char* name : {"BrushPresets", "ColorWheel", "ColorPalette", "Color Inspector"})
+        for (const char* name : {"BrushPresets", "ColorWheel", "ColorPalette", "Color Inspector", "Storyboard"})
         {
             INFO(name);
             CHECK(window.dockWidgetArea(dock(name)) == Qt::RightDockWidgetArea);
         }
         CHECK(window.tabifiedDockWidgets(dock("ColorPalette")).contains(dock("Color Inspector")));
+        CHECK(window.tabifiedDockWidgets(dock("ColorPalette")).contains(dock("Storyboard")));
         CHECK(window.dockWidgetArea(dock("TimeLine")) == Qt::BottomDockWidgetArea);
         CHECK(window.tabifiedDockWidgets(dock("TimeLine")).contains(dock("Onion Skin")));
         CHECK(!dock("ToolOption")->isFloating());

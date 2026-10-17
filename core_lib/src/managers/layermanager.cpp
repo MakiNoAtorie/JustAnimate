@@ -233,6 +233,7 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     to->setVisible(from->visible());
     to->setOnionSkin(from->onionSkin());
     to->setRough(from->isRough());
+    to->setStoryboard(from->isStoryboard());
     to->setLockAll(from->lockAll());
     to->setTimesheetColumn(from->timesheetColumn());
     if (to->type() == Layer::BITMAP)
@@ -491,6 +492,26 @@ void LayerManager::setTimesheetColumn(Layer* layer, TimesheetColumn column)
     layer->setTimesheetColumn(column);
     editor()->undoRedo()->recordLayerTimesheet(layer->id(), old, column, tr("Timesheet Column"));
     notifyLayerChanged(layer);
+}
+
+void LayerManager::setStoryboard(Layer* layer, bool storyboard)
+{
+    if (layer == nullptr || layer->isStoryboard() == storyboard) { return; }
+    layer->setStoryboard(storyboard);
+    editor()->undoRedo()->recordLayerStoryboard(layer->id(), storyboard, tr("Storyboard Layer"));
+    notifyLayerChanged(layer);
+}
+
+bool LayerManager::setPanelFields(Layer* layer, int frame, const PanelFields& fields)
+{
+    KeyFrame* key = layer ? layer->getLastKeyFrameAtPosition(frame) : nullptr;
+    if (key == nullptr || key->panelFields() == fields || editor()->refusesEdit(layer)) { return false; }
+    const PanelFields before = key->panelFields();
+    key->setPanelFields(fields);
+    editor()->undoRedo()->recordPanelFields(layer->id(), key->pos(), before, fields, tr("Panel Field"));
+    object()->modification();
+    emit editor()->frameModified(key->pos());
+    return true;
 }
 
 // Moves layers [lo, hi] so the first lands at index t of the list without them.

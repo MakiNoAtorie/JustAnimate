@@ -73,6 +73,9 @@ public:
     /** A Rough layer paints tinted and faded on the canvas and never exports. */
     bool isRough() const { return mRough; }
     void setRough(bool b) { mRough = b; }
+    /** On a Storyboard layer each Drawing is a storyboard panel; its Exposure is the panel Time. */
+    bool isStoryboard() const { return mStoryboard; }
+    void setStoryboard(bool b) { mStoryboard = b; }
     /** A lock-all layer refuses every edit; see Editor::refusesEdit. */
     bool lockAll() const { return mLockAll; }
     void setLockAll(bool b) { mLockAll = b; }
@@ -230,6 +233,7 @@ private:
     bool       mOnionSkin = true;
     BlendMode  mBlendMode = BlendMode::Normal;
     bool       mRough = false;
+    bool       mStoryboard = false;
     bool       mLockAll = false;
     TimesheetColumn mTimesheetColumn = TimesheetColumn::Default;
     int mGroupId = 0;

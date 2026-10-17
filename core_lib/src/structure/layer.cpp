@@ -779,6 +779,7 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     if (lockAll()) { layerTag.setAttribute("lockAll", 1); }
     const char* timesheet = kTimesheetCodes[static_cast<int>(timesheetColumn())];
     if (*timesheet != '\0') { layerTag.setAttribute("timesheet", QLatin1String(timesheet)); }
+    if (isStoryboard()) { layerTag.setAttribute("storyboard", 1); }
     return layerTag;
 }
 
@@ -804,6 +805,7 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     {
         if (!timesheet.isEmpty() && timesheet == QLatin1String(kTimesheetCodes[i])) { setTimesheetColumn(static_cast<TimesheetColumn>(i)); }
     }
+    setStoryboard(elem.attribute("storyboard") == "1");
 }
 
 TweenState Layer::tweenStateAt(int frame) const
@@ -837,6 +839,11 @@ void Layer::writeKeyTween(QDomElement& image, const KeyFrame* key)
     if (s.ty != 0) { image.setAttribute("ty", s.ty); }
     if (s.rot != 0) { image.setAttribute("rot", s.rot); }
     if (s.scale != 1) { image.setAttribute("scale", s.scale); }
+    const PanelFields p = key->panelFields();
+    if (!p.scene.isEmpty()) { image.setAttribute("scene", p.scene); }
+    if (!p.cut.isEmpty()) { image.setAttribute("cut", p.cut); }
+    if (!p.notes.isEmpty()) { image.setAttribute("notes", p.notes); }
+    if (!p.audio.isEmpty()) { image.setAttribute("audio", p.audio); }
 }
 
 void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
@@ -860,4 +867,5 @@ void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
     const qreal scale = number("scale", 1);
     key->setTweenState(TweenState{ number("tx", 0), number("ty", 0), number("rot", 0), scale > 0 ? scale : 1,
                                    qBound(0.0, number("opacity", 1), 1.0) });
+    key->setPanelFields({ image.attribute("scene"), image.attribute("cut"), image.attribute("notes"), image.attribute("audio") });
 }

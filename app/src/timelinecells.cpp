@@ -1241,11 +1241,15 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                     lockAlpha->setChecked(static_cast<LayerBitmap*>(layer)->lockAlpha());
                 }
                 QAction* rough = nullptr;
+                QAction* storyboard = nullptr;
                 if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
                 {
                     rough = menu.addAction(tr("Rough Layer"));
                     rough->setCheckable(true);
                     rough->setChecked(layer->isRough());
+                    storyboard = menu.addAction(tr("Storyboard Layer"));
+                    storyboard->setCheckable(true);
+                    storyboard->setChecked(layer->isStoryboard());
                     QMenu* blend = menu.addMenu(tr("Blend Mode"));
                     QActionGroup* group = new QActionGroup(blend);
                     for (int mode = 0; mode < kBlendModeCount; ++mode)
@@ -1306,6 +1310,10 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 else if (chosen && chosen == rough)
                 {
                     mEditor->layers()->setRough(layer, rough->isChecked());
+                }
+                else if (chosen && chosen == storyboard)
+                {
+                    mEditor->layers()->setStoryboard(layer, storyboard->isChecked());
                 }
                 else if (chosen && chosen == newGroup)
                 {

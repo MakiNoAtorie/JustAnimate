@@ -429,6 +429,17 @@ void UndoRedoManager::recordLayerTimesheet(int layerId, TimesheetColumn oldColum
     pushCommand(new LayerTimesheetCommand(layerId, oldColumn, newColumn, description, editor()));
 }
 
+void UndoRedoManager::recordLayerStoryboard(int layerId, bool storyboard, const QString& description)
+{
+    pushCommand(new LayerStoryboardCommand(layerId, storyboard, description, editor()));
+}
+
+void UndoRedoManager::recordPanelFields(int layerId, int frame, const PanelFields& before, const PanelFields& after,
+                                        const QString& description)
+{
+    pushCommand(new PanelFieldsCommand(layerId, frame, before, after, description, editor()));
+}
+
 void UndoRedoManager::recordLayerArrangement(const LayerArrangement& before, const QString& description)
 {
     const LayerArrangement after = object()->layerArrangement();

@@ -666,6 +666,63 @@ void LayerRoughCommand::apply(bool value)
     editor()->layers()->notifyLayerChanged(layer);
 }
 
+LayerStoryboardCommand::LayerStoryboardCommand(int layerId, bool storyboard, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), storyboard(storyboard)
+{
+    setText(description);
+}
+
+void LayerStoryboardCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(!storyboard);
+}
+
+void LayerStoryboardCommand::redo()
+{
+    UndoRedoCommand::redo();
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+    apply(storyboard);
+}
+
+void LayerStoryboardCommand::apply(bool value)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    layer->setStoryboard(value);
+    editor()->layers()->notifyLayerChanged(layer);
+}
+
+PanelFieldsCommand::PanelFieldsCommand(int layerId, int frame, const PanelFields& before, const PanelFields& after,
+                                       const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), frame(frame), before(before), after(after)
+{
+    setText(description);
+}
+
+void PanelFieldsCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void PanelFieldsCommand::redo()
+{
+    UndoRedoCommand::redo();
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+    apply(after);
+}
+
+void PanelFieldsCommand::apply(const PanelFields& fields)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    KeyFrame* key = layer ? layer->getKeyFrameAt(frame) : nullptr;
+    if (key == nullptr) { return; }
+    key->setPanelFields(fields);
+    editor()->object()->modification();
+    emit editor()->frameModified(frame);
+}
+
 LayerArrangementCommand::LayerArrangementCommand(const LayerArrangement& before, const LayerArrangement& after,
                                                  const QString& description, Editor* editor)
     : UndoRedoCommand(editor), before(before), after(after)

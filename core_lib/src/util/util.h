@@ -87,6 +87,8 @@ void parallelFor(int count, const std::function<void(int)>& fn);
 // The pool behind parallelFor (parallelWorkerCount() threads), for background tasks. Never waitForDone on it.
 QThreadPool* workerPool();
 QString uniqueString(int len);
+// A frame count as seconds+frames at fps, as on paper sheets: 84 at 24 fps is "3+12".
+QString formatSecondsFrames(int frames, int fps);
 
 /**
  * Converts a filesystem path to its canonical form, ie. an absolute path with any existing symlinks resolved.
