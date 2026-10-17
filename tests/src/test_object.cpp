@@ -29,12 +29,15 @@ GNU General Public License for more details.
 #include "layersound.h"
 
 
-TEST_CASE("Object::loadGengaPalette() loads the four named line colours", "[Palette]")
+TEST_CASE("Object::loadBuiltinPalette() loads the Genga palette from the table", "[Palette]")
 {
     Object obj;
     obj.init();
     REQUIRE_FALSE(obj.isModified());
-    obj.loadGengaPalette();
+    REQUIRE(Object::builtinPaletteCount() == 2);
+    CHECK(Object::builtinPaletteName(0) == "Default");
+    CHECK(Object::builtinPaletteName(1) == "Genga");
+    obj.loadBuiltinPalette(1);
     CHECK(obj.isModified()); // so closing the project asks to save
 
     REQUIRE(obj.getColorCount() == 4);

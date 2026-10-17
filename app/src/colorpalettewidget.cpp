@@ -129,23 +129,27 @@ void ColorPaletteWidget::showContextMenu(const QPoint& pos)
     menu->addAction(tr("Replace"),  this, &ColorPaletteWidget::replaceItem);
     menu->addAction(tr("Remove"), this, &ColorPaletteWidget::removeItem);
     menu->addSeparator();
-    menu->addAction(tr("Load Genga palette"), this, &ColorPaletteWidget::loadGengaPalette);
+    QMenu* builtIns = menu->addMenu(tr("Built-in Palettes"));
+    for (int i = 0; i < Object::builtinPaletteCount(); i++)
+    {
+        builtIns->addAction(Object::builtinPaletteName(i), this, [this, i] { loadBuiltinPalette(i); });
+    }
 
     menu->exec(globalPos);
 }
 
-void ColorPaletteWidget::loadGengaPalette()
+void ColorPaletteWidget::loadBuiltinPalette(int index)
 {
     if (mObject->isPaletteInUse())
     {
         QMessageBox msgBox;
-        msgBox.setText(tr("Loading the Genga palette will replace the old palette.\n"
+        msgBox.setText(tr("Loading a built-in palette will replace the old palette.\n"
                           "Color(s) in strokes will be altered by this action!"));
         msgBox.addButton(tr("Load Palette"), QMessageBox::AcceptRole);
         msgBox.addButton(QMessageBox::Cancel);
         if (msgBox.exec() == QMessageBox::Cancel) { return; }
     }
-    mObject->loadGengaPalette();
+    mObject->loadBuiltinPalette(index);
     refreshColorList();
     editor()->color()->setColorNumber(0);
     emit editor()->framesModified(); // vector strokes repaint in the new colours

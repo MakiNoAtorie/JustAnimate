@@ -79,7 +79,7 @@ private slots:
     void setSwatchSizeLarge();
     void fitSwatchSize();
     void addItem();
-    void loadGengaPalette();
+    void loadBuiltinPalette(int index);
     void replaceItem();
     void removeItem();
     void showPaletteReminder();

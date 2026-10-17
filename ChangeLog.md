@@ -7,6 +7,7 @@ the original Pencil2D history is kept below for reference.
 
 - Layers that share a Timesheet column all show, side by side bottom-up, in the X-sheet Panel and the Timesheet export (#209, #210).
 - The Timesheet layout of the X-sheet Panel shows every fixed column, Key A to Camera, with empty columns that take no edits (#209).
+- The Palette Panel menu has a "Built-in Palettes" submenu listing Default and Genga; each loads in one step, asking first when the palette is in use (#205).
 - v1.4 review fixes: the Paper template sheet follows the camera move and stays clear of the camera dimming, NOTES holds three lines, page exports keep the old files when a write fails, the export messages name the missing layer, and Load Genga palette asks to save (#204).
 - File > Export > Timesheet... writes the timesheet as A4 or B4 portrait sheets (PDF or PNG), 144 frames each in two 72-frame halves, with TITLE from the Title block, SCENE, SHOT, ANIMATOR, TIME in seconds+frames and SHEET NO. n / N (#210).
 - File > Export > On Paper... writes a frame range as Paper template sheets with the Title block, one page per frame, as PDF or PNG on A4 or B4 landscape; the command line does the same with `--paper A4|B4` (#208).

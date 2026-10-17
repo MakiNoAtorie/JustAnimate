@@ -123,8 +123,10 @@ public:
     QString savePalette(const QString& filePath) const;
 
     void loadDefaultPalette();
-    /** Replaces the palette with the Genga line colours and marks the object modified. */
-    void loadGengaPalette();
+    static int builtinPaletteCount();
+    static QString builtinPaletteName(int index);
+    /** Replaces the palette with built-in palette index and marks the object modified. */
+    void loadBuiltinPalette(int index);
     bool isPaletteInUse() const;
 
     LayerBitmap* addNewBitmapLayer();

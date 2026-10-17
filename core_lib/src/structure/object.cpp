@@ -812,45 +812,78 @@ bool Object::importPalette(const QString& filePath)
 }
 
 
+namespace
+{
+struct BuiltinColor { QColor color; const char* name; };
+struct BuiltinPalette { const char* name; QList<BuiltinColor> colors; };
+
+// One table for every built-in palette; the first is the Default palette.
+const QList<BuiltinPalette>& builtinPalettes()
+{
+    static const QList<BuiltinPalette> table = {
+        { QT_TRANSLATE_NOOP("Object", "Default"), {
+            { QColor(Qt::black), QT_TRANSLATE_NOOP("Object", "Black") },
+            { QColor(Qt::red), QT_TRANSLATE_NOOP("Object", "Red") },
+            { QColor(Qt::darkRed), QT_TRANSLATE_NOOP("Object", "Dark Red") },
+            { QColor(255, 128, 0), QT_TRANSLATE_NOOP("Object", "Orange") },
+            { QColor(128, 64, 0), QT_TRANSLATE_NOOP("Object", "Dark Orange") },
+            { QColor(Qt::yellow), QT_TRANSLATE_NOOP("Object", "Yellow") },
+            { QColor(Qt::darkYellow), QT_TRANSLATE_NOOP("Object", "Dark Yellow") },
+            { QColor(Qt::green), QT_TRANSLATE_NOOP("Object", "Green") },
+            { QColor(Qt::darkGreen), QT_TRANSLATE_NOOP("Object", "Dark Green") },
+            { QColor(Qt::cyan), QT_TRANSLATE_NOOP("Object", "Cyan") },
+            { QColor(Qt::darkCyan), QT_TRANSLATE_NOOP("Object", "Dark Cyan") },
+            { QColor(Qt::blue), QT_TRANSLATE_NOOP("Object", "Blue") },
+            { QColor(Qt::darkBlue), QT_TRANSLATE_NOOP("Object", "Dark Blue") },
+            { QColor(255, 255, 255), QT_TRANSLATE_NOOP("Object", "White") },
+            { QColor(220, 220, 229), QT_TRANSLATE_NOOP("Object", "Very Light Grey") },
+            { QColor(Qt::lightGray), QT_TRANSLATE_NOOP("Object", "Light Grey") },
+            { QColor(Qt::gray), QT_TRANSLATE_NOOP("Object", "Grey") },
+            { QColor(Qt::darkGray), QT_TRANSLATE_NOOP("Object", "Dark Grey") },
+            { QColor(255, 227, 187), QT_TRANSLATE_NOOP("Object", "Pale Orange Yellow") },
+            { QColor(221, 196, 161), QT_TRANSLATE_NOOP("Object", "Pale Grayish Orange Yellow") },
+            { QColor(255, 214, 156), QT_TRANSLATE_NOOP("Object", "Orange Yellow ") },
+            { QColor(207, 174, 127), QT_TRANSLATE_NOOP("Object", "Grayish Orange Yellow") },
+            { QColor(255, 198, 116), QT_TRANSLATE_NOOP("Object", "Light Orange Yellow") },
+            { QColor(227, 177, 105), QT_TRANSLATE_NOOP("Object", "Light Grayish Orange Yellow") } } },
+        { QT_TRANSLATE_NOOP("Object", "Genga"), {
+            { QColor(0, 0, 0), QT_TRANSLATE_NOOP("Object", "Main line") },
+            { QColor(220, 0, 0), QT_TRANSLATE_NOOP("Object", "Shadow line") },
+            { QColor(0, 90, 255), QT_TRANSLATE_NOOP("Object", "Highlight line") },
+            { QColor(0, 160, 0), QT_TRANSLATE_NOOP("Object", "Second shadow line") } } },
+    };
+    return table;
+}
+}
+
+int Object::builtinPaletteCount()
+{
+    return builtinPalettes().size();
+}
+
+QString Object::builtinPaletteName(int index)
+{
+    return tr(builtinPalettes().at(index).name);
+}
+
 void Object::loadDefaultPalette()
 {
     mPalette.clear();
-    addColor(ColorRef(QColor(Qt::black), tr("Black")));
-    addColor(ColorRef(QColor(Qt::red), tr("Red")));
-    addColor(ColorRef(QColor(Qt::darkRed), tr("Dark Red")));
-    addColor(ColorRef(QColor(255, 128, 0), tr("Orange")));
-    addColor(ColorRef(QColor(128, 64, 0), tr("Dark Orange")));
-    addColor(ColorRef(QColor(Qt::yellow), tr("Yellow")));
-    addColor(ColorRef(QColor(Qt::darkYellow), tr("Dark Yellow")));
-    addColor(ColorRef(QColor(Qt::green), tr("Green")));
-    addColor(ColorRef(QColor(Qt::darkGreen), tr("Dark Green")));
-    addColor(ColorRef(QColor(Qt::cyan), tr("Cyan")));
-    addColor(ColorRef(QColor(Qt::darkCyan), tr("Dark Cyan")));
-    addColor(ColorRef(QColor(Qt::blue), tr("Blue")));
-    addColor(ColorRef(QColor(Qt::darkBlue), tr("Dark Blue")));
-    addColor(ColorRef(QColor(255, 255, 255), tr("White")));
-    addColor(ColorRef(QColor(220, 220, 229), tr("Very Light Grey")));
-    addColor(ColorRef(QColor(Qt::lightGray), tr("Light Grey")));
-    addColor(ColorRef(QColor(Qt::gray), tr("Grey")));
-    addColor(ColorRef(QColor(Qt::darkGray), tr("Dark Grey")));
-    addColor(ColorRef(QColor(255, 227, 187), tr("Pale Orange Yellow")));
-    addColor(ColorRef(QColor(221, 196, 161), tr("Pale Grayish Orange Yellow")));
-    addColor(ColorRef(QColor(255, 214, 156), tr("Orange Yellow ")));
-    addColor(ColorRef(QColor(207, 174, 127), tr("Grayish Orange Yellow")));
-    addColor(ColorRef(QColor(255, 198, 116), tr("Light Orange Yellow")));
-    addColor(ColorRef(QColor(227, 177, 105), tr("Light Grayish Orange Yellow")));
+    for (const BuiltinColor& c : builtinPalettes().at(0).colors)
+    {
+        addColor(ColorRef(c.color, tr(c.name)));
+    }
 }
 
-void Object::loadGengaPalette()
+void Object::loadBuiltinPalette(int index)
 {
     mPalette.clear();
-    addColor(ColorRef(QColor(0, 0, 0), tr("Main line")));
-    addColor(ColorRef(QColor(220, 0, 0), tr("Shadow line")));
-    addColor(ColorRef(QColor(0, 90, 255), tr("Highlight line")));
-    addColor(ColorRef(QColor(0, 160, 0), tr("Second shadow line")));
+    for (const BuiltinColor& c : builtinPalettes().at(index).colors)
+    {
+        addColor(ColorRef(c.color, tr(c.name)));
+    }
     modification();
 }
-
 bool Object::isPaletteInUse() const
 {
     for (int i = 0; i < getColorCount(); i++)
