@@ -19,15 +19,22 @@ GNU General Public License for more details.
 #include <QDomDocument>
 #include <QIcon>
 #include <QTableWidget>
+#include <QFileInfo>
 #include <QTemporaryDir>
+#include <QtMath>
 
+#include "bitmapimage.h"
 #include "editor.h"
 #include "filemanager.h"
 #include "keyframe.h"
 #include "layerbitmap.h"
+#include "layercamera.h"
 #include "layermanager.h"
 #include "layervector.h"
 #include "object.h"
+#include "objectdata.h"
+#include "pagewriter.h"
+#include "paperpainter.h"
 #include "playbackmanager.h"
 #include "storyboardpanel.h"
 #include "testfixture.h"
@@ -37,6 +44,19 @@ GNU General Public License for more details.
 namespace
 {
 QString cell(QTableWidget* table, int row, int column) { return table->item(row, column)->text(); }
+
+// Pixels that differ between two images inside region; a null region is the whole image.
+int diffCount(const QImage& a, const QImage& b, QRect region)
+{
+    if (region.isNull()) { region = a.rect(); }
+    region &= a.rect();
+    int count = 0;
+    for (int y = region.top(); y <= region.bottom(); ++y)
+    {
+        for (int x = region.left(); x <= region.right(); ++x) { count += a.pixel(x, y) != b.pixel(x, y); }
+    }
+    return count;
+}
 }
 
 TEST_CASE("Seconds+frames text", "[Storyboard]")
@@ -200,4 +220,92 @@ TEST_CASE("Playback holds each storyboard panel for its Time", "[Storyboard]")
     }
     pb->stop();
     CHECK(shown == QList<int>{ 1, 1, 1, 4, 4, 6 });
+}
+
+TEST_CASE("Storyboard export has five panels a page", "[Storyboard]")
+{
+    CHECK(storyboardPageCount(0) == 0);
+    CHECK(storyboardPageCount(5) == 1);
+    CHECK(storyboardPageCount(11) == 3);
+
+    Object object;
+    object.init();
+    LayerCamera* camera = object.addNewCameraLayer();
+    LayerBitmap* board = object.addNewBitmapLayer();
+    QList<QPair<int, int>> panels;
+    for (int i = 0; i < 11; ++i)
+    {
+        board->addNewKeyFrameAt(1 + 2 * i);
+        panels << qMakePair(1 + 2 * i, 2 + 2 * i);
+    }
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    PageSpec spec;
+    spec.orientation = QPageLayout::Portrait;
+    spec.dpi = 30;
+    REQUIRE(writePages(dir.filePath("board.png"), spec, storyboardPageCount(panels.size()),
+                       storyboardPages(object, *board, *camera, panels, 24)).ok());
+    CHECK(QFileInfo::exists(dir.filePath("board_0003.png")));
+    CHECK_FALSE(QFileInfo::exists(dir.filePath("board_0004.png")));
+}
+
+TEST_CASE("A storyboard page has each field in its cell", "[Storyboard]")
+{
+    Object object;
+    object.init();
+    LayerCamera* camera = object.addNewCameraLayer();
+    LayerBitmap* board = object.addNewBitmapLayer();
+    for (int i = 0; i < 7; ++i) { board->addNewKeyFrameAt(1 + 10 * i); }
+    // Panel 7 (page 1, row 1) is 36 frames: 1+12 at 24 fps.
+    QList<QPair<int, int>> panels;
+    for (int i = 0; i < 7; ++i) { panels << qMakePair(1 + 10 * i, 10 + 10 * i); }
+    panels.last().second = panels.last().first + 35;
+    PageSpec spec;
+    spec.orientation = QPageLayout::Portrait;
+    spec.dpi = 60;
+    const PagePaintFn paint = storyboardPages(object, *board, *camera, panels, 24);
+    const QRectF page(QPointF(), QSizeF(spec.pixelSize()));
+    const QImage blank = renderPage(spec, paint, 1);
+    REQUIRE(blank.height() > blank.width()); // A4 portrait
+
+    // TIME in seconds+frames: 1+12 against 0+5 (different lengths: offscreen glyphs can all look alike).
+    QList<QPair<int, int>> shorter = panels;
+    shorter.last().second = shorter.last().first + 4;
+    const QImage other = renderPage(spec, storyboardPages(object, *board, *camera, shorter, 24), 1);
+    const QRect time = storyboardCell(page, 1, 5).toAlignedRect();
+    CHECK(diffCount(blank, other, time) > 5);
+    CHECK(diffCount(blank, other, QRect()) == diffCount(blank, other, time));
+
+    struct Field { QString PanelFields::*value; int column; };
+    const Field fields[] = { { &PanelFields::scene, 0 }, { &PanelFields::cut, 1 },
+                             { &PanelFields::notes, 3 }, { &PanelFields::audio, 4 } };
+    for (const Field& field : fields)
+    {
+        PanelFields f;
+        f.*field.value = "WWW";
+        board->getKeyFrameAt(61)->setPanelFields(f);
+        const QImage filled = renderPage(spec, paint, 1);
+        const QRect cellRect = storyboardCell(page, 1, field.column).toAlignedRect();
+        CHECK(diffCount(blank, filled, cellRect) > 20);
+        CHECK(diffCount(blank, filled, QRect()) == diffCount(blank, filled, cellRect));
+    }
+    board->getKeyFrameAt(61)->setPanelFields(PanelFields());
+
+    // PRODUCTION shows the Paper template TITLE above the table.
+    PaperTemplate paper;
+    paper.title = "WWW";
+    object.data()->setPaperTemplate(paper);
+    const QImage titled = renderPage(spec, paint, 1);
+    CHECK(diffCount(blank, titled, QRect()) > 20);
+    CHECK(diffCount(blank, titled, QRect()) == diffCount(blank, titled, QRect(0, 0, blank.width(), qFloor(storyboardCell(page, 0, 0).top()))));
+
+    // The picture is the panel's Drawing in a frame at the camera aspect.
+    board->getBitmapImageAtFrame(61)->drawRect(camera->getViewRect(), Qt::NoPen, Qt::black, QPainter::CompositionMode_SourceOver, false);
+    const QRectF picture = storyboardPicture(storyboardCell(page, 1, 2), camera->getViewSize());
+    const QSizeF view = camera->getViewSize();
+    CHECK(picture.width() / picture.height() == Approx(view.width() / view.height()).epsilon(0.001));
+    CHECK(storyboardCell(page, 1, 2).contains(picture));
+    const QImage drawn = renderPage(spec, paint, 1);
+    CHECK(drawn.pixel(picture.toRect().center()) == qRgb(0, 0, 0));
+    CHECK(drawn.pixel(storyboardPicture(storyboardCell(page, 0, 2), view).toRect().center()) == qRgb(255, 255, 255));
 }

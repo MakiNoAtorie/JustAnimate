@@ -362,6 +362,9 @@ void MainWindow2::createMenus()
     QAction* exportOnPaper = new QAction(tr("On Paper..."), this);
     connect(exportOnPaper, &QAction::triggered, mCommands, &ActionCommands::exportOnPaper);
     ui->menuExport->insertAction(ui->actionExport_Palette, exportOnPaper);
+    QAction* exportStoryboard = new QAction(tr("Storyboard..."), this);
+    connect(exportStoryboard, &QAction::triggered, mCommands, &ActionCommands::exportStoryboard);
+    ui->menuExport->insertAction(ui->actionExport_Palette, exportStoryboard);
 
     //--- Import Menu ---
     //connect( ui->actionExport_Svg_Image, &QAction::triggered, editor, &Editor::saveSvg );

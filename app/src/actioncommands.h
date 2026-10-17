@@ -44,6 +44,7 @@ public:
     Status exportImageSequence();
     Status exportImage();
     Status exportOnPaper();
+    Status exportStoryboard();
     Status exportGif();
 
     // edit

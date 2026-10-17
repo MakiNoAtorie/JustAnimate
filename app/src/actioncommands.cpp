@@ -55,6 +55,7 @@ GNU General Public License for more details.
 #include "camera.h"
 #include "pagewriter.h"
 #include "paperpainter.h"
+#include "xsheet.h"
 
 #include "importimageseqdialog.h"
 #include "importpositiondialog.h"
@@ -683,6 +684,36 @@ Status ActionCommands::exportOnPaper()
     return st;
 }
 
+Status ActionCommands::exportStoryboard()
+{
+    const Object* object = mEditor->object();
+    const Layer* board = nullptr;
+    for (int i = 0; i < object->getLayerCount() && board == nullptr; ++i)
+    {
+        if (object->getLayer(i)->isStoryboard()) { board = object->getLayer(i); }
+    }
+    const std::vector<LayerCamera*> cameras = object->getLayersByType<LayerCamera>();
+    if (board == nullptr || cameras.empty())
+    {
+        QMessageBox::information(mParent, tr("Export Storyboard"), tr("Make a layer a Storyboard layer first (layer menu)."));
+        return Status::SAFE;
+    }
+    const QString path = QFileDialog::getSaveFileName(mParent, tr("Export Storyboard"), QString(),
+                                                      tr("PDF (*.pdf);;PNG pages (*.png)"));
+    if (path.isEmpty()) { return Status::SAFE; }
+    QList<QPair<int, int>> panels;
+    for (const XSheet::Run& run : XSheet::runs(board, mEditor->layers()->animationLength())) { panels << qMakePair(run.first, run.last); }
+    PageSpec spec;
+    spec.orientation = QPageLayout::Portrait;
+    const Status st = writePages(path, spec, storyboardPageCount(panels.size()),
+                                 storyboardPages(*object, *board, *cameras.front(), panels, mEditor->playback()->fps()));
+    if (!st.ok())
+    {
+        ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), mParent);
+        errorDialog.exec();
+    }
+    return st;
+}
 void ActionCommands::flipSelectionX()
 {
     bool flipVertical = false;

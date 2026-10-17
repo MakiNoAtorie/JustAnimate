@@ -11,6 +11,7 @@ the original Pencil2D history is kept below for reference.
 - View > Paper Template draws a genga sheet with a Title block (TITLE, ID, NAME, STATE, DATE, NOTES) around the camera frame; saved with the project, one undo step per edit, never in image or movie exports (#207).
 - X-sheet Timesheet layout (X-sheet toolbar > Timesheet): Keyframe A-F, Dialogue, In-between A-F and Camera columns; set a layer's column from its menu (#209).
 - Storyboard layer (layer menu): each Drawing is a storyboard panel; the Storyboard Panel lists the panels with Scene, Cut, Notes, Audio and Time (seconds+frames, its Exposure), edits them with undo and jumps to a panel (#211).
+- File > Export > Storyboard... writes the first Storyboard layer as A4 portrait pages of five panels (S, C, PICTURE, NOTES, AUDIO, TIME in seconds+frames) with PRODUCTION from the Paper template TITLE and PAGE n / N, as PDF or PNG (#212).
 - Sound: removing a sound while it still loads no longer sometimes crashes the app on Linux.
 - Shift and Trace (View > Onion Skin, Shift+T): drag handles to move and rotate each onion skin in the view to trace an inbetween; Drawings stay unchanged and the offsets clear on a frame change (#195).
 - A pen tap on a menu, context menu or combo box no longer opens and closes it at once: the app drops the second mouse press a tablet driver sends for the same tap (#203).

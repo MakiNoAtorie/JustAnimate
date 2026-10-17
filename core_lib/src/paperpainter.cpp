@@ -18,9 +18,13 @@ GNU General Public License for more details.
 #include <QPainter>
 #include <QRectF>
 
+#include "bitmapimage.h"
+#include "layer.h"
 #include "layercamera.h"
 #include "object.h"
 #include "objectdata.h"
+#include "util.h"
+#include "vectorimage.h"
 
 namespace
 {
@@ -103,5 +107,123 @@ PagePaintFn paperFramePages(const Object& object, const LayerCamera& camera, int
         paintPaperTemplate(painter, f, paper);
         const QRect target = f.toRect();
         painter.drawImage(target, object.renderFrame(frame, camera.getViewAtFrame(frame), camera.getViewSize(), target.size(), true, true));
+    };
+}
+
+namespace
+{
+// Storyboard page layout, as parts of the page height. Columns as parts of the table width: S, C, PICTURE, NOTES, AUDIO, TIME.
+constexpr qreal kSbMargin = 0.04;
+constexpr qreal kSbHeader = 0.04;
+constexpr qreal kSbColumnHeader = 0.025;
+constexpr qreal kSbFooter = 0.03;
+constexpr int kSbRows = 5;
+constexpr qreal kSbColumns[] = { 0.06, 0.06, 0.40, 0.24, 0.14, 0.10 };
+
+QRectF storyboardColumn(const QRectF& page, int column, qreal top, qreal height)
+{
+    const qreal m = page.height() * kSbMargin;
+    const qreal width = page.width() - 2 * m;
+    qreal left = page.left() + m;
+    for (int i = 0; i < column; ++i) { left += kSbColumns[i] * width; }
+    return QRectF(left, top, kSbColumns[column] * width, height);
+}
+
+void drawCellText(QPainter& painter, const QRectF& cell, const QString& text, qreal pixelSize, Qt::Alignment align)
+{
+    painter.save();
+    QFont font = painter.font();
+    font.setPixelSize(qMax(1, qRound(pixelSize)));
+    painter.setFont(font);
+    const QRectF inner = cell.adjusted(pixelSize * 0.4, pixelSize * 0.3, -pixelSize * 0.4, -pixelSize * 0.3);
+    painter.setClipRect(inner, Qt::IntersectClip); // long values stay inside their cell
+    painter.drawText(inner, align | Qt::TextWordWrap, text);
+    painter.restore();
+}
+} // namespace
+
+int storyboardPageCount(int panels)
+{
+    return (panels + kSbRows - 1) / kSbRows;
+}
+
+QRectF storyboardCell(const QRectF& page, int row, int column)
+{
+    const qreal h = page.height();
+    const qreal tableTop = page.top() + h * (kSbMargin + kSbHeader + kSbColumnHeader);
+    const qreal rowHeight = h * (1 - 2 * kSbMargin - kSbHeader - kSbColumnHeader - kSbFooter) / kSbRows;
+    return storyboardColumn(page, column, tableTop + row * rowHeight, rowHeight);
+}
+
+QRectF storyboardPicture(const QRectF& cell, const QSizeF& cameraSize)
+{
+    if (cameraSize.isEmpty()) { return QRectF(); }
+    const QRectF avail = cell.adjusted(cell.height() * 0.05, cell.height() * 0.05, -cell.height() * 0.05, -cell.height() * 0.05);
+    const QSizeF size = cameraSize.scaled(avail.size(), Qt::KeepAspectRatio);
+    return QRectF(avail.center() - QPointF(size.width() / 2, size.height() / 2), size);
+}
+
+PagePaintFn storyboardPages(const Object& object, const Layer& board, const LayerCamera& camera,
+                            const QList<QPair<int, int>>& panels, int fps)
+{
+    return [&object, &board, &camera, panels, fps](QPainter& painter, const QRectF& page, int index) {
+        auto tr = [](const char* text) { return QCoreApplication::translate("Storyboard", text); };
+        const qreal h = page.height();
+        const qreal text = h * 0.011;
+        painter.save();
+        painter.setPen(QPen(Qt::black, h * 0.0008));
+        painter.setBrush(Qt::NoBrush);
+
+        const QRectF first = storyboardCell(page, 0, 0);
+        const QRectF header(first.left(), page.top() + h * kSbMargin, storyboardCell(page, 0, 5).right() - first.left(), h * kSbHeader);
+        drawCellText(painter, header, tr("PRODUCTION: %1").arg(object.data()->paperTemplate().title), text * 1.4, Qt::AlignLeft | Qt::AlignVCenter);
+
+        const QString labels[] = { tr("S"), tr("C"), tr("PICTURE"), tr("NOTES"), tr("AUDIO"), tr("TIME") };
+        for (int column = 0; column < 6; ++column)
+        {
+            const QRectF cell = storyboardColumn(page, column, first.top() - h * kSbColumnHeader, h * kSbColumnHeader);
+            painter.drawRect(cell);
+            drawCellText(painter, cell, labels[column], text, Qt::AlignHCenter | Qt::AlignVCenter);
+        }
+
+        for (int row = 0; row < kSbRows; ++row)
+        {
+            for (int column = 0; column < 6; ++column) { painter.drawRect(storyboardCell(page, row, column)); }
+            const int panel = index * kSbRows + row;
+            if (panel >= panels.size()) { continue; }
+            const int frame = panels[panel].first;
+            KeyFrame* key = board.getKeyFrameAt(frame);
+            const PanelFields f = key ? key->panelFields() : PanelFields();
+            const QString values[] = { f.scene, f.cut, QString(), f.notes, f.audio,
+                                       formatSecondsFrames(panels[panel].second - frame + 1, fps) };
+            for (int column = 0; column < 6; ++column)
+            {
+                drawCellText(painter, storyboardCell(page, row, column), values[column], text, Qt::AlignLeft | Qt::AlignTop);
+            }
+
+            // The panel's Drawing alone, through the camera at the panel's first frame.
+            const QRectF picture = storyboardPicture(storyboardCell(page, row, 2), camera.getViewSize());
+            const QRect target = picture.toRect();
+            if (target.isEmpty()) { continue; }
+            QImage image(target.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::white);
+            {
+                QPainter p(&image);
+                p.setRenderHint(QPainter::Antialiasing);
+                p.setRenderHint(QPainter::SmoothPixmapTransform);
+                const QSize view = camera.getViewSize();
+                p.setWorldTransform(camera.getViewAtFrame(frame) * QTransform::fromTranslate(view.width() / 2.0, view.height() / 2.0));
+                p.setWindow(QRect(QPoint(), view));
+                if (board.type() == Layer::BITMAP && key) { static_cast<BitmapImage*>(key)->paintImage(p); }
+                if (board.type() == Layer::VECTOR && key) { static_cast<VectorImage*>(key)->paintImage(p, object, false, false, true); }
+            }
+            painter.drawImage(target, image);
+            painter.drawRect(target);
+        }
+
+        const QRectF footer(first.left(), storyboardCell(page, kSbRows - 1, 0).bottom(), header.width(), h * kSbFooter);
+        drawCellText(painter, footer, tr("PAGE %1 / %2").arg(index + 1).arg(storyboardPageCount(panels.size())), text,
+                     Qt::AlignRight | Qt::AlignVCenter);
+        painter.restore();
     };
 }
