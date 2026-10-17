@@ -94,10 +94,7 @@ enum class SETTING
     UNDO_REDO_MAX_STEPS,
     ROTATION_INCREMENT,
     SHOW_SELECTION_INFO,
-    ASK_FOR_PRESET,
-    SHOW_WELCOME_SCREEN,
-    LOAD_MOST_RECENT,
-    LOAD_DEFAULT_PRESET,
+    STARTUP_ACTION,
     DEFAULT_PRESET,
     FAST_RENDER_LAYERS_ABOVE,
     XSHEET_LAYOUT,
@@ -110,6 +107,14 @@ enum CursorStyle
 {
     CURSOR_BRUSH_OUTLINE,
     CURSOR_CROSS_ONLY
+};
+
+// What the app opens at startup without a file (SETTING::STARTUP_ACTION).
+enum StartupAction
+{
+    STARTUP_WELCOME,
+    STARTUP_LAST_PROJECT,
+    STARTUP_DEFAULT_PRESET
 };
 
 // Actions for drawing on an empty frame.

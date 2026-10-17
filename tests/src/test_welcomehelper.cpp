@@ -74,14 +74,6 @@ TEST_CASE("Welcome templates", "[Welcome]")
     CHECK(Welcome::newObjectFromTemplate(Welcome::templates().size()) == nullptr);
 }
 
-TEST_CASE("Welcome screen shows at startup unless turned off or a file is given", "[Welcome]")
-{
-    CHECK(Welcome::showAtStartup(true, false, QString()));
-    CHECK(Welcome::showAtStartup(false, true, QString()));
-    CHECK_FALSE(Welcome::showAtStartup(false, false, QString()));
-    CHECK_FALSE(Welcome::showAtStartup(true, true, "shot.pclx"));
-}
-
 TEST_CASE("Welcome anime presets", "[Welcome]")
 {
     const QList<QPair<QString, QSize>> expected = { { "Anime 1080p", QSize(1920, 1080) }, { "Anime 720p", QSize(1280, 720) } };

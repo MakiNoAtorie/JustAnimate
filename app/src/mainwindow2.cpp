@@ -951,12 +951,17 @@ void MainWindow2::openStartupFile(const QString& filename)
     }
 
     PreferenceManager* prefs = mEditor->preference();
-    if (Welcome::showAtStartup(prefs->isOn(SETTING::SHOW_WELCOME_SCREEN), prefs->isOn(SETTING::ASK_FOR_PRESET), filename))
+    const int action = prefs->getInt(SETTING::STARTUP_ACTION);
+    if (action == STARTUP_LAST_PROJECT && loadMostRecent())
+    {
+        return;
+    }
+    if (filename.isEmpty() && action == STARTUP_WELCOME)
     {
         showWelcomeDialog();
         return;
     }
-    loadMostRecent() || newObjectFromPresets(prefs->getInt(SETTING::DEFAULT_PRESET));
+    newObjectFromPresets(prefs->getInt(SETTING::DEFAULT_PRESET));
 }
 
 void MainWindow2::openFile(const QString& filename)
@@ -1403,11 +1408,6 @@ bool MainWindow2::newObjectFromPresets(int presetIndex)
 
 bool MainWindow2::loadMostRecent()
 {
-    if(!mEditor->preference()->isOn(SETTING::LOAD_MOST_RECENT))
-    {
-        return false;
-    }
-
     QSettings& settings = pencilSettings();
     QString myPath = settings.value(LAST_PCLX_PATH, QVariant("")).toString();
     if (myPath.isEmpty() || !QFile::exists(myPath))
@@ -1419,7 +1419,7 @@ bool MainWindow2::loadMostRecent()
 
 bool MainWindow2::tryLoadPreset()
 {
-    if (!mEditor->preference()->isOn(SETTING::ASK_FOR_PRESET))
+    if (mEditor->preference()->getInt(SETTING::STARTUP_ACTION) != STARTUP_WELCOME)
     {
         return newObjectFromPresets(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET));
     }
@@ -1467,8 +1467,7 @@ void MainWindow2::showWelcomeDialog()
         int presetIndex = presetDialog->presetIndex();
         if (presetDialog->shouldAlwaysUse())
         {
-            mEditor->preference()->set(SETTING::ASK_FOR_PRESET, false);
-            mEditor->preference()->set(SETTING::SHOW_WELCOME_SCREEN, false);
+            mEditor->preference()->set(SETTING::STARTUP_ACTION, STARTUP_DEFAULT_PRESET);
             mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetIndex);
         }
         if (!newObjectFromPresets(presetIndex))
