@@ -1195,6 +1195,61 @@ TEST_CASE("UndoRedoManager - moving a sound clip moves the lip-sync markers insi
     CHECK(markers() == after);
 }
 
+TEST_CASE("UndoRedoManager - adding moving and removing a marker are one undo step each")
+{
+    TestSession session;
+    ObjectData* data = session.object->data();
+    data->setMarker(2, { "keep", Qt::blue });
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    LayerManager* layers = editor->layers();
+
+    // Lists "frame=name/color" for the global markers.
+    auto markers = [&]
+    {
+        QString list;
+        const auto m = data->markers();
+        for (auto it = m.constBegin(); it != m.constEnd(); ++it)
+        {
+            list += QString("%1=%2/%3 ").arg(it.key()).arg(it.value().name, it.value().color.name());
+        }
+        return list.trimmed().toStdString();
+    };
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    const std::string start = "2=keep/#0000ff";
+    const std::string added = "2=keep/#0000ff 5=A/#ff0000";
+    const std::string moved = "2=keep/#0000ff 8=A/#ff0000";
+    const std::string removed = "8=A/#ff0000";
+
+    layers->setMarker(0, 5, { "A", Qt::red });
+    CHECK(markers() == added);
+    CHECK(undoAction->text().endsWith("Add Marker"));
+    REQUIRE(layers->moveMarker(0, 5, 8));
+    CHECK(markers() == moved);
+    CHECK(undoAction->text().endsWith("Move Marker"));
+    layers->removeMarker(0, 2);
+    CHECK(markers() == removed);
+    CHECK(undoAction->text().endsWith("Remove Marker"));
+    CHECK_FALSE(layers->moveMarker(0, 2, 3));
+
+    undoAction->trigger();
+    CHECK(markers() == moved);
+    undoAction->trigger();
+    CHECK(markers() == added);
+    undoAction->trigger();
+    CHECK(markers() == start);
+    redoAction->trigger();
+    CHECK(markers() == added);
+    redoAction->trigger();
+    CHECK(markers() == moved);
+    redoAction->trigger();
+    CHECK(markers() == removed);
+}
+
 namespace
 {
 

@@ -480,10 +480,12 @@ void TimeLineCells::showMarkerMenu(int frame, int layerId, const QPoint& globalP
     QMenu menu;
     QAction* add = menu.addAction(has ? tr("Rename Marker...") : tr("Add Marker..."));
     QAction* color = has ? menu.addAction(tr("Change Marker Color...")) : nullptr;
+    QAction* move = has ? menu.addAction(tr("Move Marker...")) : nullptr;
     QAction* remove = has ? menu.addAction(tr("Remove Marker")) : nullptr;
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) return;
 
+    LayerManager* layers = mEditor->layers();
     FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
     if (chosen == add)
     {
@@ -491,20 +493,26 @@ void TimeLineCells::showMarkerMenu(int frame, int layerId, const QPoint& globalP
         const QString name = QInputDialog::getText(this, tr("Marker"), tr("Name:"), QLineEdit::Normal, m.name, &ok);
         if (!ok) return;
         m.name = name;
-        data->setMarker(frame, m, layerId);
+        layers->setMarker(layerId, frame, m);
     }
     else if (chosen == color)
     {
         const QColor c = QColorDialog::getColor(m.color, this);
         if (!c.isValid()) return;
         m.color = c;
-        data->setMarker(frame, m, layerId);
+        layers->setMarker(layerId, frame, m);
+    }
+    else if (chosen == move)
+    {
+        bool ok = false;
+        const int to = QInputDialog::getInt(this, tr("Move Marker"), tr("To frame:"), frame, 1, MaxFramesBound, 1, &ok);
+        if (!ok) return;
+        layers->moveMarker(layerId, frame, to);
     }
     else if (chosen == remove)
     {
-        data->removeMarker(frame, layerId);
+        layers->removeMarker(layerId, frame);
     }
-    mEditor->object()->modification();
     updateContent();
 }
 

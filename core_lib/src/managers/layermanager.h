@@ -28,6 +28,7 @@ class LayerCamera;
 class LayerSound;
 struct TweenState;
 struct LayerArrangement;
+struct FrameMarker;
 enum class CameraEasingType;
 enum class Mark;
 
@@ -160,6 +161,11 @@ public:
     /** After clips of a sound layer moved (`fromTo` keyframe positions), moves the layer's markers inside
      *  each clip's old span with it. Does nothing on other layer types. */
     void moveSoundMarkers(const Layer* layer, const QList<QPair<int, int>>& fromTo);
+    /** Adds or replaces the marker at `frame` of `layerId` (0: global). One undo step each. */
+    void setMarker(int layerId, int frame, const FrameMarker& marker);
+    /** Moves the marker at `from` to `to`, replacing a marker there. False when there is none at `from`. */
+    bool moveMarker(int layerId, int from, int to);
+    void removeMarker(int layerId, int frame);
 
     /** This should be emitted whenever the animation length frames, eg. adding, removing, duplicating */
     void notifyAnimationLengthChanged();

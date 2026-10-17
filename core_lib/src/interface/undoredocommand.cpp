@@ -816,6 +816,36 @@ void PaperTemplateCommand::apply(const PaperTemplate& paper)
     emit editor()->framesModified();
 }
 
+MarkersCommand::MarkersCommand(int layerId, const QMap<int, FrameMarker>& before, const QMap<int, FrameMarker>& after,
+                               const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), before(before), after(after)
+{
+    setText(description);
+}
+
+void MarkersCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void MarkersCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void MarkersCommand::apply(const QMap<int, FrameMarker>& markers)
+{
+    editor()->object()->data()->setMarkers(layerId, markers);
+    editor()->object()->modification();
+    emit editor()->updateTimeLine();
+}
+
 CameraModifyCommand::CameraModifyCommand(const std::vector<std::unique_ptr<KeyFrame>>& before,
                                          const std::vector<std::unique_ptr<Camera>>& after,
                                          int layerId, const QString& description, Editor* editor)

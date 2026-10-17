@@ -1090,6 +1090,40 @@ void LayerManager::moveSoundMarkers(const Layer* layer, const QList<QPair<int, i
     data->setMarkers(layer->id(), markers);
 }
 
+void LayerManager::setMarker(int layerId, int frame, const FrameMarker& marker)
+{
+    ObjectData* data = object()->data();
+    const QMap<int, FrameMarker> before = data->markers(layerId);
+    data->setMarker(frame, marker, layerId);
+    editor()->undoRedo()->recordMarkers(layerId, before, before.contains(frame) ? tr("Edit Marker") : tr("Add Marker"));
+    object()->modification();
+    emit editor()->updateTimeLine();
+}
+
+bool LayerManager::moveMarker(int layerId, int from, int to)
+{
+    ObjectData* data = object()->data();
+    const QMap<int, FrameMarker> before = data->markers(layerId);
+    if (!before.contains(from) || from == to || to < 1) { return false; }
+    data->removeMarker(from, layerId);
+    data->setMarker(to, before.value(from), layerId);
+    editor()->undoRedo()->recordMarkers(layerId, before, tr("Move Marker"));
+    object()->modification();
+    emit editor()->updateTimeLine();
+    return true;
+}
+
+void LayerManager::removeMarker(int layerId, int frame)
+{
+    ObjectData* data = object()->data();
+    const QMap<int, FrameMarker> before = data->markers(layerId);
+    if (!before.contains(frame)) { return; }
+    data->removeMarker(frame, layerId);
+    editor()->undoRedo()->recordMarkers(layerId, before, tr("Remove Marker"));
+    object()->modification();
+    emit editor()->updateTimeLine();
+}
+
 bool LayerManager::moveSelectedFrames(int offset)
 {
     QList<Layer*> selected;
