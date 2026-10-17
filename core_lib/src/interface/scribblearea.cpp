@@ -616,24 +616,38 @@ void ScribbleArea::wheelEvent(QWheelEvent* event)
     static const bool isX11 = QGuiApplication::platformName() == "xcb";
     const QPoint pixels = event->pixelDelta();
     const QPoint angle = event->angleDelta();
-    const QPointF offset = mEditor->view()->mapScreenToCanvas(event->position());
-
-    const qreal currentScale = mEditor->view()->scaling();
+    ViewManager* view = mEditor->view();
+    const Qt::KeyboardModifiers mods = event->modifiers();
 
     // From the pixelDelta documentation: On X11 this value is driver-specific and unreliable, use angleDelta() instead
-    int delta = 0;
-    if (!isX11 && !pixels.isNull())
-    {
-        delta = pixels.y();
-    }
-    else if (!angle.isNull()) // Wheel based delta
-    {
-        delta = angle.y();
-    }
+    // A wheel notch (angle 120) counts as 40 px.
+    const bool usePixels = !isX11 && !pixels.isNull();
+    const QPointF d = usePixels ? QPointF(pixels) : QPointF(angle) / 3.0;
+    // Some platforms turn Shift+wheel into a horizontal delta already.
+    const qreal main = d.y() != 0 ? d.y() : d.x();
 
-    if (delta != 0) {
-        const qreal newScale = currentScale * std::pow(100, (delta * mDeltaFactor) / (12.0 * 120));
-        mEditor->view()->scaleAtOffset(newScale, offset);
+    if (mods & Qt::ControlModifier)
+    {
+        const qreal zoomDelta = usePixels ? pixels.y() : angle.y();
+        if (zoomDelta != 0)
+        {
+            const QPointF offset = view->mapScreenToCanvas(event->position());
+            const qreal newScale = view->scaling() * std::pow(100, (zoomDelta * mDeltaFactor) / (12.0 * 120));
+            view->scaleAtOffset(newScale, offset);
+        }
+    }
+    else if (mods & Qt::AltModifier)
+    {
+        // One notch turns the View 15 degrees.
+        if (main != 0) view->rotateAtOffset(static_cast<float>(main * 15.0 / 40.0), event->position());
+    }
+    else if (mods & Qt::ShiftModifier)
+    {
+        if (main != 0) view->panByScreen(QPointF(main, 0));
+    }
+    else if (!d.isNull())
+    {
+        view->panByScreen(d);
     }
     event->accept();
 }

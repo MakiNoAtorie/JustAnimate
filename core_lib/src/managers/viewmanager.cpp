@@ -190,6 +190,21 @@ void ViewManager::rotateByDrag(QPointF centre, QPointF from, QPointF to)
     rotateRelative(static_cast<float>(mirrored ? -degrees : degrees));
 }
 
+void ViewManager::rotateAtOffset(float degrees, QPointF screenPoint)
+{
+    const QPointF anchor = mapScreenToCanvas(screenPoint);
+    rotateRelative(degrees);
+    mTranslation += mapScreenToCanvas(screenPoint) - anchor;
+    updateViewTransforms();
+    emit viewChanged();
+}
+
+void ViewManager::panByScreen(QPointF screenDelta)
+{
+    const QPointF origin = mapScreenToCanvas(QPointF(0, 0));
+    translate(mTranslation + mapScreenToCanvas(screenDelta) - origin);
+}
+
 void ViewManager::resetRotation()
 {
     rotate(0);

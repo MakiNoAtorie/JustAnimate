@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include <QApplication>
 #include <QTabletEvent>
+#include <QWheelEvent>
 #include <QTemporaryDir>
 #include <QtMath>
 #include "mathutils.h"
@@ -35,6 +36,58 @@ GNU General Public License for more details.
 #include "testfixture.h"
 #include "toolmanager.h"
 #include "viewmanager.h"
+
+static void sendWheel(ScribbleArea* area, QPoint pixels, QPoint angle, Qt::KeyboardModifiers mods)
+{
+    const QPointF pos(300, 200);
+    QWheelEvent e(pos, area->mapToGlobal(pos), pixels, angle, Qt::NoButton, mods, Qt::NoScrollPhase, false);
+    QApplication::sendEvent(area, &e);
+}
+
+TEST_CASE("ScribbleArea - wheel pans zooms and rotates by modifier")
+{
+    TestSession s;
+    s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    ScribbleArea* area = s.area.get();
+    ViewManager* view = s.editor->view();
+    area->init();
+    area->resize(800, 600);
+    const QPointF origin = view->mapCanvasToScreen(QPointF(0, 0));
+
+    for (bool trackpad : {false, true})
+    {
+        const QPoint px = trackpad ? QPoint(0, 30) : QPoint();
+        view->scale(1.0);
+        view->translate(0, 0);
+        view->rotate(0);
+
+        sendWheel(area, px, QPoint(0, 120), Qt::NoModifier);
+        CHECK(view->scaling() == Approx(1.0));
+        CHECK(view->mapCanvasToScreen(QPointF(0, 0)).x() == Approx(origin.x()));
+        CHECK(view->mapCanvasToScreen(QPointF(0, 0)).y() > origin.y());
+
+        view->translate(0, 0);
+        sendWheel(area, trackpad ? QPoint(0, 30) : QPoint(), QPoint(0, 120), Qt::ShiftModifier);
+        CHECK(view->mapCanvasToScreen(QPointF(0, 0)).x() > origin.x());
+        CHECK(view->mapCanvasToScreen(QPointF(0, 0)).y() == Approx(origin.y()));
+
+        view->translate(0, 0);
+        const QPointF anchor = view->mapScreenToCanvas(QPointF(300, 200));
+        sendWheel(area, px, QPoint(0, 120), Qt::ControlModifier);
+        CHECK(view->scaling() > 1.0);
+        CHECK(view->mapCanvasToScreen(anchor).x() == Approx(300));
+        CHECK(view->mapCanvasToScreen(anchor).y() == Approx(200));
+
+        view->scale(1.0);
+        view->translate(0, 0);
+        const QPointF anchor2 = view->mapScreenToCanvas(QPointF(300, 200));
+        sendWheel(area, px, QPoint(0, 120), Qt::AltModifier);
+        CHECK(view->rotation() != Approx(0.0));
+        CHECK(view->mapCanvasToScreen(anchor2).x() == Approx(300));
+        CHECK(view->mapCanvasToScreen(anchor2).y() == Approx(200));
+    }
+}
 
 TEST_CASE("ScribbleArea - canvas HUD shows the brush ring and view values")
 {
