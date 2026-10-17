@@ -143,3 +143,28 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
 
+
+## v1.3 homes
+
+- X-sheet: `app/src/xsheet.{h,cpp}`, dock `objectName` `XSheet`, tabbed
+  with the timeline; layout version 4. No data of its own. (#193)
+- Linked Drawings: `<image linkedTo="<src of the followed image>">` on
+  bitmap and vector keys; copies share one image in memory; row in
+  `docs/file-format.md`. (#194)
+- Lock-all: `Layer::lockAll()`/`setLockAll(bool)`, `<layer lockAll="1">`
+  on every layer type; row in `docs/file-format.md`. Refusals and other
+  short notices go through a new `Editor::statusMessage(QString)` signal
+  that `MainWindow2` shows in the status bar. (#199; #196 reuses it)
+- Solo saved visibility lives in `LayerManager`, unsaved, no undo. (#199)
+- Shift and Trace: `CMD_SHIFT_AND_TRACE` "CmdShiftAndTrace", default
+  `Shift+T`; offsets are View state next to the onion painter, never in
+  `Object`. (#195)
+- Create inbetweens: `CMD_CREATE_INBETWEENS` "CmdCreateInbetweens", no
+  default key, Animation menu; core in `LayerManager`, returns `Status`;
+  easing is `CameraEasingType`. (#196)
+- Transform key: a Move tool property; tween fields in Tool settings;
+  writes through `LayerManager::setKeyTween`; the tween dialog in
+  `TimeLineCells::showTweenMenu` goes. (#197)
+- Tool groups: last tool per group in `pencilSettings()` key
+  `ToolGroup/<first tool's CMD_TOOL_* name>`, value a `ToolType` int. (#198)
+- `CMD_TOGGLE_XSHEET` "CmdToggleXSheet", no default key. (#193)
