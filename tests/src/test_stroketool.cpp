@@ -308,28 +308,28 @@ TEST_CASE("DabTool - a flat tip keeps its angle or follows the stroke direction"
     brush->setPressureEnabled(false);
     brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
     CHECK(brush->strokeToolProperties().tipAspect() == 100); // the round tip
-    brush->setTipAspect(20); // 40 px wide, 8 px tall
+    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 20); // 40 px wide, 8 px tall
 
     // A vertical stroke with the tip at 0 degrees: the ink is as wide as the tip.
     editor->scrubTo(1);
     stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
     const int fixedWidth = inkWidth(layer->getBitmapImageAtFrame(1));
 
-    brush->setTipAngle(90);
+    brush->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, 90);
     editor->scrubTo(2);
     stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
     const int turnedWidth = inkWidth(layer->getBitmapImageAtFrame(2));
 
     // Follow direction: the tip width lies along the stroke, so the ink is as wide as the tip is tall.
-    brush->setTipAngle(0);
-    brush->setTipFollowsDirection(true);
+    brush->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, 0);
+    brush->setTip(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, true);
     editor->scrubTo(3);
     stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
     const int followWidth = inkWidth(layer->getBitmapImageAtFrame(3));
 
-    brush->setTipSquare(true);
-    brush->setTipFollowsDirection(false);
-    brush->setTipAspect(100);
+    brush->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, true);
+    brush->setTip(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, false);
+    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 100);
     editor->scrubTo(4);
     tap(area, QPointF(300, 300), 1.0);
     const QImage* img = layer->getBitmapImageAtFrame(4)->image();
@@ -343,6 +343,31 @@ TEST_CASE("DabTool - a flat tip keeps its angle or follows the stroke direction"
     CHECK(turnedWidth <= 10);
     CHECK(followWidth <= 10);
     CHECK(painted >= 39 * 39); // a 40 px circle covers about 1257 pixels
+}
+
+TEST_CASE("StrokeTool - setTip sets each tip value and signals one change")
+{
+    TestSession s;
+    s.start();
+    s.editor->tools()->setCurrentTool(BRUSH);
+    BrushTool* brush = static_cast<BrushTool*>(s.editor->tools()->getTool(BRUSH));
+    const ToolSettingsGuard guard(brush);
+
+    int changes = 0;
+    QObject::connect(brush, &StrokeTool::tipChanged, [&] { ++changes; });
+    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 40);
+    brush->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, -30);
+    brush->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, 1);
+    brush->setTip(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, 1);
+
+    const StrokeToolProperties& p = brush->strokeToolProperties();
+    CHECK(p.tipAspect() == 40);
+    CHECK(p.tipAngle() == -30);
+    CHECK(p.tipSquare());
+    CHECK(p.tipFollowsDirection());
+    CHECK(changes == 4);
+    brush->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, 0);
+    CHECK_FALSE(brush->strokeToolProperties().tipSquare());
 }
 
 TEST_CASE("DabTool - an image tip from a file paints its shape and a bad file keeps the old tip")
@@ -1126,7 +1151,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     }
     SECTION("Tilt to angle: a flat tip turns with the pen tilt")
     {
-        brush->setTipAspect(10); // 20 px wide, 2 px tall
+        brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 10); // 20 px wide, 2 px tall
         brush->setDynamic(StrokeToolProperties::TILT_TO_ANGLE_VALUE, 100);
         const int upright = strokeAt(1, 20, QPointF());
         const int tilted = strokeAt(2, 20, QPointF(0, -60)); // tip turns to 90 degrees
@@ -1183,7 +1208,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
         // Angle jitter turns a flat tip off the line.
         brush->setDynamic(StrokeToolProperties::SCATTER_VALUE, 0);
         brush->setDynamic(StrokeToolProperties::DAB_COUNT_VALUE, 1);
-        brush->setTipAspect(10);
+        brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 10);
         const int flat = strokeAt(5, 20, QPointF());
         brush->setDynamic(StrokeToolProperties::ANGLE_JITTER_VALUE, 180);
         const int turned = strokeAt(6, 20, QPointF());

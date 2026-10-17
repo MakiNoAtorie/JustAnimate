@@ -337,16 +337,16 @@ void StrokeOptionsWidget::makeConnectionFromUIToModel()
     });
 
     connect(ui->tipAspectSlider, &SpinSlider::valueChanged, [=](qreal value) {
-        mCurrentTool->setTipAspect(value);
+        mCurrentTool->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, value);
     });
     connect(ui->tipAngleSlider, &SpinSlider::valueChanged, [=](qreal value) {
-        mCurrentTool->setTipAngle(value);
+        mCurrentTool->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, value);
     });
     connect(ui->squareTipBox, &QCheckBox::clicked, [=](bool enabled) {
-        mCurrentTool->setTipSquare(enabled);
+        mCurrentTool->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, enabled);
     });
     connect(ui->followDirectionBox, &QCheckBox::clicked, [=](bool enabled) {
-        mCurrentTool->setTipFollowsDirection(enabled);
+        mCurrentTool->setTip(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, enabled);
     });
     connect(ui->loadTipImageButton, &QPushButton::clicked, [=] {
         const QString fileName = QFileDialog::getOpenFileName(this, tr("Open Brush Tip"), QString(),

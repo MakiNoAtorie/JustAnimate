@@ -77,10 +77,7 @@ public:
     virtual void setSpacing(qreal percent);
     /// Sets a dynamics or scatter property, such as StrokeToolProperties::SCATTER_VALUE.
     void setDynamic(int type, int value);
-    void setTipSquare(bool square);
-    void setTipAspect(qreal percent);
-    void setTipAngle(qreal degrees);
-    void setTipFollowsDirection(bool follow);
+    void setTip(int type, qreal value);
     /// Per-dab alpha in percent; overlapping dabs build up.
     void setFlow(qreal percent);
     /// Stroke alpha in percent; in wash mode no overlap goes past it.

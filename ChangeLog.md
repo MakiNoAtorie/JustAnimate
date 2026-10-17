@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Preference search and shortcut-conflict code now live in the app utilities (#243).
+- One `setTip(type, value)` replaces the four Stroke tool tip setters (#247).
 - Review fixes: New Camera Layer asks for name and size in Camera Properties as one undo step; Preferences > Files has "Remind me to save an untitled project", and the reminder names your Save key; Layer > Rename Layer (F2) works anywhere in the main window; the open Opacity dialog follows undo and redo; Change Line Color refuses a hidden layer; an unknown startup choice opens the Welcome screen; shortcut names match the menus (#215).
 - New default keys, only where the command has none and the key is free: Ctrl+5 X-sheet, Ctrl+9 Brush Presets, Ctrl+0 Storyboard, Ctrl+M Export Movie, Ctrl+Shift+I Create Inbetweens (#241).
 - The autosave reminder for an untitled project is a non-modal notice, "Unsaved project: press Ctrl+S"; Esc no longer turns it off for good (#225).

@@ -554,27 +554,21 @@ void StrokeTool::setDynamic(int type, int value)
     emit dynamicsChanged();
 }
 
-void StrokeTool::setTipSquare(bool square)
+void StrokeTool::setTip(int type, qreal value)
 {
-    toolProperties().setBaseValue(StrokeToolProperties::TIP_SQUARE_ENABLED, square);
-    emit tipChanged();
-}
-
-void StrokeTool::setTipAspect(qreal percent)
-{
-    toolProperties().setBaseValue(StrokeToolProperties::TIP_ASPECT_VALUE, percent);
-    emit tipChanged();
-}
-
-void StrokeTool::setTipAngle(qreal degrees)
-{
-    toolProperties().setBaseValue(StrokeToolProperties::TIP_ANGLE_VALUE, degrees);
-    emit tipChanged();
-}
-
-void StrokeTool::setTipFollowsDirection(bool follow)
-{
-    toolProperties().setBaseValue(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, follow);
+    switch (type)
+    {
+    case StrokeToolProperties::TIP_SQUARE_ENABLED:
+    case StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED:
+        toolProperties().setBaseValue(type, value != 0);
+        break;
+    case StrokeToolProperties::TIP_ASPECT_VALUE:
+    case StrokeToolProperties::TIP_ANGLE_VALUE:
+        toolProperties().setBaseValue(type, value);
+        break;
+    default:
+        return;
+    }
     emit tipChanged();
 }
 
