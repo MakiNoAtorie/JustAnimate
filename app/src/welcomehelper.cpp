@@ -155,9 +155,4 @@ bool saveThumbnail(const Object* object, const QString& projectPath, int frame)
     QDir().mkpath(QFileInfo(file).absolutePath());
     return image.save(file, "PNG");
 }
-
-bool showAtStartup(bool showWelcomeScreen, bool askForPreset, const QString& startupFile)
-{
-    return startupFile.isEmpty() && (showWelcomeScreen || askForPreset);
-}
 }

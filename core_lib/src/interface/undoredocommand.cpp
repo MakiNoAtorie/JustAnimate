@@ -806,8 +806,44 @@ void PaperTemplateCommand::redo()
 
 void PaperTemplateCommand::apply(const PaperTemplate& paper)
 {
-    editor()->object()->data()->setPaperTemplate(paper);
+    // The Timesheet values are export memory, not undoable edits: keep the current ones.
+    const PaperTemplate& current = editor()->object()->data()->paperTemplate();
+    PaperTemplate next = paper;
+    next.sheetScene = current.sheetScene;
+    next.sheetShot = current.sheetShot;
+    next.sheetAnimator = current.sheetAnimator;
+    editor()->object()->data()->setPaperTemplate(next);
     emit editor()->framesModified();
+}
+
+MarkersCommand::MarkersCommand(int layerId, const QMap<int, FrameMarker>& before, const QMap<int, FrameMarker>& after,
+                               const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), before(before), after(after)
+{
+    setText(description);
+}
+
+void MarkersCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void MarkersCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void MarkersCommand::apply(const QMap<int, FrameMarker>& markers)
+{
+    editor()->object()->data()->setMarkers(layerId, markers);
+    editor()->object()->modification();
+    emit editor()->updateTimeLine();
 }
 
 CameraModifyCommand::CameraModifyCommand(const std::vector<std::unique_ptr<KeyFrame>>& before,

@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include <QTabletEvent>
 #include <QTemporaryDir>
 
+#include "actioncommands.h"
 #include "beziercurve.h"
 #include "camera.h"
 #include "cameracontextmenu.h"
@@ -1194,6 +1195,61 @@ TEST_CASE("UndoRedoManager - moving a sound clip moves the lip-sync markers insi
     CHECK(markers() == after);
 }
 
+TEST_CASE("UndoRedoManager - adding moving and removing a marker are one undo step each")
+{
+    TestSession session;
+    ObjectData* data = session.object->data();
+    data->setMarker(2, { "keep", Qt::blue });
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    LayerManager* layers = editor->layers();
+
+    // Lists "frame=name/color" for the global markers.
+    auto markers = [&]
+    {
+        QString list;
+        const auto m = data->markers();
+        for (auto it = m.constBegin(); it != m.constEnd(); ++it)
+        {
+            list += QString("%1=%2/%3 ").arg(it.key()).arg(it.value().name, it.value().color.name());
+        }
+        return list.trimmed().toStdString();
+    };
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    const std::string start = "2=keep/#0000ff";
+    const std::string added = "2=keep/#0000ff 5=A/#ff0000";
+    const std::string moved = "2=keep/#0000ff 8=A/#ff0000";
+    const std::string removed = "8=A/#ff0000";
+
+    layers->setMarker(0, 5, { "A", Qt::red });
+    CHECK(markers() == added);
+    CHECK(undoAction->text().endsWith("Add Marker"));
+    REQUIRE(layers->moveMarker(0, 5, 8));
+    CHECK(markers() == moved);
+    CHECK(undoAction->text().endsWith("Move Marker"));
+    layers->removeMarker(0, 2);
+    CHECK(markers() == removed);
+    CHECK(undoAction->text().endsWith("Remove Marker"));
+    CHECK_FALSE(layers->moveMarker(0, 2, 3));
+
+    undoAction->trigger();
+    CHECK(markers() == moved);
+    undoAction->trigger();
+    CHECK(markers() == added);
+    undoAction->trigger();
+    CHECK(markers() == start);
+    redoAction->trigger();
+    CHECK(markers() == added);
+    redoAction->trigger();
+    CHECK(markers() == moved);
+    redoAction->trigger();
+    CHECK(markers() == removed);
+}
+
 namespace
 {
 
@@ -1646,4 +1702,64 @@ TEST_CASE("UndoRedoManager: deleting a sound layer stops its playing clip")
     REQUIRE(clip->isPlaying());
     REQUIRE(editor->layers()->deleteLayer(editor->layers()->currentLayerIndex()) == Status::OK);
     CHECK_FALSE(clip->isPlaying()); // the undo stack keeps the layer and its clip alive
+}
+
+TEST_CASE("UndoRedoManager: change line color is one undo step")
+{
+    TestSession session;
+    Object* object = session.object;
+    object->addNewCameraLayer();
+    LayerBitmap* layer = object->addNewBitmapLayer();
+    for (int pos : { 1, 3, 6 })
+    {
+        layer->addNewKeyFrameAt(pos);
+        layer->getBitmapImageAtFrame(pos)->setPixel(pos, 0, qRgba(0, 0, 0, 255));
+    }
+
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(3);
+    editor->color()->setFrontColor(QColor(255, 0, 0));
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+
+    // Lists "position=pixel" for every Drawing, last to first.
+    auto pixels = [&]
+    {
+        QString list;
+        layer->foreachKeyFrame([&](KeyFrame* key)
+        {
+            list += QString("%1=%2 ").arg(key->pos()).arg(static_cast<BitmapImage*>(key)->pixel(key->pos(), 0), 8, 16);
+        });
+        return list.trimmed().toStdString();
+    };
+    const std::string before = pixels();
+    REQUIRE(before == "6=ff000000 3=ff000000 1=ff000000");
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
+    auto checkUndoRedo = [&](const std::string& after)
+    {
+        REQUIRE(pixels() == after);
+        REQUIRE(editor->currentFrame() == 3);
+        undoAction->trigger();
+        REQUIRE(pixels() == before);
+        REQUIRE_FALSE(undoAction->isEnabled());
+        redoAction->trigger();
+        REQUIRE(pixels() == after);
+    };
+
+    SECTION("Current Drawing")
+    {
+        commands.changeKeyframeLineColor();
+        checkUndoRedo("6=ff000000 3=ffff0000 1=ff000000");
+    }
+
+    SECTION("All Drawings on the layer")
+    {
+        commands.changeallKeyframeLineColor();
+        checkUndoRedo("6=ffff0000 3=ffff0000 1=ffff0000");
+    }
 }

@@ -45,9 +45,6 @@ public slots:
     void presetNameChanged(QListWidgetItem* item);
 
     void updateValues();
-    void askForPresetChange(int b);
-    void loadMostRecentChange(int b);
-    void loadDefaultPreset(int b);
     void autoSaveChange(int b);
     void autoSaveNumberChange(int number);
     void autoSaveByTimeChange(int b);

@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include <QPainter>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QTimer>
 #include <QDebug>
 
 #include "camerapropertiesdialog.h"
@@ -82,6 +83,24 @@ TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYP
     setFocusPolicy(Qt::TabFocus);
 
     connect(mPrefs, &PreferenceManager::optionChanged, this, &TimeLineCells::loadSetting);
+    if (mType == TIMELINE_CELL_TYPE::Layers)
+    {
+        mFlashTimer = new QTimer(this);
+        mFlashTimer->setInterval(150);
+        connect(mFlashTimer, &QTimer::timeout, this, [this] {
+            if (--mFlashTicks <= 0) { mFlashTimer->stop(); }
+            update();
+        });
+        connect(editor, &Editor::layerRefused, this, &TimeLineCells::flashLayer);
+    }
+}
+
+void TimeLineCells::flashLayer(int layerId)
+{
+    mFlashLayerId = layerId;
+    mFlashTicks = 6;
+    mFlashTimer->start();
+    update();
 }
 
 TimeLineCells::~TimeLineCells()
@@ -461,10 +480,12 @@ void TimeLineCells::showMarkerMenu(int frame, int layerId, const QPoint& globalP
     QMenu menu;
     QAction* add = menu.addAction(has ? tr("Rename Marker...") : tr("Add Marker..."));
     QAction* color = has ? menu.addAction(tr("Change Marker Color...")) : nullptr;
+    QAction* move = has ? menu.addAction(tr("Move Marker...")) : nullptr;
     QAction* remove = has ? menu.addAction(tr("Remove Marker")) : nullptr;
     QAction* chosen = menu.exec(globalPos);
     if (chosen == nullptr) return;
 
+    LayerManager* layers = mEditor->layers();
     FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
     if (chosen == add)
     {
@@ -472,20 +493,26 @@ void TimeLineCells::showMarkerMenu(int frame, int layerId, const QPoint& globalP
         const QString name = QInputDialog::getText(this, tr("Marker"), tr("Name:"), QLineEdit::Normal, m.name, &ok);
         if (!ok) return;
         m.name = name;
-        data->setMarker(frame, m, layerId);
+        layers->setMarker(layerId, frame, m);
     }
     else if (chosen == color)
     {
         const QColor c = QColorDialog::getColor(m.color, this);
         if (!c.isValid()) return;
         m.color = c;
-        data->setMarker(frame, m, layerId);
+        layers->setMarker(layerId, frame, m);
+    }
+    else if (chosen == move)
+    {
+        bool ok = false;
+        const int to = QInputDialog::getInt(this, tr("Move Marker"), tr("To frame:"), frame, 1, MaxFramesBound, 1, &ok);
+        if (!ok) return;
+        layers->moveMarker(layerId, frame, to);
     }
     else if (chosen == remove)
     {
-        data->removeMarker(frame, layerId);
+        layers->removeMarker(layerId, frame);
     }
-    mEditor->object()->modification();
     updateContent();
 }
 
@@ -1035,6 +1062,18 @@ void TimeLineCells::paintEvent(QPaintEvent*)
     if (mCache)
     {
         painter.drawPixmap(QPoint(0, 0), *mCache);
+    }
+
+    const Object* object = mEditor->object();
+    for (int i = 0; mFlashTicks % 2 == 1 && i < object->getLayerCount(); ++i)
+    {
+        const Layer* layer = object->getLayer(i);
+        if (layer->id() != mFlashLayerId || object->isLayerFolded(i)) { continue; }
+        // A hidden layer flashes its eye; a locked one its lock.
+        const int left = layer->visible() ? kLockAllLeft : 2;
+        QColor accent = palette.color(QPalette::Highlight);
+        accent.setAlpha(160);
+        painter.fillRect(QRect(left, getLayerY(i), 18, mLayerHeight - 2), accent);
     }
 
     if (mType == TIMELINE_CELL_TYPE::Tracks)

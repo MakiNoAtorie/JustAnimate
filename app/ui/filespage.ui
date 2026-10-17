@@ -56,25 +56,9 @@
        </widget>
       </item>
       <item>
-       <widget class="QRadioButton" name="askPresetRbtn">
+       <widget class="QRadioButton" name="welcomeRbtn">
         <property name="text">
-         <string>Ask on startup</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">startupGroup</string>
-        </attribute>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="loadDefaultPresetRbtn">
-        <property name="text">
-         <string>Load default preset</string>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
+         <string>Show the Welcome screen</string>
         </property>
         <attribute name="buttonGroup">
          <string notr="true">startupGroup</string>
@@ -84,7 +68,7 @@
       <item>
        <widget class="QRadioButton" name="loadLastActiveRbtn">
         <property name="text">
-         <string>Load last active file</string>
+         <string>Open the last project</string>
         </property>
         <attribute name="buttonGroup">
          <string notr="true">startupGroup</string>
@@ -92,10 +76,13 @@
        </widget>
       </item>
       <item>
-       <widget class="QCheckBox" name="showWelcomeCheckBox">
+       <widget class="QRadioButton" name="loadDefaultPresetRbtn">
         <property name="text">
-         <string>Show welcome screen at startup</string>
+         <string>New project from the default preset</string>
         </property>
+        <attribute name="buttonGroup">
+         <string notr="true">startupGroup</string>
+        </attribute>
        </widget>
       </item>
      </layout>

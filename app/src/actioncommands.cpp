@@ -216,12 +216,7 @@ Status ActionCommands::importSound(FileType type)
     layer = mEditor->layers()->currentLayer();
     Q_ASSERT(layer->type() == Layer::SOUND);
 
-    if (!layer->visible())
-    {
-        mEditor->getScribbleArea()->showLayerNotVisibleWarning();
-        return Status::SAFE;
-    }
-    if (mEditor->refusesEdit(layer)) { return Status::SAFE; }
+    if (mEditor->refusesHidden(layer) || mEditor->refusesEdit(layer)) { return Status::SAFE; }
     QString strSoundFile = FileDialog::getOpenFileName(mParent, type);
 
     Status st = Status::FAIL;
@@ -646,7 +641,18 @@ Status savePages(QWidget* parent, const QString& title, const PageSpec& spec, in
 {
     const QString path = QFileDialog::getSaveFileName(parent, title, QString(), ActionCommands::tr("PDF (*.pdf);;PNG pages (*.png)"));
     if (path.isEmpty()) { return Status::SAFE; }
-    const Status st = writePages(path, spec, pageCount, paint);
+    QProgressDialog progress(ActionCommands::tr("Exporting page 1 of %1...").arg(pageCount), ActionCommands::tr("Abort"), 0, pageCount, parent);
+    hideQuestionMark(progress);
+    progress.setWindowModality(Qt::WindowModal);
+    progress.show();
+    // A window-modal setValue processes events, so Abort is seen between pages.
+    const Status st = writePages(path, spec, pageCount, paint, [&progress, pageCount](int done) {
+        progress.setValue(done);
+        progress.setLabelText(ActionCommands::tr("Exporting page %1 of %2...").arg(std::min(done + 1, pageCount)).arg(pageCount));
+        return !progress.wasCanceled();
+    });
+    progress.close();
+    if (st == Status::CANCELED) { return Status::SAFE; }
     if (!st.ok())
     {
         ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), parent);
@@ -730,9 +736,11 @@ Status ActionCommands::exportTimesheet()
     auto form = new QFormLayout(&dialog);
     auto size = new QComboBox(&dialog);
     size->addItems({ tr("A4 portrait"), tr("B4 portrait") });
-    auto scene = new QLineEdit(&dialog);
-    auto shot = new QLineEdit(&dialog);
-    auto animator = new QLineEdit(&dialog);
+    PaperTemplate paper = mEditor->object()->data()->paperTemplate();
+    const TimesheetInfo prefill = timesheetPrefill(paper);
+    auto scene = new QLineEdit(prefill.scene, &dialog);
+    auto shot = new QLineEdit(prefill.shot, &dialog);
+    auto animator = new QLineEdit(prefill.animator, &dialog);
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
     connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
@@ -750,6 +758,12 @@ Status ActionCommands::exportTimesheet()
     info.scene = scene->text();
     info.shot = shot->text();
     info.animator = animator->text();
+    rememberTimesheet(paper, info);
+    if (paper != mEditor->object()->data()->paperTemplate())
+    {
+        mEditor->object()->data()->setPaperTemplate(paper);
+        mEditor->object()->modification();
+    }
     info.length = std::max(1, mEditor->layers()->animationLength());
     info.fps = mEditor->playback()->fps();
     return savePages(mParent, tr("Export Timesheet"), spec, timesheetSheetCount(info.length), timesheetPages(*mEditor->object(), info));
@@ -999,12 +1013,7 @@ void ActionCommands::duplicateKey()
 {
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer == nullptr) return;
-    if (!layer->visible())
-    {
-        mEditor->getScribbleArea()->showLayerNotVisibleWarning();
-        return;
-    }
-    if (mEditor->refusesEdit(layer)) { return; }
+    if (mEditor->refusesHidden(layer) || mEditor->refusesEdit(layer)) { return; }
 
     KeyFrame* key = layer->getKeyFrameAt(mEditor->currentFrame());
     if (key == nullptr) return;
@@ -1147,33 +1156,40 @@ void ActionCommands::setLayerVisibilityIndex(int index)
     mEditor->setLayerVisibility(static_cast<LayerVisibility>(index));
 }
 
+// Recolours the Drawing at frame as one KEYFRAME_MODIFY record. The state captures the Drawing at the playhead, so visit the key first.
+static void recolourDrawing(Editor* editor, LayerBitmap* layer, int frame, QRgb color, const QString& description)
+{
+    if (editor->currentFrame() != frame) { editor->scrubTo(frame); }
+    const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY, layer);
+    layer->getBitmapImageAtFrame(frame)->fillNonAlphaPixels(color);
+    editor->undoRedo()->record(saveStateId, description);
+}
+
 void ActionCommands::changeKeyframeLineColor()
 {
-    if (mEditor->layers()->currentLayer()->type() == Layer::BITMAP &&
-            mEditor->layers()->currentLayer()->keyExists(mEditor->currentFrame()))
-    {
-        QRgb color = mEditor->color()->frontColor().rgb();
-        LayerBitmap* layer = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
-        layer->getBitmapImageAtFrame(mEditor->currentFrame())->fillNonAlphaPixels(color);
-        mEditor->updateFrame();
-    }
+    Layer* layer = mEditor->layers()->currentLayer();
+    const int frame = mEditor->currentFrame();
+    if (layer->type() != Layer::BITMAP || !layer->keyExists(frame) || mEditor->refusesEdit(layer)) { return; }
+    recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), frame, mEditor->color()->frontColor().rgb(), tr("Change Line Color"));
+    mEditor->updateFrame();
 }
 
 void ActionCommands::changeallKeyframeLineColor()
 {
-    if (mEditor->layers()->currentLayer()->type() == Layer::BITMAP)
+    Layer* layer = mEditor->layers()->currentLayer();
+    if (layer->type() != Layer::BITMAP || mEditor->refusesEdit(layer)) { return; }
+    const QRgb color = mEditor->color()->frontColor().rgb();
+    const QString description = tr("Change Line Color");
+    const int playhead = mEditor->currentFrame();
     {
-        QRgb color = mEditor->color()->frontColor().rgb();
-        LayerBitmap* layer = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
-        for (int i = layer->firstKeyFramePosition(); i <= layer->getMaxKeyFramePosition(); i++)
-        {
-            if (layer->keyExists(i))
-                layer->getBitmapImageAtFrame(i)->fillNonAlphaPixels(color);
-        }
-        mEditor->updateFrame();
+        const UndoMacro macro(mEditor->undoRedo(), description);
+        QList<int> positions;
+        layer->foreachKeyFrame([&](KeyFrame* key) { positions.append(key->pos()); });
+        for (int pos : positions) { recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), pos, color, description); }
     }
+    mEditor->scrubTo(playhead);
+    mEditor->updateFrame();
 }
-
 
 void ActionCommands::resetAllTools()
 {

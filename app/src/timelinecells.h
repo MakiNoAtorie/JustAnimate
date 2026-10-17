@@ -33,6 +33,7 @@ class QResizeEvent;
 class Editor;
 class PreferenceManager;
 class QMenu;
+class QTimer;
 class QAction;
 enum class SETTING;
 
@@ -172,6 +173,12 @@ private:
     Qt::MouseButton primaryButton = Qt::NoButton;
 
     bool mScrollingVertically = false;
+
+    // A refused layer's eye or lock icon blinks while mFlashTicks counts down.
+    void flashLayer(int layerId);
+    QTimer* mFlashTimer = nullptr;
+    int mFlashLayerId = 0;
+    int mFlashTicks = 0;
 
     bool mCanMoveFrame   = false;
     bool mMovingFrames   = false;

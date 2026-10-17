@@ -269,6 +269,32 @@ QRectF sheetColumn(const QRectF& page, int half, int column)
 qreal sheetRowHeight(const QRectF& page) { return sheetBody(page).height() / (kSheetRows + kSheetHeadRows); }
 } // namespace
 
+TimesheetInfo timesheetPrefill(const PaperTemplate& paper)
+{
+    TimesheetInfo info;
+    const QStringList parts = paper.id.trimmed().split('-');
+    if (parts.size() == 2 && !parts[0].trimmed().isEmpty() && !parts[1].trimmed().isEmpty())
+    {
+        info.scene = parts[0].trimmed();
+        info.shot = parts[1].trimmed();
+    }
+    info.animator = paper.name;
+    if (!paper.sheetScene.isEmpty()) info.scene = paper.sheetScene;
+    if (!paper.sheetShot.isEmpty()) info.shot = paper.sheetShot;
+    if (!paper.sheetAnimator.isEmpty()) info.animator = paper.sheetAnimator;
+    return info;
+}
+
+void rememberTimesheet(PaperTemplate& paper, const TimesheetInfo& typed)
+{
+    PaperTemplate titleOnly = paper;
+    titleOnly.sheetScene = titleOnly.sheetShot = titleOnly.sheetAnimator = QString();
+    const TimesheetInfo fromTitle = timesheetPrefill(titleOnly);
+    paper.sheetScene = typed.scene == fromTitle.scene ? QString() : typed.scene;
+    paper.sheetShot = typed.shot == fromTitle.shot ? QString() : typed.shot;
+    paper.sheetAnimator = typed.animator == fromTitle.animator ? QString() : typed.animator;
+}
+
 int timesheetSheetCount(int length)
 {
     return qMax(1, (length + 2 * kSheetRows - 1) / (2 * kSheetRows));

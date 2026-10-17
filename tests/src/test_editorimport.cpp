@@ -49,7 +49,7 @@ TEST_CASE("Editor - Importing into a hidden layer warns instead of crashing")
     ScribbleArea* scribbleArea = session.area.get();
 
     int hiddenLayerWarnings = 0;
-    scribbleArea->setLayerNotVisibleWarning([&] { hiddenLayerWarnings++; });
+    QObject::connect(editor, &Editor::layerRefused, scribbleArea, [&] { hiddenLayerWarnings++; });
 
     SECTION("Vector image")
     {

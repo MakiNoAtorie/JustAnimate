@@ -37,11 +37,14 @@ struct PaperTemplate
     bool on = false;
     QString kind = "genga";
     QString title, id, name, state, date, notes;
+    /// Last typed Timesheet export values that differ from the Title block; empty uses the Title block.
+    QString sheetScene, sheetShot, sheetAnimator;
 
     bool operator==(const PaperTemplate& o) const
     {
         return on == o.on && kind == o.kind && title == o.title && id == o.id && name == o.name
-            && state == o.state && date == o.date && notes == o.notes;
+            && state == o.state && date == o.date && notes == o.notes
+            && sheetScene == o.sheetScene && sheetShot == o.sheetShot && sheetAnimator == o.sheetAnimator;
     }
     bool operator!=(const PaperTemplate& o) const { return !(*this == o); }
 };

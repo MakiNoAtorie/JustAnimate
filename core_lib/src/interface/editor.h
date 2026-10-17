@@ -134,8 +134,12 @@ public:
 
     void clipboardChanged();
 
-    /// True, with a status message, when lock-all makes the layer refuse edits.
+    /// True, with a notice, when lock-all makes the layer refuse edits.
     bool refusesEdit(const Layer* layer);
+    /// True, with a notice, when the layer is hidden and so refuses edits.
+    bool refusesHidden(const Layer* layer);
+    /// The one path for a refusal or short notice; a layer also flashes its row.
+    void notice(const QString& text, const Layer* layer = nullptr);
 
     /// Sets the project's Paper template as one undo step.
     void setPaperTemplate(const PaperTemplate& paper);
@@ -165,6 +169,8 @@ signals:
     void needDisplayInfoNoTitle(const QString& body);
     /// A short notice for the status bar, such as an edit refused on a locked layer.
     void statusMessage(const QString& text);
+    /// The layer refused an edit; the timeline flashes its eye (hidden) or lock icon.
+    void layerRefused(int layerId);
 
     void canCopyChanged(bool enabled);
     void canPasteChanged(bool enabled);
