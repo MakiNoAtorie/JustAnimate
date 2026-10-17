@@ -1046,6 +1046,31 @@ bool Editor::refusesEdit(const Layer* layer)
     return true;
 }
 
+void Editor::setPaperTemplate(const PaperTemplate& paper)
+{
+    const PaperTemplate before = mObject->data()->paperTemplate();
+    if (paper == before) { return; }
+    mObject->data()->setPaperTemplate(paper);
+    // One undo step per changed field: the user undoes field by field.
+    PaperTemplate step = before;
+    auto record = [&](auto PaperTemplate::*field) {
+        if (step.*field == paper.*field) { return; }
+        PaperTemplate next = step;
+        next.*field = paper.*field;
+        mUndoRedoManager->recordPaperTemplate(step, next, tr("Paper Template"));
+        step = next;
+    };
+    record(&PaperTemplate::on);
+    record(&PaperTemplate::kind);
+    record(&PaperTemplate::title);
+    record(&PaperTemplate::id);
+    record(&PaperTemplate::name);
+    record(&PaperTemplate::state);
+    record(&PaperTemplate::date);
+    record(&PaperTemplate::notes);
+    emit framesModified();
+}
+
 void Editor::switchVisibilityOfLayer(int layerNumber)
 {
     Layer* layer = mObject->getLayer(layerNumber);

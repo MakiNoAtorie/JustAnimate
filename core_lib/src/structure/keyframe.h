@@ -42,6 +42,18 @@ struct TweenState
 };
 
 
+/// The Panel fields of a storyboard panel (GLOSSARY.md), saved on its <image> element.
+struct PanelFields
+{
+    QString scene;
+    QString cut;
+    QString notes;
+    QString audio;
+
+    bool operator==(const PanelFields& o) const { return scene == o.scene && cut == o.cut && notes == o.notes && audio == o.audio; }
+    bool operator!=(const PanelFields& o) const { return !(*this == o); }
+};
+
 /// A Drawing's role in the motion (GLOSSARY.md, Mark).
 enum class Mark { None, Key, Breakdown, Inbetween };
 
@@ -81,6 +93,9 @@ public:
     /// Keys of one layer with the same non-zero link id are one Linked Drawing (GLOSSARY.md).
     int linkId() const { return mLinkId; }
     void setLinkId(int id) { mLinkId = id; }
+
+    PanelFields panelFields() const { return mPanelFields; }
+    void setPanelFields(const PanelFields& fields) { mPanelFields = fields; }
     /// Takes the image of `source`, a key of the same type, and keeps this key's position and attributes.
     virtual void copyImageFrom(KeyFrame* source) { Q_UNUSED(source) }
 
@@ -113,6 +128,7 @@ private:
     TweenState mTweenState;
     Mark mMark = Mark::None;
     int mLinkId = 0;
+    PanelFields mPanelFields;
     QString mAttachedFileName;
 
     std::vector<KeyFrameEventListener*> mEventListeners;

@@ -41,6 +41,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/mainwindow2.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/onionskinwidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pegbaralignmentdialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/papertemplatedialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pencil2d.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/predefinedsetmodel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/preferencesdialog.h
@@ -59,6 +60,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timecontrols.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timeline.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/xsheet.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/storyboardpanel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinecells.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/strokeoptionswidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinepage.h
@@ -110,6 +112,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/mainwindow2.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/onionskinwidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pegbaralignmentdialog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/papertemplatedialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/pencil2d.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/predefinedsetmodel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/preferencesdialog.cpp
@@ -129,6 +132,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timecontrols.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timeline.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/xsheet.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/storyboardpanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinecells.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/timelinepage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/titlebarwidget.cpp

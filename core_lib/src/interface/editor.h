@@ -44,6 +44,7 @@ class KeyFrame;
 class BitmapImage;
 class VectorImage;
 class LayerCamera;
+struct PaperTemplate;
 class MainWindow2;
 class BaseManager;
 class ColorManager;
@@ -135,6 +136,9 @@ public:
 
     /// True, with a status message, when lock-all makes the layer refuse edits.
     bool refusesEdit(const Layer* layer);
+
+    /// Sets the project's Paper template as one undo step.
+    void setPaperTemplate(const PaperTemplate& paper);
 
 signals:
 

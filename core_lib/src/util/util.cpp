@@ -141,6 +141,23 @@ quint64 imageSize(const QImage& img)
     return img.sizeInBytes();
 }
 
+QString formatSecondsFrames(int frames, int fps)
+{
+    if (fps <= 0) { return QString("0+%1").arg(frames); }
+    return QString("%1+%2").arg(frames / fps).arg(frames % fps);
+}
+
+int parseSecondsFrames(const QString& text, int fps)
+{
+    const QStringList parts = text.trimmed().split('+');
+    bool ok = false;
+    const int first = parts.value(0).toInt(&ok);
+    if (!ok || parts.size() > 2) { return 0; }
+    if (parts.size() == 1) { return qMax(0, first); }
+    const int frames = parts[1].toInt(&ok);
+    return ok && first >= 0 && frames >= 0 ? first * qMax(1, fps) + frames : 0;
+}
+
 QString uniqueString(int len)
 {
     static const char alphanum[] = "0123456789abcdefghijklmnopqrstuvwxyz";

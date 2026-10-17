@@ -24,6 +24,8 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "movieexporter.h"
 #include "object.h"
+#include "pagewriter.h"
+#include "paperpainter.h"
 #include "playbackmanager.h"
 
 #include "commandlineexporter.h"
@@ -45,7 +47,8 @@ Status CommandLineExporter::process(const QString &inputPath,
                                     int height,
                                     int startFrame,
                                     int endFrame,
-                                    bool transparency)
+                                    bool transparency,
+                                    std::optional<PageSpec::Size> paper)
 {
     LayerManager *layerManager = mEditor->layers();
 
@@ -102,6 +105,22 @@ Status CommandLineExporter::process(const QString &inputPath,
     Q_ASSERT(!outputPaths.empty());
     for (const QString& outputPath : outputPaths)
     {
+        if (paper)
+        {
+            mOut << tr("Exporting on paper...", "Command line task progress") << qEndl;
+            PageSpec spec;
+            spec.size = *paper;
+            const Status st = writePages(outputPath, spec, endFrame - startFrame + 1,
+                                         paperFramePages(*mEditor->object(), *cameraLayer, startFrame));
+            if (!st.ok())
+            {
+                printError(st);
+                return st;
+            }
+            mOut << tr("Done.", "Command line task done") << qEndl;
+            continue;
+        }
+
         // Detect format
         QString format = detectFormatByFileNameExtension(outputPath);
         if (format.isNull())

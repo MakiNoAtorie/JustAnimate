@@ -79,6 +79,7 @@ GNU General Public License for more details.
 #include "preferencesdialog.h"
 #include "timeline.h"
 #include "xsheet.h"
+#include "storyboardpanel.h"
 #include "toolbox.h"
 #include "onionskinwidget.h"
 #include "brushpresetdock.h"
@@ -100,6 +101,7 @@ GNU General Public License for more details.
 #include "welcomehelper.h"
 #include "pegbaralignmentdialog.h"
 #include "autosaverbytime.h"
+#include "papertemplatedialog.h"
 
 
 #ifdef GIT_TIMESTAMP
@@ -282,6 +284,9 @@ void MainWindow2::createDockWidgets()
     mToolBox = new ToolBoxDockWidget(this);
     mToolBox->setObjectName("ToolBox");
 
+    mStoryboard = new StoryboardPanel(this);
+    mStoryboard->setObjectName("Storyboard");
+
     mDockWidgets
         << mTimeLine
         << mXSheet
@@ -291,7 +296,8 @@ void MainWindow2::createDockWidgets()
         << mOnionSkinWidget
         << mBrushPresets
         << mToolOptions
-        << mToolBox;
+        << mToolBox
+        << mStoryboard;
 
 
     for (BaseDockWidget* pWidget : mDockWidgets)
@@ -353,6 +359,15 @@ void MainWindow2::createMenus()
     connect(ui->actionExport_Animated_GIF, &QAction::triggered, mCommands, &ActionCommands::exportGif);
 
     connect(ui->actionExport_Palette, &QAction::triggered, this, &MainWindow2::exportPalette);
+    QAction* exportOnPaper = new QAction(tr("On Paper..."), this);
+    connect(exportOnPaper, &QAction::triggered, mCommands, &ActionCommands::exportOnPaper);
+    ui->menuExport->insertAction(ui->actionExport_Palette, exportOnPaper);
+    QAction* exportStoryboard = new QAction(tr("Storyboard..."), this);
+    connect(exportStoryboard, &QAction::triggered, mCommands, &ActionCommands::exportStoryboard);
+    ui->menuExport->insertAction(ui->actionExport_Palette, exportStoryboard);
+    QAction* exportTimesheet = new QAction(tr("Timesheet..."), this);
+    connect(exportTimesheet, &QAction::triggered, mCommands, &ActionCommands::exportTimesheet);
+    ui->menuExport->insertAction(ui->actionExport_Palette, exportTimesheet);
 
     //--- Import Menu ---
     //connect( ui->actionExport_Svg_Image, &QAction::triggered, editor, &Editor::saveSvg );
@@ -535,6 +550,13 @@ void MainWindow2::createMenus()
     case 30: ui->action30Degrees->setChecked(true); break;
     }
 
+    QAction* paperAction = ui->menuView->addAction(tr("Paper Template..."));
+    paperAction->setStatusTip(tr("Show the genga sheet with its title block around the camera frame"));
+    connect(paperAction, &QAction::triggered, this, [this] {
+        PaperTemplateDialog dialog(mEditor->object()->data()->paperTemplate(), this);
+        if (dialog.exec() == QDialog::Accepted) { mEditor->setPaperTemplate(dialog.paperTemplate()); }
+    });
+
     //--- Animation Menu ---
     PlaybackManager* pPlaybackManager = mEditor->playback();
     connect(ui->actionPlay, &QAction::triggered, mCommands, &ActionCommands::PlayStop);
@@ -662,7 +684,8 @@ void MainWindow2::createMenus()
         mXSheet->toggleViewAction(),
         mColorInspector->toggleViewAction(),
         mOnionSkinWidget->toggleViewAction(),
-        mBrushPresets->toggleViewAction()
+        mBrushPresets->toggleViewAction(),
+        mStoryboard->toggleViewAction()
     };
 
     for (QAction* action : actions)
@@ -1313,7 +1336,7 @@ void MainWindow2::resetAndDockAllSubWidgets()
 DefaultDockLayout MainWindow2::dockLayout() const
 {
     return {mToolOptions, {mToolBox}, {mBrushPresets, mColorBox, mColorPalette}, mTimeLine,
-            {{mColorPalette, mColorInspector}, {mTimeLine, mXSheet}, {mTimeLine, mOnionSkinWidget}}};
+            {{mColorPalette, mColorInspector}, {mTimeLine, mXSheet}, {mTimeLine, mOnionSkinWidget}, {mColorPalette, mStoryboard}}};
 }
 
 QSize MainWindow2::availableScreenSize() const
@@ -1407,7 +1430,8 @@ bool MainWindow2::tryLoadPreset()
 void MainWindow2::showWelcomeDialog()
 {
     auto* presetDialog = new WelcomeDialog(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET),
-                                           mRecentFileMenu->getRecentFiles(), this);
+                                           mRecentFileMenu->getRecentFiles(),
+                                           mEditor->preference()->getString(SETTING::LAST_TEMPLATE), this);
     presetDialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(presetDialog, &WelcomeDialog::finished, [=](int result)
     {
@@ -1431,6 +1455,7 @@ void MainWindow2::showWelcomeDialog()
         {
             if (Object* object = Welcome::newObjectFromTemplate(presetDialog->templateIndex()))
             {
+                mEditor->preference()->set(SETTING::LAST_TEMPLATE, Welcome::templates().at(presetDialog->templateIndex()).name);
                 mEditor->setObject(object);
                 mEditor->setFps(mEditor->playback()->fps());
                 closeDialogs();

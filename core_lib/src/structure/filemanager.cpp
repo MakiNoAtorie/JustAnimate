@@ -541,6 +541,21 @@ QDomElement FileManager::saveProjectData(const Object* object, QDomDocument& xml
     }
     if (markersTag.hasChildNodes()) rootTag.appendChild(markersTag);
 
+    const PaperTemplate& paper = data->paperTemplate();
+    if (paper != PaperTemplate())
+    {
+        QDomElement tag = xmlDoc.createElement("paperTemplate");
+        tag.setAttribute("on", paper.on ? "1" : "0");
+        tag.setAttribute("kind", paper.kind);
+        tag.setAttribute("title", paper.title);
+        tag.setAttribute("id", paper.id);
+        tag.setAttribute("name", paper.name);
+        tag.setAttribute("state", paper.state);
+        tag.setAttribute("date", paper.date);
+        tag.setAttribute("notes", paper.notes);
+        rootTag.appendChild(tag);
+    }
+
     return rootTag;
 }
 
@@ -610,6 +625,19 @@ void FileManager::extractProjectData(const QDomElement& element, ObjectData& dat
             // loadObject demotes a marker whose layer is not a sound layer once the layers are loaded.
             data.setMarker(frame, { m.attribute("name"), c }, qMax(0, m.attribute("layer", "0").toInt()));
         }
+    }
+    else if (strName == "paperTemplate")
+    {
+        PaperTemplate paper;
+        paper.on = element.attribute("on") == "1";
+        paper.kind = element.attribute("kind", paper.kind);
+        paper.title = element.attribute("title");
+        paper.id = element.attribute("id");
+        paper.name = element.attribute("name");
+        paper.state = element.attribute("state");
+        paper.date = element.attribute("date");
+        paper.notes = element.attribute("notes");
+        data.setPaperTemplate(paper);
     }
 }
 

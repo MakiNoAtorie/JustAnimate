@@ -1240,11 +1240,15 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                     lockAlpha->setChecked(static_cast<LayerBitmap*>(layer)->lockAlpha());
                 }
                 QAction* rough = nullptr;
+                QAction* storyboard = nullptr;
                 if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR)
                 {
                     rough = menu.addAction(tr("Rough Layer"));
                     rough->setCheckable(true);
                     rough->setChecked(layer->isRough());
+                    storyboard = menu.addAction(tr("Storyboard Layer"));
+                    storyboard->setCheckable(true);
+                    storyboard->setChecked(layer->isStoryboard());
                     QMenu* blend = menu.addMenu(tr("Blend Mode"));
                     QActionGroup* group = new QActionGroup(blend);
                     for (int mode = 0; mode < kBlendModeCount; ++mode)
@@ -1253,6 +1257,21 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                         action->setCheckable(true);
                         action->setChecked(static_cast<int>(layer->blendMode()) == mode);
                         action->setData(mode);
+                        group->addAction(action);
+                    }
+                }
+                QMenu* timesheet = nullptr;
+                if (layer->type() != Layer::SOUND)
+                {
+                    timesheet = menu.addMenu(tr("Timesheet Column"));
+                    QActionGroup* group = new QActionGroup(timesheet);
+                    for (int c = 0; c <= static_cast<int>(TimesheetColumn::Camera); ++c)
+                    {
+                        if (static_cast<TimesheetColumn>(c) == TimesheetColumn::Dialogue) { continue; } // sound layers only
+                        QAction* action = timesheet->addAction(Layer::timesheetColumnName(static_cast<TimesheetColumn>(c)));
+                        action->setCheckable(true);
+                        action->setChecked(static_cast<int>(layer->timesheetColumn()) == c);
+                        action->setData(c);
                         group->addAction(action);
                     }
                 }
@@ -1291,6 +1310,10 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                 {
                     mEditor->layers()->setRough(layer, rough->isChecked());
                 }
+                else if (chosen && chosen == storyboard)
+                {
+                    mEditor->layers()->setStoryboard(layer, storyboard->isChecked());
+                }
                 else if (chosen && chosen == newGroup)
                 {
                     mEditor->layers()->createLayerGroup(layer);
@@ -1313,6 +1336,10 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                     const int percent = QInputDialog::getInt(this, tr("Group Opacity"), tr("Opacity (%):"),
                                                              qRound(clickedGroup->opacity * 100), 0, 100, 1, &ok);
                     if (ok) { mEditor->layers()->setLayerGroupOpacity(clickedGroup->id, percent / 100.0); }
+                }
+                else if (chosen && timesheet && chosen->parent() == timesheet)
+                {
+                    mEditor->layers()->setTimesheetColumn(layer, static_cast<TimesheetColumn>(chosen->data().toInt()));
                 }
                 else if (chosen && chosen->parent() == addTo)
                 {

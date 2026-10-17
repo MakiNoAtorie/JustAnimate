@@ -30,7 +30,7 @@ GNU General Public License for more details.
 #include "app_util.h"
 #include "welcomehelper.h"
 
-WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, QWidget* parent) :
+WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, const QString& lastTemplate, QWidget* parent) :
     QDialog(parent)
 {
     setWindowTitle(tr("Welcome to JustAnimate"));
@@ -92,6 +92,7 @@ WelcomeDialog::WelcomeDialog(int defaultPreset, const QStringList& recentFiles, 
     {
         templates->addItem(tr("%1 (%2 x %3, %4 fps)").arg(t.name).arg(t.size.width()).arg(t.size.height()).arg(t.fps));
     }
+    templates->setCurrentIndex(qMax(0, Welcome::templateIndex(lastTemplate)));
     templateRow->addWidget(templates, 1);
     auto* templateButton = new QPushButton(tr("New"));
     templateRow->addWidget(templateButton);

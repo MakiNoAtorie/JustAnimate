@@ -18,7 +18,9 @@ GNU General Public License for more details.
 #ifndef COMMANDLINEEXPORTER_H
 #define COMMANDLINEEXPORTER_H
 
+#include <optional>
 #include <QTextStream>
+#include "pagewriter.h"
 #include "pencilerror.h"
 
 class Editor;
@@ -51,6 +53,7 @@ public:
      * @param endFrame Last frame to include in the export(s) or -1 to use the last keyframe or -2 to use the last
      *                 keyframe including sound clips
      * @param transparency Whether to export with transparency
+     * @param paper The paper size to export on (PDF or PNG pages), or none
      * @return Status::OK if every export succeeded, otherwise the first error
      */
     Status process(const QString &inputPath,
@@ -60,7 +63,8 @@ public:
                    int height,
                    int startFrame,
                    int endFrame,
-                   bool transparency);
+                   bool transparency,
+                   std::optional<PageSpec::Size> paper = std::nullopt);
 
 private:
     Editor *mEditor;

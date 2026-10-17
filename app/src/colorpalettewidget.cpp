@@ -128,8 +128,31 @@ void ColorPaletteWidget::showContextMenu(const QPoint& pos)
     menu->addAction(tr("Add"), this, &ColorPaletteWidget::addItem);
     menu->addAction(tr("Replace"),  this, &ColorPaletteWidget::replaceItem);
     menu->addAction(tr("Remove"), this, &ColorPaletteWidget::removeItem);
+    menu->addSeparator();
+    QMenu* builtIns = menu->addMenu(tr("Built-in Palettes"));
+    for (int i = 0; i < Object::builtinPaletteCount(); i++)
+    {
+        builtIns->addAction(Object::builtinPaletteName(i), this, [this, i] { loadBuiltinPalette(i); });
+    }
 
     menu->exec(globalPos);
+}
+
+void ColorPaletteWidget::loadBuiltinPalette(int index)
+{
+    if (mObject->isPaletteInUse())
+    {
+        QMessageBox msgBox;
+        msgBox.setText(tr("Loading a built-in palette will replace the old palette.\n"
+                          "Color(s) in strokes will be altered by this action!"));
+        msgBox.addButton(tr("Load Palette"), QMessageBox::AcceptRole);
+        msgBox.addButton(QMessageBox::Cancel);
+        if (msgBox.exec() == QMessageBox::Cancel) { return; }
+    }
+    mObject->loadBuiltinPalette(index);
+    refreshColorList();
+    editor()->color()->setColorNumber(0);
+    emit editor()->framesModified(); // vector strokes repaint in the new colours
 }
 
 void ColorPaletteWidget::addItem()

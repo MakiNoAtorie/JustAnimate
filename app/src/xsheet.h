@@ -19,11 +19,9 @@ GNU General Public License for more details.
 #include <QRect>
 #include "basedockwidget.h"
 
-class Layer;
 class QAction;
 class QToolBar;
 class XSheetCells;
-enum class Mark;
 
 /// The X-sheet Panel: the timeline as a table, one column per layer and one row per frame.
 /// It has no data of its own; it reads the Editor and edits through the timeline's operations.
@@ -32,18 +30,6 @@ class XSheet : public BaseDockWidget
     Q_OBJECT
 
 public:
-    /// One Drawing's cells: its first and last frame, its number on the layer, its Mark and whether it is linked.
-    struct Run
-    {
-        int first;
-        int last;
-        int number;
-        Mark mark;
-        bool linked;
-    };
-    /// The Drawings of `layer`; the last one runs to `sceneLength`, a sound clip to its own end.
-    static QList<Run> runs(const Layer* layer, int sceneLength);
-
     explicit XSheet(QWidget* parent);
 
     void initUI() override;

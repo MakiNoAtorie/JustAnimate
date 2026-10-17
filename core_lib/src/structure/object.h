@@ -123,6 +123,11 @@ public:
     QString savePalette(const QString& filePath) const;
 
     void loadDefaultPalette();
+    static int builtinPaletteCount();
+    static QString builtinPaletteName(int index);
+    /** Replaces the palette with built-in palette index and marks the object modified. */
+    void loadBuiltinPalette(int index);
+    bool isPaletteInUse() const;
 
     LayerBitmap* addNewBitmapLayer();
     LayerVector* addNewVectorLayer();
@@ -173,6 +178,9 @@ public:
     LayerArrangement layerArrangement() const;
     /** Reorders the listed layers and sets their groups. Unlisted layers keep their order above them. */
     void setLayerArrangement(const LayerArrangement& arrangement);
+    /** The saved project length in frames, 0 when unset. LayerManager::animationLength never ends before it. */
+    int sceneLength() const { return mSceneLength; }
+    void setSceneLength(int length) { mSceneLength = length; }
 
     template<typename T>
     std::vector<T*> getLayersByType() const
@@ -235,6 +243,7 @@ private:
 
     QList<Layer*> mLayers;
     QList<LayerGroup> mLayerGroups;
+    int mSceneLength = 0;
     bool modified = false;
 
     QList<ColorRef> mPalette;
@@ -242,6 +251,10 @@ private:
     ObjectData mData;
     mutable std::unique_ptr<ActiveFramePool> mActiveFramePool;
 };
+
+/** The Timesheet column of the layer at `layerIndex`: sound is Dialogue; a chosen column wins; else a camera is
+ *  Camera and the n-th drawing layer from the bottom is Keyframe A..F, then In-between A..F (the last holds the rest). */
+TimesheetColumn effectiveTimesheetColumn(const Object& object, int layerIndex);
 
 
 #endif

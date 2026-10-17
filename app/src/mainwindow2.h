@@ -31,6 +31,7 @@ class BaseDockWidget;
 class ColorPaletteWidget;
 class OnionSkinWidget;
 class XSheet;
+class StoryboardPanel;
 class BrushPresetDock;
 class ToolOptionWidget;
 class TimeLine;
@@ -180,6 +181,7 @@ private:
     ColorInspector*       mColorInspector = nullptr;
     OnionSkinWidget*      mOnionSkinWidget = nullptr;
     XSheet*               mXSheet = nullptr;
+    StoryboardPanel*      mStoryboard = nullptr;
     BrushPresetDock*      mBrushPresets = nullptr;
     QAction*              mRadialToolAction = nullptr;
     QAction*              mPresetPickerAction = nullptr;

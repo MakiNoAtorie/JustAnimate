@@ -605,6 +605,67 @@ void LayerBlendModeCommand::apply(BlendMode mode)
     editor()->layers()->notifyLayerChanged(layer);
 }
 
+SceneLengthCommand::SceneLengthCommand(int oldLength, int newLength, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), oldLength(oldLength), newLength(newLength)
+{
+    setText(description);
+}
+
+void SceneLengthCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(oldLength);
+}
+
+void SceneLengthCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(newLength);
+}
+
+void SceneLengthCommand::apply(int length)
+{
+    editor()->object()->setSceneLength(length);
+    editor()->object()->modification();
+    editor()->layers()->notifyAnimationLengthChanged();
+    emit editor()->updateTimeLine();
+}
+
+LayerTimesheetCommand::LayerTimesheetCommand(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn,
+                                             const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), oldColumn(oldColumn), newColumn(newColumn)
+{
+    setText(description);
+}
+
+void LayerTimesheetCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(oldColumn);
+}
+
+void LayerTimesheetCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(newColumn);
+}
+
+void LayerTimesheetCommand::apply(TimesheetColumn column)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    layer->setTimesheetColumn(column);
+    editor()->layers()->notifyLayerChanged(layer);
+}
+
 LayerRoughCommand::LayerRoughCommand(int layerId, bool rough, const QString& description, Editor* editor)
     : UndoRedoCommand(editor), layerId(layerId), rough(rough)
 {
@@ -635,6 +696,63 @@ void LayerRoughCommand::apply(bool value)
     editor()->layers()->notifyLayerChanged(layer);
 }
 
+LayerStoryboardCommand::LayerStoryboardCommand(int layerId, bool storyboard, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), storyboard(storyboard)
+{
+    setText(description);
+}
+
+void LayerStoryboardCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(!storyboard);
+}
+
+void LayerStoryboardCommand::redo()
+{
+    UndoRedoCommand::redo();
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+    apply(storyboard);
+}
+
+void LayerStoryboardCommand::apply(bool value)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    layer->setStoryboard(value);
+    editor()->layers()->notifyLayerChanged(layer);
+}
+
+PanelFieldsCommand::PanelFieldsCommand(int layerId, int frame, const PanelFields& before, const PanelFields& after,
+                                       const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), frame(frame), before(before), after(after)
+{
+    setText(description);
+}
+
+void PanelFieldsCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void PanelFieldsCommand::redo()
+{
+    UndoRedoCommand::redo();
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+    apply(after);
+}
+
+void PanelFieldsCommand::apply(const PanelFields& fields)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    KeyFrame* key = layer ? layer->getKeyFrameAt(frame) : nullptr;
+    if (key == nullptr) { return; }
+    key->setPanelFields(fields);
+    editor()->object()->modification();
+    emit editor()->frameModified(frame);
+}
+
 LayerArrangementCommand::LayerArrangementCommand(const LayerArrangement& before, const LayerArrangement& after,
                                                  const QString& description, Editor* editor)
     : UndoRedoCommand(editor), before(before), after(after)
@@ -661,6 +779,35 @@ void LayerArrangementCommand::redo()
 void LayerArrangementCommand::apply(const LayerArrangement& arrangement)
 {
     editor()->layers()->applyLayerArrangement(arrangement);
+}
+
+PaperTemplateCommand::PaperTemplateCommand(const PaperTemplate& before, const PaperTemplate& after,
+                                           const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), before(before), after(after)
+{
+    setText(description);
+}
+
+void PaperTemplateCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void PaperTemplateCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void PaperTemplateCommand::apply(const PaperTemplate& paper)
+{
+    editor()->object()->data()->setPaperTemplate(paper);
+    emit editor()->framesModified();
 }
 
 CameraModifyCommand::CameraModifyCommand(const std::vector<std::unique_ptr<KeyFrame>>& before,

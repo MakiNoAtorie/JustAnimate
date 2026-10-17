@@ -24,8 +24,13 @@ GNU General Public License for more details.
 #include <QHash>
 #include <QFile>
 #include <QSet>
+#include <iterator>
 #include "keyframe.h"
 #include "util.h"
+
+// The <layer timesheet> code of each TimesheetColumn; Default and Dialogue are never saved.
+static const char* const kTimesheetCodes[] = { "", "KA", "KB", "KC", "KD", "KE", "KF", "",
+                                               "IA", "IB", "IC", "ID", "IE", "IF", "CAM" };
 
 // Used to sort the selected frames list
 bool sortAsc(int left, int right)
@@ -41,6 +46,38 @@ Layer::Layer(int id, LAYER_TYPE eType)
     mName = QString(tr("Undefined Layer"));
 
     mId = id;
+}
+
+QString Layer::timesheetColumnName(TimesheetColumn column)
+{
+    const int c = static_cast<int>(column);
+    if (column >= TimesheetColumn::KeyA && column <= TimesheetColumn::KeyF)
+    {
+        return tr("Key %1").arg(QChar('A' + c - static_cast<int>(TimesheetColumn::KeyA)));
+    }
+    if (column >= TimesheetColumn::InbetweenA && column <= TimesheetColumn::InbetweenF)
+    {
+        return tr("In-between %1").arg(QChar('A' + c - static_cast<int>(TimesheetColumn::InbetweenA)));
+    }
+    if (column == TimesheetColumn::Dialogue) { return tr("Dialogue"); }
+    if (column == TimesheetColumn::Camera) { return tr("Camera"); }
+    return tr("From layer order");
+}
+
+QList<Layer::Run> Layer::runs(int sceneLength) const
+{
+    QList<Run> result;
+    if (keyFrameCount() == 0) { return result; }
+    for (int pos = firstKeyFramePosition();;)
+    {
+        const KeyFrame* key = getKeyFrameAt(pos);
+        const int next = getNextKeyFramePosition(pos);
+        const bool last = next <= pos;
+        const int end = type() == SOUND ? pos + key->length() - 1 : last ? qMax(pos, sceneLength) : next - 1;
+        result.append({ pos, end, static_cast<int>(result.size()) + 1, key->mark(), isLinked(key) });
+        if (last) { return result; }
+        pos = next;
+    }
 }
 
 Layer::~Layer()
@@ -772,6 +809,9 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     if (groupId() != 0) { layerTag.setAttribute("group", groupId()); }
     if (isRough()) { layerTag.setAttribute("rough", 1); }
     if (lockAll()) { layerTag.setAttribute("lockAll", 1); }
+    const char* timesheet = kTimesheetCodes[static_cast<int>(timesheetColumn())];
+    if (*timesheet != '\0') { layerTag.setAttribute("timesheet", QLatin1String(timesheet)); }
+    if (isStoryboard()) { layerTag.setAttribute("storyboard", 1); }
     return layerTag;
 }
 
@@ -790,6 +830,14 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
     setGroupId(elem.attribute("group", "0").toInt());
     setRough(elem.attribute("rough", "0").toInt() == 1);
     setLockAll(elem.attribute("lockAll") == "1");
+    const QString timesheet = elem.attribute("timesheet");
+    // An empty or unknown code loads as Default.
+    setTimesheetColumn(TimesheetColumn::Default);
+    for (int i = 1; i < static_cast<int>(std::size(kTimesheetCodes)); ++i)
+    {
+        if (!timesheet.isEmpty() && timesheet == QLatin1String(kTimesheetCodes[i])) { setTimesheetColumn(static_cast<TimesheetColumn>(i)); }
+    }
+    setStoryboard(elem.attribute("storyboard") == "1");
 }
 
 TweenState Layer::tweenStateAt(int frame) const
@@ -823,6 +871,11 @@ void Layer::writeKeyTween(QDomElement& image, const KeyFrame* key)
     if (s.ty != 0) { image.setAttribute("ty", s.ty); }
     if (s.rot != 0) { image.setAttribute("rot", s.rot); }
     if (s.scale != 1) { image.setAttribute("scale", s.scale); }
+    const PanelFields p = key->panelFields();
+    if (!p.scene.isEmpty()) { image.setAttribute("scene", p.scene); }
+    if (!p.cut.isEmpty()) { image.setAttribute("cut", p.cut); }
+    if (!p.notes.isEmpty()) { image.setAttribute("notes", p.notes); }
+    if (!p.audio.isEmpty()) { image.setAttribute("audio", p.audio); }
 }
 
 void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
@@ -846,4 +899,5 @@ void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
     const qreal scale = number("scale", 1);
     key->setTweenState(TweenState{ number("tx", 0), number("ty", 0), number("rot", 0), scale > 0 ? scale : 1,
                                    qBound(0.0, number("opacity", 1), 1.0) });
+    key->setPanelFields({ image.attribute("scene"), image.attribute("cut"), image.attribute("notes"), image.attribute("audio") });
 }

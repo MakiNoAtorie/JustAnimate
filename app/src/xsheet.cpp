@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "layer.h"
 #include "layermanager.h"
 #include "object.h"
+#include "preferencemanager.h"
 #include "timelinecells.h"
 
 namespace
@@ -36,23 +37,10 @@ constexpr int kRow = 18;
 constexpr int kColumn = 72;
 constexpr int kHandle = 3;      // the bottom pixels of an Exposure's last cell
 constexpr int kExtraRows = 24;  // empty rows after the scene, to click into
+
+bool isTimesheetLayout(Editor* editor) { return editor->preference()->getInt(SETTING::XSHEET_LAYOUT) == 1; }
 }
 
-QList<XSheet::Run> XSheet::runs(const Layer* layer, int sceneLength)
-{
-    QList<Run> result;
-    if (layer->keyFrameCount() == 0) { return result; }
-    for (int pos = layer->firstKeyFramePosition();;)
-    {
-        const KeyFrame* key = layer->getKeyFrameAt(pos);
-        const int next = layer->getNextKeyFramePosition(pos);
-        const bool last = next <= pos;
-        const int end = layer->type() == Layer::SOUND ? pos + key->length() - 1 : last ? qMax(pos, sceneLength) : next - 1;
-        result.append({ pos, end, static_cast<int>(result.size()) + 1, key->mark(), layer->isLinked(key) });
-        if (last) { return result; }
-        pos = next;
-    }
-}
 
 class XSheetCells : public QAbstractScrollArea
 {
@@ -64,21 +52,53 @@ public:
         horizontalScrollBar()->setSingleStep(kColumn / 4);
     }
 
-    /// Layer indices left to right: the timeline's rows top to bottom, without folded group members.
-    QList<int> columns() const
+    struct Column
     {
-        QList<int> result;
+        int layer; // -1: a Timesheet column no layer fills
+        TimesheetColumn sheet;
+    };
+
+    /// The columns left to right, without folded group members. Western: the timeline's rows top to bottom.
+    /// Timesheet: every fixed column Key A to Camera, each with its layers bottom-up or empty.
+    QList<Column> columns() const
+    {
+        QList<Column> result;
         const Object* object = mEditor->object();
-        for (int i = object->getLayerCount() - 1; i >= 0; --i)
+        if (!isTimesheet())
         {
-            if (!object->isLayerFolded(i)) { result << i; }
+            for (int i = object->getLayerCount() - 1; i >= 0; --i)
+            {
+                if (!object->isLayerFolded(i)) { result << Column{ i, TimesheetColumn::Default }; }
+            }
+            return result;
+        }
+        for (int c = static_cast<int>(TimesheetColumn::KeyA); c <= static_cast<int>(TimesheetColumn::Camera); ++c)
+        {
+            const TimesheetColumn sheet = static_cast<TimesheetColumn>(c);
+            const int before = result.size();
+            for (int i = 0; i < object->getLayerCount(); ++i)
+            {
+                if (!object->isLayerFolded(i) && effectiveTimesheetColumn(*object, i) == sheet) { result << Column{ i, sheet }; }
+            }
+            if (result.size() == before) { result << Column{ -1, sheet }; }
         }
         return result;
     }
 
+    static int indexOf(const QList<Column>& cols, int layerIndex)
+    {
+        for (int i = 0; i < cols.size(); ++i)
+        {
+            if (cols[i].layer == layerIndex) { return i; }
+        }
+        return -1;
+    }
+
+    bool isTimesheet() const { return isTimesheetLayout(mEditor); }
+
     QRect cellRect(int layerIndex, int frame) const
     {
-        return QRect(kFrameColumn + columns().indexOf(layerIndex) * kColumn - horizontalScrollBar()->value(),
+        return QRect(kFrameColumn + indexOf(columns(), layerIndex) * kColumn - horizontalScrollBar()->value(),
                      kHeader + (frame - 1) * kRow - verticalScrollBar()->value(), kColumn, kRow);
     }
 
@@ -148,7 +168,7 @@ protected:
         QPainter painter(viewport());
         const QPalette& pal = palette();
         const QRect area = viewport()->rect();
-        const QList<int> cols = columns();
+        const QList<Column> cols = columns();
         const Object* object = mEditor->object();
         const int currentLayer = mEditor->layers()->currentLayerIndex();
         const int sceneLength = mEditor->layers()->animationLength();
@@ -156,7 +176,7 @@ protected:
         const int lastFrame = firstFrame + area.height() / kRow + 1;
         painter.fillRect(area, pal.color(QPalette::Base));
 
-        const int column = cols.indexOf(currentLayer);
+        const int column = indexOf(cols, currentLayer);
         if (column >= 0)
         {
             painter.fillRect(cellRect(currentLayer, 1).x(), 0, kColumn, area.height(), pal.color(QPalette::AlternateBase));
@@ -177,9 +197,11 @@ protected:
             painter.drawLine(x, 0, x, area.height());
         }
 
-        for (int layerIndex : cols)
+        for (const Column& col : cols)
         {
-            for (const XSheet::Run& run : XSheet::runs(object->getLayer(layerIndex), sceneLength))
+            if (col.layer < 0) { continue; }
+            const int layerIndex = col.layer;
+            for (const Layer::Run& run : object->getLayer(layerIndex)->runs(sceneLength))
             {
                 if (run.last < firstFrame || run.first > lastFrame) { continue; }
                 const QRect cell = cellRect(layerIndex, run.first);
@@ -211,13 +233,15 @@ protected:
             painter.drawText(row, Qt::AlignRight | Qt::AlignVCenter, QString::number(frame));
         }
         painter.fillRect(0, 0, area.width(), kHeader, pal.color(QPalette::Button));
-        for (int layerIndex : cols)
+        for (int i = 0; i < cols.size(); ++i)
         {
-            const QRect name = cellRect(layerIndex, 1).adjusted(4, -kHeader, -4, -kRow);
+            const int layerIndex = cols[i].layer;
+            const QRect name(kFrameColumn + i * kColumn - horizontalScrollBar()->value() + 4, 0, kColumn - 8, kHeader);
             QFont font = painter.font();
-            font.setBold(layerIndex == currentLayer);
+            font.setBold(layerIndex >= 0 && layerIndex == currentLayer);
             painter.setFont(font);
-            const QString text = object->getLayer(layerIndex)->name();
+            QString text = layerIndex >= 0 ? object->getLayer(layerIndex)->name() : QString();
+            if (isTimesheet()) { text = (Layer::timesheetColumnName(cols[i].sheet) + " " + text).trimmed(); }
             painter.drawText(name, Qt::AlignLeft | Qt::AlignVCenter, QFontMetrics(font).elidedText(text, Qt::ElideRight, name.width()));
         }
     }
@@ -230,10 +254,10 @@ private:
     /// The layer whose column holds pos, or -1 outside the cells.
     int layerAt(const QPoint& pos) const
     {
-        const QList<int> cols = columns();
+        const QList<Column> cols = columns();
         const int column = (pos.x() - kFrameColumn + horizontalScrollBar()->value()) / kColumn;
         if (pos.x() < kFrameColumn || pos.y() < kHeader || column >= cols.size()) { return -1; }
-        return cols[column];
+        return cols[column].layer;
     }
 
     /// The frame whose bottom edge is under pos and ends a Drawing's Exposure, or 0.
@@ -266,6 +290,13 @@ void XSheet::initUI()
     QWidget* content = new QWidget(this);
     mToolBar = new QToolBar(content);
     mToolBar->setIconSize(QSize(22, 22));
+    QAction* timesheet = mToolBar->addAction(tr("Timesheet"));
+    timesheet->setObjectName("actionXSheetTimesheet");
+    timesheet->setToolTip(tr("Timesheet layout: Key A-F, Dialogue, In-between A-F, Camera"));
+    timesheet->setCheckable(true);
+    timesheet->setChecked(isTimesheetLayout(editor()));
+    connect(timesheet, &QAction::toggled, this, [this](bool on) { editor()->preference()->set(SETTING::XSHEET_LAYOUT, on ? 1 : 0); });
+    mToolBar->addSeparator();
     mCells = new XSheetCells(editor(), content);
     QVBoxLayout* layout = new QVBoxLayout(content);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -284,6 +315,11 @@ void XSheet::initUI()
     connect(e->layers(), &LayerManager::currentLayerChanged, this, refresh);
     connect(e->layers(), &LayerManager::layerCountChanged, this, refresh);
     connect(e->layers(), &LayerManager::animationLengthChanged, this, refresh);
+    connect(e->preference(), &PreferenceManager::optionChanged, this, [this, timesheet](SETTING s) {
+        if (s != SETTING::XSHEET_LAYOUT) { return; }
+        timesheet->setChecked(isTimesheetLayout(editor()));
+        updateUI();
+    });
 }
 
 void XSheet::updateUI()

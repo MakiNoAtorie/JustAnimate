@@ -5,6 +5,22 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The last storyboard panel's Time is editable: it sets a saved project length, so the Drawing holds that long in playback and every export; one undo step (#211).
+- Layers that share a Timesheet column all show, side by side bottom-up, in the X-sheet Panel and the Timesheet export (#209, #210).
+- The Timesheet layout of the X-sheet Panel shows every fixed column, Key A to Camera, with empty columns that take no edits (#209).
+- Page exports: B4 now means JIS B4 (257 x 364 mm), the Japanese studio size (#208, #210).
+- Paper template: OK in the dialog records one undo step per changed field (#207).
+- The Welcome dialog remembers the last template you started from and preselects it next time (#206).
+- The Palette Panel menu has a "Built-in Palettes" submenu listing Default and Genga; each loads in one step, asking first when the palette is in use (#205).
+- v1.4 review fixes: the Paper template sheet follows the camera move and stays clear of the camera dimming, NOTES holds three lines, page exports keep the old files when a write fails, the export messages name the missing layer, and Load Genga palette asks to save (#204).
+- File > Export > Timesheet... writes the timesheet as A4 or B4 portrait sheets (PDF or PNG), 144 frames each in two 72-frame halves, with TITLE from the Title block, SCENE, SHOT, ANIMATOR, TIME in seconds+frames and SHEET NO. n / N (#210).
+- File > Export > On Paper... writes a frame range as Paper template sheets with the Title block, one page per frame, as PDF or PNG on A4 or B4 landscape; the command line does the same with `--paper A4|B4` (#208).
+- Palette Panel right-click > Load Genga palette: Main line (black), Shadow line (red), Highlight line (blue) and Second shadow line (green); asks first when strokes use the old palette (#205).
+- New project templates Anime 1080p and Anime 720p: 24 fps with the camera frame set to the size (#206).
+- View > Paper Template draws a genga sheet with a Title block (TITLE, ID, NAME, STATE, DATE, NOTES) around the camera frame; saved with the project, one undo step per edit, never in image or movie exports (#207).
+- X-sheet Timesheet layout (X-sheet toolbar > Timesheet): Keyframe A-F, Dialogue, In-between A-F and Camera columns; set a layer's column from its menu (#209).
+- Storyboard layer (layer menu): each Drawing is a storyboard panel; the Storyboard Panel lists the panels with Scene, Cut, Notes, Audio and Time (seconds+frames, its Exposure), edits them with undo and jumps to a panel (#211).
+- File > Export > Storyboard... writes the first Storyboard layer as A4 portrait pages of five panels (S, C, PICTURE, NOTES, AUDIO, TIME in seconds+frames) with PRODUCTION from the Paper template TITLE and PAGE n / N, as PDF or PNG (#212).
 - Sound: removing a sound while it still loads no longer sometimes crashes the app on Linux.
 - Shift and Trace (View > Onion Skin, Shift+T): drag handles to move and rotate each onion skin in the view to trace an inbetween; Drawings stay unchanged and the offsets clear on a frame change (#195).
 - A pen tap on a menu, context menu or combo box no longer opens and closes it at once: the app drops the second mouse press a tablet driver sends for the same tap (#203).

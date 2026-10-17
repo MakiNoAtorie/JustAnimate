@@ -233,7 +233,9 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     to->setVisible(from->visible());
     to->setOnionSkin(from->onionSkin());
     to->setRough(from->isRough());
+    to->setStoryboard(from->isStoryboard());
     to->setLockAll(from->lockAll());
+    to->setTimesheetColumn(from->timesheetColumn());
     if (to->type() == Layer::BITMAP)
     {
         static_cast<LayerBitmap*>(to)->setLockAlpha(static_cast<LayerBitmap*>(from)->lockAlpha());
@@ -481,6 +483,47 @@ void LayerManager::setRough(Layer* layer, bool rough)
     layer->setRough(rough);
     editor()->undoRedo()->recordLayerRough(layer->id(), rough, tr("Rough Layer"));
     notifyLayerChanged(layer);
+}
+
+void LayerManager::setTimesheetColumn(Layer* layer, TimesheetColumn column)
+{
+    if (layer == nullptr || layer->timesheetColumn() == column) { return; }
+    const TimesheetColumn old = layer->timesheetColumn();
+    layer->setTimesheetColumn(column);
+    editor()->undoRedo()->recordLayerTimesheet(layer->id(), old, column, tr("Timesheet Column"));
+    notifyLayerChanged(layer);
+}
+
+bool LayerManager::setSceneLength(int length)
+{
+    const int old = object()->sceneLength();
+    if (length < 0 || length > MaxFramesBound || length == old) { return false; }
+    object()->setSceneLength(length);
+    editor()->undoRedo()->recordSceneLength(old, length, tr("Project Length"));
+    object()->modification();
+    notifyAnimationLengthChanged();
+    emit editor()->updateTimeLine();
+    return true;
+}
+
+void LayerManager::setStoryboard(Layer* layer, bool storyboard)
+{
+    if (layer == nullptr || layer->isStoryboard() == storyboard) { return; }
+    layer->setStoryboard(storyboard);
+    editor()->undoRedo()->recordLayerStoryboard(layer->id(), storyboard, tr("Storyboard Layer"));
+    notifyLayerChanged(layer);
+}
+
+bool LayerManager::setPanelFields(Layer* layer, int frame, const PanelFields& fields)
+{
+    KeyFrame* key = layer ? layer->getLastKeyFrameAtPosition(frame) : nullptr;
+    if (key == nullptr || key->panelFields() == fields || editor()->refusesEdit(layer)) { return false; }
+    const PanelFields before = key->panelFields();
+    key->setPanelFields(fields);
+    editor()->undoRedo()->recordPanelFields(layer->id(), key->pos(), before, fields, tr("Panel Field"));
+    object()->modification();
+    emit editor()->frameModified(key->pos());
+    return true;
 }
 
 // Moves layers [lo, hi] so the first lands at index t of the list without them.
@@ -791,7 +834,7 @@ int LayerManager::animationLength(bool includeSounds)
             }
         }
     }
-    return maxFrame;
+    return qMax(maxFrame, o->sceneLength());
 }
 
 void LayerManager::notifyAnimationLengthChanged()

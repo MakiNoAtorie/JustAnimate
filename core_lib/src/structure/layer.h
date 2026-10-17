@@ -34,6 +34,10 @@ class Status;
 
 typedef std::function<void()> ProgressCallback;
 
+/** A layer's Timesheet column, in sheet order. Default resolves through effectiveTimesheetColumn (object.h). */
+enum class TimesheetColumn { Default, KeyA, KeyB, KeyC, KeyD, KeyE, KeyF, Dialogue,
+                             InbetweenA, InbetweenB, InbetweenC, InbetweenD, InbetweenE, InbetweenF, Camera };
+
 class Layer
 {
     Q_DECLARE_TR_FUNCTIONS(Layer)
@@ -69,9 +73,29 @@ public:
     /** A Rough layer paints tinted and faded on the canvas and never exports. */
     bool isRough() const { return mRough; }
     void setRough(bool b) { mRough = b; }
+    /** On a Storyboard layer each Drawing is a storyboard panel; its Exposure is the panel Time. */
+    bool isStoryboard() const { return mStoryboard; }
+    void setStoryboard(bool b) { mStoryboard = b; }
     /** A lock-all layer refuses every edit; see Editor::refusesEdit. */
     bool lockAll() const { return mLockAll; }
     void setLockAll(bool b) { mLockAll = b; }
+    /** The column chosen for this layer on the Timesheet; Default when none is chosen. */
+    TimesheetColumn timesheetColumn() const { return mTimesheetColumn; }
+    void setTimesheetColumn(TimesheetColumn c) { mTimesheetColumn = c; }
+    /** The user-visible name of a Timesheet column, such as "Key A". */
+    static QString timesheetColumnName(TimesheetColumn column);
+
+    /** One Drawing's cells: its first and last frame, its number on the layer, its Mark and whether it is linked. */
+    struct Run
+    {
+        int first;
+        int last;
+        int number;
+        Mark mark;
+        bool linked;
+    };
+    /** The Drawings of this layer; the last one runs to `sceneLength`, a sound clip to its own end. */
+    QList<Run> runs(int sceneLength) const;
     /** Id of the LayerGroup in Object that holds this layer, 0 for none */
     int groupId() const { return mGroupId; }
     void setGroupId(int groupId) { mGroupId = groupId; }
@@ -223,7 +247,9 @@ private:
     bool       mOnionSkin = true;
     BlendMode  mBlendMode = BlendMode::Normal;
     bool       mRough = false;
+    bool       mStoryboard = false;
     bool       mLockAll = false;
+    TimesheetColumn mTimesheetColumn = TimesheetColumn::Default;
     int mGroupId = 0;
     QString    mName;
 

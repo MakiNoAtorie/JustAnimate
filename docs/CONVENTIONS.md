@@ -20,9 +20,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - CI runs the suite in random order (rerun: `--order rand --rng-seed
   <run number>`) under ASan, UBSan and LSan; third-party leaks go in
   `tools/lsan.supp`.
-- Windows: `tools\build-test.cmd ["exact test name" | [tag]]` (from
-  PowerShell) runs the CI source guards, builds and runs the suite
-  offscreen; a bare `pencil2d_tests.exe` uses the desktop theme.
+- Windows: `tools\build-test.cmd ["test name" | [tag]]` runs the CI
+  source guards and the suite offscreen.
 - Keep each file's line endings (`git ls-files --eol`); Git Bash `sed -i`
   drops CRLF. Commit with `git commit -F <file>` (UTF-8, no BOM).
 
@@ -40,13 +39,13 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   what they change and set up what they read.
 - No QtTest: count signals with a lambda `connect`. Tool tests send
   `QTabletEvent`s at `view()->mapCanvasToScreen()`; paint checks call
-  `grab()` on a shown area; sizes compare to a `sizeHint` (styles differ
+  `grab()` on a shown area (offscreen glyphs are boxes); sizes compare
+  to a `sizeHint` (styles differ
   by OS). Timing: `QEvent::setTimestamp`, no sleeps. `Status` in `((...))`.
 - Tests write files only under their own `QTemporaryDir`.
 - Fixtures are stack objects or `unique_ptr`; every `new` QObject in app
   code gets a parent.
-- No modal dialog in a test path: put the logic in helpers the test can
-  call. Command-line paths never prompt.
+- No modal dialog in a test path or on the command line.
 - A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
   on Windows.
 - Golden values change only in a commit that means to change output.
@@ -90,8 +89,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
   `loadPrefs` and `set()` in `preferencemanager.cpp`. A renamed setting
   migrates the old key once, only while the new key is absent.
-- Read `docs/brush-engine.md` before you edit `dabtool.*`, `tiledbuffer.*`,
-  `stroketool.*`, `toolproperties.h`, `brushpresets.*` or the preset UI.
+- Read `docs/brush-engine.md` before editing dab, tiled-buffer, stroke,
+  tool-property or brush-preset code.
 - Bitmap shape and path strokes go through `DabTool::dabPath`. A tool
   subclass skips its base's legacy settings migration. A tool that uses
   Shift or Alt clears `mQuickSizingProperties`. A vector fill from a new
@@ -103,9 +102,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - New app files go in `app/app.cmake` only. A new `ToolType` goes before
   `TOOL_TYPE_COUNT` with a `BaseTool::TypeName`, a `StatusBar` icon and an
   `initGroups` entry.
-- Speed-ups: Release `benchmark`, before/after on one machine, numbers in
-  the commit.
-  Caches match `CanvasPainter::paint` pixel for pixel and clear on
+- Speed-ups: Release `benchmark` numbers in the commit. Caches match
+  `CanvasPainter::paint` pixel for pixel and clear on
   modification signals; reuse `LayerCellCache`/`layersKey`; output-changing
   settings join `invalidateAllCache`. A cache that survives a scrub is keyed
   by content and carries a golden hash.
@@ -127,6 +125,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   a layer gets a player from `SoundManager::processSound`; taking a layer
   out stops its clips. A missing clip file never fails save or export: skip
   and warn.
+- Page exports: painters in `paperpainter.*`, files via `writePages`.
+- Camera-frame overlays apply `getViewAtFrame(frame)`.
+- Non-QObject text: `QCoreApplication::translate` on literals.
 - User-visible strings go through `tr()`.
 - Colours come from the palette (Accent = `Highlight`), never hex; icons
   from `Theme::icon`.

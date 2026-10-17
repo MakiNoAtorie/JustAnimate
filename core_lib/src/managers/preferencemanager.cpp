@@ -148,6 +148,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::ONION_PREV_COLOR,         settings.value(SETTING_ONION_PREV_COLOR,       "#ff0000").toString());
     set(SETTING::ONION_NEXT_COLOR,         settings.value(SETTING_ONION_NEXT_COLOR,       "#0000ff").toString());
     set(SETTING::LAYER_VISIBILITY,         settings.value(SETTING_LAYER_VISIBILITY,       2).toInt());
+    set(SETTING::XSHEET_LAYOUT,            settings.value(SETTING_XSHEET_LAYOUT,          0).toInt());
     set(SETTING::LAYER_VISIBILITY_THRESHOLD, settings.value(SETTING_LAYER_VISIBILITY_THRESHOLD, 0.5f).toFloat());
 
     set(SETTING::FLIP_ROLL_MSEC,           settings.value(SETTING_FLIP_ROLL_MSEC,         100).toInt());
@@ -157,6 +158,7 @@ void PreferenceManager::loadPrefs()
     set(SETTING::SOUND_SCRUB_MSEC,         settings.value(SETTING_SOUND_SCRUB_MSEC,       100).toInt());
 
     set(SETTING::LANGUAGE,                 settings.value(SETTING_LANGUAGE).toString());
+    set(SETTING::LAST_TEMPLATE,            settings.value(SETTING_LAST_TEMPLATE).toString());
     set(SETTING::PRESSURE_CURVE,           settings.value(SETTING_PRESSURE_CURVE).toString());
 }
 
@@ -239,6 +241,9 @@ void PreferenceManager::set(SETTING option, QString value)
         break;
     case SETTING::LANGUAGE:
         settings.setValue(SETTING_LANGUAGE, value);
+        break;
+    case SETTING::LAST_TEMPLATE:
+        settings.setValue(SETTING_LAST_TEMPLATE, value);
         break;
     case SETTING::PRESSURE_CURVE:
         settings.setValue(SETTING_PRESSURE_CURVE, value);
@@ -382,6 +387,9 @@ void PreferenceManager::set(SETTING option, int value)
         break;
     case SETTING::LAYER_VISIBILITY:
         settings.setValue(SETTING_LAYER_VISIBILITY, value);
+        break;
+    case SETTING::XSHEET_LAYOUT:
+        settings.setValue(SETTING_XSHEET_LAYOUT, value);
         break;
     case SETTING::CURSOR_STYLE:
         settings.setValue(SETTING_CURSOR_STYLE, value);

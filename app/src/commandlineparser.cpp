@@ -71,6 +71,12 @@ CommandLineParser::CommandLineParser() : mParser(), mInputPath(), mOutputPaths()
     QCommandLineOption transparencyOption(QStringList() << "transparency",
                                           tr("Render transparency when possible"));
     mParser.addOption(transparencyOption);
+
+    QCommandLineOption paperOption(QStringList() << "paper",
+                                   tr("Export on paper: each frame on its Paper template sheet, landscape. "
+                                      "The output file must end in .pdf or .png"),
+                                   tr("A4|B4"));
+    mParser.addOption(paperOption);
 }
 
 void CommandLineParser::process(QStringList arguments)
@@ -158,4 +164,11 @@ void CommandLineParser::process(QStringList arguments)
     mTransparency = mParser.isSet("transparency");
 
     mCamera = mParser.value("camera");
+
+    const QString paper = mParser.value("paper").toUpper();
+    if (paper == "A4" || paper == "B4") { mPaper = paper == "B4" ? PageSpec::B4 : PageSpec::A4; }
+    else if (!paper.isEmpty())
+    {
+        err << tr("Warning: paper value %1 is not A4 or B4, ignoring.").arg(mParser.value("paper")) << qEndl;
+    }
 }

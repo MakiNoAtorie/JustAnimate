@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "appinfo.h"
 
 #include <QInputDialog>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QApplication>
@@ -26,6 +27,10 @@ GNU General Public License for more details.
 #include <QFileDialog>
 #include <QElapsedTimer>
 #include <QKeyEvent>
+#include <QComboBox>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QSpinBox>
 
 #include "pencildef.h"
 #include "editor.h"
@@ -49,6 +54,8 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 #include "soundclip.h"
 #include "camera.h"
+#include "pagewriter.h"
+#include "paperpainter.h"
 
 #include "importimageseqdialog.h"
 #include "importpositiondialog.h"
@@ -630,6 +637,122 @@ Status ActionCommands::exportImage()
         return st;
     }
     return Status::OK;
+}
+
+namespace
+{
+// Asks where to save, writes the pages and shows any error. Shared by the three page exports.
+Status savePages(QWidget* parent, const QString& title, const PageSpec& spec, int pageCount, const PagePaintFn& paint)
+{
+    const QString path = QFileDialog::getSaveFileName(parent, title, QString(), ActionCommands::tr("PDF (*.pdf);;PNG pages (*.png)"));
+    if (path.isEmpty()) { return Status::SAFE; }
+    const Status st = writePages(path, spec, pageCount, paint);
+    if (!st.ok())
+    {
+        ErrorDialog errorDialog(st.title(), st.description(), st.details().html(), parent);
+        errorDialog.exec();
+    }
+    return st;
+}
+} // namespace
+
+Status ActionCommands::exportOnPaper()
+{
+    const std::vector<LayerCamera*> cameras = mEditor->object()->getLayersByType<LayerCamera>();
+    if (cameras.empty())
+    {
+        QMessageBox::information(mParent, tr("Export on Paper"), tr("Add a camera layer first: the pages show its frame."));
+        return Status::SAFE;
+    }
+    QDialog dialog(mParent);
+    dialog.setWindowTitle(tr("Export on Paper"));
+    auto form = new QFormLayout(&dialog);
+    auto size = new QComboBox(&dialog);
+    size->addItems({ tr("A4 landscape"), tr("B4 landscape") });
+    auto camera = new QComboBox(&dialog);
+    for (const LayerCamera* layer : cameras)
+    {
+        camera->addItem(layer->name());
+        if (layer == mEditor->layers()->currentLayer()) { camera->setCurrentIndex(camera->count() - 1); }
+    }
+    const int length = std::max(1, mEditor->layers()->animationLength());
+    auto from = new QSpinBox(&dialog);
+    auto to = new QSpinBox(&dialog);
+    from->setRange(1, 9999);
+    to->setRange(1, 9999);
+    from->setValue(1);
+    to->setValue(length);
+    auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    form->addRow(tr("Paper:"), size);
+    form->addRow(tr("Camera:"), camera);
+    form->addRow(tr("From frame:"), from);
+    form->addRow(tr("To frame:"), to);
+    form->addRow(buttons);
+    if (dialog.exec() != QDialog::Accepted) { return Status::SAFE; }
+
+    PageSpec spec;
+    spec.size = size->currentIndex() == 1 ? PageSpec::B4 : PageSpec::A4;
+    const int first = std::min(from->value(), to->value());
+    return savePages(mParent, tr("Export on Paper"), spec, std::abs(to->value() - from->value()) + 1,
+                     paperFramePages(*mEditor->object(), *cameras[camera->currentIndex()], first));
+}
+
+Status ActionCommands::exportStoryboard()
+{
+    const Object* object = mEditor->object();
+    const Layer* board = nullptr;
+    for (int i = 0; i < object->getLayerCount() && board == nullptr; ++i)
+    {
+        if (object->getLayer(i)->isStoryboard()) { board = object->getLayer(i); }
+    }
+    const std::vector<LayerCamera*> cameras = object->getLayersByType<LayerCamera>();
+    if (board == nullptr || cameras.empty())
+    {
+        QMessageBox::information(mParent, tr("Export Storyboard"),
+                                 board == nullptr ? tr("Make a layer a Storyboard layer first (layer menu).")
+                                                  : tr("Add a camera layer first: the pictures show its frame."));
+        return Status::SAFE;
+    }
+    QList<QPair<int, int>> panels;
+    for (const Layer::Run& run : board->runs(mEditor->layers()->animationLength())) { panels << qMakePair(run.first, run.last); }
+    PageSpec spec;
+    spec.orientation = QPageLayout::Portrait;
+    return savePages(mParent, tr("Export Storyboard"), spec, storyboardPageCount(panels.size()),
+                     storyboardPages(*object, *board, *cameras.front(), panels, mEditor->playback()->fps()));
+}
+
+Status ActionCommands::exportTimesheet()
+{
+    QDialog dialog(mParent);
+    dialog.setWindowTitle(tr("Export Timesheet"));
+    auto form = new QFormLayout(&dialog);
+    auto size = new QComboBox(&dialog);
+    size->addItems({ tr("A4 portrait"), tr("B4 portrait") });
+    auto scene = new QLineEdit(&dialog);
+    auto shot = new QLineEdit(&dialog);
+    auto animator = new QLineEdit(&dialog);
+    auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    form->addRow(tr("Paper:"), size);
+    form->addRow(tr("Scene:"), scene);
+    form->addRow(tr("Shot:"), shot);
+    form->addRow(tr("Animator:"), animator);
+    form->addRow(buttons);
+    if (dialog.exec() != QDialog::Accepted) { return Status::SAFE; }
+
+    PageSpec spec;
+    spec.size = size->currentIndex() == 1 ? PageSpec::B4 : PageSpec::A4;
+    spec.orientation = QPageLayout::Portrait;
+    TimesheetInfo info; // TITLE comes from the Title block
+    info.scene = scene->text();
+    info.shot = shot->text();
+    info.animator = animator->text();
+    info.length = std::max(1, mEditor->layers()->animationLength());
+    info.fps = mEditor->playback()->fps();
+    return savePages(mParent, tr("Export Timesheet"), spec, timesheetSheetCount(info.length), timesheetPages(*mEditor->object(), info));
 }
 
 void ActionCommands::flipSelectionX()
