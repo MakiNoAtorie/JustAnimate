@@ -464,12 +464,16 @@ bool Object::canSwapLayers(int layerIndexLeft, int layerIndexRight) const
 
 bool Object::canDeleteLayer(int index) const
 {
-    // We expect the first camera layer to be at the bottom and this layer must not be deleted!
+    // The first camera layer sits at the bottom and is the last camera in a new project.
     if (index == 0) {
         return false;
     }
 
     if (mLayers.at(index) == nullptr)
+    {
+        return false;
+    }
+    if (mLayers.at(index)->type() == Layer::CAMERA && getLayersByType<LayerCamera>().size() == 1)
     {
         return false;
     }

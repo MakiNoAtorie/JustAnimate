@@ -1816,6 +1816,7 @@ void MainWindow2::makeConnections(Editor* pEditor, TimeLine* pTimeline)
     connect(pEditor, &Editor::updateTimeLineCached, pTimeline, &TimeLine::updateUICached);
 
     connect(pEditor->layers(), &LayerManager::currentLayerChanged, this, &MainWindow2::updateLayerMenu);
+    connect(pEditor->layers(), &LayerManager::layerCountChanged, this, &MainWindow2::updateLayerMenu);
 }
 
 void MainWindow2::makeConnections(Editor*, OnionSkinWidget*)

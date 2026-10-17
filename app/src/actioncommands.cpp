@@ -1095,27 +1095,11 @@ Status ActionCommands::addNewSoundLayer()
 Status ActionCommands::deleteCurrentLayer()
 {
     LayerManager* layerMgr = mEditor->layers();
-    QString strLayerName = layerMgr->currentLayer()->name();
-
+    // The menu action and timeline button are disabled when this is false.
     if (!layerMgr->canDeleteLayer(mEditor->currentLayerIndex())) {
         return Status::CANCELED;
     }
-
-    int ret = QMessageBox::warning(mParent,
-                                   tr("Delete Layer", "Windows title of Delete current layer pop-up."),
-                                   tr("Are you sure you want to delete layer: %1?").arg(strLayerName),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
-    if (ret == QMessageBox::Ok)
-    {
-        Status st = layerMgr->deleteLayer(mEditor->currentLayerIndex());
-        if (st == Status::ERROR_NEED_AT_LEAST_ONE_CAMERA_LAYER)
-        {
-            QMessageBox::information(mParent, "",
-                                     tr("Please keep at least one camera layer in project", "text when failed to delete camera layer"));
-        }
-    }
-    return Status::OK;
+    return layerMgr->deleteLayer(mEditor->currentLayerIndex());
 }
 
 void ActionCommands::setLayerVisibilityIndex(int index)

@@ -78,6 +78,7 @@ void TimeLine::initUI()
     addLayerButton->setToolTip(tr("Add Layer"));
 
     mLayerDeleteButton = new QToolButton(this);
+    mLayerDeleteButton->setObjectName("LayerDeleteButton");
     mLayerDeleteButton->setIcon(Theme::icon(":/icons/tabler/minus.svg"));
     mLayerDeleteButton->setToolTip(tr("Delete Layer"));
 
@@ -238,6 +239,7 @@ void TimeLine::initUI()
     LayerManager* layer = editor()->layers();
     connect(layer, &LayerManager::layerCountChanged, this, &TimeLine::updateLayerNumber);
     connect(layer, &LayerManager::currentLayerChanged, this, &TimeLine::onCurrentLayerChanged);
+    connect(layer, &LayerManager::layerCountChanged, this, &TimeLine::onCurrentLayerChanged);
     mNumLayers = layer->count();
 
     scrubbing = false;
