@@ -1157,36 +1157,13 @@ void ActionCommands::resetAllTools()
 
 void ActionCommands::help()
 {
-    QString url = UPSTREAM_DOCS_URL;
+    QString url = APP_DOCS_URL;
     QDesktopServices::openUrl(QUrl(url));
-}
-
-void ActionCommands::quickGuide()
-{
-    QString sDocPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
-    QString sCopyDest = QDir(sDocPath).filePath("pencil2d_quick_guide.pdf");
-
-    QFile quickGuideFile(":/app/pencil2d_quick_guide.pdf");
-    quickGuideFile.copy(sCopyDest);
-
-    QDesktopServices::openUrl(QUrl::fromLocalFile(sCopyDest));
 }
 
 void ActionCommands::website()
 {
     QString url = APP_REPO_URL;
-    QDesktopServices::openUrl(QUrl(url));
-}
-
-void ActionCommands::forum()
-{
-    QString url = "https://discuss.pencil2d.org/";
-    QDesktopServices::openUrl(QUrl(url));
-}
-
-void ActionCommands::discord()
-{
-    QString url = "https://discord.gg/8FxdV2g";
     QDesktopServices::openUrl(QUrl(url));
 }
 

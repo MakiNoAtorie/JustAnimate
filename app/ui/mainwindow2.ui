@@ -321,11 +321,8 @@
      <string>Help</string>
     </property>
     <addaction name="actionHelp"/>
-    <addaction name="actionQuick_Guide"/>
     <addaction name="separator"/>
     <addaction name="actionWebsite"/>
-    <addaction name="actionForum"/>
-    <addaction name="actionDiscord"/>
     <addaction name="separator"/>
     <addaction name="actionCheck_for_Updates"/>
     <addaction name="actionReport_Bug"/>
@@ -819,14 +816,6 @@
     <string>Report a Bug</string>
    </property>
   </action>
-  <action name="actionQuick_Guide">
-   <property name="text">
-    <string>Quick Reference Guide</string>
-   </property>
-   <property name="shortcut">
-    <string>F1</string>
-   </property>
-  </action>
   <action name="actionImport_AnimatedImage">
    <property name="text">
     <string>Animated Image...</string>
@@ -840,16 +829,6 @@
   <action name="actionCheck_for_Updates">
    <property name="text">
     <string>Check for Updates</string>
-   </property>
-  </action>
-  <action name="actionForum">
-   <property name="text">
-    <string>Pencil2D Community Forum</string>
-   </property>
-  </action>
-  <action name="actionDiscord">
-   <property name="text">
-    <string>Pencil2D Community Discord</string>
    </property>
   </action>
   <action name="actionZoom200">

@@ -101,10 +101,7 @@ public:
 
     // Help
     void help();
-    void quickGuide();
     void website();
-    void forum();
-    void discord();
     void reportbug();
     void checkForUpdates();
     void openTemporaryDirectory();
