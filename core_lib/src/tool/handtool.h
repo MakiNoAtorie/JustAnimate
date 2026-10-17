@@ -29,7 +29,6 @@ public:
     explicit HandTool( QObject* parent = 0 );
 
     ToolType type() const override { return HAND; }
-    ToolProperties& toolProperties() override { return mSettings; }
     void loadSettings() override;
     QCursor cursor() override;
 
@@ -47,7 +46,6 @@ private:
     bool mIsHeld = false;
     int mDeltaFactor = 1;
 
-    ToolProperties mSettings;
 };
 
 #endif

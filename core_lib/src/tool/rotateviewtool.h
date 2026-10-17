@@ -28,8 +28,6 @@ public:
     explicit RotateViewTool(QObject* parent = nullptr);
 
     ToolType type() const override { return ROTATE; }
-    ToolProperties& toolProperties() override { return mSettings; }
-    void loadSettings() override {}
     QCursor cursor() override;
 
     void pointerPressEvent(PointerEvent*) override;
@@ -38,7 +36,6 @@ public:
 
 private:
     QPointF mLastPixel;
-    ToolProperties mSettings;
 };
 
 #endif // ROTATEVIEWTOOL_H

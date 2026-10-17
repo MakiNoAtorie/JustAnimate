@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 */
 #include "catch.hpp"
+#include "basetool.h"
 #include "toolproperties.h"
 
 #include <QSettings>
@@ -152,4 +153,23 @@ TEST_CASE("ToolSettings behavior", "[ToolSettings]") {
         toolSettings.toolProperties().insertProperties(defaultProps);
         REQUIRE(toolSettings.toolProperties().isValidType(StrokeToolProperties::FEATHER_ENABLED) == false);
     }
+}
+
+namespace {
+class NoSettingsTool : public BaseTool
+{
+public:
+    NoSettingsTool() : BaseTool(nullptr) {}
+    ToolType type() const override { return ZOOM; }
+    void pointerPressEvent(PointerEvent*) override {}
+    void pointerMoveEvent(PointerEvent*) override {}
+    void pointerReleaseEvent(PointerEvent*) override {}
+};
+}
+
+TEST_CASE("A tool without settings uses the BaseTool defaults")
+{
+    NoSettingsTool tool;
+    REQUIRE(&tool.toolProperties() == &tool.toolProperties());
+    tool.loadSettings();
 }

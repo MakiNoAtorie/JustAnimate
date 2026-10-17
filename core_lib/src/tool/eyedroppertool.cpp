@@ -37,10 +37,6 @@ EyedropperTool::EyedropperTool(QObject* parent) : BaseTool(parent)
 {
 }
 
-void EyedropperTool::loadSettings()
-{
-}
-
 QCursor EyedropperTool::cursor()
 {
     return QCursor(QPixmap(":icons/general/cursor-eyedropper.svg"), 4, 16);
