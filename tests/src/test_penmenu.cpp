@@ -18,8 +18,10 @@ GNU General Public License for more details.
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMouseEvent>
 #include <QPointingDevice>
-#include <qpa/qwindowsysteminterface.h>
+#include <QTabletEvent>
+#include <QWindow>
 
 #include "duplicatepressfilter.h"
 
@@ -30,9 +32,6 @@ TEST_CASE("Pen tap on a menu bar entry leaves the menu open", "[PenMenu]")
 {
     DuplicatePressFilter filter;
     qApp->installEventFilter(&filter);
-    // The test sends the synthesized mouse events itself, the same on every platform plugin.
-    const bool synthesize = qApp->testAttribute(Qt::AA_SynthesizeMouseForUnhandledTabletEvents);
-    qApp->setAttribute(Qt::AA_SynthesizeMouseForUnhandledTabletEvents, false);
 
     QMainWindow window;
     QMenu* menu = window.menuBar()->addMenu("File");
@@ -41,33 +40,41 @@ TEST_CASE("Pen tap on a menu bar entry leaves the menu open", "[PenMenu]")
     window.show();
     QApplication::processEvents();
 
-    QPointingDevice pen("pen", 4242, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
-                        QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 3);
-    QWindowSystemInterface::registerInputDevice(&pen);
-
-    QWindow* w = window.windowHandle();
+    const QPointingDevice pen("pen", 4242, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
+                              QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 3);
+    const QPointingDevice* mouseDevice = QPointingDevice::primaryPointingDevice();
     const QRect r = window.menuBar()->actionGeometry(menu->menuAction());
-    const QPointF local = window.menuBar()->mapTo(&window, r.center());
-    const QPointF global = window.mapToGlobal(local);
+    const QPoint global = window.menuBar()->mapToGlobal(r.center());
 
-    auto tablet = [&](ulong t, Qt::MouseButtons b, qreal p) {
-        QWindowSystemInterface::handleTabletEvent(w, t, &pen, local, global, b, p, 0, 0, 0, 0, 0, Qt::NoModifier);
-        QApplication::processEvents();
+    // Qt delivers pointer events to the open popup's window first, else to the window under the pen.
+    auto target = [&]() {
+        QWidget* popup = QApplication::activePopupWidget();
+        return popup ? popup->windowHandle() : window.windowHandle();
+    };
+    auto tablet = [&](ulong t, QEvent::Type type, Qt::MouseButtons b, qreal p) {
+        QWindow* w = target();
+        const QPointF local = w->mapFromGlobal(global);
+        QTabletEvent e(type, &pen, local, global, p, 0, 0, 0, 0, 0, Qt::NoModifier, Qt::LeftButton, b);
+        e.setTimestamp(t);
+        QCoreApplication::sendEvent(w, &e);
     };
     auto mouse = [&](ulong t, const QPointingDevice* device, QEvent::Type type, Qt::MouseButtons b) {
-        QWindowSystemInterface::handleMouseEvent(w, t, device, local, global, b, Qt::LeftButton, type);
+        QWindow* w = target();
+        const QPointF local = w->mapFromGlobal(global);
+        QMouseEvent e(type, local, local, global, Qt::LeftButton, b, Qt::NoModifier, device);
+        e.setTimestamp(t);
+        QCoreApplication::sendEvent(w, &e);
         QApplication::processEvents();
     };
     auto penTap = [&](ulong t) {
-        tablet(t, Qt::LeftButton, 0.5);
+        tablet(t, QEvent::TabletPress, Qt::LeftButton, 0.5);
         mouse(t, &pen, QEvent::MouseButtonPress, Qt::LeftButton);
-        mouse(t + 2, QPointingDevice::primaryPointingDevice(), QEvent::MouseButtonPress, Qt::LeftButton);
-        tablet(t + 70, Qt::NoButton, 0);
+        mouse(t + 2, mouseDevice, QEvent::MouseButtonPress, Qt::LeftButton);
+        tablet(t + 70, QEvent::TabletRelease, Qt::NoButton, 0);
         mouse(t + 70, &pen, QEvent::MouseButtonRelease, Qt::NoButton);
-        mouse(t + 72, QPointingDevice::primaryPointingDevice(), QEvent::MouseButtonRelease, Qt::NoButton);
+        mouse(t + 72, mouseDevice, QEvent::MouseButtonRelease, Qt::NoButton);
     };
 
-    tablet(1000, Qt::NoButton, 0);
     penTap(1010);
     CHECK(menu->isVisible());
 
@@ -78,5 +85,4 @@ TEST_CASE("Pen tap on a menu bar entry leaves the menu open", "[PenMenu]")
     }
 
     menu->hide();
-    qApp->setAttribute(Qt::AA_SynthesizeMouseForUnhandledTabletEvents, synthesize);
 }

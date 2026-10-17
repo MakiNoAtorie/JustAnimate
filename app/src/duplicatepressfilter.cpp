@@ -21,7 +21,7 @@ GNU General Public License for more details.
 bool DuplicatePressFilter::eventFilter(QObject* obj, QEvent* e)
 {
     const QEvent::Type type = e->type();
-    if (!e->spontaneous() || !obj->isWindowType()
+    if (!obj->isWindowType()
         || (type != QEvent::MouseButtonPress && type != QEvent::MouseButtonRelease && type != QEvent::MouseButtonDblClick))
     {
         return false;
