@@ -188,7 +188,7 @@ void showMarkerMenu(Editor* editor, int layerId, int frame, const QPoint& global
     ObjectData* data = editor->object()->data();
     LayerManager* layers = editor->layers();
     const bool has = data->markers(layerId).contains(frame);
-    FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0) });
+    FrameMarker m = data->markers(layerId).value(frame, FrameMarker{ QString(), QColor(255, 140, 0) }); // palette-exempt: saved Marker colour
     QWidget* parent = QApplication::activeWindow();
 
     QMenu menu;

@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the colour guard diffs against the PR base
       - name: No UTF-8 BOM and no ponytail markers in C++ sources
         run: |
           if git ls-files -z '*.cpp' '*.h' | LC_ALL=C xargs -0 grep -l $'\xEF\xBB\xBF'; then exit 1; fi
@@ -23,6 +25,10 @@ jobs:
         run: |
           if git grep -L TEST_CASE -- 'tests/src/test_*.cpp' | grep .; then exit 1; fi
           if git grep -nE '#include\s*[<"](qpa/|private/|[^>"]*_p\.h)' -- '*.cpp' '*.h' ':!core_lib/src/external'; then exit 1; fi
+      - name: No new hard-coded UI colours
+        if: github.event_name == 'pull_request'
+        run: |
+          bash tools/check-new-colours.sh ${{ github.event.pull_request.base.sha }}
 
   build:
     strategy:

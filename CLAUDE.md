@@ -51,8 +51,10 @@ To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
   `docs/CONVENTIONS.md`, files other agents are editing in parallel.
   Implementers run local checks only. Merges land on the local integration
   branch; push it only once the previous CI run has finished (each push
-  cancels the running CI), so every push gets a full run. Read that run and
-  send a red job's error back to the implementer of that commit.
+  cancels the running CI), so every push gets a full run. Gate the push on
+  that run: `[ "$(gh run list -b <branch> -L 1 --json conclusion -q
+  '.[0].conclusion')" = success ] && git push`. Send a red job's error back
+  to the implementer of that commit, and push its fix first.
 - **Conventions:** implementers end their report with at most 10 proposed
   convention bullets; the orchestrator folds the binding ones into
   `docs/CONVENTIONS.md`. Exploration notes and container facts go in the

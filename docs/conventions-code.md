@@ -1,0 +1,90 @@
+# Code conventions
+
+Rules for every code change, read before you edit code. Same limits as
+`docs/CONVENTIONS.md`: under 8 KB, a line only when it binds future work.
+
+- Follow the ground rules and lean rules in `ROADMAP.md`.
+- File format: new XML attributes are optional; old files must still load.
+  Homes for new project data: `docs/file-format.md`.
+- Undo: every edit records through `UndoRedoManager` (`createState` after
+  `handleDrawingOnEmptyFrame()`, `record` on every path; layers through
+  `recordLayerAdd/Remove`). A gesture records once, at its end; a state it
+  never records goes to `discardState()`. A gesture that may add a Drawing
+  wraps both in `beginMacro`/`endMacroWith(state)`. Commands address frames by
+  position and keep removed layers alive. Camera key edits record as
+  `CAMERA_MODIFY`. Undo tests assert content, never selection state.
+- An unrecorded edit still emits `frameModified`, `framesModified` or
+  `layerCountChanged`, or calls `object()->modification()`.
+- Do not tell the user an action cannot be undone unless no record exists.
+- Bitmap pixels are premultiplied: `qUnpremultiply` before use as a `QColor`.
+- Untrusted files: reject the whole archive before writing anything; return
+  a failed `Status`. A bad value loads as the default; unknown tags are
+  skipped; never `Q_ASSERT` on file data or disk state.
+- A tool property getter returns the default when it is unregistered.
+- CPU-parallel loops use `parallelFor` (at most 8 threads); tasks
+  touch only their own item; signals stay on the calling thread. Never
+  `waitForDone` a shared pool. Fetch `QImage::bits()` before the loop.
+- Layer blending goes through `blendPixels`; its SIMD path stays byte-exact
+  to `blendPixelsScalar`. A key's drawing state comes only from
+  `Layer::tweenStateAt`; state that varies inside a hold joins `layersKey`
+  and skips the `ScribbleArea` frame cache.
+- Layer order and group edits: `LayerManager::commitLayerArrangement`;
+  timeline rows: `getLayerNumber`/`getLayerY`. Rendering asks
+  `Object::isLayerVisible`; group opacity applies to the composite only.
+- Saving goes through `FileManager::save` (`<name>.tmp`, renamed only on
+  success); movie export through `MovieExporter::writeThenReplace`; ffmpeg
+  pipe writes only through `executeFFMpegPipe`, bounded by `bytesToWrite()`.
+- Zip and unzip run through `FileManager::runArchiveJob` (worker thread,
+  caller emits progress). One `FileManager::save` at a time.
+- New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
+  `loadPrefs` and `set()` in `preferencemanager.cpp`. A renamed setting
+  migrates the old key once, only while the new key is absent.
+- Read `docs/brush-engine.md` before editing dab, stroke, tiled-buffer,
+  tool-property or preset code.
+- Bitmap shape and path strokes go through `DabTool::dabPath`. A tool
+  subclass skips its base's legacy settings migration. A tool that uses
+  Shift or Alt clears `mQuickSizingProperties`. A vector fill from a new
+  loop is `BezierCurve(points, false)` plus a `BezierArea`, not
+  `VectorImage::fillContour`.
+- Dark/light: `Theme::isDark()` only.
+- Dock layouts: `app/src/defaultlayout.*`; dock `objectName`s are stable;
+  a Layout change raises the version in `dropOutdatedLayouts`.
+- New app files go in `app/app.cmake` only. A new `ToolType` goes before
+  `TOOL_TYPE_COUNT` with a `BaseTool::TypeName`, a `StatusBar` icon and an
+  `initGroups` entry.
+- Speed-ups: Release `benchmark` numbers in the commit. Caches match
+  `CanvasPainter::paint` pixel for pixel and clear on
+  modification signals; reuse `LayerCellCache`/`layersKey`; output-changing
+  settings join `invalidateAllCache`. A cache that survives a scrub is keyed
+  by content and carries a golden hash.
+- Frame pool: frames over 50 from the playhead unload unless modified;
+  viewing never marks modified. Playback preloads through
+  `Object::preloadFrames`.
+- Frame selections span layers. Multi-layer edits: one `createState` per
+  layer in one `UndoMacro`; a re-time ends in one `moveKeyFrames`.
+- Snapping: viewport-px guides added in `StrokeTool::prepareInput`; ruler
+  state in `OverlayManager`, unsaved.
+- Selection transforms change only through `SelectionManager` setters; a
+  new field joins `SelectionSaveState` and `TransformCommand`. A pending
+  transform is applied in `ScribbleArea::pointerPressEvent` before any
+  drawing tool paints.
+- Stroke buffer composition: only `ScribbleArea::bufferCompositionMode()`.
+  `duplicateLayer` copies every saved layer attribute.
+- Sound: timing via `SoundClip::msAtFrame`/`waveformPeaks`; preview via
+  `PlaybackManager::startSound`; tests use `setSamples`. A clip put back in
+  a layer gets a player from `SoundManager::processSound`; taking a layer
+  out stops its clips. A missing clip file never fails save or export: skip
+  and warn.
+- Page exports: painters in `paperpainter.*`, files via `writePages`.
+- Camera-frame overlays apply `getViewAtFrame(frame)`.
+- User-visible strings go through `tr()` (`QCoreApplication::translate`
+  outside QObjects).
+- Colours come from the palette (Accent = `Highlight`), never hex (drawing
+  data: `// palette-exempt:`, checked by `tools/check-new-colours.sh`); icons
+  from `Theme::icon`.
+- Copy new `KeyFrame` fields in its copy constructor and `operator=`. Mark filter only from `PreferenceManager::markFilter()`.
+- An edit starts with `editor->refuses(layer)` (View tools exempt).
+  Refusals and notices go only through `Editor::notice`.
+- Cell, layer and easing menus: only `app/src/cellmenus.*`.
+- Linked Drawings (ADR 0001): only `linkDrawing` sets a `linkId`; a pixel
+  edit outside `KEYFRAME_MODIFY` calls `syncLinkedDrawings`.
