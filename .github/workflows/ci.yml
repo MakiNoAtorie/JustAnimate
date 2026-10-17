@@ -75,7 +75,7 @@ jobs:
         run: cmake --build build
 
       - name: Run tests
-        run: ./build/pencil2d_tests
+        run: ./build/pencil2d_tests --order rand --rng-seed ${{ github.run_number }}
 
       # Packages: a Release build with Qt and ffmpeg bundled, uploaded as a workflow artifact
       - name: Download ffmpeg (Windows)
@@ -226,4 +226,4 @@ jobs:
         run: cmake --build build-san --target pencil2d_tests
 
       - name: Run tests
-        run: ./build-san/pencil2d_tests
+        run: ./build-san/pencil2d_tests --order rand --rng-seed ${{ github.run_number }}

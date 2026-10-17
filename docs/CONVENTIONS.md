@@ -5,8 +5,7 @@ future work; delete lines that stop being true.
 
 ## Build and test
 
-Cloud sessions: `.claude/hooks/session-start.sh` sets up Qt 6, Ninja,
-ccache and offscreen tests.
+Cloud sessions: `.claude/hooks/session-start.sh` sets up Qt 6.
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
@@ -18,7 +17,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   started. Re-run cmake after a `*.cmake` change.
 - Warnings are the lint: CI builds with `-DJUSTANIMATE_WERROR=ON` on Qt 6.4
   (Linux) and 6.5.3, GCC, Clang and MSVC: no Qt 6.5+ API.
-- CI runs the suite with ASan, UBSan and LSan; third-party leaks go in
+- CI runs the suite in random order (rerun: `--order rand --rng-seed
+  <run number>`) under ASan, UBSan and LSan; third-party leaks go in
   `tools/lsan.supp`.
 - Windows: `tools\build-test.cmd ["exact test name" | [tag]]` (from
   PowerShell) runs the CI source guards, builds and runs the suite.
@@ -39,8 +39,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   what they change and set up what they read.
 - No QtTest: count signals with a lambda `connect`. Tool tests send
   `QTabletEvent`s at `view()->mapCanvasToScreen()`; paint checks call
-  `grab()` on a shown area. Input timing uses `QEvent::setTimestamp`, never
-  sleeps. Compare a `Status` in double parentheses.
+  `grab()` on a shown area; sizes compare to a `sizeHint` (styles differ
+  by OS). Timing: `QEvent::setTimestamp`, no sleeps. `Status` in `((...))`.
 - Tests write files only under their own `QTemporaryDir`.
 - Fixtures are stack objects or `unique_ptr`; every `new` QObject in app
   code gets a parent.
@@ -129,7 +129,6 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   a layer gets a player from `SoundManager::processSound`; taking a layer
   out stops its clips. A missing clip file never fails save or export: skip
   and warn, naming it with `LayerSound::clipLabel()`.
-- Preference tooltips: `PreferencesDialog::addTooltips()`.
 - User-visible strings go through `tr()`.
 - Colours come from the palette (Accent = `Highlight`), never hex; icons
   from `Theme::icon`.
