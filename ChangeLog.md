@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- A camera size change in Camera Properties is one undo step and marks the project modified (#221).
 - Create Inbetweens picks the easing from the tween icon menu at the cursor; the last easing is preselected and Enter accepts it (#239).
 - Reset to default leaves the Tools menu and Command search and becomes a button on Preferences > Tools that asks first (#238).
 - Preferences: both invert-zoom settings sit in one Navigation group on the General page, and the undo steps apply when you finish editing (#237).

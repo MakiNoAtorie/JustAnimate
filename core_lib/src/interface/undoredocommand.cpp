@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "soundmanager.h"
 #include "layerbitmap.h"
 #include "layervector.h"
+#include "layercamera.h"
 #include "layer.h"
 
 #include "editor.h"
@@ -814,6 +815,37 @@ void PaperTemplateCommand::apply(const PaperTemplate& paper)
     next.sheetAnimator = current.sheetAnimator;
     editor()->object()->data()->setPaperTemplate(next);
     emit editor()->framesModified();
+}
+
+CameraSizeCommand::CameraSizeCommand(int layerId, QRect before, QRect after, const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), before(before), after(after)
+{
+    setText(description);
+}
+
+void CameraSizeCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void CameraSizeCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void CameraSizeCommand::apply(QRect viewRect)
+{
+    auto layer = static_cast<LayerCamera*>(editor()->layers()->findLayerById(layerId));
+    if (layer == nullptr) { return; }
+    layer->setViewRect(viewRect);
+    editor()->object()->modification();
+    editor()->view()->forceUpdateViewTransform();
 }
 
 MarkersCommand::MarkersCommand(int layerId, const QMap<int, FrameMarker>& before, const QMap<int, FrameMarker>& after,

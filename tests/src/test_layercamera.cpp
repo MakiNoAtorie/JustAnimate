@@ -33,6 +33,9 @@ GNU General Public License for more details.
 #include <QApplication>
 #include <QPointingDevice>
 #include <QTabletEvent>
+#include <QAction>
+#include <QIcon>
+#include "undoredomanager.h"
 
 SCENARIO("Create camera keyframe with linear easing")
 {
@@ -369,4 +372,27 @@ TEST_CASE("CameraTool hover does not change the view but a drag does")
     send(QEvent::TabletMove, QPointF(20, 10), Qt::LeftButton);
     CHECK(views > 0);
     send(QEvent::TabletRelease, QPointF(20, 10), Qt::NoButton);
+}
+
+TEST_CASE("Camera size change is one undo step and marks the project modified", "[LayerCamera]")
+{
+    TestSession session;
+    LayerCamera* layer = session.object->addNewCameraLayer();
+    layer->setViewRect(QRect(-400, -300, 800, 600));
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    session.object->setModified(false);
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+    editor->layers()->setCameraSize(layer, QSize(1920, 1080));
+    CHECK(layer->getViewRect() == QRect(-960, -540, 1920, 1080));
+    CHECK(session.object->isModified());
+
+    undo->trigger();
+    CHECK(layer->getViewRect() == QRect(-400, -300, 800, 600));
+    CHECK_FALSE(undo->isEnabled());
+    redo->trigger();
+    CHECK(layer->getViewRect() == QRect(-960, -540, 1920, 1080));
 }

@@ -434,6 +434,11 @@ void UndoRedoManager::recordMarkers(int layerId, const QMap<int, FrameMarker>& b
     pushCommand(new MarkersCommand(layerId, before, object()->data()->markers(layerId), description, editor()));
 }
 
+void UndoRedoManager::recordCameraSize(int layerId, QRect before, QRect after, const QString& description)
+{
+    pushCommand(new CameraSizeCommand(layerId, before, after, description, editor()));
+}
+
 void UndoRedoManager::recordLayerTimesheet(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description)
 {
     pushCommand(new LayerTimesheetCommand(layerId, oldColumn, newColumn, description, editor()));

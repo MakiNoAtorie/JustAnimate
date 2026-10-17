@@ -425,6 +425,23 @@ private:
     QMap<int, FrameMarker> after;
 };
 
+/// Undo and redo of a camera layer size change.
+class CameraSizeCommand : public UndoRedoCommand
+{
+public:
+    CameraSizeCommand(int layerId, QRect before, QRect after, const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(QRect viewRect);
+
+    int layerId = 0;
+    QRect before;
+    QRect after;
+};
+
 /// Undo and redo of a change to the camera keys of a camera layer, by key position.
 class CameraModifyCommand : public UndoRedoCommand
 {

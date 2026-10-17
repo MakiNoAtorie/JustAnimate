@@ -20,6 +20,7 @@ GNU General Public License for more details.
 
 #include "basemanager.h"
 #include <QHash>
+#include <QSize>
 #include "layer.h"
 
 class LayerBitmap;
@@ -72,6 +73,8 @@ public:
     void setStoryboard(Layer* layer, bool storyboard);
     /** Sets the saved project length (0 unsets it), one undo step. Returns false when nothing changed or the length is out of range. */
     bool setSceneLength(int length);
+    /** Sets the camera layer size, centred on the origin, as one undo step. Marks the project modified. */
+    void setCameraSize(LayerCamera* layer, QSize size);
     /** Sets the Panel fields of the layer's Drawing shown at `frame`. One undo step.
      *  Returns false when nothing changes: no Drawing at `frame`, the same fields, or a refused edit. */
     bool setPanelFields(Layer* layer, int frame, const PanelFields& fields);

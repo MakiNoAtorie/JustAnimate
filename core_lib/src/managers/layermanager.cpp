@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layercamera.h"
 #include "undoredomanager.h"
+#include "viewmanager.h"
 #include "bitmapimage.h"
 #include "vectorimage.h"
 #include "cameraeasingtype.h"
@@ -504,6 +505,17 @@ bool LayerManager::setSceneLength(int length)
     notifyAnimationLengthChanged();
     emit editor()->updateTimeLine();
     return true;
+}
+
+void LayerManager::setCameraSize(LayerCamera* layer, QSize size)
+{
+    const QRect old = layer->getViewRect();
+    const QRect rect(-size.width() / 2, -size.height() / 2, size.width(), size.height());
+    if (rect == old) { return; }
+    layer->setViewRect(rect);
+    editor()->undoRedo()->recordCameraSize(layer->id(), old, rect, tr("Camera Size"));
+    object()->modification();
+    editor()->view()->forceUpdateViewTransform();
 }
 
 void LayerManager::setStoryboard(Layer* layer, bool storyboard)

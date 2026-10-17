@@ -1469,8 +1469,7 @@ void TimeLineCells::editLayerProperties(LayerCamera* cameraLayer) const
     QSettings& settings = pencilSettings();
     settings.setValue(SETTING_FIELD_W, dialog.getWidth());
     settings.setValue(SETTING_FIELD_H, dialog.getHeight());
-    cameraLayer->setViewRect(QRect(-dialog.getWidth() / 2, -dialog.getHeight() / 2, dialog.getWidth(), dialog.getHeight()));
-    mEditor->view()->forceUpdateViewTransform();
+    mEditor->layers()->setCameraSize(cameraLayer, QSize(dialog.getWidth(), dialog.getHeight()));
 }
 
 void TimeLineCells::startRename(Layer* layer)
