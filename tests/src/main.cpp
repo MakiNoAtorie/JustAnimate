@@ -18,11 +18,68 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QApplication>
+#include <QDialog>
+#include <QElapsedTimer>
+#include <QPointer>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <cstring>
 
 #include "pencilsettings.h"
+
+// Hooks for test_harness.cpp: a quiet watchdog counts a modal it closes but does not fail the test.
+bool gModalWatchdogQuiet = false;
+int gModalWatchdogHits = 0;
+QString gModalWatchdogLast;
+
+namespace {
+// A modal left open fails its test after 2 s instead of hanging the suite. The timer fires only in the nested loop of the modal.
+class ModalWatchdog : public Catch::TestEventListenerBase
+{
+public:
+    explicit ModalWatchdog(Catch::ReporterConfig const& config) : TestEventListenerBase(config)
+    {
+        QObject::connect(&mTimer, &QTimer::timeout, [this] { check(); });
+    }
+    void testCaseStarting(Catch::TestCaseInfo const& info) override
+    {
+        TestEventListenerBase::testCaseStarting(info);
+        mSeen = nullptr;
+        mTimer.start(200);
+    }
+    void testCaseEnded(Catch::TestCaseStats const& stats) override
+    {
+        mTimer.stop();
+        TestEventListenerBase::testCaseEnded(stats);
+    }
+
+private:
+    void check()
+    {
+        QWidget* modal = QApplication::activeModalWidget();
+        if (modal != mSeen)
+        {
+            mSeen = modal;
+            mSince.start();
+            return;
+        }
+        if (!modal || mSince.elapsed() < 2000) { return; }
+        gModalWatchdogLast = QString("Modal %1 \"%2\" left open for 2 s; the watchdog closed it")
+            .arg(modal->metaObject()->className(), modal->windowTitle());
+        ++gModalWatchdogHits;
+        if (!gModalWatchdogQuiet) { FAIL_CHECK(gModalWatchdogLast.toStdString()); }
+        if (auto* dialog = qobject_cast<QDialog*>(modal)) { dialog->reject(); }
+        else { modal->close(); }
+        mSeen = nullptr;
+    }
+
+    QTimer mTimer;
+    QPointer<QWidget> mSeen;
+    QElapsedTimer mSince;
+};
+}
+CATCH_REGISTER_LISTENER(ModalWatchdog)
 
 int crashAfterAutosave(bool thenSave); // test_emergencysave.cpp
 
