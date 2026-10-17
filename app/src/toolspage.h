@@ -43,7 +43,6 @@ public slots:
     void quickSizingChange(int);
     void setRotationIncrement(int);
     void rotationIncrementChange(int);
-    void invertZoomDirectionChange(int);
 private:
     Ui::ToolsPage* ui = nullptr;
     PreferenceManager* mManager = nullptr;

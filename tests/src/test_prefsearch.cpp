@@ -4,8 +4,16 @@
 #include "preferencesdialog.h"
 #include "shortcutspage.h"
 #include "pencilsettings.h"
+#include "editor.h"
+#include "preferencemanager.h"
+#include "testfixture.h"
 
+#include <QApplication>
 #include <QLabel>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QSpinBox>
+#include <QTimer>
 #include <QStandardItemModel>
 #include <QTreeView>
 
@@ -60,4 +68,33 @@ TEST_CASE("Shortcuts page names the Layout commands with Glossary terms", "[Pref
     CHECK(page.filter("Lock Panels"));
     CHECK_FALSE(page.filter("Reset Windows"));
     CHECK_FALSE(page.filter("Lock Windows"));
+}
+TEST_CASE("Preferences - undo steps apply when editing finishes after one confirmation", "[PrefSearch]")
+{
+    const SettingsGuard guard({ SETTING_UNDO_REDO_MAX_STEPS });
+    Editor editor;
+    PreferenceManager prefs(&editor);
+    prefs.loadPrefs();
+    prefs.set(SETTING::UNDO_REDO_MAX_STEPS, 100);
+    PreferencesDialog dialog(nullptr);
+    dialog.init(&prefs);
+    auto* box = dialog.findChild<QSpinBox*>("undoStepsBox");
+    REQUIRE(box);
+    CHECK_FALSE(dialog.findChild<QPushButton*>("undoRedoGroupApplyButton"));
+
+    int asked = 0;
+    QTimer answer;
+    QObject::connect(&answer, &QTimer::timeout, [&asked] {
+        if (auto* m = qobject_cast<QMessageBox*>(QApplication::activeModalWidget()))
+        {
+            ++asked;
+            m->button(QMessageBox::Yes)->click();
+        }
+    });
+    answer.start(0);
+    box->setValue(150);
+    CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 100);
+    emit box->editingFinished();
+    CHECK(asked == 1);
+    CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 150);
 }

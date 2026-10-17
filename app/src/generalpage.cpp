@@ -134,9 +134,6 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
         Theme::apply(Theme::saved());
     });
 
-    ui->undoRedoGroupApplyButton->setDisabled(true);
-    ui->undoRedoGroupCancelButton->setDisabled(true);
-
     auto buttonClicked = static_cast<void (QButtonGroup::*)(QAbstractButton*)>(&QButtonGroup::buttonClicked);
     auto curIndexChanged = static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged);
     auto spinValueChanged = static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged);
@@ -166,9 +163,10 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     connect(ui->gridCheckBox, &QCheckBox::stateChanged, this, &GeneralPage::gridCheckBoxStateChanged);
     connect(ui->framePoolSizeSpin, spinValueChanged, this, &GeneralPage::frameCacheNumberChanged);
     connect(ui->invertScrollDirectionBox, &QCheckBox::stateChanged, this, &GeneralPage::invertScrollDirectionBoxStateChanged);
-    connect(ui->undoStepsBox, spinValueChanged, this, &GeneralPage::undoRedoMaxStepsChanged);
-    connect(ui->undoRedoGroupApplyButton, &QPushButton::clicked, this, &GeneralPage::undoRedoApplyButtonPressed);
-    connect(ui->undoRedoGroupCancelButton, &QPushButton::clicked, this, &GeneralPage::undoRedoCancelButtonPressed);
+    connect(ui->invertZoomDirectionBox, &QCheckBox::stateChanged, this, [this](int b) {
+        mManager->set(SETTING::INVERT_DRAG_ZOOM_DIRECTION, b != Qt::Unchecked);
+    });
+    connect(ui->undoStepsBox, &QSpinBox::editingFinished, this, &GeneralPage::undoRedoMaxStepsFinished);
 }
 
 GeneralPage::~GeneralPage()
@@ -245,6 +243,7 @@ void GeneralPage::updateValues()
     ui->backgroundButtons->button(buttonIdx)->setChecked(true);
 
     ui->invertScrollDirectionBox->setChecked(mManager->isOn(SETTING::INVERT_SCROLL_ZOOM_DIRECTION));
+    ui->invertZoomDirectionBox->setChecked(mManager->isOn(SETTING::INVERT_DRAG_ZOOM_DIRECTION));
 }
 
 void GeneralPage::languageChanged(int i)
@@ -370,18 +369,7 @@ void GeneralPage::invertScrollDirectionBoxStateChanged(int b)
     mManager->set(SETTING::INVERT_SCROLL_ZOOM_DIRECTION, b != Qt::Unchecked);
 }
 
-void GeneralPage::undoRedoMaxStepsChanged()
-{
-    ui->undoRedoGroupApplyButton->setEnabled(canApplyOrCancelUndoRedoChanges());
-    ui->undoRedoGroupCancelButton->setEnabled(canApplyOrCancelUndoRedoChanges());
-}
-
-bool GeneralPage::canApplyOrCancelUndoRedoChanges() const
-{
-    return mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS) != ui->undoStepsBox->value();
-}
-
-void GeneralPage::undoRedoApplyButtonPressed()
+void GeneralPage::undoRedoMaxStepsFinished()
 {
     if (ui->undoStepsBox->value() != mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS)) {
         QMessageBox messageBox(this);
@@ -396,14 +384,4 @@ void GeneralPage::undoRedoApplyButtonPressed()
             ui->undoStepsBox->setValue(mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS));
         }
     }
-
-    ui->undoRedoGroupCancelButton->setDisabled(true);
-    ui->undoRedoGroupApplyButton->setDisabled(true);
-}
-
-void GeneralPage::undoRedoCancelButtonPressed()
-{
-    ui->undoStepsBox->setValue(mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS));
-    ui->undoRedoGroupCancelButton->setDisabled(true);
-    ui->undoRedoGroupApplyButton->setDisabled(true);
 }
