@@ -15,6 +15,7 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basewidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/bucketoptionswidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cameracontextmenu.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cellmenus.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cameraoptionswidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/camerapropertiesdialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/checkupdatesdialog.h
@@ -85,6 +86,7 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/basewidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/bucketoptionswidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cameracontextmenu.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cellmenus.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cameraoptionswidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/camerapropertiesdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/checkupdatesdialog.cpp

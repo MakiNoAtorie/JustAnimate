@@ -261,11 +261,6 @@ void TimeLine::updateUICached()
  *
  *  @param[in] frame The new animation length
  */
-void TimeLine::setMarkActions(const QList<QAction*>& actions)
-{
-    mTracks->setMarkActions(actions);
-}
-
 void TimeLine::extendLength(int frame)
 {
     int currentLength = mTracks->getFrameLength();

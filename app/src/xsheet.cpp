@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QToolBar>
 #include <QVBoxLayout>
 
+#include "cellmenus.h"
 #include "editor.h"
 #include "keyframe.h"
 #include "layer.h"
@@ -127,6 +128,11 @@ protected:
 
     void mousePressEvent(QMouseEvent* event) override
     {
+        if (event->button() == Qt::RightButton)
+        {
+            showMenu(event->pos(), event->globalPosition().toPoint());
+            return;
+        }
         const int layerIndex = layerAt(event->pos());
         if (event->button() != Qt::LeftButton || layerIndex < 0) { return; }
         mEditor->layers()->setCurrentLayer(layerIndex);
@@ -251,13 +257,31 @@ private:
 
     int frameAt(int y) const { return qMax(1, (y - kHeader + verticalScrollBar()->value()) / kRow + 1); }
 
-    /// The layer whose column holds pos, or -1 outside the cells.
-    int layerAt(const QPoint& pos) const
+    /// The layer whose column holds x, or -1 outside the columns.
+    int columnLayerAt(int x) const
     {
         const QList<Column> cols = columns();
-        const int column = (pos.x() - kFrameColumn + horizontalScrollBar()->value()) / kColumn;
-        if (pos.x() < kFrameColumn || pos.y() < kHeader || column >= cols.size()) { return -1; }
+        const int column = (x - kFrameColumn + horizontalScrollBar()->value()) / kColumn;
+        if (x < kFrameColumn || column >= cols.size()) { return -1; }
         return cols[column].layer;
+    }
+
+    /// The layer whose column holds pos, or -1 outside the cells.
+    int layerAt(const QPoint& pos) const { return pos.y() < kHeader ? -1 : columnLayerAt(pos.x()); }
+
+    /// The timeline's layer menu on a column header, its cell menu on a cell.
+    void showMenu(const QPoint& pos, const QPoint& globalPos)
+    {
+        const int layerIndex = columnLayerAt(pos.x());
+        if (layerIndex < 0) { return; }
+        Layer* layer = mEditor->object()->getLayer(layerIndex);
+        if (pos.y() < kHeader)
+        {
+            mEditor->layers()->setCurrentLayer(layerIndex);
+            CellMenus::showLayerMenu(mEditor, layer, globalPos);
+        }
+        else { CellMenus::showCellMenu(mEditor, layer, frameAt(pos.y()), globalPos); }
+        viewport()->update();
     }
 
     /// The frame whose bottom edge is under pos and ends a Drawing's Exposure, or 0.

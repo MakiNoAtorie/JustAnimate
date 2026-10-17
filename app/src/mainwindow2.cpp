@@ -581,7 +581,6 @@ void MainWindow2::createMenus()
         connect(action, &QAction::triggered, this, [this, mark = mark] { mEditor->layers()->setKeyMark(mEditor->currentFrame(), mark); });
     }
     connect(ui->actionCreate_Inbetweens, &QAction::triggered, this, &MainWindow2::createInbetweens);
-    mTimeLine->setMarkActions({ ui->actionMark_Key, ui->actionMark_Breakdown, ui->actionMark_Inbetween, ui->actionClear_Mark });
     mXSheet->setEditActions({ ui->actionAdd_Frame, ui->actionExposure_Add, ui->actionExposure_Subtract,
                               ui->actionRipple_Insert_Frame, ui->actionRipple_Delete_Frame });
 

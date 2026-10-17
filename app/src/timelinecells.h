@@ -52,8 +52,6 @@ public:
     TimeLineCells( TimeLine* parent, Editor* editor, TIMELINE_CELL_TYPE );
     ~TimeLineCells() override;
 
-    /** A small plot of the easing curve for the tween menu. */
-    static QPixmap easingPreview(CameraEasingType easing);
     static int getOffsetX() { return mOffsetX; }
     static int getOffsetY() { return mOffsetY; }
     int getLayerHeight() const { return mLayerHeight; }
@@ -62,8 +60,6 @@ public:
     int getFrameSize() const { return mFrameSize; }
 
     void setFrameLength(int n) { mFrameLength = n; }
-    /// Key, Breakdown, Inbetween, Clear Mark: the cell menu shows their text for the clicked Drawing.
-    void setMarkActions(const QList<QAction*>& actions) { mMarkActions = actions; }
     void setFrameSize(int size);
     void clearCache() { delete mCache; mCache = nullptr; }
 
@@ -113,8 +109,6 @@ private:
     int getFrameNumber(int x) const;
     /** The frame whose right edge is under pos and ends a Drawing's Exposure, or 0. */
     int exposureEdgeAt(const QPoint& pos) const;
-    void showMarkerMenu(int frame, int layerId, const QPoint& globalPos);
-    void showTweenMenu(int frame, const QPoint& globalPos);
 
     void onDidLeaveWidget();
 
@@ -141,7 +135,6 @@ private:
     int mRenameLayerId = -1;
 
     TimeLine* mTimeLine;
-    QList<QAction*> mMarkActions;
     Editor* mEditor; // the editor for which this timeLine operates
     PreferenceManager* mPrefs;
 
