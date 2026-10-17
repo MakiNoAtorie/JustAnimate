@@ -145,9 +145,9 @@ Temporary: folded into the sections above when v1.5 closes.
 - Refusals and notices (#224): `Editor::notice(const QString&, const Layer* layer = nullptr)`
   is the one path; it emits `statusMessage(text)` and, with a layer,
   `layerRefused(int layerId)`. `refusesEdit` and every refusal call it.
-  MainWindow2 shows `statusMessage` in the status bar and as a short HUD
-  note in `ScribbleArea`; the timeline flashes the row's eye (hidden) or
-  lock icon. #225, #239 and the Mark refusal use `Editor::notice`.
+  Never `emit statusMessage` directly. Hidden layers refuse through
+  `editor->refusesHidden(layer)`, before `refusesEdit`; never a dialog.
+  The HUD note connects in `ScribbleArea::init` (tests read `note()`). #225, #239 and the Mark refusal use `Editor::notice`.
 - Shared menus (#229): `app/src/cellmenus.{h,cpp}`, free functions taking
   `(Editor*, layer, frame, QPoint globalPos)`, no widget state. Its easing
   submenu builder is reused by Create Inbetweens (#239).
