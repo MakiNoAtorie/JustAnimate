@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Help > User Manual opens the JustAnimate documentation; the Pencil2D forum, Discord and Quick Reference Guide items and the bundled PDF are gone (#226).
+- The Opacity dialog records one undo step per slider release, typed value or fade; Opacity and Peg Bar Alignment come to the front when already open (#223).
 - A camera size change in Camera Properties is one undo step and marks the project modified (#221).
 - The empty Storyboard Panel explains how to make a Storyboard layer and has a button for the current layer; Layer > New Storyboard Layer and the timeline add-layer menu create one with no dialog (#240).
 - Create Inbetweens picks the easing from the tween icon menu at the cursor; the last easing is preselected and Enter accepts it (#239).

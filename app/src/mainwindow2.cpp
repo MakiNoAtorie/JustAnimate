@@ -752,9 +752,8 @@ void MainWindow2::openPegAlignDialog()
 {
     if (mPegAlign != nullptr)
     {
-        QMessageBox::information(this, nullptr,
-                                 tr("Dialog is already open!"),
-                                 QMessageBox::Ok);
+        mPegAlign->activateWindow();
+        mPegAlign->raise();
         return;
     }
 
@@ -776,9 +775,8 @@ void MainWindow2::openLayerOpacityDialog()
 {
     if (mLayerOpacityDialog != nullptr)
     {
-        QMessageBox::information(this, nullptr,
-                                 tr("Dialog is already open!"),
-                                 QMessageBox::Ok);
+        mLayerOpacityDialog->activateWindow();
+        mLayerOpacityDialog->raise();
         return;
     }
     mLayerOpacityDialog = new LayerOpacityDialog(this);

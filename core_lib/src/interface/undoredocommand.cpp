@@ -848,6 +848,43 @@ void CameraSizeCommand::apply(QRect viewRect)
     editor()->view()->forceUpdateViewTransform();
 }
 
+KeyFrameOpacityCommand::KeyFrameOpacityCommand(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after,
+                                               const QString& description, Editor* editor)
+    : UndoRedoCommand(editor), layerId(layerId), before(before), after(after)
+{
+    setText(description);
+}
+
+void KeyFrameOpacityCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void KeyFrameOpacityCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void KeyFrameOpacityCommand::apply(const QMap<int, qreal>& opacities)
+{
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    for (auto it = opacities.cbegin(); it != opacities.cend(); ++it)
+    {
+        KeyFrame* key = layer->getKeyFrameAt(it.key());
+        if (key == nullptr) { continue; }
+        key->setOpacity(it.value());
+        layer->markFrameAsDirty(it.key());
+    }
+    emit editor()->framesModified();
+}
+
 MarkersCommand::MarkersCommand(int layerId, const QMap<int, FrameMarker>& before, const QMap<int, FrameMarker>& after,
                                const QString& description, Editor* editor)
     : UndoRedoCommand(editor), layerId(layerId), before(before), after(after)

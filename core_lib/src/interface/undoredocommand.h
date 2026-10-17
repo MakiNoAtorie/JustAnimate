@@ -442,6 +442,24 @@ private:
     QRect after;
 };
 
+/// Undo and redo of a Drawing opacity change, by key position.
+class KeyFrameOpacityCommand : public UndoRedoCommand
+{
+public:
+    KeyFrameOpacityCommand(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after,
+                           const QString& description, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(const QMap<int, qreal>& opacities);
+
+    int layerId = 0;
+    QMap<int, qreal> before;
+    QMap<int, qreal> after;
+};
+
 /// Undo and redo of a change to the camera keys of a camera layer, by key position.
 class CameraModifyCommand : public UndoRedoCommand
 {

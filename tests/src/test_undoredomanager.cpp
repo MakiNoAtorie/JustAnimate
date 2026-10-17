@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include <functional>
 
 #include <QAction>
+#include <QDoubleSpinBox>
+#include <QSlider>
 #include <QApplication>
 #include <QDataStream>
 #include <QElapsedTimer>
@@ -46,6 +48,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layersound.h"
 #include "layermanager.h"
+#include "layeropacitydialog.h"
 #include "object.h"
 #include "pencildef.h"
 #include "preferencemanager.h"
@@ -1763,6 +1766,53 @@ TEST_CASE("UndoRedoManager: change line color is one undo step")
         commands.changeallKeyframeLineColor();
         checkUndoRedo("6=ffff0000 3=ffff0000 1=ffff0000");
     }
+}
+
+TEST_CASE("LayerOpacityDialog: a slider drag or a typed value is one undo step")
+{
+    TestSession session;
+    session.object->addNewCameraLayer();
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    int records = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, [&] { ++records; });
+
+    LayerOpacityDialog dialog(nullptr);
+    dialog.setCore(editor);
+    dialog.initUI();
+    QSlider* slider = dialog.findChild<QSlider*>("chooseOpacitySlider");
+    QDoubleSpinBox* spinBox = dialog.findChild<QDoubleSpinBox*>("chooseOpacitySpinBox");
+    REQUIRE(slider);
+    REQUIRE(spinBox);
+    KeyFrame* key = layer->getKeyFrameAt(1);
+    REQUIRE(key->getOpacity() == Approx(1.0));
+
+    SECTION("Slider drag")
+    {
+        slider->setSliderDown(true);
+        for (int value : { 400, 300, 200 }) { slider->setValue(value); }
+        CHECK(records == 0);
+        CHECK(key->getOpacity() == Approx(0.4));
+        slider->setSliderDown(false);
+        CHECK(records == 1);
+    }
+
+    SECTION("Typed value")
+    {
+        spinBox->setValue(40.0);
+        CHECK(records == 1);
+        CHECK(key->getOpacity() == Approx(0.4));
+    }
+
+    undoAction->trigger();
+    CHECK(key->getOpacity() == Approx(1.0));
+    CHECK_FALSE(undoAction->isEnabled());
 }
 
 TEST_CASE("ActionCommands: new Bitmap Vector and Sound layers need no dialog and undo in one step")

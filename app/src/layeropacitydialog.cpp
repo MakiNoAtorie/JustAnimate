@@ -8,6 +8,14 @@
 #include "bitmapimage.h"
 #include "layervector.h"
 #include "vectorimage.h"
+#include "undoredomanager.h"
+
+static QMap<int, qreal> keyFrameOpacities(const Layer* layer)
+{
+    QMap<int, qreal> opacities;
+    layer->foreachKeyFrame([&](KeyFrame* key) { opacities.insert(key->pos(), key->getOpacity()); });
+    return opacities;
+}
 
 
 LayerOpacityDialog::LayerOpacityDialog(QWidget *parent) :
@@ -33,6 +41,9 @@ void LayerOpacityDialog::initUI()
 {
 
     connect(ui->chooseOpacitySlider, &QSlider::valueChanged, this, &LayerOpacityDialog::opacitySliderChanged);
+    connect(ui->chooseOpacitySlider, &QSlider::sliderPressed, this, &LayerOpacityDialog::beginOpacityEdit);
+    connect(ui->chooseOpacitySlider, &QSlider::sliderReleased, this, [this] { endOpacityEdit(tr("Opacity")); });
+    ui->chooseOpacitySpinBox->setKeyboardTracking(false);
     auto spinboxValueChanged = static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged);
     connect(ui->chooseOpacitySpinBox, spinboxValueChanged, this, &LayerOpacityDialog::opacitySpinboxChanged);
     connect(ui->btnFadeIn, &QPushButton::pressed, this, &LayerOpacityDialog::fadeInPressed);
@@ -211,12 +222,35 @@ void LayerOpacityDialog::fade(OpacityFadeType fadeType)
 
 void LayerOpacityDialog::fadeInPressed()
 {
+    beginOpacityEdit();
     fade(OpacityFadeType::IN);
+    endOpacityEdit(tr("Fade In"));
 }
 
 void LayerOpacityDialog::fadeOutPressed()
 {
+    beginOpacityEdit();
     fade(OpacityFadeType::OUT);
+    endOpacityEdit(tr("Fade Out"));
+}
+
+void LayerOpacityDialog::beginOpacityEdit()
+{
+    Layer* layer = mLayerManager->currentLayer();
+    mEditLayerId = layer ? layer->id() : 0;
+    mOpacitiesBefore = layer ? keyFrameOpacities(layer) : QMap<int, qreal>();
+}
+
+void LayerOpacityDialog::endOpacityEdit(const QString& description)
+{
+    Layer* layer = mLayerManager->findLayerById(mEditLayerId);
+    if (layer == nullptr) { return; }
+    const QMap<int, qreal> after = keyFrameOpacities(layer);
+    if (after != mOpacitiesBefore)
+    {
+        mEditor->undoRedo()->recordKeyFrameOpacities(mEditLayerId, mOpacitiesBefore, after, description);
+    }
+    mEditLayerId = 0;
 }
 
 void LayerOpacityDialog::onCurrentLayerChanged(int)
@@ -283,6 +317,9 @@ void LayerOpacityDialog::updateValues(qreal opacity)
 
 void LayerOpacityDialog::opacityValueChanged()
 {
+    const bool dragging = ui->chooseOpacitySlider->isSliderDown();
+    if (!dragging) { beginOpacityEdit(); }
+
     if (ui->rbActiveKeyframe->isChecked()) {
         setOpacityForCurrentKeyframe();
     } else if (ui->rbActiveLayer->isChecked()) {
@@ -290,6 +327,8 @@ void LayerOpacityDialog::opacityValueChanged()
     } else if (ui->rbSelectedKeyframes->isChecked()) {
         setOpacityForSelectedKeyframes();
     }
+
+    if (!dragging) { endOpacityEdit(tr("Opacity")); }
 }
 
 void LayerOpacityDialog::setOpacityForCurrentKeyframe()

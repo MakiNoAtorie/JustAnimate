@@ -439,6 +439,11 @@ void UndoRedoManager::recordCameraSize(int layerId, QRect before, QRect after, c
     pushCommand(new CameraSizeCommand(layerId, before, after, description, editor()));
 }
 
+void UndoRedoManager::recordKeyFrameOpacities(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after, const QString& description)
+{
+    pushCommand(new KeyFrameOpacityCommand(layerId, before, after, description, editor()));
+}
+
 void UndoRedoManager::recordLayerTimesheet(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description)
 {
     pushCommand(new LayerTimesheetCommand(layerId, oldColumn, newColumn, description, editor()));
