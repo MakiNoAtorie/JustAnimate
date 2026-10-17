@@ -138,6 +138,35 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Linked Drawings (ADR 0001): only `linkDrawing` sets a `linkId`; a pixel
   edit outside `KEYFRAME_MODIFY` calls `syncLinkedDrawings`.
 
+## v1.5 homes
+
+Temporary: folded into the sections above when v1.5 closes.
+
+- Refusals and notices (#224): `Editor::notice(const QString&, const Layer* layer = nullptr)`
+  is the one path; it emits `statusMessage(text)` and, with a layer,
+  `layerRefused(int layerId)`. `refusesEdit` and every refusal call it.
+  MainWindow2 shows `statusMessage` in the status bar and as a short HUD
+  note in `ScribbleArea`; the timeline flashes the row's eye (hidden) or
+  lock icon. #225, #239 and the Mark refusal use `Editor::notice`.
+- Shared menus (#229): `app/src/cellmenus.{h,cpp}`, free functions taking
+  `(Editor*, layer, frame, QPoint globalPos)`, no widget state. Its easing
+  submenu builder is reused by Create Inbetweens (#239).
+- Layer creation (#227): `ActionCommands::addNew{Bitmap,Vector,Sound}Layer`
+  take no dialog; names from the existing suggestion. #240 adds
+  `ActionCommands::addNewStoryboardLayer` the same way.
+- Startup choice (#233): `SETTING::STARTUP_ACTION`, key `"StartupAction"`,
+  int: 0 Welcome screen, 1 Open the last project, 2 New project from the
+  default preset. Migrated in `loadPrefs` while absent. #234 writes it.
+- Last inbetween easing (#239): `SETTING::INBETWEEN_EASING`, key
+  `"InbetweenEasing"`, int `CameraEasingType`.
+- Timesheet export values (#231): `PaperTemplate::sheetScene`,
+  `sheetShot`, `sheetAnimator`; optional XML attributes of the same names
+  on the paper template element.
+- New undo records (#221, #222): new `UndoRedoCommand` subclasses in
+  `undoredocommand.*`, created through `UndoRedoManager`.
+- Default keys (#241): in the default keymap, plus a one-time add in
+  `pencilsettings.cpp` only while the command is unbound and the key free.
+
 ## Commits
 
 - One commit per ticket: code, test and a one-line `ChangeLog.md` entry at
