@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "layermanager.h"
 
 #include "object.h"
+#include "attributes.h"
 #include "editor.h"
 
 #include "layersound.h"
@@ -237,10 +238,7 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
     to->setStoryboard(from->isStoryboard());
     to->setLockAll(from->lockAll());
     to->setTimesheetColumn(from->timesheetColumn());
-    if (to->type() == Layer::BITMAP)
-    {
-        static_cast<LayerBitmap*>(to)->setLockAlpha(static_cast<LayerBitmap*>(from)->lockAlpha());
-    }
+    copyLayerAttributes(*from, *to);
     from->foreachKeyFrame([&](KeyFrame* key) {
         key = key->clone();
         to->addOrReplaceKeyFrame(key->pos(), key);
@@ -467,6 +465,31 @@ void LayerManager::toggleSolo(int index)
 void LayerManager::notifyLayerChanged(Layer* layer)
 {
     emit currentLayerChanged(getIndex(layer));
+}
+
+void LayerManager::setAttribute(Layer* layer, AttributeId id, const QVariant& value)
+{
+    const AttributeDescriptor& row = attribute(id);
+    if (layer == nullptr || row.scope != AttributeScope::Layer || !row.appliesTo(layer->type())) { return; }
+    const QVariant before = row.get(layer);
+    if (before == value) { return; }
+    row.set(layer, nullptr, value);
+    editor()->undoRedo()->recordAttribute(id, layer->id(), 0, before, value);
+    notifyLayerChanged(layer);
+    emit editor()->updateTimeLine();
+}
+
+bool LayerManager::setKeyAttribute(Layer* layer, int frame, AttributeId id, const QVariant& value)
+{
+    const AttributeDescriptor& row = attribute(id);
+    if (layer == nullptr || row.scope != AttributeScope::Drawing || !row.appliesTo(layer->type())) { return false; }
+    KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
+    if (key == nullptr || row.get(layer, key) == value || editor()->refusesEdit(layer)) { return false; }
+    const QVariant before = row.get(layer, key);
+    row.set(layer, key, value);
+    editor()->undoRedo()->recordAttribute(id, layer->id(), key->pos(), before, value);
+    emit editor()->frameModified(key->pos());
+    return true;
 }
 
 void LayerManager::setBlendMode(Layer* layer, BlendMode mode)

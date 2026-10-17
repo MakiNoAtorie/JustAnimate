@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include <QRectF>
 #include <QMap>
 #include <QHash>
+#include <QVariant>
 
 #include <memory>
 #include <vector>
@@ -43,6 +44,7 @@ class KeyFrame;
 class UndoRedoCommand;
 struct LayerArrangement;
 struct PaperTemplate;
+enum class AttributeId;
 struct FrameMarker;
 
 using SAVESTATE_ID = int;
@@ -185,6 +187,8 @@ public:
      *  Takes ownership of the layer, so that undo can put the same layer back. */
     void recordLayerRemove(Layer* layer, int index, const QString& description);
 
+    /** Records one attribute table edit. `frame` is the key position for a Drawing row, else 0. */
+    void recordAttribute(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after);
     /** Records that the blend mode of the layer with the given id changed from oldMode. */
     void recordLayerBlendMode(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description);
     /** Records that the layer with the given id became Rough (or stopped being Rough). */

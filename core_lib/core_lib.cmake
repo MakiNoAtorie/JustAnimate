@@ -50,6 +50,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/qminiz.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/selectionpainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/soundplayer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/attributes.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/camera.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/filemanager.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/keyframe.h
@@ -161,6 +162,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/qminiz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/selectionpainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/soundplayer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/attributes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/camera.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/filemanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/keyframe.cpp

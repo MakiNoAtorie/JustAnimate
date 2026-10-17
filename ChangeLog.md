@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Lock Transparency is undoable; it is the first row of the layer attribute table that save, load and duplicate read (#252).
 - Deleted the unused upstream name and URL macros (#251).
 - The pressure log checkbox is gone; set JUSTANIMATE_PRESSURE_LOG=1 to print each dab (#242).
 - The pen double-click uses the system double-click interval and distance instead of 500 ms and 5 px (#250).

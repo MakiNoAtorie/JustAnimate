@@ -409,6 +409,11 @@ void UndoRedoManager::recordLayerRemove(Layer* layer, int index, const QString& 
     pushCommand(new LayerAddRemoveCommand(layer->id(), layer, index, description, editor()));
 }
 
+void UndoRedoManager::recordAttribute(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after)
+{
+    pushCommand(new AttributeCommand(id, layerId, frame, before, after, editor()));
+}
+
 void UndoRedoManager::recordLayerBlendMode(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description)
 {
     pushCommand(new LayerBlendModeCommand(layerId, oldMode, newMode, description, editor()));

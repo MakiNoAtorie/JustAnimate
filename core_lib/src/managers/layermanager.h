@@ -21,12 +21,14 @@ GNU General Public License for more details.
 #include "basemanager.h"
 #include <QHash>
 #include <QSize>
+#include <QVariant>
 #include "layer.h"
 
 class LayerBitmap;
 class LayerVector;
 class LayerCamera;
 class LayerSound;
+enum class AttributeId;
 struct TweenState;
 struct LayerArrangement;
 struct FrameMarker;
@@ -66,6 +68,11 @@ public:
     void insertLayer(int index, Layer* layer);
     Status renameLayer(Layer*, const QString& newName);
     void notifyLayerChanged(Layer*);
+    /** Sets a layer-level row of the attribute table. One undo step; nothing when the value is unchanged or the row does not apply. */
+    void setAttribute(Layer* layer, AttributeId id, const QVariant& value);
+    /** Sets a Drawing-level row on the Drawing shown at `frame`. One undo step.
+     *  Returns false when nothing changes: no Drawing at `frame`, the same value, or a refused edit. */
+    bool setKeyAttribute(Layer* layer, int frame, AttributeId id, const QVariant& value);
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
     void setRough(Layer* layer, bool rough);

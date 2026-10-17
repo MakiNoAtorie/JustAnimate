@@ -279,6 +279,25 @@ private:
     Layer* detachedLayer = nullptr;
 };
 
+/// One attribute table edit: the row, where it applies, and the value before and after.
+class AttributeCommand : public UndoRedoCommand
+{
+public:
+    AttributeCommand(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after, Editor* editor);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    void apply(const QVariant& value);
+
+    AttributeId id;
+    int layerId = 0;
+    int frame = 0;
+    QVariant before;
+    QVariant after;
+};
+
 class LayerBlendModeCommand : public UndoRedoCommand
 {
 public:

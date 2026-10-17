@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layercamera.h"
 #include "layer.h"
+#include "attributes.h"
 
 #include "editor.h"
 #include "scribblearea.h"
@@ -572,6 +573,45 @@ void LayerAddRemoveCommand::detach()
 
     layers->notifyAnimationLengthChanged();
     editor()->getScribbleArea()->onLayerChanged();
+    emit editor()->updateTimeLine();
+}
+
+AttributeCommand::AttributeCommand(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after, Editor* editor)
+    : UndoRedoCommand(editor), id(id), layerId(layerId), frame(frame), before(before), after(after)
+{
+    setText(attribute(id).undoText());
+}
+
+void AttributeCommand::undo()
+{
+    UndoRedoCommand::undo();
+    apply(before);
+}
+
+void AttributeCommand::redo()
+{
+    UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
+    if (isFirstRedo()) { setFirstRedo(false); return; }
+
+    apply(after);
+}
+
+void AttributeCommand::apply(const QVariant& value)
+{
+    const AttributeDescriptor& row = attribute(id);
+    Layer* layer = editor()->layers()->findLayerById(layerId);
+    if (layer == nullptr) { return; }
+    KeyFrame* key = nullptr;
+    if (row.scope == AttributeScope::Drawing)
+    {
+        key = layer->getKeyFrameAt(frame);
+        if (key == nullptr) { return; }
+    }
+    row.set(layer, key, value);
+    if (key) { emit editor()->frameModified(frame); }
+    editor()->layers()->notifyLayerChanged(layer);
     emit editor()->updateTimeLine();
 }
 

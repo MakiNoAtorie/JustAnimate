@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QMenu>
 #include <QPainter>
 
+#include "attributes.h"
 #include "cameracontextmenu.h"
 #include "editor.h"
 #include "keyframe.h"
@@ -104,8 +105,7 @@ void showLayerMenu(Editor* editor, Layer* layer, const QPoint& globalPos)
         lockAlpha->setCheckable(true);
         lockAlpha->setChecked(bitmap->lockAlpha());
         QObject::connect(lockAlpha, &QAction::triggered, [=](bool on) {
-            bitmap->setLockAlpha(on);
-            object->modification();
+            layers->setAttribute(bitmap, AttributeId::LockAlpha, on);
         });
     }
     if (layer->isPaintable())

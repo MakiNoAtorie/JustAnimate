@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <QFile>
 #include <QSet>
 #include <iterator>
+#include "attributes.h"
 #include "keyframe.h"
 #include "util.h"
 
@@ -812,6 +813,7 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
     const char* timesheet = kTimesheetCodes[static_cast<int>(timesheetColumn())];
     if (*timesheet != '\0') { layerTag.setAttribute("timesheet", QLatin1String(timesheet)); }
     if (isStoryboard()) { layerTag.setAttribute("storyboard", 1); }
+    writeLayerAttributes(*this, layerTag);
     return layerTag;
 }
 
@@ -838,6 +840,7 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
         if (!timesheet.isEmpty() && timesheet == QLatin1String(kTimesheetCodes[i])) { setTimesheetColumn(static_cast<TimesheetColumn>(i)); }
     }
     setStoryboard(elem.attribute("storyboard") == "1");
+    readLayerAttributes(*this, elem);
 }
 
 TweenState Layer::tweenStateAt(int frame) const
