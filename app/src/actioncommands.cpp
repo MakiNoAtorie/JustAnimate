@@ -198,19 +198,7 @@ Status ActionCommands::importSound(FileType type)
         }
 
         // Create new sound layer.
-        bool ok = false;
-        QString strLayerName = QInputDialog::getText(mParent, tr("Layer Properties", "Dialog title on creating a sound layer"),
-                                                     tr("Layer name:"), QLineEdit::Normal,
-                                                     mEditor->layers()->nameSuggestLayer(tr("Sound Layer", "Default name on creating a sound layer")), &ok);
-        if (ok && !strLayerName.isEmpty())
-        {
-            Layer* newLayer = mEditor->layers()->createSoundLayer(strLayerName);
-            mEditor->layers()->setCurrentLayer(newLayer);
-        }
-        else
-        {
-            return Status::SAFE;
-        }
+        addNewSoundLayer();
     }
 
     layer = mEditor->layers()->currentLayer();
@@ -1074,27 +1062,13 @@ void ActionCommands::moveFrameBackward()
 
 Status ActionCommands::addNewBitmapLayer()
 {
-    bool ok;
-    QString text = QInputDialog::getText(nullptr, tr("Layer Properties"),
-                                         tr("Layer name:"), QLineEdit::Normal,
-                                         mEditor->layers()->nameSuggestLayer(tr("Bitmap Layer")), &ok);
-    if (ok && !text.isEmpty())
-    {
-        mEditor->layers()->createBitmapLayer(text);
-    }
+    mEditor->layers()->createBitmapLayer(mEditor->layers()->nameSuggestLayer(tr("Bitmap Layer")));
     return Status::OK;
 }
 
 Status ActionCommands::addNewVectorLayer()
 {
-    bool ok;
-    QString text = QInputDialog::getText(nullptr, tr("Layer Properties"),
-                                         tr("Layer name:"), QLineEdit::Normal,
-                                         mEditor->layers()->nameSuggestLayer(tr("Vector Layer")), &ok);
-    if (ok && !text.isEmpty())
-    {
-        mEditor->layers()->createVectorLayer(text);
-    }
+    mEditor->layers()->createVectorLayer(mEditor->layers()->nameSuggestLayer(tr("Vector Layer")));
     return Status::OK;
 }
 
@@ -1113,15 +1087,8 @@ Status ActionCommands::addNewCameraLayer()
 
 Status ActionCommands::addNewSoundLayer()
 {
-    bool ok = false;
-    QString strLayerName = QInputDialog::getText(nullptr, tr("Layer Properties"),
-                                                 tr("Layer name:"), QLineEdit::Normal,
-                                                 mEditor->layers()->nameSuggestLayer(tr("Sound Layer")), &ok);
-    if (ok && !strLayerName.isEmpty())
-    {
-        Layer* layer = mEditor->layers()->createSoundLayer(strLayerName);
-        mEditor->layers()->setCurrentLayer(layer);
-   }
+    Layer* layer = mEditor->layers()->createSoundLayer(mEditor->layers()->nameSuggestLayer(tr("Sound Layer")));
+    mEditor->layers()->setCurrentLayer(layer);
     return Status::OK;
 }
 

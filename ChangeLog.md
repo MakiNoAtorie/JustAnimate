@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Export On Paper, Export Storyboard and Export Timesheet show page progress and can be aborted between pages; an aborted export writes no files (#232).
+- New Bitmap, Vector and Sound layers are added at once with a generated name, with no name dialog; Sound import asks only for the file (#227).
 - Export Timesheet prefills Scene, Shot and Animator from the Title block and remembers the last typed values (#231).
 - Adding, editing, moving and removing a timeline Marker is one undo step each; a set Marker has Move Marker... in its menu (#222).
 - The Welcome screen has one New project row (templates, a separator, then presets), hides Recent projects while empty, and "Don't show this screen again" writes the startup choice (#234).

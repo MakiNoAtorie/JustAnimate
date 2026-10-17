@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include <QSettings>
 #include <QTabletEvent>
 #include <QTemporaryDir>
+#include <QTimer>
 
 #include "actioncommands.h"
 #include "beziercurve.h"
@@ -1761,5 +1762,42 @@ TEST_CASE("UndoRedoManager: change line color is one undo step")
     {
         commands.changeallKeyframeLineColor();
         checkUndoRedo("6=ffff0000 3=ffff0000 1=ffff0000");
+    }
+}
+
+TEST_CASE("ActionCommands: new Bitmap Vector and Sound layers need no dialog and undo in one step")
+{
+    TestSession session;
+    session.object->addNewCameraLayer();
+    session.start();
+    Editor* editor = session.editor.get();
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    // A dialog would block the test; close it so the check fails instead.
+    QTimer closer;
+    QObject::connect(&closer, &QTimer::timeout, [] { if (QWidget* w = QApplication::activeModalWidget()) { w->close(); } });
+    closer.start(0);
+
+    const struct { Layer::LAYER_TYPE type; const char* name; Status (ActionCommands::*add)(); } kinds[] = {
+        { Layer::BITMAP, "Bitmap Layer", &ActionCommands::addNewBitmapLayer },
+        { Layer::VECTOR, "Vector Layer", &ActionCommands::addNewVectorLayer },
+        { Layer::SOUND, "Sound Layer", &ActionCommands::addNewSoundLayer },
+    };
+    for (const auto& kind : kinds)
+    {
+        const int count = editor->layers()->count();
+        (commands.*kind.add)();
+        REQUIRE(editor->layers()->count() == count + 1);
+        REQUIRE(editor->layers()->currentLayer()->type() == kind.type);
+        REQUIRE(editor->layers()->currentLayer()->name() == QString(kind.name));
+        (commands.*kind.add)();
+        REQUIRE(editor->layers()->currentLayer()->name() == QString(kind.name) + " 2");
+
+        undoAction->trigger();
+        undoAction->trigger();
+        REQUIRE(editor->layers()->count() == count);
     }
 }
