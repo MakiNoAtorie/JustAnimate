@@ -20,6 +20,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movieexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_spritesheet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_inputsmoother.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_dabplacer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_attributes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_edit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_strokebuffer.cpp

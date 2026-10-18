@@ -1,8 +1,8 @@
 # Brush engine
 
 Rules for Pencil, Brush, Eraser and Smudge dabs, tips and presets. Read
-before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
-`toolproperties.h`, `brushpresets.*` or the preset dock and editor.
+before you edit `dabtool.*`, `dabplacer.*`, `smudgetool.*`, `tiledbuffer.*`,
+`stroketool.*`, `toolproperties.h`, `brushpresets.*` or the preset dock and editor.
 
 ## Strokes and dabs
 
@@ -10,21 +10,23 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
   lives only in `InputSmoother` and runs on `PointerEvent::timestamp()`,
   never a `QTimer`. Preview-only drawing goes in the tool's `paint()`
   overlay, never the tiled buffer.
-- Bitmap dabs are placed only in `DabTool::dabSegment`. Width modifiers
-  (taper, jitter) multiply `dabWidth`, never replace it. `drawStroke` may hold
-  back pen points until release; do not assume `mLastBrushPoint` is the
-  current point.
+- Bitmap dabs are placed only in `DabPlacer` (`dabplacer.*`), a pure module:
+  samples, properties and a `QRandomGenerator&` in, dabs out. `DabTool` only
+  collects samples and paints the dabs it returns. Width modifiers
+  (taper, jitter) multiply `DabPlacer::width`, never replace it. `DabPlacer::add`
+  holds back samples for the end taper until a sample that ends the stroke.
 - Pen pressure reaches dab width and opacity only through
-  `DabTool::dabWidth`/`dabOpacity`, which apply the `PressureCurve`. Read
-  settings once per press, never once per dab.
+  `DabPlacer::width`/`opacity`, which apply the `PressureCurve`. Settings
+  are read once per press (`DabPlacer::begin`), never once per dab.
 - Pen speed and tilt reach dabs only through `StrokeInterpolator::speed()`/
-  `tilt()`, stored per pending `DabTool::PenPoint`.
-- Per-dab random values come from the raw output of `DabTool::mRandom`
-  (`mt19937`), never std distributions; tests seed it with `seedRandom()`.
+  `tilt()`, stored per `DabSample`.
+- Per-dab random values come from the raw output of the placer's
+  `QRandomGenerator` (`generate()`), never std distributions; the Dab tool
+  owns it and tests seed it with `seedRandom()`.
   `sizeDynamics()` runs once per placed dab and consumes the RNG, so never
   call it from spacing or prediction.
-- Dab alpha: `DabTool::dabOpacity` is what the whole stroke reaches;
-  `spacedDabOpacity` is one dab's alpha, `1-(1-a)^(spacing/width)`, so
+- Dab alpha: `DabPlacer::opacity` is what the whole stroke reaches;
+  `spacedOpacity` is one dab's alpha, `1-(1-a)^(spacing/width)`, so
   spacing does not change darkness; flow per dab with pressure off is full
   flow, as before v0.3. Wash mode is per stroke
   (`TiledBuffer::setWashOpacity` on every press); with wash off the
@@ -72,7 +74,7 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
 - Dab shape parameters live in `BrushTip` (`tiledbuffer.h`); each adds a
   quantized field to the `DabMask` cache key. The default tip keeps the old
   fast path so golden hashes do not change. `DabTool::drawDab` takes the tip
-  from `dabTip(direction)`; subclasses pass it through unchanged.
+  read at press with the dab's angle; subclasses pass it through unchanged.
 - Grain (`BrushTip::grainMode`) is not part of the `DabMask` key:
   `TiledBuffer::grainMask` multiplies a copy of the cached mask per dab.
   Paper grain samples canvas pixels; moving grain samples pixels from the

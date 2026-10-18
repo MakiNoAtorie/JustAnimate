@@ -70,6 +70,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/soundclip.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/basetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushtool.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabplacer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabtool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/buckettool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/cameratool.h
@@ -188,6 +189,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/soundclip.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/basetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushtool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabplacer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabtool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/buckettool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/cameratool.cpp
