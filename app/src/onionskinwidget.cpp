@@ -120,15 +120,15 @@ void OnionSkinWidget::makeConnections()
     {
         connect(box, &QCheckBox::toggled, this, [this, mark = mark](bool on) {
             PreferenceManager* prefs = editor()->preference();
-            MarkFilter marks = MarkFilter::fromInt(prefs->getInt(SETTING::ONION_MARKS));
+            MarkFilter marks = MarkFilter::fromInt(prefs->get<SETTING::ONION_MARKS>());
             marks.set(mark, on);
-            prefs->set(SETTING::ONION_MARKS, marks.toInt());
+            prefs->set<SETTING::ONION_MARKS>(marks.toInt());
         });
     }
     connect(ui->onionWhilePlayback, &QCheckBox::stateChanged, this, &OnionSkinWidget::playbackStateChanged);
     connect(ui->onionSkinMultiLayer, &QCheckBox::stateChanged, this, &OnionSkinWidget::onionSkinMultipleLayersEnabled);
     connect(mFalloffBox, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, [this](int index) {
-        editor()->preference()->set(SETTING::ONION_FALLOFF, index);
+        editor()->preference()->set<SETTING::ONION_FALLOFF>(index);
     });
 
     PreferenceManager* prefs = editor()->preference();
@@ -140,24 +140,24 @@ void OnionSkinWidget::updateUI()
 {
     PreferenceManager* prefs = editor()->preference();
 
-    ui->prevFramesGroup->setChecked(prefs->isOn(SETTING::PREV_ONION));
-    ui->nextFramesGroup->setChecked(prefs->isOn(SETTING::NEXT_ONION));
+    ui->prevFramesGroup->setChecked(prefs->get<SETTING::PREV_ONION>());
+    ui->nextFramesGroup->setChecked(prefs->get<SETTING::NEXT_ONION>());
 
     QSignalBlocker b3(ui->onionBlueButton);
-    ui->onionBlueButton->setChecked(prefs->isOn(SETTING::ONION_BLUE));
+    ui->onionBlueButton->setChecked(prefs->get<SETTING::ONION_BLUE>());
 
     QSignalBlocker b4(ui->onionRedButton);
-    ui->onionRedButton->setChecked(prefs->isOn(SETTING::ONION_RED));
+    ui->onionRedButton->setChecked(prefs->get<SETTING::ONION_RED>());
 
-    ui->onionMaxOpacityBox->setValue(prefs->getInt(SETTING::ONION_MAX_OPACITY));
-    ui->onionMinOpacityBox->setValue(prefs->getInt(SETTING::ONION_MIN_OPACITY));
-    ui->onionPrevFramesNumBox->setValue(prefs->getInt(SETTING::ONION_PREV_FRAMES_NUM));
-    ui->onionNextFramesNumBox->setValue(prefs->getInt(SETTING::ONION_NEXT_FRAMES_NUM));
+    ui->onionMaxOpacityBox->setValue(prefs->get<SETTING::ONION_MAX_OPACITY>());
+    ui->onionMinOpacityBox->setValue(prefs->get<SETTING::ONION_MIN_OPACITY>());
+    ui->onionPrevFramesNumBox->setValue(prefs->get<SETTING::ONION_PREV_FRAMES_NUM>());
+    ui->onionNextFramesNumBox->setValue(prefs->get<SETTING::ONION_NEXT_FRAMES_NUM>());
 
     QSignalBlocker b5(ui->onionSkinMode);
-    const int mode = std::max(0, static_cast<int>(kModes.indexOf(prefs->getString(SETTING::ONION_TYPE))));
+    const int mode = std::max(0, static_cast<int>(kModes.indexOf(prefs->get<SETTING::ONION_TYPE>())));
     ui->onionSkinMode->setCurrentIndex(mode);
-    const MarkFilter marks = MarkFilter::fromInt(prefs->getInt(SETTING::ONION_MARKS));
+    const MarkFilter marks = MarkFilter::fromInt(prefs->get<SETTING::ONION_MARKS>());
     for (const auto& [box, mark] : markBoxes())
     {
         QSignalBlocker blocker(box);
@@ -166,13 +166,13 @@ void OnionSkinWidget::updateUI()
     }
 
     QSignalBlocker b6(ui->onionWhilePlayback);
-    ui->onionWhilePlayback->setChecked(prefs->isOn(SETTING::ONION_WHILE_PLAYBACK));
+    ui->onionWhilePlayback->setChecked(prefs->get<SETTING::ONION_WHILE_PLAYBACK>() != 0);
 
     QSignalBlocker b7(ui->onionSkinMultiLayer);
-    ui->onionSkinMultiLayer->setChecked(prefs->isOn(SETTING::ONION_MUTLIPLE_LAYERS));
+    ui->onionSkinMultiLayer->setChecked(prefs->get<SETTING::ONION_MUTLIPLE_LAYERS>());
 
     QSignalBlocker b8(mFalloffBox);
-    mFalloffBox->setCurrentIndex(prefs->getInt(SETTING::ONION_FALLOFF));
+    mFalloffBox->setCurrentIndex(prefs->get<SETTING::ONION_FALLOFF>());
 
     const auto swatch = [prefs](SETTING setting) {
         QPixmap pixmap(16, 16);
@@ -200,54 +200,54 @@ QToolButton* OnionSkinWidget::addColorButton(QLayout* layout, SETTING setting, c
 void OnionSkinWidget::prevFramesGroupClicked(bool isOn)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::PREV_ONION, isOn);
+    prefs->set<SETTING::PREV_ONION>(isOn);
 }
 
 void OnionSkinWidget::nextFramesGroupClicked(bool isOn)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::NEXT_ONION, isOn);
+    prefs->set<SETTING::NEXT_ONION>(isOn);
 }
 
 void OnionSkinWidget::onionRedButtonClicked(bool isOn)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::ONION_RED, isOn);
+    prefs->set<SETTING::ONION_RED>(isOn);
 }
 
 void OnionSkinWidget::onionBlueButtonClicked(bool isOn)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::ONION_BLUE, isOn);
+    prefs->set<SETTING::ONION_BLUE>(isOn);
 }
 
 void OnionSkinWidget::onionMaxOpacityChange(int value)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::ONION_MAX_OPACITY, value);
+    prefs->set<SETTING::ONION_MAX_OPACITY>(value);
 }
 
 void OnionSkinWidget::onionMinOpacityChange(int value)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::ONION_MIN_OPACITY, value);
+    prefs->set<SETTING::ONION_MIN_OPACITY>(value);
 }
 
 void OnionSkinWidget::onionPrevFramesNumChange(int value)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::ONION_PREV_FRAMES_NUM, value);
+    prefs->set<SETTING::ONION_PREV_FRAMES_NUM>(value);
 }
 
 void OnionSkinWidget::onionNextFramesNumChange(int value)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::ONION_NEXT_FRAMES_NUM, value);
+    prefs->set<SETTING::ONION_NEXT_FRAMES_NUM>(value);
 }
 
 void OnionSkinWidget::onionSkinModeChange(int index)
 {
-    editor()->preference()->set(SETTING::ONION_TYPE, kModes.value(index));
+    editor()->preference()->set<SETTING::ONION_TYPE>(kModes.value(index));
 }
 
 std::array<std::pair<QCheckBox*, Mark>, 3> OnionSkinWidget::markBoxes() const
@@ -258,11 +258,11 @@ std::array<std::pair<QCheckBox*, Mark>, 3> OnionSkinWidget::markBoxes() const
 void OnionSkinWidget::playbackStateChanged(int value)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::ONION_WHILE_PLAYBACK, value);
+    prefs->set<SETTING::ONION_WHILE_PLAYBACK>(value);
 }
 
 void OnionSkinWidget::onionSkinMultipleLayersEnabled(bool value)
 {
     PreferenceManager* prefs = editor()->preference();
-    prefs->set(SETTING::ONION_MUTLIPLE_LAYERS, value);
+    prefs->set<SETTING::ONION_MUTLIPLE_LAYERS>(value);
 }

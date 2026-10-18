@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <QCheckBox>
 #include <QDomDocument>
 #include <QImage>
 #include <QKeySequence>
@@ -24,6 +25,7 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layermanager.h"
 #include "onionskinpainteroptions.h"
+#include "onionskinwidget.h"
 #include "onionskinsubpainter.h"
 #include "preferencemanager.h"
 #include "testfixture.h"
@@ -256,4 +258,20 @@ TEST_CASE("A saved O on previous-only onion skin moves to the onion skin toggle"
     CHECK(settings.value("shortcuts/CmdOnionSkin").toString() == "O");
     CHECK(settings.value("shortcuts/CmdOnionSkinPrevious").toString().isEmpty());
     CHECK(settings.value("shortcuts/CmdOnionSkinNext").toString().isEmpty());
+}
+
+TEST_CASE("The onion skin panel shows a saved while-playback choice", "[OnionSkin]")
+{
+    const SettingsGuard guard({ SETTING_ONION_WHILE_PLAYBACK });
+    TestSession session;
+    REQUIRE(session.start());
+    session.editor->preference()->set(SETTING::ONION_WHILE_PLAYBACK, int(Qt::Checked));
+
+    OnionSkinWidget panel(nullptr);
+    panel.setEditor(session.editor.get());
+    panel.initUI();
+    panel.updateUI();
+    QCheckBox* whilePlayback = panel.findChild<QCheckBox*>("onionWhilePlayback");
+    REQUIRE(whilePlayback);
+    CHECK(whilePlayback->isChecked());
 }

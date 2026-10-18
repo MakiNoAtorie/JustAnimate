@@ -1,5 +1,8 @@
 #include "catch.hpp"
 
+#include <type_traits>
+#include <variant>
+#include <vector>
 #include <QSettings>
 
 #include "pencildef.h"
@@ -53,6 +56,103 @@ TEST_CASE("Preferences - an unknown startup choice loads as the Welcome screen",
         prefs.loadPrefs();
         CHECK(prefs.getInt(SETTING::STARTUP_ACTION) == STARTUP_WELCOME);
     }
+}
+
+namespace
+{
+std::vector<const char*> prefKeys()
+{
+    std::vector<const char*> keys;
+    for (const PrefRow& row : kPrefRows)
+    {
+        keys.push_back(row.key);
+        if (row.migratedFrom) { keys.push_back(row.migratedFrom); }
+    }
+    return keys;
+}
+
+template<SETTING S, typename V, typename = void> struct CanSet : std::false_type {};
+template<SETTING S, typename V>
+struct CanSet<S, V, std::void_t<decltype(std::declval<PreferenceManager&>().set<S>(std::declval<V>()))>> : std::true_type {};
+
+static_assert(CanSet<SETTING::GRID, bool>::value, "a bool row takes a bool");
+static_assert(!CanSet<SETTING::GRID, int>::value, "a bool row refuses an int");
+static_assert(!CanSet<SETTING::ONION_FALLOFF, bool>::value, "an int row refuses a bool");
+static_assert(CanSet<SETTING::CURSOR_STYLE, CursorStyle>::value, "an int row takes its enum");
+static_assert(!CanSet<SETTING::LAYER_VISIBILITY_THRESHOLD, double>::value, "a float row refuses a double");
+static_assert(CanSet<SETTING::ONION_TYPE, const char*>::value, "a string row takes text");
+static_assert(!CanSet<SETTING::ONION_TYPE, int>::value, "a string row refuses an int");
+static_assert(std::is_same_v<decltype(std::declval<PreferenceManager&>().get<SETTING::ONION_TYPE>()), QString>, "a string row reads a QString");
+}
+
+TEST_CASE("Preferences - every table row loads its default and round-trips a new value", "[Settings]")
+{
+    const std::vector<const char*> keys = prefKeys();
+    const SettingsGuard guard(keys);
+    QSettings& store = pencilSettings();
+    for (const char* key : keys) { store.remove(key); }
+
+    Editor editor;
+    PreferenceManager prefs(&editor);
+    prefs.loadPrefs();
+    CHECK(prefs.get<SETTING::ONION_MARKS>() == MarkFilter({ Mark::Key, Mark::Breakdown }).toInt());
+    for (const PrefRow& row : kPrefRows)
+    {
+        CAPTURE(row.key);
+        std::visit([&](auto def) {
+            using T = decltype(def);
+            if constexpr (std::is_same_v<T, bool>) { CHECK(prefs.isOn(row.id) == def); prefs.set(row.id, !def); }
+            else if constexpr (std::is_same_v<T, int>) { CHECK(prefs.getInt(row.id) == def); prefs.set(row.id, def + 1); }
+            else if constexpr (std::is_same_v<T, float>) { CHECK(prefs.getFloat(row.id) == def); prefs.set(row.id, def + 0.25f); }
+            else { CHECK(prefs.getString(row.id) == QString(def)); prefs.set(row.id, QString(def) + "x"); }
+        }, row.def);
+    }
+
+    PreferenceManager loaded(&editor);
+    loaded.loadPrefs();
+    for (const PrefRow& row : kPrefRows)
+    {
+        CAPTURE(row.key);
+        std::visit([&](auto def) {
+            using T = decltype(def);
+            if constexpr (std::is_same_v<T, bool>) { CHECK(loaded.isOn(row.id) == !def); CHECK(store.value(row.key).toBool() == !def); }
+            else if constexpr (std::is_same_v<T, int>) { CHECK(loaded.getInt(row.id) == def + 1); CHECK(store.value(row.key).toInt() == def + 1); }
+            else if constexpr (std::is_same_v<T, float>) { CHECK(loaded.getFloat(row.id) == def + 0.25f); CHECK(store.value(row.key).toFloat() == def + 0.25f); }
+            else { CHECK(loaded.getString(row.id) == QString(def) + "x"); CHECK(store.value(row.key).toString() == QString(def) + "x"); }
+        }, row.def);
+    }
+}
+
+TEST_CASE("Preferences - each migrated-from key moves once while the new key is absent", "[Settings]")
+{
+    const SettingsGuard guard(prefKeys());
+    QSettings& store = pencilSettings();
+    int migrated = 0;
+    for (const PrefRow& row : kPrefRows)
+    {
+        if (!row.migratedFrom) { continue; }
+        CAPTURE(row.key);
+        ++migrated;
+        for (bool old : { false, true })
+        {
+            store.remove(row.key);
+            store.setValue(row.migratedFrom, old);
+            const QVariant expected = row.migrate ? row.migrate(QVariant(old)) : QVariant(old);
+
+            Editor editor;
+            PreferenceManager prefs(&editor);
+            prefs.loadPrefs();
+            CHECK_FALSE(store.contains(row.migratedFrom));
+            CHECK(store.value(row.key).toString() == expected.toString());
+
+            store.setValue(row.migratedFrom, !old); // a stale old key no longer wins
+            PreferenceManager again(&editor);
+            again.loadPrefs();
+            CHECK_FALSE(store.contains(row.migratedFrom));
+            CHECK(store.value(row.key).toString() == expected.toString());
+        }
+    }
+    CHECK(migrated > 0);
 }
 
 TEST_CASE("Test settings stay out of the native store", "[Settings]")

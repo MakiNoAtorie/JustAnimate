@@ -18,8 +18,9 @@ GNU General Public License for more details.
 #ifndef PREFERENCEMANAGER_H
 #define PREFERENCEMANAGER_H
 
+#include <array>
 #include <bitset>
-#include <QHash>
+#include <utility>
 #include "basemanager.h"
 #include "pencildef.h"
 #include "preferencesdef.h"
@@ -51,6 +52,11 @@ public:
     int     getInt(SETTING option);
     float getFloat(SETTING option);
 
+    /// Typed access: a value of the wrong type for row S does not compile.
+    template<SETTING S> PrefType<S> get() const { return std::get<PrefType<S>>(mValues[static_cast<int>(S)]); }
+    template<SETTING S, typename V, typename = std::enable_if_t<kPrefAccepts<S, V>>>
+    void set(V&& value) { set(S, PrefType<S>(std::forward<V>(value))); }
+
     /// The Mark filter onion skin and Flip share: the saved Marks in Marked drawings mode, else one that passes every Drawing.
     MarkFilter markFilter();
     /// True when onion skin and Flip step by Drawing (absolute or Marked drawings mode), false when by frame.
@@ -60,10 +66,9 @@ signals:
     void optionChanged(SETTING e);
 
 private:
-    QHash<int, QString> mStringSet;
-    QHash<int, int> mIntegerSet;
-    QHash<int, bool> mBooleanSet;
-    QHash<int, float> mFloatingPointSet;
+    template<typename T> void store(SETTING option, T value);
+
+    std::array<PrefValue, static_cast<size_t>(SETTING::COUNT)> mValues;
 };
 
 #endif // PREFERENCEMANAGER_H

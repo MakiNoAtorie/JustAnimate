@@ -36,9 +36,9 @@ Rules for every code change, read before you edit code. Same limits as
   pipe writes only through `executeFFMpegPipe`, bounded by `bytesToWrite()`.
 - Zip and unzip run through `FileManager::runArchiveJob` (worker thread,
   caller emits progress). One `FileManager::save` at a time.
-- New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
-  `loadPrefs` and `set()` in `preferencemanager.cpp`. A renamed setting
-  migrates the old key once, only while the new key is absent.
+- New preference: enum value plus one `kPrefRows` row in
+  `preferencesdef.h` (key in `pencildef.h`). A renamed key is the row's
+  `migratedFrom`. New code reads and writes through `get<S>()`/`set<S>()`.
 - Read `docs/brush-engine.md` before editing dab, stroke, tiled-buffer,
   tool-property or preset code.
 - Bitmap shape and path strokes go through `DabTool::dabPath`. A tool
