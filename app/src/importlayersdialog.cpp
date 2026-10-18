@@ -119,7 +119,7 @@ void ImportLayersDialog::importLayersById(const QList<int>& layerIds)
         loadKeyFrames(mImportLayer); // all keyframes of this layer must be in memory
 
         object->addLayer(mImportLayer);
-        mEditor->undoRedo()->recordLayerAdd(mImportLayer->id(), tr("Import Layers"));
+        edit.recordLayerAdd(mImportLayer->id());
 
         if (mImportLayer->type() == Layer::VECTOR)
         {

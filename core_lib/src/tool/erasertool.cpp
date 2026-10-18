@@ -52,7 +52,7 @@ void EraserTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushT
     // Without feather the dab is solid and ignores opacity.
     const bool feather = get(ToolProperty::FeatherEnabled);
     const QColor dabColor = Qt::white; // palette-exempt: only the eraser dab's alpha counts
-    mBuffer.dab(point, width, feather ? get(ToolProperty::Feather) : 0, dabColor, feather ? opacity : 1.0,
+    mBuffer.dab(point, width, feather ? mFeather : 0, dabColor, feather ? opacity : 1.0,
                 get(ToolProperty::AntiAliasingEnabled) == ON, tip);
 }
 

@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Single-image export asks once before it replaces a file; brush scatter places the same dabs on macOS as on Windows and Linux (#217).
 - Every preference is read and written through its typed table row; the untyped accessors and the runtime type check are gone (#272).
 - Pen, Pencil, Brush, Shape and Polyline vector curves commit through the stroke buffer, mapped into the key's space in one place (#269).
 - Dab spacing, taper, pressure, size dynamics and scatter move into a pure dab placer that tests replay from pen samples; brush settings are read once per press (#270).

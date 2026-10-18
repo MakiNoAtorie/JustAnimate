@@ -87,8 +87,8 @@ bool ScribbleArea::init()
             connect(tool, &StrokeTool::propertyChanged, this, [this](int id) {
                 if (id == StrokeToolProperties::WIDTH_VALUE) { update(); }
             });
-            connect(&tool->buffer().tiles(), &TiledBuffer::tileUpdated, this, &ScribbleArea::onTileUpdated);
-            connect(&tool->buffer().tiles(), &TiledBuffer::tileCreated, this, &ScribbleArea::onTileCreated);
+            connect(&tool->buffer().tiles(), &TiledBuffer::tileUpdated, this, &ScribbleArea::onTileUpdated, Qt::UniqueConnection);
+            connect(&tool->buffer().tiles(), &TiledBuffer::tileCreated, this, &ScribbleArea::onTileCreated, Qt::UniqueConnection);
         }
     }
 

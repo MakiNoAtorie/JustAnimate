@@ -17,22 +17,19 @@ GNU General Public License for more details.
 #include <cmath>
 
 #include <QRandomGenerator>
-#include <QSettings>
-#include <QTemporaryDir>
 
 #include "dabplacer.h"
+#include "pencilsettings.h"
 #include "pressurecurve.h"
 #include "toolproperties.h"
 
 namespace
 {
-/// Brush defaults from an empty store.
+/// Brush defaults: the test store has no DabPlacerTest group.
 ToolProperties brushProperties()
 {
-    QTemporaryDir dir;
-    QSettings settings(dir.filePath("tools.ini"), QSettings::IniFormat);
     ToolProperties p;
-    p.loadTool(BRUSH, "DabPlacerTest", settings);
+    p.loadTool(BRUSH, "DabPlacerTest", pencilSettings());
     return p;
 }
 
@@ -115,6 +112,25 @@ TEST_CASE("DabPlacer - samples in and dabs out with a seeded random source")
             CHECK(std::abs(d.pos.y()) <= 5);
         }
     }
+}
+
+TEST_CASE("DabPlacer - scatter draws y before x so every compiler places the same dabs")
+{
+    ToolProperties p = brushProperties();
+    p.set(ToolProperty::Width, 10.0);
+    p.set(ToolProperty::PressureEnabled, false);
+    p.set(ToolProperty::Scatter, 100);
+    const PressureCurve curve;
+    QRandomGenerator random(3);
+    const QList<Dab> dabs = DabPlacer::place({ { QPointF(0, 0), 1 }, { QPointF(100, 0), 1 } }, p, curve, random);
+    REQUIRE(!dabs.isEmpty());
+
+    // Per dab: one size draw, then y, then x; the order MSVC and GCC gave before the draws were named.
+    QRandomGenerator mirror(3);
+    mirror.generate();
+    const qreal y = (mirror.generate() % 20001) / 10000.0 - 1.0;
+    // The line runs along x, so the dab's y is its scatter alone.
+    CHECK(dabs[0].pos.y() == Approx(y * 10));
 }
 
 TEST_CASE("DabPlacer - a recorded pen trace from #175 keeps every dab inside its pressure width")

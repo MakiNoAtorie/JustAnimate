@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <QTabletEvent>
 #include <QTemporaryDir>
 
+#include "framerenderer.h"
 #include "beziercurve.h"
 #include "bitmapimage.h"
 #include "brushpresets.h"
@@ -95,6 +96,24 @@ int inkWidth(BitmapImage* image)
 }
 
 } // namespace
+
+TEST_CASE("StrokeTool - every Stroke tool paints into one shared tile buffer")
+{
+    TestSession s;
+    s.start();
+    TiledBuffer* shared = nullptr;
+    int strokeTools = 0;
+    for (int t = 0; t < TOOL_TYPE_COUNT; ++t)
+    {
+        auto* tool = qobject_cast<StrokeTool*>(s.editor->tools()->getTool(static_cast<ToolType>(t)));
+        if (!tool) continue;
+        ++strokeTools;
+        if (!shared) shared = &tool->buffer().tiles();
+        INFO("tool " << t);
+        CHECK(&tool->buffer().tiles() == shared); // one tile pool and mask cache, as on master
+    }
+    CHECK(strokeTools > 1);
+}
 
 TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous stroke's")
 {
@@ -501,7 +520,7 @@ TEST_CASE("Pencil - a stroke on a translated key lands where it was drawn")
     image.fill(Qt::transparent);
     QPainter painter(&image);
     painter.setWorldTransform(QTransform::fromTranslate(100, 50));
-    s.object->paintImage(painter, 1, false, true);
+    FrameRenderer::paint(*s.object, 1, painter, { true, false });
     painter.end();
     CHECK(qAlpha(image.pixel(100, 50)) > 0);
     CHECK(qAlpha(image.pixel(140, 50)) == 0);

@@ -43,7 +43,7 @@ void SelectTool::loadSettings()
     toolProperties().loadFrom(typeName(), settings);
 
     if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
+        toolProperties().setValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
     }
 }
 

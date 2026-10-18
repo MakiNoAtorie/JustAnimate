@@ -74,11 +74,6 @@ void StrokeTool::loadSettings()
 
     QSettings& settings = pencilSettings();
     toolProperties().loadTool(type(), typeName(), settings);
-    // Older versions kept a stabilizer level in these tools' groups.
-    if (type() == PENCIL || type() == BRUSH || type() == ERASER || type() == PEN || type() == SHAPE)
-    {
-        migrateLineStabilization(settings);
-    }
     toolProperties().migrateLegacyKeys(type(), settings);
 
     mPropertyUsed.clear();
@@ -469,22 +464,6 @@ void StrokeTool::paint(QPainter& painter, const QRect& blitRect)
     mWidthCursorPainter.paint(painter, blitRect);
 
     painter.restore();
-}
-
-void StrokeTool::setLegacySmoothing(int level)
-{
-    const SmoothingPreset preset = InputSmoother::presetForLegacyLevel(level);
-    mProperties.set(ToolProperty::SmoothingMode, static_cast<int>(preset.mode));
-    mProperties.set(ToolProperty::SmoothingStrength, preset.strength);
-}
-
-void StrokeTool::migrateLineStabilization(const QSettings& settings)
-{
-    const QString oldKey = typeName() + "/LineStabilization";
-    if (settings.contains(oldKey) && !settings.contains(typeName() + "/SmoothingMode"))
-    {
-        setLegacySmoothing(settings.value(oldKey).toInt());
-    }
 }
 
 void StrokeTool::prepareInput(const QPointF& pressViewportPos)

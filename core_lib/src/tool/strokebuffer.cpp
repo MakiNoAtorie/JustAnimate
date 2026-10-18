@@ -29,7 +29,7 @@ LayerBitmap* bitmapLayer(Layer* layer)
 
 void StrokeBuffer::begin(Layer* layer, int frame, Mode mode)
 {
-    mTiles.clear();
+    mTiles->clear();
     mLayer = layer;
     mFrame = frame;
     mMode = mode;
@@ -40,19 +40,19 @@ void StrokeBuffer::dab(QPointF center, qreal width, qreal feather, QColor color,
 {
     if (mMode != Mode::Smudge)
     {
-        mTiles.drawDab(center, width, feather, color, opacity, antialiasing, tip);
+        mTiles->drawDab(center, width, feather, color, opacity, antialiasing, tip);
         return;
     }
-    if (!mTiles.isSmudging())
+    if (!mTiles->isSmudging())
     {
         LayerBitmap* layer = bitmapLayer(mLayer);
         BitmapImage* image = layer ? layer->getLastBitmapImageAtFrame(mFrame) : nullptr;
         if (image == nullptr) { return; } // the first frame can be deleted while drawing
         // Dabs land in canvas space, so the source is the key as drawn there.
         BitmapImage source = image->mapped(layer->tweenStateAt(mFrame).transform());
-        mTiles.setSmudgeSource(*source.image(), source.topLeft());
+        mTiles->setSmudgeSource(*source.image(), source.topLeft());
     }
-    mTiles.smudgeDab(center, width, feather, color, opacity, antialiasing, tip, smudge);
+    mTiles->smudgeDab(center, width, feather, color, opacity, antialiasing, tip, smudge);
 }
 
 QPainter::CompositionMode StrokeBuffer::compositionMode() const
@@ -78,9 +78,9 @@ QRect StrokeBuffer::commit()
     BitmapImage* image = layer ? layer->getLastBitmapImageAtFrame(mFrame) : nullptr;
     if (image != nullptr)
     {
-        changed = mTiles.bounds();
+        changed = mTiles->bounds();
         // The stroke is drawn in canvas space; map it into the space of the key.
-        image->paste(&mTiles, compositionMode(), layer->tweenStateAt(mFrame).transform().inverted());
+        image->paste(mTiles.get(), compositionMode(), layer->tweenStateAt(mFrame).transform().inverted());
         layer->setModified(mFrame, true);
     }
     clear();
@@ -110,6 +110,6 @@ VectorImage* StrokeBuffer::commit(BezierCurve curve, qreal scaling, bool interac
 
 void StrokeBuffer::clear()
 {
-    mTiles.clear();
+    mTiles->clear();
     mLayer = nullptr; // the layer can go once the stroke ends
 }

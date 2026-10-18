@@ -223,7 +223,7 @@ Layer* LayerManager::createLayer(Layer::LAYER_TYPE type, const QString& strLayer
     layer->setName(strLayerName);
     emit layerCountChanged(count());
     setCurrentLayer(getLastLayerIndex());
-    recordLayerAdd(layer);
+    edit.recordLayerAdd(layer->id());
     edit.commit();
 
     return layer;
@@ -353,26 +353,10 @@ Status LayerManager::deleteLayer(int index)
 
     Edit edit = editor()->edit(tr("Delete Layer"));
     layer = takeLayer(index);
-    // An editor that is not initialised has no undo manager
-    if (editor()->undoRedo())
-    {
-        editor()->undoRedo()->recordLayerRemove(layer, index, tr("Delete Layer"));
-    }
-    else
-    {
-        delete layer;
-    }
+    edit.recordLayerRemove(layer, index);
     edit.commit();
 
     return Status::OK;
-}
-
-void LayerManager::recordLayerAdd(const Layer* layer)
-{
-    if (editor()->undoRedo())
-    {
-        editor()->undoRedo()->recordLayerAdd(layer->id(), tr("Add Layer"));
-    }
 }
 
 Layer* LayerManager::takeLayer(int index)
@@ -482,7 +466,7 @@ void LayerManager::setAttribute(Layer* layer, AttributeId id, const QVariant& va
     if (before == value) { return; }
     Edit edit = editor()->edit(row.undoText(value));
     row.set(layer, nullptr, value);
-    editor()->undoRedo()->recordAttribute(id, layer->id(), 0, before, value);
+    edit.recordAttribute(id, layer->id(), 0, before, value);
     notifyLayerChanged(layer);
     emit editor()->updateTimeLine();
     edit.commit();
@@ -497,7 +481,7 @@ bool LayerManager::setKeyAttribute(Layer* layer, int frame, AttributeId id, cons
     const QVariant before = row.get(layer, key);
     Edit edit = editor()->edit(row.undoText(value));
     row.set(layer, key, value);
-    editor()->undoRedo()->recordAttribute(id, layer->id(), key->pos(), before, value);
+    edit.recordAttribute(id, layer->id(), key->pos(), before, value);
     emit editor()->frameModified(key->pos());
     edit.commit();
     return true;
@@ -534,7 +518,7 @@ void LayerManager::setProjectAttribute(AttributeId id, const QVariant& value)
     if (before == value) { return; }
     Edit edit = editor()->edit(row.undoText(value));
     row.set(*object(), value);
-    editor()->undoRedo()->recordAttribute(id, 0, 0, before, value);
+    edit.recordAttribute(id, 0, 0, before, value);
     notifyProjectChanged();
     edit.commit();
 }
@@ -553,7 +537,7 @@ void LayerManager::setCameraSize(LayerCamera* layer, QSize size)
     if (rect == old) { return; }
     Edit edit = editor()->edit(tr("Camera Size"));
     layer->setViewRect(rect);
-    editor()->undoRedo()->recordCameraSize(layer->id(), old, rect, tr("Camera Size"));
+    edit.recordCameraSize(layer->id(), old, rect);
     editor()->view()->forceUpdateViewTransform();
     edit.commit();
 }
@@ -585,7 +569,7 @@ bool LayerManager::commitLayerArrangement(const LayerArrangement& after, const Q
     if (after == before) { return false; }
     Edit edit = editor()->edit(description);
     applyLayerArrangement(after);
-    editor()->undoRedo()->recordLayerArrangement(before, description);
+    edit.recordLayerArrangement(before);
     edit.commit();
     return true;
 }
@@ -971,7 +955,7 @@ static void shiftFramesAfter(LayerManager* layers, Editor* editor, Layer* layer,
     });
     const QList<int> selected = layer->selectedKeyFramesByLast();
     Edit edit = editor->edit(layer, description);
-    layer->moveKeyFrames(fromTo);
+    LayerManager::moveKeyFrames(layer, fromTo);
     layers->moveSoundMarkers(layer, fromTo);
     edit.commit();
     // setFrameSelected puts each frame first in the by-last list, so restore from the oldest.
@@ -1144,7 +1128,7 @@ void LayerManager::removeMarker(int layerId, int frame)
 void LayerManager::markersChanged(int layerId, const QMap<int, FrameMarker>& before, const QString& description)
 {
     Edit edit = editor()->edit(description);
-    editor()->undoRedo()->recordMarkers(layerId, before, description);
+    edit.recordMarkers(layerId, before);
     emit editor()->updateTimeLine();
     edit.commit();
 }

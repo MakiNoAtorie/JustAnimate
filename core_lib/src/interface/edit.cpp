@@ -36,6 +36,47 @@ void Edit::commit()
     end(true);
 }
 
+void Edit::recordLayerAdd(int layerId)
+{
+    if (mManager) { mManager->recordLayerAdd(layerId, QString()); }
+}
+
+void Edit::recordLayerRemove(Layer* layer, int index)
+{
+    if (mManager) { mManager->recordLayerRemove(layer, index, QString()); }
+    else { delete layer; }
+}
+
+void Edit::recordBitmapMoves(const QList<BitmapOffset>& offsets)
+{
+    if (mManager) { mManager->recordBitmapMoves(offsets, QString()); }
+}
+
+void Edit::recordAttribute(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after)
+{
+    if (mManager) { mManager->recordAttribute(id, layerId, frame, before, after); }
+}
+
+void Edit::recordMarkers(int layerId, const QMap<int, FrameMarker>& before)
+{
+    if (mManager) { mManager->recordMarkers(layerId, before, QString()); }
+}
+
+void Edit::recordCameraSize(int layerId, QRect before, QRect after)
+{
+    if (mManager) { mManager->recordCameraSize(layerId, before, after, QString()); }
+}
+
+void Edit::recordKeyFrameOpacities(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after)
+{
+    if (mManager) { mManager->recordKeyFrameOpacities(layerId, before, after, QString()); }
+}
+
+void Edit::recordLayerArrangement(const LayerArrangement& before)
+{
+    if (mManager) { mManager->recordLayerArrangement(before, QString()); }
+}
+
 void Edit::end(bool commit)
 {
     if (mManager == nullptr) { return; }

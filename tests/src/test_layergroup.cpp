@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <QTemporaryFile>
 #include <QTextStream>
 
+#include "framerenderer.h"
 #include "filemanager.h"
 #include "layerbitmap.h"
 #include "bitmapimage.h"
@@ -238,7 +239,7 @@ QImage exportImage(const Object* object)
     image.fill(Qt::transparent);
     QPainter painter(&image);
     painter.setWorldTransform(QTransform::fromTranslate(30, 30));
-    object->paintImage(painter, 1, false, true);
+    FrameRenderer::paint(*object, 1, painter, { true, false });
     painter.end();
     return image;
 }

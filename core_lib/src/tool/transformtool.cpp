@@ -29,7 +29,7 @@ TransformTool::~TransformTool()
 
 void TransformTool::setShowSelectionInfo(bool enabled)
 {
-    toolProperties().setBaseValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, enabled);
+    toolProperties().setValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, enabled);
     emit showSelectionInfoChanged(enabled);
 
     mEditor->updateFrame();
@@ -37,7 +37,7 @@ void TransformTool::setShowSelectionInfo(bool enabled)
 
 void TransformTool::setAntiAliasingEnabled(bool enabled)
 {
-    toolProperties().setBaseValue(TransformToolProperties::ANTI_ALIASING_ENABLED, enabled);
+    toolProperties().setValue(TransformToolProperties::ANTI_ALIASING_ENABLED, enabled);
     emit antiAliasingChanged(enabled);
 }
 
@@ -45,7 +45,7 @@ void TransformTool::setKeyTransformEnabled(bool enabled)
 {
     // Only the Move tool registers the property.
     if (mSettings.getInfo(TransformToolProperties::KEYTRANSFORM_ENABLED).type() != PropertyInfo::BOOL) { return; }
-    toolProperties().setBaseValue(TransformToolProperties::KEYTRANSFORM_ENABLED, enabled);
+    toolProperties().setValue(TransformToolProperties::KEYTRANSFORM_ENABLED, enabled);
     emit keyTransformChanged(enabled);
     mEditor->updateFrame();
 }

@@ -71,6 +71,15 @@ void paintLayers(const Object& object, const QVector<int>& order, int first, int
     }
 }
 
+bool blendsAbove(const Object& object, const QVector<int>& order, int pos)
+{
+    for (int p = pos + 1; p < order.size(); ++p)
+    {
+        if (object.getLayer(order[p])->blendMode() != BlendMode::Normal) { return true; }
+    }
+    return false;
+}
+
 QPair<int, int> groupRange(const Object& object, const QVector<int>& order, int pos)
 {
     const Layer* layer = object.getLayer(order[pos]);

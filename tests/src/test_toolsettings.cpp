@@ -83,13 +83,13 @@ TEST_CASE("ToolSettings behavior", "[ToolSettings]") {
 
     SECTION("setBaseValue overrides individual value") {
         toolSettings.toolProperties().insertProperties(defaultProps);
-        toolSettings.toolProperties().setBaseValue(MockSettings::WIDTH, 8);
+        toolSettings.toolProperties().setValue(MockSettings::WIDTH, 8);
         REQUIRE(toolSettings.getInfo(MockSettings::WIDTH).intValue() == 8);
     }
 
     SECTION("restoreDefaults resets to original defaults") {
         toolSettings.toolProperties().insertProperties(defaultProps);
-        toolSettings.toolProperties().setBaseValue(MockSettings::WIDTH, 9);
+        toolSettings.toolProperties().setValue(MockSettings::WIDTH, 9);
         toolSettings.toolProperties().restoreProperties();
         REQUIRE(toolSettings.getInfo(MockSettings::WIDTH).intValue() == 5);  // back to default
     }
@@ -97,7 +97,7 @@ TEST_CASE("ToolSettings behavior", "[ToolSettings]") {
     SECTION("save and load persist values") {
         toolSettings.toolProperties().insertProperties(defaultProps);
         toolSettings.toolProperties().loadFrom("mocktool", settings); // loads and stores
-        toolSettings.toolProperties().setBaseValue(MockSettings::WIDTH, 7);  // override
+        toolSettings.toolProperties().setValue(MockSettings::WIDTH, 7);  // override
         toolSettings.toolProperties().storeTo(settings);
 
         // New settings instance to simulate reload
@@ -117,7 +117,7 @@ TEST_CASE("ToolSettings behavior", "[ToolSettings]") {
             REQUIRE(toolSettings.toolProperties().requireMigration(settings, ToolProperties::VERSION_1) == true);
 
             WHEN("Migrating from the old settings") {
-                toolSettings.toolProperties().setBaseValue(MockSettings::WIDTH, settings.value("brushWidth", 12).toInt());
+                toolSettings.toolProperties().setValue(MockSettings::WIDTH, settings.value("brushWidth", 12).toInt());
                 settings.remove("brushWidth");
 
                 THEN("Migration is no longer required") {

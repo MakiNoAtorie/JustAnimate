@@ -55,7 +55,7 @@ void PencilTool::strokeStarted()
 
 void PencilTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
-    mBuffer.dab(point, width, get(ToolProperty::Feather), mEditor->color()->frontColor(), opacity, false, tip);
+    mBuffer.dab(point, width, mFeather, mEditor->color()->frontColor(), opacity, false, tip);
 }
 
 QPen PencilTool::vectorPreviewPen()

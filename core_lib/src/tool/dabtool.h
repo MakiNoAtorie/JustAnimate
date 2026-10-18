@@ -63,6 +63,8 @@ protected:
     /// Whether the canvas preview shows the predicted pen path.
     virtual bool showsPrediction() const { return true; }
 
+    qreal mFeather = 0; // read at each press
+
     /// Places dabs along these points as one full-pressure stroke, with both tapers.
     /// Call after pointerPressEvent, which reads the stroke settings.
     void dabPath(const QPolygonF& points);

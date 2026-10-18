@@ -479,7 +479,7 @@ Status ActionCommands::exportImage()
     request.format = dialog->getExportFormat();
     request.path = dialog->getFilePath();
     request.transparency = dialog->getTransparency();
-    request.confirmOverwrite = confirmOverwrite(mParent);
+    // The save dialog already asked to replace the file.
 
     const Status st = Exporter::run(*mEditor->object(), request);
     if (st == Status::CANCELED) { return Status::SAFE; }
@@ -523,7 +523,7 @@ Status savePages(QWidget* parent, const QString& title, const PageSpec& spec, in
 
 Status ActionCommands::exportOnPaper()
 {
-    const std::vector<LayerCamera*> cameras = mEditor->object()->getLayersByType<LayerCamera>();
+    const auto cameras = camerasInfo(mEditor);
     if (cameras.empty())
     {
         QMessageBox::information(mParent, tr("Export on Paper"), tr("Add a camera layer first: the pages show its frame."));
@@ -535,11 +535,7 @@ Status ActionCommands::exportOnPaper()
     auto size = new QComboBox(&dialog);
     size->addItems({ tr("A4 landscape"), tr("B4 landscape") });
     auto camera = new QComboBox(&dialog);
-    for (const LayerCamera* layer : cameras)
-    {
-        camera->addItem(layer->name());
-        if (layer == mEditor->layers()->currentLayer()) { camera->setCurrentIndex(camera->count() - 1); }
-    }
+    for (const auto& info : cameras) { camera->addItem(info.first); } // the current camera comes first
     const int length = std::max(1, mEditor->layers()->animationLength());
     auto from = new QSpinBox(&dialog);
     auto to = new QSpinBox(&dialog);
@@ -561,7 +557,7 @@ Status ActionCommands::exportOnPaper()
     spec.size = size->currentIndex() == 1 ? PageSpec::B4 : PageSpec::A4;
     const int first = std::min(from->value(), to->value());
     return savePages(mParent, tr("Export on Paper"), spec, std::abs(to->value() - from->value()) + 1,
-                     paperFramePages(*mEditor->object(), *cameras[camera->currentIndex()], first));
+                     paperFramePages(*mEditor->object(), *Exporter::camera(*mEditor->object(), camera->currentText()), first));
 }
 
 Status ActionCommands::exportStoryboard()
@@ -572,8 +568,8 @@ Status ActionCommands::exportStoryboard()
     {
         if (object->getLayer(i)->isStoryboard()) { board = object->getLayer(i); }
     }
-    const std::vector<LayerCamera*> cameras = object->getLayersByType<LayerCamera>();
-    if (board == nullptr || cameras.empty())
+    const LayerCamera* camera = Exporter::camera(*object, QString());
+    if (board == nullptr || camera == nullptr)
     {
         QMessageBox::information(mParent, tr("Export Storyboard"),
                                  board == nullptr ? tr("Make a layer a Storyboard layer first (layer menu).")
@@ -585,7 +581,7 @@ Status ActionCommands::exportStoryboard()
     PageSpec spec;
     spec.orientation = QPageLayout::Portrait;
     return savePages(mParent, tr("Export Storyboard"), spec, storyboardPageCount(panels.size()),
-                     storyboardPages(*object, *board, *cameras.front(), panels, mEditor->playback()->fps()));
+                     storyboardPages(*object, *board, *camera, panels, mEditor->playback()->fps()));
 }
 
 Status ActionCommands::exportTimesheet()
@@ -845,7 +841,7 @@ void ActionCommands::reverseSelectedFrames()
     if (mEditor->refusesEdit(currentLayer)) { return; }
 
     Edit edit = mEditor->edit(currentLayer, tr("Reverse frames"));
-    const bool reversed = currentLayer->reverseOrderOfSelection();
+    const bool reversed = LayerManager::reverseOrderOfSelection(currentLayer);
     edit.commit();
     if (!reversed) {
         return;

@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <QDomDocument>
 #include <QIcon>
 
+#include "framerenderer.h"
 #include "bitmapimage.h"
 #include "layerbitmap.h"
 #include "layermanager.h"
@@ -83,7 +84,7 @@ TEST_CASE("Exports leave Rough layers out", "[RoughLayer]")
     filledLayer(&object, Qt::red);
     filledLayer(&object, Qt::blue)->setRough(true);
 
-    const QImage image = object.renderFrame(1, QTransform(), QSize(60, 60), QSize(60, 60), false, true);
+    const QImage image = FrameRenderer::renderForExport(object, 1, QTransform(), QSize(60, 60), { QSize(60, 60), true, false });
     CHECK(image.pixel(30, 30) == qRgb(255, 0, 0));
 }
 

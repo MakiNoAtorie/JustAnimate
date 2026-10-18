@@ -174,7 +174,12 @@ void DabPlacer::segment(const DabSample& b, QList<Dab>& dabs)
             qreal dabAngle = angle;
             // Draw random numbers only for scatter that is on, so 0 scatter keeps the jitter sequence.
             if (mScatter > 0)
-                offset = QPointF(randomSigned(), randomSigned()) * mScatter * baseWidth;
+            {
+                // Argument order is unspecified: draw y first, as MSVC and GCC did, so every compiler matches.
+                const qreal y = randomSigned();
+                const qreal x = randomSigned();
+                offset = QPointF(x, y) * mScatter * baseWidth;
+            }
             if (mAngleJitter > 0)
                 dabAngle += randomSigned() * mAngleJitter;
             dabs.append({ a + (b.pos - a) * f + offset, brushWidth, spacedOpacity(pressure, brushWidth), dabAngle,

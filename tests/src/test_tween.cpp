@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QPixmap>
 #include <QTemporaryDir>
 
+#include "framerenderer.h"
 #include "bitmapimage.h"
 #include "canvaspainter.h"
 #include "editor.h"
@@ -73,7 +74,7 @@ QImage exportFrame(const Object* object, int frame)
     image.fill(Qt::transparent);
     QPainter painter(&image);
     painter.setWorldTransform(QTransform::fromTranslate(30, 20));
-    object->paintImage(painter, frame, false, true);
+    FrameRenderer::paint(*object, frame, painter, { true, false });
     painter.end();
     return image;
 }
@@ -288,6 +289,30 @@ TEST_CASE("A key tween change undoes and redoes", "[Tween]")
     redo->trigger();
     REQUIRE(layer->getKeyFrameAt(1)->tweenEasing() == CameraEasingType::INQUAD);
     REQUIRE(layer->tweenStateAt(3).tx == Approx(5));
+}
+
+TEST_CASE("Setting a tween keeps the playhead and the Drawing's pixels", "[Tween]")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+    layer->addNewKeyFrameAt(5);
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    BitmapImage* drawing = layer->getBitmapImageAtFrame(5);
+    QImage pixels(8, 8, QImage::Format_ARGB32_Premultiplied);
+    pixels.fill(Qt::red);
+    BitmapImage source(QPoint(0, 0), pixels);
+    drawing->paste(&source);
+    const QImage before = *drawing->image();
+
+    editor->layers()->setKeyTween(5, true, CameraEasingType::INQUAD, TweenState{ 20, 0, 0, 1 });
+    REQUIRE(layer->getKeyFrameAt(5)->tween());
+    CHECK(editor->currentFrame() == 1);
+    CHECK(layer->getBitmapImageAtFrame(5) == drawing);
+    CHECK(*drawing->image() == before);
 }
 
 TEST_CASE("Onion skins draw each key with its tween state", "[Tween]")

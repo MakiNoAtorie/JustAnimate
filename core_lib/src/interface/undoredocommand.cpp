@@ -250,7 +250,7 @@ void MoveKeyFramesCommand::apply(const QList<QPair<int, int>>& fromTo)
     Layer* layer = editor()->layers()->findLayerById(layerId);
 
     // The frames are not where this step left them: the step cannot be applied.
-    if (!layer || !layer->moveKeyFrames(fromTo)) {
+    if (!layer || !LayerManager::moveKeyFrames(layer, fromTo)) {
         return setObsolete(true);
     }
     editor()->layers()->moveSoundMarkers(layer, fromTo);

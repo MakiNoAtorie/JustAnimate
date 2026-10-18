@@ -122,10 +122,6 @@ protected:
     /// Draws a vector stroke preview, given in screen space, into the buffer.
     void drawScreenPath(const QPainterPath& path, const QPen& pen);
 
-    /// Sets smoothing from an old None/Simple/Strong stabilizer level.
-    void setLegacySmoothing(int level);
-    /// Maps the old LineStabilization setting once, while the tool has no SmoothingMode yet.
-    void migrateLineStabilization(const QSettings& settings);
     /// Gives the interpolator this tool's smoothing and snap guides; call before its press event.
     void prepareInput(const QPointF& pressViewportPos);
 

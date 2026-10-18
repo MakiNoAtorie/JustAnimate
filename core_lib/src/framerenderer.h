@@ -45,6 +45,10 @@ using LayerPainter = std::function<void(QPainter& painter, int index)>;
 void paintLayers(const Object& object, const QVector<int>& order, int first, int last, QPainter& painter,
                  const LayerPainter& paintLayer);
 
+/// True when a layer after pos in order blends with a mode other than Normal: it needs every layer below
+/// it as backdrop, so the layers above pos cannot be cached apart from the ones below.
+bool blendsAbove(const Object& object, const QVector<int>& order, int pos);
+
 /// The positions that fade as one image with pos: its translucent group's non-Rough layers, else pos alone.
 QPair<int, int> groupRange(const Object& object, const QVector<int>& order, int pos);
 

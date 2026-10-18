@@ -558,31 +558,31 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
     SECTION("Move frames")
     {
         select({ 5, 6 });
-        checkUndoRedo(recorded([&] { layer->moveSelectedFrames(2); }), "8=6 7=5 3=3 1=1");
+        checkUndoRedo(recorded([&] { LayerManager::moveSelectedFrames(layer, 2); }), "8=6 7=5 3=3 1=1");
     }
 
     SECTION("Move frames, shortened by the frame in the way at position 1")
     {
         select({ 3 });
-        checkUndoRedo(recorded([&] { layer->moveSelectedFrames(-5); }), "6=6 5=5 2=3 1=1");
+        checkUndoRedo(recorded([&] { LayerManager::moveSelectedFrames(layer, -5); }), "6=6 5=5 2=3 1=1");
     }
 
     SECTION("Reverse")
     {
         select({ 1, 3, 6 });
-        checkUndoRedo(recorded([&] { layer->reverseOrderOfSelection(); }), "6=1 5=5 3=3 1=6");
+        checkUndoRedo(recorded([&] { LayerManager::reverseOrderOfSelection(layer); }), "6=1 5=5 3=3 1=6");
     }
 
     SECTION("Add exposure")
     {
         select({ 3 });
-        checkUndoRedo(recorded([&] { layer->setExposureForSelectedFrames(1); }), "7=6 6=5 3=3 1=1");
+        checkUndoRedo(recorded([&] { LayerManager::setExposureForSelectedFrames(layer, 1); }), "7=6 6=5 3=3 1=1");
     }
 
     SECTION("Subtract exposure")
     {
         select({ 1 });
-        checkUndoRedo(recorded([&] { layer->setExposureForSelectedFrames(-1); }), "5=6 4=5 2=3 1=1");
+        checkUndoRedo(recorded([&] { LayerManager::setExposureForSelectedFrames(layer, -1); }), "5=6 4=5 2=3 1=1");
     }
 
     SECTION("Reposition Frames")

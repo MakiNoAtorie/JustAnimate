@@ -149,9 +149,6 @@ public:
      */
     virtual bool addKeyFrame(int position, KeyFrame* pKeyFrame);
     virtual bool removeKeyFrame(int position);
-    /** While set, removeKeyFrame moves removed keys here instead of deleting them. For Edit only. */
-    void setRemovedKeySink(std::vector<std::unique_ptr<KeyFrame>>* sink) { mRemovedKeySink = sink; }
-    std::vector<std::unique_ptr<KeyFrame>>* removedKeySink() const { return mRemovedKeySink; }
     virtual void replaceKeyFrame(const KeyFrame* pKeyFrame) = 0;
 
     bool swapKeyFrames(int position1, int position2);
@@ -175,22 +172,6 @@ public:
 
     bool isFrameSelected(int position) const;
 
-    /** Changes the hold of each selected keyframe (the frames up to the next keyframe) and moves the later keyframes.
-     * @param value Frames to add (above 0) or subtract (below 0); with `hold`, the new hold length. A hold is at least 1.
-     */
-    void setExposureForSelectedFrames(int value, bool hold = false);
-
-    /** Reverse order of selected frames
-     * @return true if all frames were successfully reversed, otherwise will return false.
-     */
-    bool reverseOrderOfSelection();
-
-    bool moveSelectedFrames(int offset);
-
-    /** Moves the keyframe at the first position of each pair to the second position, then deselects all frames.
-     *  @return false, with no frame moved, if a keyframe is missing or a target position is occupied
-     */
-    bool moveKeyFrames(const QList<QPair<int, int>>& fromTo);
     QList<int> getSelectedFramesByPos() const { return mSelectedFrames_byPosition; }
 
     /** Predetermines whether the frames can be moved to a new position depending on the offset
@@ -223,8 +204,30 @@ protected:
     bool loadKey(KeyFrame*);
 
 private:
-    // Frame selection changes only through LayerManager.
+    // Frame selection and selected-frame moves change only through LayerManager.
     friend class LayerManager;
+    /** Changes the hold of each selected keyframe (the frames up to the next keyframe) and moves the later keyframes.
+     * @param value Frames to add (above 0) or subtract (below 0); with `hold`, the new hold length. A hold is at least 1.
+     */
+    void setExposureForSelectedFrames(int value, bool hold = false);
+
+    /** Reverse order of selected frames
+     * @return true if all frames were successfully reversed, otherwise will return false.
+     */
+    bool reverseOrderOfSelection();
+
+    bool moveSelectedFrames(int offset);
+
+    /** Moves the keyframe at the first position of each pair to the second position, then deselects all frames.
+     *  @return false, with no frame moved, if a keyframe is missing or a target position is occupied
+     */
+    bool moveKeyFrames(const QList<QPair<int, int>>& fromTo);
+
+    // The removed-key sink is set only while an Edit is open.
+    friend class UndoRedoManager;
+    /** While set, removeKeyFrame moves removed keys here instead of deleting them. */
+    void setRemovedKeySink(std::vector<std::unique_ptr<KeyFrame>>* sink) { mRemovedKeySink = sink; }
+    std::vector<std::unique_ptr<KeyFrame>>* removedKeySink() const { return mRemovedKeySink; }
     void setFrameSelected(int position, bool isSelected);
     void toggleFrameSelected(int position, bool allowMultiple = false);
     void extendSelectionTo(int position);

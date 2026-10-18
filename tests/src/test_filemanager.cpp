@@ -22,7 +22,16 @@ GNU General Public License for more details.
 #include <QImage>
 #include <QImageWriter>
 #include <QPainter>
+#include <QCryptographicHash>
+#include <QDir>
+#include <QDirIterator>
+#include <QDomDocument>
+#include <QFile>
 #include "qminiz.h"
+#include "beziercurve.h"
+#include "blendmode.h"
+#include "keyframe.h"
+#include "objectdata.h"
 #include "fileformat.h"
 #include "filemanager.h"
 #include "util.h"
@@ -643,7 +652,7 @@ TEST_CASE("FileManager File-saving")
         for (int i = 100; i < 150; ++i)
             LayerManager::setFrameSelected(layer, i, true);
 
-        layer->moveSelectedFrames(-55);
+        LayerManager::moveSelectedFrames(layer, -55);
         fm.save(o2, animationPath);
         delete o2;
 
@@ -1474,4 +1483,118 @@ TEST_CASE("FileManager keeps every frame when it saves or autosaves right after 
         REQUIRE(recovery.error().ok());
         requireEveryFrame(recovered.get());
     }
+}
+
+namespace
+{
+// One line per node, attributes sorted: Qt 6.4 and 6.5 QDom write attributes in hash order.
+void canonicalXml(const QDomNode& parent, int depth, QString& out)
+{
+    for (QDomNode n = parent.firstChild(); !n.isNull(); n = n.nextSibling())
+    {
+        const QString indent(depth * 2, ' ');
+        if (n.isElement())
+        {
+            const QDomElement e = n.toElement();
+            QStringList attributes;
+            const QDomNamedNodeMap map = e.attributes();
+            for (int i = 0; i < map.count(); ++i)
+            {
+                const QDomAttr a = map.item(i).toAttr();
+                attributes << QString("%1=\"%2\"").arg(a.name(), a.value());
+            }
+            attributes.sort();
+            out += indent + "<" + e.tagName() + (attributes.isEmpty() ? "" : " " + attributes.join(' ')) + ">\n";
+            // The app version changes on every release, not with the format.
+            if (e.tagName() == "version" && depth == 1) { continue; }
+            canonicalXml(n, depth + 1, out);
+        }
+        else if (n.isText())
+        {
+            out += indent + "\"" + n.nodeValue() + "\"\n";
+        }
+    }
+}
+} // namespace
+
+TEST_CASE("A saved fixture project writes the main.xml of the format before v1.7", "[FileManager]")
+{
+    std::unique_ptr<Object> object(new Object);
+    object->init();
+
+    LayerCamera* camera = object->addNewCameraLayer();
+    camera->addNewKeyFrameAt(5);
+    static_cast<Camera*>(camera->getKeyFrameAt(5))->translate(12, -7);
+
+    LayerBitmap* ink = object->addNewBitmapLayer();
+    ink->setName("Ink");
+    ink->addNewKeyFrameAt(1);
+    ink->addNewKeyFrameAt(3);
+    QImage pixels(4, 4, QImage::Format_ARGB32_Premultiplied);
+    pixels.fill(Qt::red);
+    BitmapImage source(QPoint(2, 3), pixels);
+    ink->getBitmapImageAtFrame(1)->paste(&source);
+    KeyFrame* key = ink->getKeyFrameAt(1);
+    key->setMark(Mark::Breakdown);
+    key->setTween(true);
+    key->setTweenEasing(CameraEasingType::INQUAD);
+    key->setTweenState(TweenState{ 1.5, -2, 30, 0.25, 0.5 });
+    key->setPanelFields({ "1", "12", "Pan & go", "\"Hi\"" });
+    key->setLinkId(4);
+    ink->getKeyFrameAt(3)->setLinkId(4);
+    ink->setBlendMode(BlendMode::Multiply);
+    ink->setTimesheetColumn(TimesheetColumn::InbetweenB);
+    ink->setLockAlpha(true);
+    ink->setOnionSkin(false);
+    ink->setGroupId(3);
+    object->addLayerGroup({ 3, "Group", true, false, 0.5 });
+
+    LayerVector* lines = object->addNewVectorLayer();
+    lines->setName("Lines");
+    lines->addNewKeyFrameAt(2);
+    BezierCurve curve(QList<QPointF>{ QPointF(0, 0), QPointF(10, 5), QPointF(20, 0) }, false);
+    lines->getVectorImageAtFrame(2)->addCurve(curve, 1.0, false);
+    lines->setRough(true);
+    lines->setStoryboard(true);
+    lines->setLockAll(true);
+    lines->setVisible(false);
+
+    ObjectData* data = object->data();
+    data->setMarker(2, { "Hit", QColor(10, 20, 30) });
+    data->setMarker(4, { "Ink", QColor(40, 50, 60) }, ink->id());
+    PaperTemplate paper;
+    paper.on = true;
+    paper.title = "Title";
+    paper.notes = "Notes";
+    data->setPaperTemplate(paper);
+    data->setCurrentFrame(3);
+    data->setFrameRate(12); // the default comes from the user's settings
+    object->setSceneLength(24);
+
+    QTemporaryDir dir;
+    const QString path = dir.filePath("fixture.pclx");
+    FileManager fm;
+    REQUIRE(fm.save(object.get(), path).ok());
+    const QString unpacked = dir.filePath("unpacked") + "/";
+    REQUIRE(MiniZ::uncompressFolder(path, unpacked).ok());
+    // Every file by name; main.xml and the vector Drawings element by element.
+    QString canonical;
+    QDirIterator it(unpacked, QDir::Files, QDirIterator::Subdirectories);
+    QStringList files;
+    while (it.hasNext()) { files << QDir(unpacked).relativeFilePath(it.next()); }
+    files.sort();
+    for (const QString& name : files)
+    {
+        canonical += "== " + name + "\n";
+        if (!name.endsWith(".xml") && !name.endsWith(".vec")) { continue; }
+        QFile file(unpacked + name);
+        REQUIRE(file.open(QFile::ReadOnly));
+        QDomDocument doc;
+        REQUIRE(doc.setContent(&file));
+        canonicalXml(doc, 0, canonical);
+    }
+
+    INFO(canonical.toStdString());
+    // Golden from master before v1.7 (5a1a584).
+    CHECK(QCryptographicHash::hash(canonical.toUtf8(), QCryptographicHash::Sha1).toHex().toStdString() == "5360d849a3c02c451685bbf48fc969abe123e44c");
 }

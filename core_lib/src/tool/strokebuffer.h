@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include <QPainter>
 #include <QRect>
+#include <memory>
 
 #include "tiledbuffer.h"
 
@@ -48,10 +49,12 @@ public:
     void clear();
 
     /// Paths and previews go straight to the tiles; read tiles only through TiledBuffer::tiles().
-    TiledBuffer& tiles() { return mTiles; }
+    TiledBuffer& tiles() { return *mTiles; }
+    /// Uses other's tiles from now on: Stroke tools share one tile pool and mask cache, as one tool paints at a time.
+    void shareTiles(const StrokeBuffer& other) { mTiles = other.mTiles; }
 
 private:
-    TiledBuffer mTiles;
+    std::shared_ptr<TiledBuffer> mTiles = std::make_shared<TiledBuffer>();
     Layer* mLayer = nullptr;
     int mFrame = 1;
     Mode mMode = Mode::Paint;

@@ -332,7 +332,7 @@ void Editor::pasteToFrames()
 
             // Select and move any frames that may come into contact with the new position
             LayerManager::selectConnectedFrames(currentLayer, newPosition);
-            currentLayer->moveSelectedFrames(1);
+            LayerManager::moveSelectedFrames(currentLayer, 1);
         }
 
         KeyFrame* key = it->second;
@@ -1065,7 +1065,7 @@ void Editor::setPaperTemplate(const PaperTemplate& paper)
         const QVariant after = QVariant::fromValue(next);
         Edit edit = this->edit(attribute(AttributeId::PaperTemplate).undoText(after));
         mObject->data()->setPaperTemplate(next);
-        mUndoRedoManager->recordAttribute(AttributeId::PaperTemplate, 0, 0, QVariant::fromValue(step), after);
+        edit.recordAttribute(AttributeId::PaperTemplate, 0, 0, QVariant::fromValue(step), after);
         emit framesModified();
         edit.commit();
         step = next;

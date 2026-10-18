@@ -6,14 +6,14 @@ Rules for every code change, read before you edit code. Same limits as
 - Follow the ground rules and lean rules in `ROADMAP.md`.
 - File format: new XML attributes are optional; old files must still load.
   Homes for new project data: `docs/file-format.md`.
-- Undo: open `Editor::edit(...)` before the change and `commit()` it on
-  every success path. A gesture that may add a Drawing opens an outer
+- Undo: open an Edit (`Editor::edit(...)`) before the change and `commit()`
+  it on every success path. A gesture that may add a Drawing opens an outer
   `edit(description)`, calls `handleDrawingOnEmptyFrame()`, then the inner
   `edit(layer, frame, ...)`. A held gesture keeps `std::optional<Edit>`.
   Pass a frame only for a Drawing pixel edit. A record the Edit cannot
-  infer (layers, attributes, markers) is a direct `record*` call inside an
-  open Edit. Commands address frames by position and keep removed layers
-  alive. Undo tests assert content, never selection state.
+  infer (layers, attributes, markers) goes through the Edit's own
+  `record*` methods. Commands address frames by position and keep removed
+  layers alive. Undo tests assert content, never selection state.
 - An unrecorded edit still emits `frameModified`, `framesModified` or
   `layerCountChanged`, or calls `object()->modification()`.
 - Do not tell the user an action cannot be undone unless no record exists.
@@ -72,7 +72,7 @@ Rules for every code change, read before you edit code. Same limits as
 - Stroke pixels and vector curves go through the Stroke tool's `StrokeBuffer`
   (`begin`, `dab`, `commit`); its composition only in
   `StrokeBuffer::compositionMode()`.
-  `duplicateLayer` copies every saved layer attribute.
+- `duplicateLayer` copies every saved layer attribute.
 - Sound: timing via `SoundClip::msAtFrame`/`waveformPeaks`; preview via
   `PlaybackManager::startSound`; tests use `setSamples`. A clip put back in
   a layer gets a player from `SoundManager::processSound`; taking a layer
@@ -85,7 +85,8 @@ Rules for every code change, read before you edit code. Same limits as
 - Colours come from the palette (Accent = `Highlight`), never hex (drawing
   data: `// palette-exempt:`, checked by `tools/check-new-colours.sh`); icons
   from `Theme::icon`.
-- Copy new `KeyFrame` fields in its copy constructor and `operator=`. Mark filter only from `PreferenceManager::markFilter()`.
+- Copy new `KeyFrame` fields that are not attribute rows in its copy
+  constructor and `operator=`; key copy copies the rows. Mark filter only from `PreferenceManager::markFilter()`.
 - An edit starts with `editor->refuses(layer)` (View tools exempt).
   Refusals and notices go only through `Editor::notice`.
 - Cell, layer and easing menus: only `app/src/cellmenus.*`.

@@ -65,8 +65,8 @@ void MoveTool::loadSettings()
     toolProperties().loadFrom(typeName(), settings);
 
     if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
-        toolProperties().setBaseValue(TransformToolProperties::ANTI_ALIASING_ENABLED, settings.value("moveAA", true).toBool());
+        toolProperties().setValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
+        toolProperties().setValue(TransformToolProperties::ANTI_ALIASING_ENABLED, settings.value("moveAA", true).toBool());
     }
 
     connect(mEditor->preference(), &PreferenceManager::optionChanged, this, &MoveTool::updateSettings);

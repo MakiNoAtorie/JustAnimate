@@ -83,7 +83,7 @@ Status PegBarAligner::align(const QStringList& layers)
         img->moveTopLeft(img->topLeft() + move.offset);
         emit mEditor->frameModified(move.frame);
     }
-    mEditor->undoRedo()->recordBitmapMoves(offsets, tr("Peg bar alignment"));
+    edit.recordBitmapMoves(offsets);
     edit.commit();
 
     mEditor->deselectAll();

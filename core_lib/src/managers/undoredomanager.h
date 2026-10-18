@@ -78,6 +78,22 @@ public:
     /** Number of Edits open now. */
     int pendingStateCount() const { return static_cast<int>(mSaveStates.size()); }
 
+    QAction* createUndoAction(QObject* parent, const QIcon& icon);
+    QAction* createRedoAction(QObject* parent, const QIcon& icon);
+
+    /** Clears the undo stack */
+    void clearStack();
+
+    void onSettingChanged(SETTING setting);
+
+signals:
+    void didUpdateUndoStack();
+    /** An undo step was recorded: one per user edit, unlike didUpdateUndoStack. */
+    void didRecordEdit();
+
+private:
+    friend class Edit;
+    // Edit's record methods call these; the description is the Edit's.
     /** Records that the layer with the given id was added to the object. */
     void recordLayerAdd(int layerId, const QString& description);
 
@@ -98,21 +114,6 @@ public:
     /** Records a change of layer order or groups from `before` to the current arrangement */
     void recordLayerArrangement(const LayerArrangement& before, const QString& description);
 
-    QAction* createUndoAction(QObject* parent, const QIcon& icon);
-    QAction* createRedoAction(QObject* parent, const QIcon& icon);
-
-    /** Clears the undo stack */
-    void clearStack();
-
-    void onSettingChanged(SETTING setting);
-
-signals:
-    void didUpdateUndoStack();
-    /** An undo step was recorded: one per user edit, unlike didUpdateUndoStack. */
-    void didRecordEdit();
-
-private:
-    friend class Edit;
     SAVESTATE_ID beginEdit(const QString& description, Layer* layer, int frame);
     void endEdit(SAVESTATE_ID saveStateId, bool commit);
     void recordEdit(const UndoSaveState& state);

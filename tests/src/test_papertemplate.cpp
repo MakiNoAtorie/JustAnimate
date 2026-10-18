@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QIcon>
 #include <QTemporaryDir>
 
+#include "framerenderer.h"
 #include "camera.h"
 #include "fileformat.h"
 #include "filemanager.h"
@@ -242,9 +243,9 @@ TEST_CASE("The canvas shows the Title block and exports leave it out", "[PaperTe
     CHECK(changed > band.width());
 
     const QSize size = frame.size().toSize();
-    const QImage exported = editor->object()->renderFrame(1, QTransform(), size, size, false, true);
+    const QImage exported = FrameRenderer::renderForExport(*editor->object(), 1, QTransform(), size, { size, true, false });
     editor->object()->data()->setPaperTemplate(PaperTemplate());
-    CHECK(exported == editor->object()->renderFrame(1, QTransform(), size, size, false, true));
+    CHECK(exported == FrameRenderer::renderForExport(*editor->object(), 1, QTransform(), size, { size, true, false }));
 }
 
 TEST_CASE("The Paper sheet follows a moved camera and the dimming leaves it white", "[PaperTemplate]")

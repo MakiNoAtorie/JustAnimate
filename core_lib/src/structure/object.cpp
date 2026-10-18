@@ -898,11 +898,6 @@ bool Object::isPaletteInUse() const
     return false;
 }
 
-void Object::paintImage(QPainter& painter, int frameNumber, bool background, bool antialiasing) const
-{
-    FrameRenderer::paint(*this, frameNumber, painter, { antialiasing, background });
-}
-
 QString Object::copyFileToDataFolder(const QString& strFilePath)
 {
     if (!QFile::exists(strFilePath))
@@ -939,11 +934,6 @@ Object::SpriteSheetGrid Object::spriteSheetGrid(int frameCount, int columns)
     grid.columns = columns > 0 ? std::min(columns, n) : static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n))));
     grid.rows = (n + grid.columns - 1) / grid.columns;
     return grid;
-}
-
-QImage Object::renderFrame(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, bool antialiasing, bool transparency) const
-{
-    return FrameRenderer::renderForExport(*this, frame, view, cameraSize, { exportSize, transparency, antialiasing });
 }
 
 int Object::getLayerCount() const

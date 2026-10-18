@@ -30,6 +30,8 @@ GNU General Public License for more details.
 #include "pencildef.h"
 #include "inputsmoother.h"
 
+struct ToolProperties;
+
 struct PropertyInfo
 {
     enum ValueType {
@@ -241,6 +243,8 @@ struct ToolPropertyDescriptor
     ToolRowKind row;
     QVector<ToolPropertyUse> uses;  // tools that show a row or have their own default or legacy key
     QVector<const char*> items;     // ComboBox item labels from min up, in the "StrokeOptionsWidget" context
+    const char* legacyGroupKey = nullptr;   // older key in the tool's group, read while key is not stored yet
+    void (*fromLegacy)(ToolProperties&, const QVariant&) = nullptr; // maps an old stored value; nullptr: stored as is
 
     const ToolPropertyUse* use(ToolType tool) const;
     double toolDefault(ToolType tool) const;
@@ -304,32 +308,6 @@ struct ToolProperties
         }
         settings.endGroup();
         settings.sync();
-    }
-
-    /*  Sets the BaseValue for the given property
-
-        @param rawType The type that identifies with the value, eg. StrokeSettings::WIDTH_VALUE
-        @param info A PropertyInfo struct which can either be INTEGER|REAL|BOOL
-    */
-    void setBaseValue(int rawType, const PropertyInfo& info)
-    {
-        if (!isValidType(rawType)) { return; }
-
-        switch (info.type())
-        {
-        case PropertyInfo::INTEGER:
-            mProps[rawType].setBaseValue(info.intValue());
-            break;
-        case PropertyInfo::REAL:
-            mProps[rawType].setBaseValue(info.realValue());
-            break;
-        case PropertyInfo::BOOL:
-            mProps[rawType].setBaseValue(info.boolValue());
-            break;
-        case PropertyInfo::INVALID:
-            Q_ASSERT_X(false, __func__, "Expected value but got INVALID. Make sure the property has been setup properly before trying to set its base value.");
-            break;
-        }
     }
 
     void setVersion(Version version) { mVersion = version; }

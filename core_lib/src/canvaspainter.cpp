@@ -114,14 +114,8 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 
     paintCurrentFrame(mainPainter, blitRect, range.first, range.second);
 
-    // A blend layer needs every layer below it as backdrop, so the layers above paint straight onto the canvas.
-    bool blendAbove = false;
-    for (int i = range.second + 1; i < mObject->getLayerCount(); ++i)
-    {
-        blendAbove |= mObject->getLayer(mPaintOrder[i])->blendMode() != BlendMode::Normal;
-    }
-
-    if (blendAbove)
+    // The layers above paint straight onto the canvas when one of them blends.
+    if (FrameRenderer::blendsAbove(*mObject, mPaintOrder, range.second))
     {
         renderPostLayers(mainPainter, blitRect);
         return;

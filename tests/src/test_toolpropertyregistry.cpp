@@ -89,6 +89,26 @@ bool storedBy(const ToolPropertyDescriptor& d, ToolType tool)
 
 } // namespace
 
+TEST_CASE("Tool property registry - an old LineStabilization level in the tool group maps to smoothing once", "[ToolPropertyRegistry]")
+{
+    const StoreGuard guard;
+    QSettings& settings = pencilSettings();
+    const SmoothingPreset simple = InputSmoother::presetForLegacyLevel(StabilizationLevel::SIMPLE);
+
+    settings.clear();
+    settings.setValue(kGroup + "/LineStabilization", StabilizationLevel::SIMPLE);
+    ToolProperties old;
+    old.loadTool(PEN, kGroup, settings);
+    CHECK(old.get(ToolProperty::SmoothingMode) == static_cast<int>(simple.mode));
+    CHECK(old.get(ToolProperty::SmoothingStrength) == simple.strength);
+
+    // A stored SmoothingMode wins over the old key.
+    settings.setValue(kGroup + "/SmoothingMode", static_cast<int>(SmoothingMode::None));
+    ToolProperties current;
+    current.loadTool(PEN, kGroup, settings);
+    CHECK(current.get(ToolProperty::SmoothingMode) == static_cast<int>(SmoothingMode::None));
+}
+
 TEST_CASE("Tool property registry - every descriptor loads its default, migrates its legacy key and clamps to its range", "[ToolPropertyRegistry]")
 {
     const StoreGuard guard;

@@ -15,9 +15,18 @@ GNU General Public License for more details.
 #ifndef EDIT_H
 #define EDIT_H
 
+#include <QList>
+#include <QMap>
+#include <QRect>
+
 class Layer;
 class QString;
+class QVariant;
 class UndoRedoManager;
+enum class AttributeId;
+struct BitmapOffset;
+struct FrameMarker;
+struct LayerArrangement;
 
 /** One undo step. Get it from Editor::edit before the change, then commit().
  *  It snapshots on creation and records what changed on commit; it chooses the record type.
@@ -33,6 +42,20 @@ public:
     ~Edit();
 
     void commit();
+
+    // Records the Edit cannot infer from its snapshot. They join this Edit's step and take its description.
+    void recordLayerAdd(int layerId);
+    /** Takes ownership of layer, so undo can put the same layer back; deletes it when nothing records. */
+    void recordLayerRemove(Layer* layer, int index);
+    void recordBitmapMoves(const QList<BitmapOffset>& offsets);
+    /** `frame` is the key position for a Drawing row, else 0. */
+    void recordAttribute(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after);
+    /** The markers of `layerId` (0: global) changed from `before` to the current set. */
+    void recordMarkers(int layerId, const QMap<int, FrameMarker>& before);
+    void recordCameraSize(int layerId, QRect before, QRect after);
+    void recordKeyFrameOpacities(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after);
+    /** Layer order or groups changed from `before` to the current arrangement. */
+    void recordLayerArrangement(const LayerArrangement& before);
 
 private:
     friend class Editor;

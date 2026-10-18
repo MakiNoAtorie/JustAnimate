@@ -35,6 +35,18 @@ ToolPropertyDescriptor row(ToolPropertyId<T> id, const char* key, double min, do
     return { id.raw, key, valueType<T>(), min, max, defaultValue, label, disambiguation, kind, std::move(uses), std::move(items) };
 }
 
+// Older versions stored a StabilizationLevel; it maps to a smoothing mode and strength.
+ToolPropertyDescriptor withLegacyLevel(ToolPropertyDescriptor d)
+{
+    d.legacyGroupKey = "LineStabilization";
+    d.fromLegacy = [](ToolProperties& p, const QVariant& level) {
+        const SmoothingPreset preset = InputSmoother::presetForLegacyLevel(level.toInt());
+        p.set(ToolProperty::SmoothingMode, static_cast<int>(preset.mode));
+        p.set(ToolProperty::SmoothingStrength, preset.strength);
+    };
+    return d;
+}
+
 QVector<ToolPropertyUse> rows(std::initializer_list<ToolType> tools, quint8 layers)
 {
     QVector<ToolPropertyUse> uses;
@@ -57,12 +69,11 @@ QVector<ToolPropertyDescriptor> makeDescriptors()
         row(Feather, "Feather", 1, 99, 48, K::Slider, "Feather", nullptr, {
             { PENCIL, NO_ROW, 50.0 }, { BRUSH, BITMAP_ROW, {}, "brushFeather" }, { ERASER, BITMAP_ROW, {}, "eraserFeather" },
             { SMUDGE, BITMAP_ROW, {}, "smudgeFeather" }, { SHAPE, BITMAP_ROW } }),
-        // The old smoothing keys hold a StabilizationLevel; migrateLegacyKeys maps it to mode and strength.
-        row(ToolProperty::SmoothingMode, "SmoothingMode", int(::SmoothingMode::None), int(InputSmoother::LAST_MODE), int(::SmoothingMode::OneEuro),
+        withLegacyLevel(row(ToolProperty::SmoothingMode, "SmoothingMode", int(::SmoothingMode::None), int(InputSmoother::LAST_MODE), int(::SmoothingMode::OneEuro),
             K::ComboBox, "Smoothing", nullptr, {
             { PENCIL, BOTH_ROWS, {}, "pencilLineStabilization" }, { BRUSH, BOTH_ROWS, {}, "brushLineStabilization" },
             { ERASER, BOTH_ROWS, double(::SmoothingMode::None), "stabilizerLevel" }, { SMUDGE, BITMAP_ROW },
-            { PEN, BOTH_ROWS, {}, "penLineStablization" } }),
+            { PEN, BOTH_ROWS, {}, "penLineStablization" } })),
         row(PressureEnabled, "PressureEnabled", 0, 1, false, K::CheckBox, "Pressure", opts, {
             { PENCIL, BITMAP_ROW, true, "pencilPressure" }, { BRUSH, BOTH_ROWS, true, "brushPressure" },
             { ERASER, BOTH_ROWS, true, "eraserPressure" }, { SMUDGE, BITMAP_ROW }, { PEN, BOTH_ROWS, true, "penPressure" },
@@ -192,6 +203,17 @@ void ToolProperties::loadTool(ToolType tool, const QString& toolIdentifier, QSet
     }
     insertProperties(info);
     loadFrom(toolIdentifier, settings);
+
+    for (const ToolPropertyDescriptor& d : descriptors())
+    {
+        if (!d.legacyGroupKey || !mProps.contains(d.id)) { continue; }
+        const QString oldKey = toolIdentifier + "/" + d.legacyGroupKey;
+        if (settings.contains(oldKey) && !settings.contains(toolIdentifier + "/" + d.key))
+        {
+            if (d.fromLegacy) { d.fromLegacy(*this, settings.value(oldKey)); }
+            else { setValue(mProps[d.id], settings.value(oldKey)); }
+        }
+    }
 }
 
 void ToolProperties::migrateLegacyKeys(ToolType tool, QSettings& settings)
@@ -203,19 +225,10 @@ void ToolProperties::migrateLegacyKeys(ToolType tool, QSettings& settings)
         const ToolPropertyUse* use = d.use(tool);
         if (!use || !use->legacyKey || !mProps.contains(d.id)) { continue; }
 
-        if (d.id == StrokeToolProperties::SMOOTHING_MODE)
-        {
-            const SmoothingPreset preset = settings.contains(use->legacyKey)
-                ? InputSmoother::presetForLegacyLevel(settings.value(use->legacyKey).toInt())
-                : SmoothingPreset{ static_cast<SmoothingMode>(d.toolDefault(tool)),
-                                   static_cast<int>(descriptor(StrokeToolProperties::SMOOTHING_STRENGTH)->toolDefault(tool)) };
-            set(ToolProperty::SmoothingMode, static_cast<int>(preset.mode));
-            set(ToolProperty::SmoothingStrength, preset.strength);
-        }
+        if (d.fromLegacy && settings.contains(use->legacyKey))
+            d.fromLegacy(*this, settings.value(use->legacyKey));
         else
-        {
             setValue(mProps[d.id], settings.value(use->legacyKey, d.toolDefault(tool)));
-        }
         settings.remove(use->legacyKey);
     }
 }

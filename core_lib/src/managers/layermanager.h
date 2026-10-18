@@ -157,6 +157,11 @@ public:
     static void selectAllFramesAfter(Layer* layer, int frame) { layer->selectAllFramesAfter(frame); }
     static bool selectConnectedFrames(Layer* layer, int frame) { return layer->newSelectionOfConnectedFrames(frame); }
     static void deselectFrames(Layer* layer) { layer->deselectAll(); }
+    // One layer's selected-frame moves, unrecorded: the caller opens the Edit.
+    static bool moveSelectedFrames(Layer* layer, int offset) { return layer->moveSelectedFrames(offset); }
+    static bool moveKeyFrames(Layer* layer, const QList<QPair<int, int>>& fromTo) { return layer->moveKeyFrames(fromTo); }
+    static bool reverseOrderOfSelection(Layer* layer) { return layer->reverseOrderOfSelection(); }
+    static void setExposureForSelectedFrames(Layer* layer, int value, bool hold = false) { layer->setExposureForSelectedFrames(value, hold); }
     /** Moves the current layer's keyframe at `frame` by `offset`, swapping with a keyframe there. One undo step. */
     bool moveKeyFrame(int frame, int offset);
     /** Moves the selected frames of every layer by `offset` as one undo step.
@@ -205,7 +210,6 @@ signals:
 
 private:
     int getIndex(Layer*) const;
-    void recordLayerAdd(const Layer* layer);
     /// True, with a status message, when a layer with selected frames is lock-all.
     bool selectionRefusesEdit();
     /// Records a Marker edit, marks the project modified and repaints the timeline.

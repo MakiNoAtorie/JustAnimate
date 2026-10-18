@@ -66,19 +66,15 @@ Status CommandLineExporter::process(const QString &inputPath,
         return s;
     }
 
-    LayerCamera *cameraLayer = nullptr;
-    if (!camera.isEmpty())
+    const LayerCamera* cameraLayer = Exporter::camera(*mEditor->object(), camera);
+    if (!camera.isEmpty() && cameraLayer && cameraLayer->name() != camera)
     {
-        cameraLayer = dynamic_cast<LayerCamera*>(layerManager->findLayerByName(camera, Layer::CAMERA));
-        if (cameraLayer == nullptr)
-        {
-            mErr << tr("Warning: the specified camera layer %1 was not found, ignoring.").arg(camera) << qEndl;
-        }
+        mErr << tr("Warning: the specified camera layer %1 was not found, ignoring.").arg(camera) << qEndl;
     }
     if (cameraLayer == nullptr)
     {
-        cameraLayer = dynamic_cast<LayerCamera*>(layerManager->getLastCameraLayer());
-        Q_ASSERT(cameraLayer);
+        mErr << tr("Error: the project has no camera layer.", "Command line error") << qEndl;
+        return Status::FAIL;
     }
 
     if (width < 0)

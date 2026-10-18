@@ -34,6 +34,7 @@ GNU General Public License for more details.
 #include <QTemporaryDir>
 #include <QWindow>
 
+#include "framerenderer.h"
 #include "bitmapimage.h"
 #include "brushpresets.h"
 #include "colormanager.h"
@@ -408,7 +409,7 @@ QByteArray frameHash(const Object* object)
     frame.fill(Qt::transparent);
     QPainter painter(&frame);
     painter.translate(640, 360);
-    object->paintImage(painter, 1, true, true);
+    FrameRenderer::paint(*object, 1, painter, { true, true });
     painter.end();
     return QCryptographicHash::hash(QByteArrayView(frame.constBits(), frame.sizeInBytes()),
                                     QCryptographicHash::Sha1).toHex();

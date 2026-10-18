@@ -67,13 +67,13 @@ void BucketTool::loadSettings()
     toolProperties().loadFrom(typeName(), settings);
 
     if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(BucketToolProperties::FILLTHICKNESS_VALUE, settings.value("fillThickness", 4.0).toReal());
-        toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_VALUE, settings.value("Tolerance", 32).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_ENABLED, settings.value("BucketToleranceEnabled", false).toBool());
-        toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_VALUE, settings.value("BucketFillExpand", 2).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_ENABLED, settings.value("BucketFillExpandEnabled", true).toBool());
-        toolProperties().setBaseValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, settings.value("BucketFillReferenceMode", 0).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::FILLMODE_VALUE, settings.value("FillMode", 0).toInt());
+        toolProperties().setValue(BucketToolProperties::FILLTHICKNESS_VALUE, settings.value("fillThickness", 4.0).toReal());
+        toolProperties().setValue(BucketToolProperties::COLORTOLERANCE_VALUE, settings.value("Tolerance", 32).toInt());
+        toolProperties().setValue(BucketToolProperties::COLORTOLERANCE_ENABLED, settings.value("BucketToleranceEnabled", false).toBool());
+        toolProperties().setValue(BucketToolProperties::FILLEXPAND_VALUE, settings.value("BucketFillExpand", 2).toInt());
+        toolProperties().setValue(BucketToolProperties::FILLEXPAND_ENABLED, settings.value("BucketFillExpandEnabled", true).toBool());
+        toolProperties().setValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, settings.value("BucketFillReferenceMode", 0).toInt());
+        toolProperties().setValue(BucketToolProperties::FILLMODE_VALUE, settings.value("FillMode", 0).toInt());
 
         settings.remove("fillThickness");
         settings.remove("Tolerance");
@@ -191,49 +191,49 @@ void BucketTool::applyChanges()
 
 void BucketTool::setStrokeThickness(qreal width)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLTHICKNESS_VALUE, width);
+    toolProperties().setValue(BucketToolProperties::FILLTHICKNESS_VALUE, width);
     emit strokeThicknessChanged(width);
 }
 
 void BucketTool::setColorTolerance(int tolerance)
 {
-    toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_VALUE, tolerance);
+    toolProperties().setValue(BucketToolProperties::COLORTOLERANCE_VALUE, tolerance);
     emit toleranceChanged(tolerance);
 }
 
 void BucketTool::setColorToleranceEnabled(bool enabled)
 {
-    toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_ENABLED, enabled);
+    toolProperties().setValue(BucketToolProperties::COLORTOLERANCE_ENABLED, enabled);
     emit toleranceEnabledChanged(enabled);
 }
 
 void BucketTool::setFillExpand(int fillExpandValue)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_VALUE, fillExpandValue);
+    toolProperties().setValue(BucketToolProperties::FILLEXPAND_VALUE, fillExpandValue);
     emit fillExpandChanged(fillExpandValue);
 }
 
 void BucketTool::setFillExpandEnabled(bool enabled)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_ENABLED, enabled);
+    toolProperties().setValue(BucketToolProperties::FILLEXPAND_ENABLED, enabled);
     emit fillExpandEnabledChanged(enabled);
 }
 
 void BucketTool::setFillReferenceMode(int referenceMode)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, referenceMode);
+    toolProperties().setValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, referenceMode);
     emit fillReferenceModeChanged(referenceMode);
 }
 
 void BucketTool::setFillCloseGaps(int pixels)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLCLOSEGAPS_VALUE, pixels);
+    toolProperties().setValue(BucketToolProperties::FILLCLOSEGAPS_VALUE, pixels);
     emit fillCloseGapsChanged(pixels);
 }
 
 void BucketTool::setFillMode(int mode)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLMODE_VALUE, mode);
+    toolProperties().setValue(BucketToolProperties::FILLMODE_VALUE, mode);
     emit fillModeChanged(mode);
 }
 

@@ -60,7 +60,7 @@ void SmudgeTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushT
     smudge.radius = get(ToolProperty::SmudgeRadius) / 100.0f;
     smudge.colorRate = get(ToolProperty::SmudgeColorRate) / 100.0f;
     smudge.wet = get(ToolProperty::SmudgeMix) == 1;
-    mBuffer.dab(point, width, get(ToolProperty::Feather), mEditor->color()->frontColor(), opacity, false, tip, smudge);
+    mBuffer.dab(point, width, mFeather, mEditor->color()->frontColor(), opacity, false, tip, smudge);
 }
 
 void SmudgeTool::pointerPressEvent(PointerEvent* event)

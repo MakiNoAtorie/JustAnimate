@@ -93,7 +93,6 @@ public:
     QDomElement saveXML(QDomDocument& doc) const;
     bool loadXML(const QDomElement& element, ProgressCallback progressForward);
 
-    void paintImage(QPainter& painter, int frameNumber, bool background, bool antialiasing) const;
 
     QString copyFileToDataFolder(const QString& strFilePath);
 
@@ -204,7 +203,6 @@ public:
             return QRect(QPoint((index % columns) * frame.width(), (index / columns) * frame.height()), frame);
         }
     };
-    QImage renderFrame(int frame, const QTransform& view, QSize cameraSize, QSize exportSize, bool antialiasing, bool transparency) const;
     static SpriteSheetGrid spriteSheetGrid(int frameCount, int columns);
 
     void modification() { modified = true; }
