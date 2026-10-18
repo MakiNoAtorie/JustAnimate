@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Pen, Pencil, Brush, Shape and Polyline vector curves commit through the stroke buffer, mapped into the key's space in one place (#269).
 - Undo records only through Edit: the raw snapshot, record and macro calls are private to it (#258).
 - Bitmap strokes commit through the Stroke tool's own stroke buffer, which holds the eraser and smudge composition; the canvas no longer crashes painting a vector layer without a buffer (#268).
 - Tools, canvas edits and menu commands record undo through one scoped Edit; an Edit left open by a lost pointer release ends cleanly after a project load (#257).

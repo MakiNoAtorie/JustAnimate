@@ -16,6 +16,8 @@ GNU General Public License for more details.
 
 #include "bitmapimage.h"
 #include "layerbitmap.h"
+#include "layervector.h"
+#include "vectorimage.h"
 
 namespace
 {
@@ -83,6 +85,27 @@ QRect StrokeBuffer::commit()
     }
     clear();
     return changed;
+}
+
+VectorImage* StrokeBuffer::commit(BezierCurve curve, qreal scaling, bool interacts)
+{
+    LayerVector* layer = mLayer && mLayer->type() == Layer::VECTOR ? static_cast<LayerVector*>(mLayer) : nullptr;
+    VectorImage* image = layer ? layer->getLastVectorImageAtFrame(mFrame) : nullptr;
+    if (image != nullptr)
+    {
+        const QTransform toKey = layer->tweenStateAt(mFrame).transform().inverted();
+        if (!toKey.isIdentity())
+        {
+            // BezierCurve::transform moves only selected vertices; a new curve is not selected.
+            curve.setSelected(true);
+            curve.transform(toKey);
+            curve.setSelected(false);
+        }
+        image->addCurve(curve, scaling, interacts);
+        layer->setModified(mFrame, true);
+    }
+    clear();
+    return image;
 }
 
 void StrokeBuffer::clear()

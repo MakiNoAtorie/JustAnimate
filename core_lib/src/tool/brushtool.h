@@ -34,8 +34,6 @@ public:
 
     void loadSettings() override;
 
-    void paintVectorStroke(Layer* layer);
-
 protected:
     void drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip) override;
     QPen vectorPreviewPen() override;

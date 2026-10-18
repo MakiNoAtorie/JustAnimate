@@ -189,20 +189,19 @@ void ShapeTool::finishShape(const QPolygonF& points, PointerEvent* event)
     }
     else if (layer->type() == Layer::VECTOR)
     {
-        VectorImage* image = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
-        if (image != nullptr) // null if the frame was deleted while drawing
+        // Null if the frame was deleted while drawing.
+        if (VectorImage* image = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame()))
         {
-            BezierCurve curve(shape, shapeMode() == ELLIPSE);
-            curve.setWidth(get(ToolProperty::InvisibilityEnabled) ? 0 : get(ToolProperty::Width));
-            curve.setFeather(get(ToolProperty::Feather));
-            curve.setFilled(false);
-            curve.setInvisibility(get(ToolProperty::InvisibilityEnabled));
-            curve.setVariableWidth(false);
-            curve.setColorNumber(mEditor->color()->frontColorNumber());
             image->deselectAll();
-            mapCurveToKey(curve);
-            image->addCurve(curve, mEditor->view()->scaling(), false);
         }
+        BezierCurve curve(shape, shapeMode() == ELLIPSE);
+        curve.setWidth(get(ToolProperty::InvisibilityEnabled) ? 0 : get(ToolProperty::Width));
+        curve.setFeather(get(ToolProperty::Feather));
+        curve.setFilled(false);
+        curve.setInvisibility(get(ToolProperty::InvisibilityEnabled));
+        curve.setVariableWidth(false);
+        curve.setColorNumber(mEditor->color()->frontColorNumber());
+        mBuffer.commit(curve, mEditor->view()->scaling(), false);
     }
     endStroke();
 }

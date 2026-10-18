@@ -116,6 +116,9 @@ protected:
 
     /// Writes the buffer into the current bitmap Drawing and repaints it.
     void commitBuffer();
+    /// Adds the stroke points as a curve to the current vector Drawing and selects only that curve.
+    /// Returns the Drawing; nullptr without stroke points or a Drawing.
+    VectorImage* commitVectorStroke(qreal width, qreal feather, bool invisible, bool variableWidth);
     /// Draws a vector stroke preview, given in screen space, into the buffer.
     void drawScreenPath(const QPainterPath& path, const QPen& pen);
 

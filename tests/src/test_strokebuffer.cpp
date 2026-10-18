@@ -18,12 +18,15 @@ GNU General Public License for more details.
 
 #include <QPixmap>
 
+#include "beziercurve.h"
 #include "bitmapimage.h"
 #include "canvaspainter.h"
+#include "keyframe.h"
 #include "layerbitmap.h"
 #include "layervector.h"
 #include "object.h"
 #include "strokebuffer.h"
+#include "vectorimage.h"
 
 namespace
 {
@@ -127,4 +130,32 @@ TEST_CASE("CanvasPainter paints a vector layer without a stroke buffer")
     painter.setPaintSettings(object.get(), 0, 1, nullptr);
     painter.paint(QRect(0, 0, 20, 20));
     SUCCEED();
+}
+
+TEST_CASE("StrokeBuffer commits a curve to a vector Drawing in key space")
+{
+    std::unique_ptr<Object> object(new Object);
+    object->init();
+    LayerVector* layer = object->addNewVectorLayer();
+    layer->addNewKeyFrameAt(1);
+    TweenState moved;
+    moved.tx = 10;
+    layer->getKeyFrameAt(1)->setTweenState(moved);
+    VectorImage* image = layer->getVectorImageAtFrame(1);
+
+    StrokeBuffer buffer;
+    buffer.begin(layer, 1, StrokeBuffer::Mode::Paint);
+    buffer.tiles().drawPath(QPainterPath(QPointF(0, 0)), QPen(Qt::black), Qt::NoBrush,
+                            QPainter::CompositionMode_Source, false); // a preview
+    BezierCurve curve(QList<QPointF> { QPointF(10, 0), QPointF(30, 0) }, false);
+    CHECK(buffer.commit(curve, 1.0, false) == image);
+
+    REQUIRE(image->curveCount() == 1);
+    CHECK(image->curve(0).getVertex(-1) == QPointF(0, 0)); // canvas x 10 is key x 0
+    CHECK(image->curve(0).getVertex(0) == QPointF(20, 0));
+    CHECK(buffer.tiles().bounds().isEmpty());
+
+    Canvas bitmap;
+    buffer.begin(bitmap.layer, 1, StrokeBuffer::Mode::Paint);
+    CHECK(buffer.commit(curve, 1.0, false) == nullptr);
 }

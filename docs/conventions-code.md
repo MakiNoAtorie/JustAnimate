@@ -69,8 +69,9 @@ Rules for every code change, read before you edit code. Same limits as
   new field joins `SelectionSaveState` and `TransformCommand`. A pending
   transform is applied in `ScribbleArea::pointerPressEvent` before any
   drawing tool paints.
-- Stroke pixels go through the Stroke tool's `StrokeBuffer` (`begin`, `dab`,
-  `commit`); its composition only in `StrokeBuffer::compositionMode()`.
+- Stroke pixels and vector curves go through the Stroke tool's `StrokeBuffer`
+  (`begin`, `dab`, `commit`); its composition only in
+  `StrokeBuffer::compositionMode()`.
   `duplicateLayer` copies every saved layer attribute.
 - Sound: timing via `SoundClip::msAtFrame`/`waveformPeaks`; preview via
   `PlaybackManager::startSound`; tests use `setSamples`. A clip put back in

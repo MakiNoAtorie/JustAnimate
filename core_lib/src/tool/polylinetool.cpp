@@ -306,11 +306,9 @@ void PolylineTool::endPolyline(QList<QPointF> points)
         curve.setVariableWidth(false);
         curve.setInvisibility(mScribbleArea->makeInvisible());
 
-        VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
+        mBuffer.begin(layer, mEditor->currentFrame(), bufferMode());
         // Can happen if the first frame is deleted while drawing
-        if (vectorImage == nullptr) { clearToolData(); return; }
-        mapCurveToKey(curve);
-        vectorImage->addCurve(curve, mEditor->view()->scaling());
+        if (mBuffer.commit(curve, mEditor->view()->scaling(), true) == nullptr) { clearToolData(); return; }
     }
     if (layer->type() == Layer::BITMAP)
     {

@@ -20,10 +20,12 @@ GNU General Public License for more details.
 
 #include "tiledbuffer.h"
 
+class BezierCurve;
 class Layer;
+class VectorImage;
 
 /// The pixels of one stroke in canvas space, owned by a Stroke tool. The canvas draws them with
-/// compositionMode(); commit() writes them into the bitmap Drawing the stroke began on.
+/// compositionMode(); commit() writes them, or a vector curve, into the Drawing the stroke began on.
 class StrokeBuffer
 {
 public:
@@ -39,6 +41,9 @@ public:
     /// Writes the buffer into the bitmap Drawing at the stroke's frame and clears it.
     /// Returns the canvas rect it changed; empty when nothing was written.
     QRect commit();
+    /// Adds curve, given in canvas space, to the vector Drawing at the stroke's frame and clears the buffer.
+    /// interacts joins the curve's ends to the curves near them. Returns the Drawing; nullptr when there is none.
+    VectorImage* commit(BezierCurve curve, qreal scaling, bool interacts);
     /// Drops the stroke without writing it.
     void clear();
 

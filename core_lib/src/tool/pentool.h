@@ -38,7 +38,6 @@ public:
 
     void drawStroke();
     void paintAt(QPointF point);
-    void paintVectorStroke(Layer *layer);
 
 private:
     void drawPen(QPointF point, qreal width);

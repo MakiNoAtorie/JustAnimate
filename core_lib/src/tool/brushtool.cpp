@@ -61,43 +61,8 @@ QPen BrushTool::vectorPreviewPen()
     return QPen(mEditor->color()->frontColor(), get(ToolProperty::Width) * pressure, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
 }
 
-void BrushTool::finishVectorStroke(Layer* layer)
+void BrushTool::finishVectorStroke(Layer*)
 {
-    paintVectorStroke(layer);
-}
-
-// This function uses the points from DrawStroke
-// and turns them into vector lines.
-void BrushTool::paintVectorStroke(Layer* layer)
-{
-    if (mStrokePoints.empty())
-        return;
-
-    if (layer->type() == Layer::VECTOR && mStrokePoints.size() > -1)
-    {
-        // Clear the temporary pixel path
-        mBuffer.clear();
-        qreal tol = mScribbleArea->getCurveSmoothing() / mEditor->view()->scaling();
-
-        BezierCurve curve(mStrokePoints, mStrokePressures, tol);
-        curve.setWidth(get(ToolProperty::Width));
-        curve.setFeather(get(ToolProperty::Feather));
-        curve.setFilled(false);
-        curve.setInvisibility(get(ToolProperty::InvisibilityEnabled));
-        curve.setVariableWidth(get(ToolProperty::PressureEnabled));
-        curve.setColorNumber(mEditor->color()->frontColorNumber());
-
-        VectorImage* vectorImage = static_cast<VectorImage*>(layer->getLastKeyFrameAtPosition(mEditor->currentFrame()));
-        mapCurveToKey(curve);
-        vectorImage->addCurve(curve, mEditor->view()->scaling(), false);
-
-        if (vectorImage->isAnyCurveSelected() || mEditor->select()->somethingSelected())
-        {
-            mEditor->deselectAll();
-        }
-
-        vectorImage->setSelected(vectorImage->getLastCurveNumber(), true);
-
-        mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
-    }
+    commitVectorStroke(get(ToolProperty::Width), get(ToolProperty::Feather),
+                       get(ToolProperty::InvisibilityEnabled), get(ToolProperty::PressureEnabled));
 }

@@ -63,47 +63,11 @@ QPen PencilTool::vectorPreviewPen()
     return QPen(mEditor->color()->frontColor(), 1, Qt::DotLine, Qt::RoundCap, Qt::RoundJoin);
 }
 
-void PencilTool::finishVectorStroke(Layer* layer)
+void PencilTool::finishVectorStroke(Layer*)
 {
-    paintVectorStroke(layer);
-}
-
-void PencilTool::paintVectorStroke(Layer* layer)
-{
-    if (mStrokePoints.empty())
-        return;
-
-    // Clear the temporary pixel path
-    mBuffer.clear();
-    qreal tol = mScribbleArea->getCurveSmoothing() / mEditor->view()->scaling();
-
-    BezierCurve curve(mStrokePoints, mStrokePressures, tol);
-    curve.setWidth(0);
-    curve.setFeather(0);
-    curve.setFilled(false);
-    curve.setInvisibility(true);
-    curve.setVariableWidth(false);
-    curve.setColorNumber(mEditor->color()->frontColorNumber());
-    VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
-    if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
-    mapCurveToKey(curve);
-    vectorImage->addCurve(curve, qAbs(mEditor->view()->scaling()), false);
-
-    if (get(ToolProperty::FillContourEnabled))
+    VectorImage* image = commitVectorStroke(0, 0, true, false);
+    if (image && get(ToolProperty::FillContourEnabled))
     {
-        vectorImage->fillContour(mStrokePoints,
-                                 mEditor->color()->frontColorNumber());
+        image->fillContour(mStrokePoints, mEditor->color()->frontColorNumber());
     }
-
-    if (vectorImage->isAnyCurveSelected() || mEditor->select()->somethingSelected())
-    {
-        mEditor->deselectAll();
-    }
-
-    // select last/newest curve
-    vectorImage->setSelected(vectorImage->getLastCurveNumber(), true);
-
-    // TODO: selection doesn't apply on enter
-
-    mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
 }

@@ -30,6 +30,10 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "layercamera.h"
 #include "tiledbuffer.h"
+#include "beziercurve.h"
+#include "vectorimage.h"
+#include "colormanager.h"
+#include "selectionmanager.h"
 
 #include "canvascursorpainter.h"
 #include "pencilsettings.h"
@@ -243,6 +247,29 @@ void StrokeTool::commitBuffer()
     const QRect changed = mBuffer.commit();
     mScribbleArea->update(mEditor->view()->mapCanvasToScreen(changed).toRect());
     mScribbleArea->onFrameModified(mEditor->currentFrame());
+}
+
+VectorImage* StrokeTool::commitVectorStroke(qreal width, qreal feather, bool invisible, bool variableWidth)
+{
+    if (mStrokePoints.empty()) { return nullptr; }
+
+    const qreal scaling = mEditor->view()->scaling();
+    BezierCurve curve(mStrokePoints, mStrokePressures, mScribbleArea->getCurveSmoothing() / scaling);
+    curve.setWidth(width);
+    curve.setFeather(feather);
+    curve.setFilled(false);
+    curve.setInvisibility(invisible);
+    curve.setVariableWidth(variableWidth);
+    curve.setColorNumber(mEditor->color()->frontColorNumber());
+
+    VectorImage* image = mBuffer.commit(curve, scaling, false);
+    if (image == nullptr) { return nullptr; } // the first frame can be deleted while drawing
+    if (image->isAnyCurveSelected() || mEditor->select()->somethingSelected())
+    {
+        mEditor->deselectAll();
+    }
+    image->setSelected(image->getLastCurveNumber(), true);
+    return image; // endStroke() marks the frame modified
 }
 
 void StrokeTool::endStrokeEdit(bool commit)
