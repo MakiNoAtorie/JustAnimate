@@ -1859,6 +1859,25 @@ TEST_CASE("Frame pool: held and onion Drawings unload when far and the pool coun
     CHECK(s.object->framePoolMemory() == loaded);
 }
 
+// Parks every worker of the shared pool until release(). The workers have left before it is destroyed,
+// so no worker waits on a semaphore of a finished test, and a failed REQUIRE never blocks the pool.
+class PoolHold
+{
+public:
+    PoolHold()
+    {
+        for (int i = 0; i < mWorkers; ++i) { workerPool()->start([go = mGo, left = mLeft] { go->acquire(); left->release(); }); }
+    }
+    ~PoolHold() { release(); mLeft->acquire(mWorkers); }
+    void release() { if (!mReleased) { mGo->release(mWorkers); mReleased = true; } }
+
+private:
+    const int mWorkers = parallelWorkerCount();
+    std::shared_ptr<QSemaphore> mGo = std::make_shared<QSemaphore>();
+    std::shared_ptr<QSemaphore> mLeft = std::make_shared<QSemaphore>();
+    bool mReleased = false;
+};
+
 TEST_CASE("Frame pool: a background read queued before a save moves the Drawing gives it its own pixels")
 {
     QTemporaryDir dir;
@@ -1881,9 +1900,7 @@ TEST_CASE("Frame pool: a background read queued before a save moves the Drawing 
     REQUIRE_FALSE(red->isLoaded());
 
     // Hold every worker, so the queued read runs only after the save has moved the files.
-    QSemaphore release;
-    const int workers = parallelWorkerCount();
-    for (int i = 0; i < workers; ++i) { workerPool()->start([&release] { release.acquire(); }); }
+    PoolHold hold;
     red->loadFileAsync();
 
     REQUIRE(layer->swapKeyFrames(1, 2));
@@ -1891,7 +1908,7 @@ TEST_CASE("Frame pool: a background read queued before a save moves the Drawing 
     blue->setModified(false);
     QStringList moved;
     REQUIRE(layer->presave(object->dataDir(), moved).ok());
-    release.release(workers);
+    hold.release();
 
     CHECK(qRed(red->image()->pixel(5, 5)) == 255);
     CHECK(qBlue(blue->image()->pixel(5, 5)) == 255);
@@ -1952,14 +1969,12 @@ TEST_CASE("A background save encodes the Drawings and writes main.xml on a worke
     const QString mainXml = QDir(object.workingDir()).filePath(PFF_XML_FILE_NAME);
     QFile::remove(mainXml);
 
-    QSemaphore release;
-    const int workers = parallelWorkerCount();
-    for (int i = 0; i < workers; ++i) { workerPool()->start([&release] { release.acquire(); }); }
+    PoolHold hold;
     FileManager fm;
     FileManager::BackgroundSave saved = fm.saveInBackground(&object, dir.filePath("bg.pclx"), {});
     const QStringList pngs = data.entryList({ "*.png" });
     const bool xmlWritten = QFile::exists(mainXml);
-    release.release(workers);
+    hold.release();
     REQUIRE(saved.finish(&object).ok());
 
     CHECK(pngs.isEmpty());
