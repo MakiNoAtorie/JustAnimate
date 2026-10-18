@@ -83,12 +83,27 @@ void ActiveFramePool::unloadFramesFarFrom(int frame, int distance)
     for (auto it = mCacheFramesList.begin(); it != mCacheFramesList.end();)
     {
         KeyFrame* key = *it++;
-        if (std::abs(mCacheFramesMap[key].usedAt - frame) > distance)
+        Entry& e = mCacheFramesMap[key];
+        refreshSize(e, key); // painting changes a size with no event
+        if (std::abs(e.usedAt - frame) > distance)
         {
             key->unloadFile(); // keeps frames with unsaved changes loaded
             forget(key);
         }
     }
+}
+
+quint64 ActiveFramePool::usedMemory()
+{
+    for (KeyFrame* key : mCacheFramesList) { refreshSize(mCacheFramesMap[key], key); }
+    return mTotalUsedMemory;
+}
+
+void ActiveFramePool::refreshSize(Entry& e, KeyFrame* key)
+{
+    const quint64 bytes = key->memoryUsage();
+    mTotalUsedMemory += bytes - e.bytes;
+    e.bytes = bytes;
 }
 
 void ActiveFramePool::onKeyFrameDestroy(KeyFrame* key)

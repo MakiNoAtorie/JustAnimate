@@ -46,7 +46,8 @@ public:
     void setMinFrameCount(size_t frameCount);
     /** Sets the playhead and unloads pooled frames last used more than `distance` frames from it, whatever the budget */
     void unloadFramesFarFrom(int frame, int distance);
-    quint64 usedMemory() const { return mTotalUsedMemory; }
+    /** The loaded size of the pooled frames, also of frames that painting grew since they entered */
+    quint64 usedMemory();
 
     void onKeyFrameDestroy(KeyFrame*) override;
     void onKeyFrameLoaded(KeyFrame*) override;
@@ -60,6 +61,7 @@ private:
     };
 
     void touch(KeyFrame* key);
+    void refreshSize(Entry& e, KeyFrame* key);
     void forget(KeyFrame* key);
     void discardLeastUsedFrames();
 

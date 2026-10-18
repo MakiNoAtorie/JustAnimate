@@ -1893,3 +1893,20 @@ TEST_CASE("Frame pool: a background read queued before a save moves the Drawing 
     CHECK(qRed(red->image()->pixel(5, 5)) == 255);
     CHECK(qBlue(blue->image()->pixel(5, 5)) == 255);
 }
+TEST_CASE("Frame pool: the memory total follows a Drawing that painting grew")
+{
+    QTemporaryDir dir;
+    TestSession s(savedDrawings(dir.filePath("grow.pclx"), 1, { 1, 2 }));
+    REQUIRE(s.object);
+    REQUIRE(s.start());
+    s.editor->scrubTo(1);
+    auto* layer = static_cast<LayerBitmap*>(s.object->getLayer(1));
+    BitmapImage* image = layer->getBitmapImageAtFrame(1);
+    REQUIRE(image->isLoaded());
+
+    image->drawRect(QRectF(-200, -200, 400, 400), Qt::NoPen, Qt::blue, QPainter::CompositionMode_SourceOver, false);
+    const quint64 loaded = image->memoryUsage() + layer->getBitmapImageAtFrame(2)->memoryUsage();
+    CHECK(s.object->framePoolMemory() == loaded);
+    s.editor->scrubTo(2);
+    CHECK(s.object->framePoolMemory() == image->memoryUsage() + layer->getBitmapImageAtFrame(2)->memoryUsage());
+}
