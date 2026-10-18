@@ -644,3 +644,55 @@ TEST_CASE("Preferences - the dotted-cursor key migrates once to the cursor style
     REQUIRE(s.start());
     CHECK(s.editor->preference()->get<SETTING::CURSOR_STYLE>() == CURSOR_BRUSH_OUTLINE);
 }
+
+TEST_CASE("ScribbleArea - a pen eraser flip keeps the cached frame")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show(); // grab() on a hidden widget resizes it, which clears the cache
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    const QImage before = area->grab().toImage();
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    editor->tools()->tabletSwitchToEraser();
+    CHECK(area->grab().toImage() == before);
+    editor->tools()->tabletRestorePrevTool();
+    CHECK(area->grab().toImage() == before);
+    CHECK(StageProfiler::calls(StageProfiler::Composite) == 0);
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
+}
+
+TEST_CASE("ScribbleArea - the grid follows its setting at once")
+{
+    const SettingsGuard settings({ SETTING_SHOW_GRID });
+    TestSession s;
+    s.object->addNewCameraLayer();
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+
+    editor->preference()->set<SETTING::GRID>(false);
+    const QImage off = area->grab().toImage();
+    editor->preference()->set<SETTING::GRID>(true);
+    const QImage on = area->grab().toImage();
+    CHECK(on != off);
+    editor->preference()->set<SETTING::GRID>(false);
+    CHECK(area->grab().toImage() == off);
+    editor->preference()->set<SETTING::GRID>(true);
+    CHECK(area->grab().toImage() == on);
+}

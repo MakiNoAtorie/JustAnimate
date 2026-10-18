@@ -144,6 +144,8 @@ bool ScribbleArea::init()
     mLayerVisibility = static_cast<LayerVisibility>(mPrefs->get<SETTING::LAYER_VISIBILITY>());
 
     mDeltaFactor = mEditor->preference()->get<SETTING::INVERT_SCROLL_ZOOM_DIRECTION>() ? -1 : 1;
+    refreshPaintOptions();
+    if (BaseTool* tool = mEditor->tools()->currentTool()) { mShownTool = tool->type(); }
 
     setMouseTracking(true); // reacts to mouse move events, even if the button is not pressed
     setTabletTracking(true); // tablet tracking first added in 5.9
@@ -155,6 +157,7 @@ bool ScribbleArea::init()
 
 void ScribbleArea::settingUpdated(SETTING setting)
 {
+    refreshPaintOptions();
     switch (setting)
     {
     case SETTING::CURVE_SMOOTHING:
@@ -340,12 +343,16 @@ void ScribbleArea::invalidatePainterCaches()
     updateFrame();
 }
 
-void ScribbleArea::onToolChanged(ToolType)
+void ScribbleArea::onToolChanged(ToolType tool)
 {
+    // Stroke tools show the same canvas: a pen eraser flip keeps the cached frame.
+    const auto isStroke = [this](ToolType t) { return t != INVALID_TOOL && dynamic_cast<StrokeTool*>(mEditor->tools()->getTool(t)); };
+    const bool sameCanvas = isStroke(mShownTool) && isStroke(tool);
+    mShownTool = tool;
     int frame = mEditor->currentFrame();
     prepOverlays(frame);
     prepCameraPainter(frame);
-    invalidateCacheForFrame(frame);
+    if (!sameCanvas) { invalidateCacheForFrame(frame); }
     updateFrame();
 }
 
@@ -989,18 +996,18 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
     if (!currentTool()->isActive())
     {
         // --- we retrieve the canvas from the cache; we create it if it doesn't exist
-        const int frameNumber = mEditor->layers()->lastFrameAtFrame(currentFrame);
-
         // The frame cache is keyed by frame: onion skins and the camera differ inside a hold. A transformed or in-between frame skips it (CanvasPainter caches by content).
+        bool anyKey = false;
         bool transformed = !mShiftAndTraceOffsets.isEmpty();
         for (int i = 0; i < mEditor->object()->getLayerCount() && !transformed; ++i)
         {
             const Layer* layer = mEditor->object()->getLayer(i);
             const KeyFrame* key = layer->getLastKeyFrameAtPosition(currentFrame);
+            anyKey = anyKey || key;
             transformed = !layer->tweenStateAt(currentFrame).isIdentity() || (key && key->tween() && key->pos() != currentFrame);
         }
 
-        if (frameNumber < 0 || transformed)
+        if (!anyKey || transformed)
         {
             drawCanvas(currentFrame, event->rect());
         }
@@ -1191,9 +1198,15 @@ VectorImage* ScribbleArea::currentVectorImage(Layer* layer) const
 
 OnionSkinPainterOptions ScribbleArea::onionSkinOptions() const
 {
-    OnionSkinPainterOptions o;
-    o.enabledWhilePlaying = mPrefs->get<SETTING::ONION_WHILE_PLAYBACK>();
+    OnionSkinPainterOptions o = mOnionOptions;
     o.isPlaying = mEditor->playback()->isPlaying();
+    return o;
+}
+
+void ScribbleArea::refreshPaintOptions()
+{
+    OnionSkinPainterOptions& o = mOnionOptions;
+    o.enabledWhilePlaying = mPrefs->get<SETTING::ONION_WHILE_PLAYBACK>();
     o.isAbsolute = mPrefs->isOnionAbsolute();
     o.markFilter = mPrefs->markFilter();
     o.skinPrevFrames = mPrefs->get<SETTING::PREV_ONION>();
@@ -1207,7 +1220,32 @@ OnionSkinPainterOptions ScribbleArea::onionSkinOptions() const
     o.falloff = static_cast<OnionSkinFalloff>(mPrefs->get<SETTING::ONION_FALLOFF>());
     o.prevColor = QColor(mPrefs->get<SETTING::ONION_PREV_COLOR>());
     o.nextColor = QColor(mPrefs->get<SETTING::ONION_NEXT_COLOR>());
-    return o;
+
+    CanvasPainterOptions& c = mCanvasOptions;
+    c.bOnionSkinMultiLayer = mPrefs->get<SETTING::ONION_MUTLIPLE_LAYERS>();
+    c.bAntiAlias = mPrefs->get<SETTING::ANTIALIAS>();
+    c.bThinLines = mPrefs->get<SETTING::INVISIBLE_LINES>();
+    c.bFastLayersAbove = mPrefs->get<SETTING::FAST_RENDER_LAYERS_ABOVE>();
+    c.bOutlines = mPrefs->get<SETTING::OUTLINES>();
+    c.fLayerVisibilityThreshold = mPrefs->get<SETTING::LAYER_VISIBILITY_THRESHOLD>();
+
+    OverlayPainterOptions& v = mOverlayOptions;
+    v.bGrid = mPrefs->get<SETTING::GRID>();
+    v.nGridSizeW = mPrefs->get<SETTING::GRID_SIZE_W>();
+    v.nGridSizeH = mPrefs->get<SETTING::GRID_SIZE_H>();
+    v.bCenter = mPrefs->get<SETTING::OVERLAY_CENTER>();
+    v.bThirds = mPrefs->get<SETTING::OVERLAY_THIRDS>();
+    v.bGoldenRatio = mPrefs->get<SETTING::OVERLAY_GOLDEN>();
+    v.bSafeArea = mPrefs->get<SETTING::OVERLAY_SAFE>();
+    v.bPerspective1 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE1>();
+    v.bPerspective2 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE2>();
+    v.bPerspective3 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE3>();
+    v.nOverlayAngle = mPrefs->get<SETTING::OVERLAY_ANGLE>();
+    v.bActionSafe = mPrefs->get<SETTING::ACTION_SAFE_ON>();
+    v.nActionSafe = mPrefs->get<SETTING::ACTION_SAFE>();
+    v.bShowSafeAreaHelperText = mPrefs->get<SETTING::OVERLAY_SAFE_HELPER_TEXT_ON>();
+    v.bTitleSafe = mPrefs->get<SETTING::TITLE_SAFE_ON>();
+    v.nTitleSafe = mPrefs->get<SETTING::TITLE_SAFE>();
 }
 
 void ScribbleArea::prepCameraPainter(int frame)
@@ -1220,7 +1258,7 @@ void ScribbleArea::prepCameraPainter(int frame)
                                   mEditor->view()->getView(),
                                   mEditor->playback()->isPlaying(),
                                   mLayerVisibility,
-                                  mPrefs->get<SETTING::LAYER_VISIBILITY_THRESHOLD>(),
+                                  mCanvasOptions.fLayerVisibilityThreshold,
                                   mEditor->view()->getScaleInversed());
 
     mCameraPainter.setOnionSkinPainterOptions(onionSkinOptions());
@@ -1230,14 +1268,8 @@ void ScribbleArea::prepCanvas(int frame)
 {
     Object* object = mEditor->object();
 
-    CanvasPainterOptions o;
-    o.bOnionSkinMultiLayer = mPrefs->get<SETTING::ONION_MUTLIPLE_LAYERS>();
-    o.bAntiAlias = mPrefs->get<SETTING::ANTIALIAS>();
-    o.bThinLines = mPrefs->get<SETTING::INVISIBLE_LINES>();
-    o.bFastLayersAbove = mPrefs->get<SETTING::FAST_RENDER_LAYERS_ABOVE>();
-    o.bOutlines = mPrefs->get<SETTING::OUTLINES>();
+    CanvasPainterOptions o = mCanvasOptions;
     o.eLayerVisibility = mLayerVisibility;
-    o.fLayerVisibilityThreshold = mPrefs->get<SETTING::LAYER_VISIBILITY_THRESHOLD>();
     o.scaling = mEditor->view()->scaling();
     // A Stroke tool's buffer shows over the current layer as it will commit.
     auto* strokeTool = dynamic_cast<StrokeTool*>(currentTool());
@@ -1273,25 +1305,7 @@ void ScribbleArea::flipSelection(bool flipVertical)
 
 void ScribbleArea::prepOverlays(int frame)
 {
-    OverlayPainterOptions o;
-
-    o.bGrid = mPrefs->get<SETTING::GRID>();
-    o.nGridSizeW = mPrefs->get<SETTING::GRID_SIZE_W>();
-    o.nGridSizeH = mPrefs->get<SETTING::GRID_SIZE_H>();
-    o.bCenter = mPrefs->get<SETTING::OVERLAY_CENTER>();
-    o.bThirds = mPrefs->get<SETTING::OVERLAY_THIRDS>();
-    o.bGoldenRatio = mPrefs->get<SETTING::OVERLAY_GOLDEN>();
-    o.bSafeArea = mPrefs->get<SETTING::OVERLAY_SAFE>();
-    o.bPerspective1 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE1>();
-    o.bPerspective2 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE2>();
-    o.bPerspective3 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE3>();
-    o.nOverlayAngle = mPrefs->get<SETTING::OVERLAY_ANGLE>();
-    o.bActionSafe = mPrefs->get<SETTING::ACTION_SAFE_ON>();
-    o.nActionSafe = mPrefs->get<SETTING::ACTION_SAFE>();
-    o.bShowSafeAreaHelperText = mPrefs->get<SETTING::OVERLAY_SAFE_HELPER_TEXT_ON>();
-    o.bTitleSafe = mPrefs->get<SETTING::TITLE_SAFE_ON>();
-    o.nTitleSafe = mPrefs->get<SETTING::TITLE_SAFE>();
-    o.nOverlayAngle = mPrefs->get<SETTING::OVERLAY_ANGLE>();
+    OverlayPainterOptions o = mOverlayOptions;
     o.bShowHandle = mEditor->tools()->currentTool()->type() == MOVE && mEditor->layers()->currentLayer()->type() != Layer::CAMERA;
 
     o.mSinglePerspPoint = mEditor->overlays()->getSinglePerspectivePoint();

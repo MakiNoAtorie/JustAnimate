@@ -134,7 +134,6 @@ public:
     Layer* duplicateLayer(Layer* from, const QString& name);
 
     // KeyFrame Management
-    int lastFrameAtFrame(int frameIndex);
     int firstKeyFrameIndex();
     int lastKeyFrameIndex();
 

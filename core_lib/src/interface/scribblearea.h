@@ -236,6 +236,7 @@ private:
 
     void prepOverlays(int frame);
     OnionSkinPainterOptions onionSkinOptions() const;
+    void refreshPaintOptions();
     void prepCameraPainter(int frame);
     void prepCanvas(int frame);
     void drawCanvas(int frame, QRect rect);
@@ -310,6 +311,12 @@ private:
 
     QCache<int, QPixmap> mFrameCache; ///< composited frames by frame number, cost in KB
     QRect mModifiedArea; ///< see setModifiedArea; empty means the whole canvas
+
+    // The preference parts of the paint options; settingUpdated refreshes them so a paint reads no preference.
+    OnionSkinPainterOptions mOnionOptions;
+    CanvasPainterOptions mCanvasOptions;
+    OverlayPainterOptions mOverlayOptions;
+    ToolType mShownTool = INVALID_TOOL; ///< the tool of the last toolChanged
 
     // debug
     QLoggingCategory mLog{ "ScribbleArea" };
