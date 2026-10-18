@@ -83,11 +83,11 @@ public:
 
     static Status executeFFmpeg(const QString& cmd, const QStringList& args, std::function<bool(int)> progress);
 
-    // Most frames left unwritten in ffmpeg's stdin buffer; the renderer waits beyond this.
+    // Most rendered frames waiting for ffmpeg to read them; the renderer waits beyond this.
     static const int MAX_QUEUED_FRAMES = 4;
-    // Pipes frames from nextFrame (false when done) into ffmpeg's stdin.
+    // Pipes frames from nextFrame (false when done, called on this thread) into ffmpeg's stdin from a writer thread.
     Status executeFFMpegPipe(const QString& cmd, const QStringList& args, std::function<void(float)> progress, std::function<bool(QImage&)> nextFrame);
-    // Peak unwritten stdin bytes of the last executeFFMpegPipe run.
+    // Peak bytes of rendered frames not yet read by ffmpeg in the last executeFFMpegPipe run.
     qint64 peakQueuedBytes() const { return mPeakQueuedBytes; }
 private:
     Status assembleAudio(const Object* obj, QString ffmpegPath, std::function<void(float)> progress);

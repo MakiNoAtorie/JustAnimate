@@ -15,6 +15,7 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <memory>
+#include <QBuffer>
 #include <QDir>
 #include <QFile>
 #include <QImage>
@@ -26,11 +27,13 @@ GNU General Public License for more details.
 #include "editor.h"
 #include "exporter.h"
 #include "filemanager.h"
+#include "framerenderer.h"
 #include "layerbitmap.h"
 #include "layercamera.h"
 #include "object.h"
 #include "playbackmanager.h"
 #include "scribblearea.h"
+#include "util.h"
 
 namespace
 {
@@ -142,6 +145,36 @@ TEST_CASE("Exporter sprite sheet is one PNG of the grid", "[Exporter]")
     const QImage sheet(r.path);
     CHECK(sheet.size() == QSize(80, 60));
     CHECK(sheet.pixelColor(1, 1).alpha() == 0);
+}
+
+TEST_CASE("Exporter parallel sequence writes the same files as serial encoding", "[Exporter]")
+{
+    std::unique_ptr<Object> object(new Object);
+    object->init();
+    object->addNewCameraLayer()->setName("Cam");
+    LayerBitmap* layer = object->addNewBitmapLayer();
+    const int frames = parallelWorkerCount() * 2 + 3; // two full encoding chunks and a partial one
+    for (int f = 1; f <= frames; ++f)
+    {
+        layer->addNewKeyFrameAt(f);
+        layer->getBitmapImageAtFrame(f)->drawRect(QRectF(-200 + f * 20, -50, 60, 100), Qt::NoPen, QBrush(Qt::blue), QPainter::CompositionMode_Source, false);
+    }
+    QTemporaryDir dir;
+    ExportRequest r = sequence(dir, "PNG");
+    r.endFrame = frames;
+    REQUIRE(Exporter::run(*object, r).ok());
+
+    REQUIRE(files(dir).size() == frames);
+    const LayerCamera* cam = Exporter::camera(*object, "Cam");
+    for (int f = 1; f <= frames; ++f)
+    {
+        CAPTURE(f);
+        QByteArray serial;
+        QBuffer buffer(&serial);
+        REQUIRE(buffer.open(QIODevice::WriteOnly));
+        REQUIRE(QImageWriter(&buffer, "PNG").write(FrameRenderer::renderForExport(*object, f, *cam, { kSize, true, true })));
+        CHECK(readFile(dir.filePath(QString("seq%1.png").arg(f, 4, 10, QChar('0')))) == serial);
+    }
 }
 
 TEST_CASE("Exporter cancelled run leaves no files and keeps the old ones", "[Exporter]")

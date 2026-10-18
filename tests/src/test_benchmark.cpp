@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <cstdio>
 #include <random>
 #include <vector>
@@ -40,6 +41,7 @@ GNU General Public License for more details.
 #include "colormanager.h"
 #include "dabtool.h"
 #include "editor.h"
+#include "exporter.h"
 #include "filemanager.h"
 #include "layerbitmap.h"
 #include "layermanager.h"
@@ -218,6 +220,15 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "play blend",   "frame",  cfg.frames },
         { "loop",         "frame",  2 * std::min(48, cfg.frames) },
         { "save one",     "file",   1 },
+        { "export",       "frame",  cfg.frames },
+    };
+    // Rows after "play blend" are found by name, so tickets append rows without renumbering.
+    auto row = [&sc](const char* name) -> Scenario& {
+        return *std::find_if(sc.begin(), sc.end(), [name](const Scenario& r) { return std::strcmp(r.name, name) == 0; });
+    };
+    // Rows after "play blend" are found by name, so tickets can append rows without renumbering.
+    auto row = [&sc](const char* name) -> Scenario& {
+        return *std::find_if(sc.begin(), sc.end(), [name](const Scenario& r) { return std::strcmp(r.name, name) == 0; });
     };
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
@@ -225,7 +236,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         double ms = 0, resaveMs = 0;
         path = createProject(dir.path(), cfg, ms, resaveMs);
         sc[0].ms.push_back(ms);
-        sc[10].ms.push_back(resaveMs);
+        row("save one").ms.push_back(resaveMs);
     }
 
     for (int rep = 0; rep < cfg.reps; ++rep)
@@ -289,7 +300,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
                 s.editor->scrubForward();
             }
         }
-        sc[9].ms.push_back(t.nsecsElapsed() / 1e6);
+        row("loop").ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(counter.paints == 2 * loopFrames);
         s.editor->playback()->stop();
 
@@ -345,6 +356,17 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         sc[8].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(counter.paints == cfg.frames);
         s.editor->playback()->stop();
+
+        // Export every frame (still blended) as a 1080p PNG sequence.
+        ExportRequest seq;
+        seq.kind = ExportRequest::Kind::Sequence;
+        seq.endFrame = cfg.frames;
+        seq.size = QSize(1920, 1080);
+        seq.path = dir.filePath("seq");
+        t.start();
+        const Status exported = Exporter::run(*s.editor->object(), seq);
+        row("export").ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(exported.ok());
     }
     return sc;
 }
@@ -607,7 +629,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 11);
+    REQUIRE(sc.size() == 12);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

@@ -41,6 +41,7 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | play blend | the play again with layers 2-10 blended (multiply, screen, overlay, add in turn) |
 | loop | playback on, frames 1-48 played three times; only passes 2 and 3 are timed (frame cache hits) |
 | save one | `FileManager::save` again with one frame modified: unchanged frames are copied from the previous archive |
+| export | `Exporter::run` of frames 1–500 as a 1920×1080 PNG sequence, layers still blended |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke. A last line prints the peak RAM (working set, sampled after

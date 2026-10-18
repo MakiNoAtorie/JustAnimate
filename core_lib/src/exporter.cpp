@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include <cstring>
 #include <filesystem>
+#include <future>
 #include <utility>
 #include <vector>
 #include <QDir>
@@ -28,6 +29,7 @@ GNU General Public License for more details.
 #include "layer.h"
 #include "layercamera.h"
 #include "object.h"
+#include "util.h"
 
 namespace
 {
@@ -144,16 +146,40 @@ Status Exporter::run(const Object& object, const ExportRequest& r, const std::fu
     // Each file is written to "<name>.tmp.<ext>" and renamed over its target only when the whole run succeeds.
     std::vector<std::pair<QString, QString>> written; // temporary, target
     auto discard = [&written] { for (const auto& w : written) { QFile::remove(w.first); } };
-    auto write = [&](const QImage& image, const QString& target) -> Status
+    // Runs on any thread: touches only its own files.
+    auto encode = [name = format.name](const QImage& image, const QString& tmp, const QString& target) -> Status
     {
-        const QFileInfo info(target);
-        const QString tmp = info.dir().filePath(info.completeBaseName() + ".tmp." + info.suffix());
         QFile::remove(tmp);
-        written.emplace_back(tmp, target);
-        QImageWriter writer(tmp, format.name);
+        QImageWriter writer(tmp, name);
         if (writer.write(image)) { return Status::OK; }
         return failure("cannot write image", target, QString("%1 (code %2)").arg(writer.errorString()).arg(int(writer.error())));
     };
+    auto temporary = [&written](const QString& target)
+    {
+        const QFileInfo info(target);
+        written.emplace_back(info.dir().filePath(info.completeBaseName() + ".tmp." + info.suffix()), target);
+        return written.back().first;
+    };
+
+    // Object is not thread-safe, so frames render here; one chunk encodes on the pool while the next renders.
+    struct Job { QImage image; QString tmp; QString target; };
+    std::vector<Job> chunk;
+    std::future<Status> encoding;
+    auto finishEncoding = [&encoding]() -> Status { return encoding.valid() ? encoding.get() : Status(Status::OK); };
+    auto startEncoding = [&]() -> Status
+    {
+        const Status st = finishEncoding();
+        if (!st.ok() || chunk.empty()) { return st; }
+        encoding = std::async(std::launch::async, [jobs = std::move(chunk), &encode]() {
+            std::vector<Status> results(jobs.size(), Status::OK);
+            parallelFor(int(jobs.size()), [&](int k) { results[k] = encode(jobs[k].image, jobs[k].tmp, jobs[k].target); });
+            for (const Status& s : results) { if (!s.ok()) { return s; } }
+            return Status(Status::OK);
+        });
+        chunk.clear();
+        return Status::OK;
+    };
+    auto fail = [&](const Status& st) { finishEncoding(); discard(); return st; };
 
     const int total = int(frames.size());
     QImage sheet;
@@ -173,14 +199,21 @@ Status Exporter::run(const Object& object, const ExportRequest& r, const std::fu
         }
         else
         {
-            const Status st = write(image, targets[i]);
-            if (!st.ok()) { discard(); return st; }
+            chunk.push_back({ image, temporary(targets[i]), targets[i] });
+            if (int(chunk.size()) == parallelWorkerCount())
+            {
+                const Status st = startEncoding();
+                if (!st.ok()) { return fail(st); }
+            }
         }
-        if (progress && !progress(i + 1, total)) { discard(); return Status::CANCELED; }
+        if (progress && !progress(i + 1, total)) { return fail(Status::CANCELED); }
     }
+    Status encoded = startEncoding();
+    if (encoded.ok()) { encoded = finishEncoding(); }
+    if (!encoded.ok()) { return fail(encoded); }
     if (r.kind == Kind::SpriteSheet)
     {
-        const Status st = write(sheet, targets.front());
+        const Status st = encode(sheet, temporary(targets.front()), targets.front());
         if (!st.ok()) { discard(); return st; }
     }
 

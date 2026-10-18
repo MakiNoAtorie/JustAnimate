@@ -21,7 +21,13 @@ GNU General Public License for more details.
 #include <ctime>
 #include <vector>
 #include <cstdint>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <deque>
 #include <filesystem>
+#include <mutex>
+#include <thread>
 #include <QDir>
 #include <QDebug>
 #include <QProcess>
@@ -591,102 +597,132 @@ Status MovieExporter::executeFFMpegPipe(const QString& cmd, const QStringList& a
 {
     qDebug() << cmd;
 
-    QProcess ffmpeg;
-    ffmpeg.setReadChannel(QProcess::StandardOutput);
-    // FFmpeg writes to stderr only for some reason, so we just read both channels together
-    ffmpeg.setProcessChannelMode(QProcess::MergedChannels);
-    ffmpeg.start(cmd, args);
-
+    // Frames render on this thread (Object is not thread-safe); a writer thread owns ffmpeg and drains the pipe meanwhile.
+    std::mutex mutex;
+    std::condition_variable changed;
+    std::deque<QImage> queue; // guarded by mutex, as are lastFrame and finished
+    bool lastFrame = false;
+    bool finished = false;
+    std::atomic<bool> stop{ false };
+    std::atomic<int> lastFrameProcessed{ 0 };
+    qint64 peak = 0;
     Status status = Status::OK;
-    DebugDetails dd;
-    dd << QStringLiteral("Command: %1 %2").arg(cmd).arg(args.join(' '));
-    if (ffmpeg.waitForStarted())
-    {
-        int framesGenerated = 0;
-        int lastFrameProcessed = 0;
-        const float frameCount = qMax(1, mDesc.endFrame - mDesc.startFrame);
-        qint64 frameBytes = 0;
-        bool writing = true;
-        mPeakQueuedBytes = 0;
-        while(ffmpeg.state() == QProcess::Running)
+
+    std::thread writer([&] {
+        QProcess ffmpeg;
+        ffmpeg.setReadChannel(QProcess::StandardOutput);
+        // FFmpeg writes to stderr only for some reason, so we just read both channels together
+        ffmpeg.setProcessChannelMode(QProcess::MergedChannels);
+        ffmpeg.start(cmd, args);
+
+        DebugDetails dd;
+        dd << QStringLiteral("Command: %1 %2").arg(cmd).arg(args.join(' '));
+        auto readOutput = [&](int msecs)
         {
-            if (mCanceled)
+            if (msecs >= 0 && !ffmpeg.waitForReadyRead(msecs)) { return; }
+            const QString output(ffmpeg.readAll());
+            for (const QString& s : output.split(QRegularExpression("[\r\n]"), SplitBehaviorFlags::SkipEmptyParts))
+            {
+                qDebug() << "[ffmpeg]" << s;
+                dd << s;
+            }
+            if (output.startsWith("frame=")) { lastFrameProcessed = output.mid(6, output.indexOf(' ')).toInt(); }
+        };
+
+        if (!ffmpeg.waitForStarted())
+        {
+            qDebug() << "ERROR: Could not execute FFmpeg.";
+            status = Status::FAIL;
+            status.setTitle(tr("Something went wrong"));
+            status.setDescription(tr("Couldn't start the video backend, please try again."));
+            status.setDetails(dd);
+        }
+        else
+        {
+            bool writing = true;
+            while (ffmpeg.state() == QProcess::Running && !stop)
+            {
+                if (writing && ffmpeg.bytesToWrite() == 0)
+                {
+                    std::unique_lock<std::mutex> lock(mutex);
+                    if (queue.empty() && !lastFrame) { changed.wait_for(lock, std::chrono::milliseconds(10)); }
+                    if (!queue.empty())
+                    {
+                        const QImage frame = std::move(queue.front());
+                        queue.pop_front();
+                        const qint64 queued = qint64(queue.size()) * frame.sizeInBytes();
+                        lock.unlock();
+                        changed.notify_all();
+                        ffmpeg.write(reinterpret_cast<const char*>(frame.constBits()), frame.sizeInBytes());
+                        peak = qMax(peak, queued + ffmpeg.bytesToWrite());
+                    }
+                    else if (lastFrame)
+                    {
+                        lock.unlock();
+                        ffmpeg.closeWriteChannel();
+                        writing = false;
+                    }
+                }
+                else if (writing)
+                {
+                    ffmpeg.waitForBytesWritten(10);
+                }
+                readOutput(writing ? 0 : 10);
+            }
+
+            if (stop)
             {
                 ffmpeg.terminate();
                 if (ffmpeg.state() == QProcess::Running) ffmpeg.kill();
-                return Status::CANCELED;
             }
-
-            if (writing && ffmpeg.bytesToWrite() <= (MAX_QUEUED_FRAMES - 1) * frameBytes)
+            else
             {
-                QImage frame;
-                if (nextFrame(frame))
+                readOutput(-1);
+                if (ffmpeg.exitStatus() != QProcess::NormalExit || ffmpeg.exitCode() != 0)
                 {
-                    frameBytes = frame.sizeInBytes();
-                    ffmpeg.write(reinterpret_cast<const char*>(frame.constBits()), frameBytes);
-                    mPeakQueuedBytes = qMax(mPeakQueuedBytes, ffmpeg.bytesToWrite());
-                    framesGenerated++;
-                }
-                else
-                {
-                    ffmpeg.closeWriteChannel();
-                    writing = false;
+                    status = Status::FAIL;
+                    status.setTitle(tr("Something went wrong"));
+                    status.setDescription(tr("Looks like our video backend did not exit normally. Your movie may not have exported correctly. Please try again and report this if it persists."));
+                    dd << QString("Exit status: ").append(QProcess::NormalExit ? "NormalExit": "CrashExit")
+                       << QString("Exit code: %1").arg(ffmpeg.exitCode());
+                    status.setDetails(dd);
                 }
             }
-            else if (writing)
-            {
-                ffmpeg.waitForBytesWritten(10);
-            }
-
-            // Check FFmpeg progress
-
-            if(ffmpeg.waitForReadyRead(writing ? 0 : 10))
-            {
-                QString output(ffmpeg.readAll());
-                QStringList sList = output.split(QRegularExpression("[\r\n]"), SplitBehaviorFlags::SkipEmptyParts);
-                for (const QString& s : sList)
-                {
-                    qDebug() << "[ffmpeg]" << s;
-                    dd << s;
-                }
-                if(output.startsWith("frame="))
-                {
-                    lastFrameProcessed = output.mid(6, output.indexOf(' ')).toInt();
-                }
-            }
-
-            progress((framesGenerated + lastFrameProcessed) / frameCount / 2);
         }
+        std::lock_guard<std::mutex> lock(mutex);
+        finished = true;
+        changed.notify_all();
+    });
 
-        QString output(ffmpeg.readAll());
-        QStringList sList = output.split(QRegularExpression("[\r\n]"), SplitBehaviorFlags::SkipEmptyParts);
-        for (const QString& s : sList)
-        {
-            qDebug() << "[ffmpeg]" << s;
-            dd << s;
-        }
-
-        if(ffmpeg.exitStatus() != QProcess::NormalExit  || ffmpeg.exitCode() != 0)
-        {
-            status = Status::FAIL;
-            status.setTitle(tr("Something went wrong"));
-            status.setDescription(tr("Looks like our video backend did not exit normally. Your movie may not have exported correctly. Please try again and report this if it persists."));
-            dd << QString("Exit status: ").append(QProcess::NormalExit ? "NormalExit": "CrashExit")
-               << QString("Exit code: %1").arg(ffmpeg.exitCode());
-            status.setDetails(dd);
-            return status;
-        }
-    }
-    else
+    // At most MAX_QUEUED_FRAMES frames wait: MAX_QUEUED_FRAMES - 1 here, one in ffmpeg's stdin buffer.
+    int framesGenerated = 0;
+    const float frameCount = qMax(1, mDesc.endFrame - mDesc.startFrame);
+    bool more = true;
+    std::unique_lock<std::mutex> lock(mutex);
+    while (!finished)
     {
-        qDebug() << "ERROR: Could not execute FFmpeg.";
-        status = Status::FAIL;
-        status.setTitle(tr("Something went wrong"));
-        status.setDescription(tr("Couldn't start the video backend, please try again."));
-        status.setDetails(dd);
+        if (mCanceled) { stop = true; break; }
+        if (more && int(queue.size()) < MAX_QUEUED_FRAMES - 1)
+        {
+            lock.unlock();
+            QImage frame;
+            more = nextFrame(frame);
+            lock.lock();
+            if (more) { queue.push_back(std::move(frame)); ++framesGenerated; } else { lastFrame = true; }
+            changed.notify_all();
+        }
+        else
+        {
+            changed.wait_for(lock, std::chrono::milliseconds(10));
+        }
+        lock.unlock();
+        progress((framesGenerated + lastFrameProcessed) / frameCount / 2);
+        lock.lock();
     }
-
-    return status;
+    lock.unlock();
+    writer.join();
+    mPeakQueuedBytes = peak;
+    return stop ? Status(Status::CANCELED) : status;
 }
 
 Status MovieExporter::checkInputParameters(const ExportMovieDesc& desc)
