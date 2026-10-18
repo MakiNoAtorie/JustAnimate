@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <QDoubleSpinBox>
 #include <QFontMetrics>
 #include <QFormLayout>
+#include <algorithm>
 #include <QHash>
 #include <QLineEdit>
 #include <QKeyEvent>
@@ -197,14 +198,35 @@ int TimeLineCells::getInbetweenLayerNumber(int y) const {
     return layerNumber;
 }
 
+std::vector<TimeLineCells::Row> TimeLineCells::rowTable() const
+{
+    // Object::isLayerFolded per layer scans the layers again for each group member.
+    const Object* object = mEditor->object();
+    const int count = object->getLayerCount();
+    QHash<int, int> groupTop; // group id to its top layer index
+    for (int i = 0; i < count; ++i)
+    {
+        if (const int group = object->getLayer(i)->groupId()) { groupTop[group] = i; }
+    }
+    std::vector<Row> rows(count);
+    for (int i = count - 1, row = 0; i >= 0; --i)
+    {
+        rows[i].y = mOffsetY + (row - mLayerOffset) * mLayerHeight;
+        const LayerGroup* group = object->findLayerGroup(object->getLayer(i)->groupId());
+        rows[i].folded = group && group->collapsed && groupTop.value(group->id) != i;
+        if (!rows[i].folded) { ++row; }
+    }
+    return rows;
+}
+
 int TimeLineCells::getLayerY(int layerNumber) const
 {
-    const Object* object = mEditor->object();
-    int row = std::min(0, object->getLayerCount() - 1 - layerNumber);
-    for (int i = object->getLayerCount() - 1; i > layerNumber; --i)
-    {
-        if (!object->isLayerFolded(i)) { ++row; }
-    }
+    const std::vector<Row> rows = rowTable();
+    const int count = static_cast<int>(rows.size());
+    if (layerNumber >= 0 && layerNumber < count) { return rows[layerNumber].y; }
+    // Below the last row, or above the first.
+    const int shown = static_cast<int>(std::count_if(rows.begin(), rows.end(), [](const Row& r) { return !r.folded; }));
+    const int row = layerNumber < 0 ? shown : count - 1 - layerNumber;
     return mOffsetY + (row - mLayerOffset) * mLayerHeight;
 }
 
@@ -303,18 +325,12 @@ void TimeLineCells::drawContent()
     const Object* object = mEditor->object();
     Q_ASSERT(object != nullptr);
     const int layerCount = object->getLayerCount();
-    std::vector<int> rowY(layerCount);
-    std::vector<bool> folded(layerCount);
-    for (int i = 0; i < layerCount; ++i)
-    {
-        rowY[i] = getLayerY(i);
-        folded[i] = object->isLayerFolded(i);
-    }
+    const std::vector<Row> rows = rowTable();
 
     // Draw non-current layers
     for (int i = 0; i < layerCount; i++)
     {
-        if (i == mEditor->layers()->currentLayerIndex() || folded[i])
+        if (i == mEditor->layers()->currentLayerIndex() || rows[i].folded)
         {
             continue;
         }
@@ -322,7 +338,7 @@ void TimeLineCells::drawContent()
 
         if (layeri != nullptr)
         {
-            const int layerY = rowY[i];
+            const int layerY = rows[i].y;
             switch (mType)
             {
             case TIMELINE_CELL_TYPE::Tracks:
@@ -423,7 +439,7 @@ void TimeLineCells::drawContent()
         paintTicks(painter, palette);
 
         for (int i = 0; i < layerCount; i++) {
-            paintSelectedFrames(painter, object->getLayer(i), rowY[i]);
+            paintSelectedFrames(painter, object->getLayer(i), rows[i].y);
         }
         mDrawnKeysHash = visibleKeysHash();
     }

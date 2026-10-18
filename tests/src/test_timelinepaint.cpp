@@ -147,3 +147,39 @@ TEST_CASE("The timeline paints no keys of a folded group member", "[Timeline]")
     CHECK(folded > 0);
     CHECK(folded * 3 == open * 2); // one of three bitmap layers is folded
 }
+TEST_CASE("The timeline row table matches Object::isLayerFolded and the row order", "[Timeline]")
+{
+    TestSession session;
+    std::vector<LayerBitmap*> layers;
+    for (int l = 0; l < 7; ++l) { layers.push_back(session.object->addNewBitmapLayer()); }
+    REQUIRE(session.start());
+    LayerManager* manager = session.editor->layers();
+    const int open = manager->createLayerGroup(layers[1]);
+    manager->addLayerToGroup(layers[2], open);
+    const int shut = manager->createLayerGroup(layers[4]);
+    manager->addLayerToGroup(layers[5], shut);
+    manager->addLayerToGroup(layers[6], shut);
+    manager->setLayerGroupCollapsed(shut, true);
+    TimeLine timeline(nullptr);
+    timeline.setEditor(session.editor.get());
+    timeline.initUI();
+    timeline.resize(800, 300);
+    timeline.grab();
+    TimeLineCells* tracks = tracksOf(timeline);
+
+    const Object* object = session.object;
+    const std::vector<TimeLineCells::Row> rows = tracks->rowTable();
+    REQUIRE(int(rows.size()) == object->getLayerCount());
+    int foldedCount = 0;
+    for (int i = 0; i < object->getLayerCount(); ++i)
+    {
+        INFO("layer " << i);
+        CHECK(rows[i].folded == object->isLayerFolded(i));
+        foldedCount += rows[i].folded;
+        // Rows count down from the top layer and skip folded layers.
+        int above = 0;
+        for (int j = object->getLayerCount() - 1; j > i; --j) { above += !object->isLayerFolded(j); }
+        CHECK(rows[i].y == rows.back().y + above * tracks->getLayerHeight());
+    }
+    CHECK(foldedCount == 2);
+}

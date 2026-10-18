@@ -107,6 +107,11 @@ protected:
 private slots:
     void loadSetting(SETTING setting);
 
+public:
+    struct Row { int y = 0; bool folded = false; };
+    /// Every layer's row y and folded flag, in one walk over the layers.
+    std::vector<Row> rowTable() const;
+
 private:
     int getLayerNumber(int y) const;
     int getInbetweenLayerNumber(int y) const;
