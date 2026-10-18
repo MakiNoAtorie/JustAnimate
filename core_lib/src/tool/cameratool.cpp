@@ -51,7 +51,7 @@ void CameraTool::loadSettings()
     connect(mEditor->layers(), &LayerManager::currentLayerChanged, this, &CameraTool::updateProperties);
     connect(mEditor, &Editor::objectLoaded, this, &CameraTool::updateProperties);
 
-    mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
+    mRotationIncrement = mEditor->preference()->get<SETTING::ROTATION_INCREMENT>();
 
     QSettings& settings = pencilSettings();
 
@@ -115,7 +115,7 @@ void CameraTool::updateSettings(const SETTING setting)
     {
     case SETTING::ROTATION_INCREMENT:
     {
-        mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
+        mRotationIncrement = mEditor->preference()->get<SETTING::ROTATION_INCREMENT>();
         break;
     }
     default:

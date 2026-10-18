@@ -195,13 +195,13 @@ TEST_CASE("Marked drawings mode with no Mark ticked passes no Drawing", "[Mark]"
     layer->getKeyFrameAt(1)->setMark(Mark::Key);
 
     PreferenceManager* prefs = s.editor->preference();
-    prefs->set(SETTING::ONION_MARKS, 0);
-    prefs->set(SETTING::ONION_TYPE, QString("marked"));
+    prefs->set<SETTING::ONION_MARKS>(0);
+    prefs->set<SETTING::ONION_TYPE>(QString("marked"));
     const MarkFilter filter = prefs->markFilter();
     CHECK_FALSE(filter.passes(layer->getKeyFrameAt(1)));
     CHECK(layer->getPreviousFrameNumber(5, true, filter) == -1);
     CHECK(layer->getNextFrameNumber(1, true, filter) == -1);
 
-    prefs->set(SETTING::ONION_TYPE, QString("absolute"));
+    prefs->set<SETTING::ONION_TYPE>(QString("absolute"));
     CHECK(layer->getPreviousFrameNumber(5, true, prefs->markFilter()) == 3);
 }

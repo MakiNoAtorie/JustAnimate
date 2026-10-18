@@ -216,7 +216,7 @@ MainWindow2::MainWindow2(QWidget* parent) :
 
     ui->statusBar->setEditor(mEditor);
     ui->statusBar->updateZoomStatus();
-    ui->statusBar->setVisible(mEditor->preference()->isOn(SETTING::SHOW_STATUS_BAR));
+    ui->statusBar->setVisible(mEditor->preference()->get<SETTING::SHOW_STATUS_BAR>());
 
     mCommands = new ActionCommands(this);
     mCommands->setCore(mEditor);
@@ -433,10 +433,10 @@ void MainWindow2::createMenus()
         visibilityGroup->addAction(action);
         connect(action, &QAction::triggered, [=] { mCommands->setLayerVisibilityIndex(i); });
     }
-    visibilityActions[mEditor->preference()->getInt(SETTING::LAYER_VISIBILITY)]->setChecked(true);
+    visibilityActions[mEditor->preference()->get<SETTING::LAYER_VISIBILITY>()]->setChecked(true);
     connect(mEditor->preference(), &PreferenceManager::optionChanged, [=](SETTING e) {
         if (e == SETTING::LAYER_VISIBILITY) {
-            visibilityActions[mEditor->preference()->getInt(SETTING::LAYER_VISIBILITY)]->setChecked(true);
+            visibilityActions[mEditor->preference()->get<SETTING::LAYER_VISIBILITY>()]->setChecked(true);
         }
     });
 
@@ -461,15 +461,15 @@ void MainWindow2::createMenus()
 
     PreferenceManager* prefs = mEditor->preference();
     connect(ui->actionStatusBar, &QAction::triggered, ui->statusBar, &QStatusBar::setVisible);
-    bindPreferenceSetting(ui->actionStatusBar, prefs, SETTING::SHOW_STATUS_BAR);
-    bindPreferenceSetting(ui->actionThreePointPerspective, prefs, SETTING::OVERLAY_PERSPECTIVE3);
-    bindPreferenceSetting(ui->actionTwoPointPerspective, prefs, SETTING::OVERLAY_PERSPECTIVE2);
-    bindPreferenceSetting(ui->actionOnePointPerspective, prefs, SETTING::OVERLAY_PERSPECTIVE1);
-    bindPreferenceSetting(ui->actionSafeAreas, prefs, SETTING::OVERLAY_SAFE);
-    bindPreferenceSetting(ui->actionGoldenRatio, prefs, SETTING::OVERLAY_GOLDEN);
-    bindPreferenceSetting(ui->actionThirds, prefs, SETTING::OVERLAY_THIRDS);
-    bindPreferenceSetting(ui->actionCenter, prefs, SETTING::OVERLAY_CENTER);
-    bindPreferenceSetting(ui->actionGrid, prefs, SETTING::GRID);
+    bindPreferenceSetting<SETTING::SHOW_STATUS_BAR>(ui->actionStatusBar, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_PERSPECTIVE3>(ui->actionThreePointPerspective, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_PERSPECTIVE2>(ui->actionTwoPointPerspective, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_PERSPECTIVE1>(ui->actionOnePointPerspective, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_SAFE>(ui->actionSafeAreas, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_GOLDEN>(ui->actionGoldenRatio, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_THIRDS>(ui->actionThirds, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_CENTER>(ui->actionCenter, prefs);
+    bindPreferenceSetting<SETTING::GRID>(ui->actionGrid, prefs);
 
     QAction* rulerAction = new QAction(tr("Ruler"), this);
     rulerAction->setCheckable(true);
@@ -487,13 +487,13 @@ void MainWindow2::createMenus()
     connect(perspectiveSnapAction, &QAction::toggled, this, [this](bool on) {
         mEditor->overlays()->setPerspectiveSnapEnabled(on);
     });
-    bindPreferenceSetting(ui->actionShowOutlinesOnly, prefs, SETTING::OUTLINES);
-    bindPreferenceSetting(ui->actionShowInvisibleLines, prefs, SETTING::INVISIBLE_LINES);
-    bindPreferenceSetting(ui->actionOnionPrev, prefs, SETTING::PREV_ONION);
-    bindPreferenceSetting(ui->actionOnionNext, prefs, SETTING::NEXT_ONION);
+    bindPreferenceSetting<SETTING::OUTLINES>(ui->actionShowOutlinesOnly, prefs);
+    bindPreferenceSetting<SETTING::INVISIBLE_LINES>(ui->actionShowInvisibleLines, prefs);
+    bindPreferenceSetting<SETTING::PREV_ONION>(ui->actionOnionPrev, prefs);
+    bindPreferenceSetting<SETTING::NEXT_ONION>(ui->actionOnionNext, prefs);
     const auto syncOnionSkin = [this, prefs] {
         QSignalBlocker block(ui->actionOnionSkin);
-        ui->actionOnionSkin->setChecked(prefs->isOn(SETTING::PREV_ONION) || prefs->isOn(SETTING::NEXT_ONION));
+        ui->actionOnionSkin->setChecked(prefs->get<SETTING::PREV_ONION>() || prefs->get<SETTING::NEXT_ONION>());
     };
     syncOnionSkin();
     connect(prefs, &PreferenceManager::optionChanged, this, [syncOnionSkin](SETTING s) {
@@ -507,7 +507,7 @@ void MainWindow2::createMenus()
     ui->menuOnion_Skin->addAction(mShiftAndTraceAction);
     connect(mShiftAndTraceAction, &QAction::toggled, ui->scribbleArea, &ScribbleArea::setShiftAndTrace);
 
-    bool enableSafeArea = (prefs->isOn(SETTING::ACTION_SAFE_ON) || prefs->isOn(SETTING::TITLE_SAFE_ON));
+    bool enableSafeArea = (prefs->get<SETTING::ACTION_SAFE_ON>() || prefs->get<SETTING::TITLE_SAFE_ON>());
     ui->actionSafeAreas->setEnabled(enableSafeArea);
 
     auto perspectiveLinesAngleGroup = new QActionGroup(this);
@@ -521,19 +521,19 @@ void MainWindow2::createMenus()
     perspectiveLinesAngleGroup->addAction(ui->action20Degrees);
     perspectiveLinesAngleGroup->addAction(ui->action30Degrees);
     connect(perspectiveLinesAngleGroup, &QActionGroup::triggered, this, [&](QAction* action) {
-        if (action == ui->action2Degrees)        mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 2);
-        else if (action == ui->action3Degrees)   mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 3);
-        else if (action == ui->action5Degrees)   mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 5);
-        else if (action == ui->action7_5Degrees) mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 7);
-        else if (action == ui->action10Degrees)  mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 10);
-        else if (action == ui->action15Degrees)  mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 15);
-        else if (action == ui->action20Degrees)  mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 20);
-        else if (action == ui->action30Degrees)  mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 30);
+        if (action == ui->action2Degrees)        mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(2);
+        else if (action == ui->action3Degrees)   mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(3);
+        else if (action == ui->action5Degrees)   mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(5);
+        else if (action == ui->action7_5Degrees) mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(7);
+        else if (action == ui->action10Degrees)  mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(10);
+        else if (action == ui->action15Degrees)  mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(15);
+        else if (action == ui->action20Degrees)  mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(20);
+        else if (action == ui->action30Degrees)  mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(30);
         else Q_UNREACHABLE();
         emit mEditor->view()->viewChanged();
     });
 
-    switch (prefs->getInt(SETTING::OVERLAY_ANGLE)) {
+    switch (prefs->get<SETTING::OVERLAY_ANGLE>()) {
     case 2: ui->action2Degrees->setChecked(true); break;
     case 3: ui->action3Degrees->setChecked(true); break;
     case 5: ui->action5Degrees->setChecked(true); break;
@@ -698,7 +698,7 @@ void MainWindow2::createMenus()
     winMenu->insertMenu(mCommandBar->toggleViewAction(), workspaceMenu);
     connect(ui->actionResetWindows, &QAction::triggered, this, &MainWindow2::resetAndDockAllSubWidgets);
     connect(ui->actionLockWindows, &QAction::toggled, this, &MainWindow2::lockWidgets);
-    bindPreferenceSetting(ui->actionLockWindows, prefs, SETTING::LAYOUT_LOCK);
+    bindPreferenceSetting<SETTING::LAYOUT_LOCK>(ui->actionLockWindows, prefs);
 
     //--- Help Menu ---
     connect(ui->actionHelp, &QAction::triggered, mCommands, &ActionCommands::help);
@@ -731,7 +731,7 @@ void MainWindow2::replaceUndoRedoActions()
 
 void MainWindow2::setOpacity(int opacity)
 {
-    mEditor->preference()->set(SETTING::WINDOW_OPACITY, 100 - opacity);
+    mEditor->preference()->set<SETTING::WINDOW_OPACITY>(100 - opacity);
     setWindowOpacity(opacity / 100.0);
 }
 
@@ -930,7 +930,7 @@ void MainWindow2::openStartupFile(const QString& filename)
     }
 
     PreferenceManager* prefs = mEditor->preference();
-    const int action = prefs->getInt(SETTING::STARTUP_ACTION);
+    const int action = prefs->get<SETTING::STARTUP_ACTION>();
     if (action == STARTUP_LAST_PROJECT && loadMostRecent())
     {
         return;
@@ -940,7 +940,7 @@ void MainWindow2::openStartupFile(const QString& filename)
         showWelcomeDialog();
         return;
     }
-    newObjectFromPresets(prefs->getInt(SETTING::DEFAULT_PRESET));
+    newObjectFromPresets(prefs->get<SETTING::DEFAULT_PRESET>());
 }
 
 void MainWindow2::openFile(const QString& filename)
@@ -1071,7 +1071,7 @@ bool MainWindow2::saveDocument()
 
 void MainWindow2::remindToSave()
 {
-    if (!mSuppressAutoSaveDialog && mEditor->preference()->isOn(SETTING::AUTO_SAVE_REMINDER))
+    if (!mSuppressAutoSaveDialog && mEditor->preference()->get<SETTING::AUTO_SAVE_REMINDER>())
     {
         const QKeySequence key = ui->actionSave->shortcut();
         mEditor->notice(key.isEmpty() ? tr("Unsaved project: save it to keep autosaving")
@@ -1330,9 +1330,9 @@ bool MainWindow2::loadMostRecent()
 
 bool MainWindow2::tryLoadPreset()
 {
-    if (mEditor->preference()->getInt(SETTING::STARTUP_ACTION) != STARTUP_WELCOME)
+    if (mEditor->preference()->get<SETTING::STARTUP_ACTION>() != STARTUP_WELCOME)
     {
-        return newObjectFromPresets(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET));
+        return newObjectFromPresets(mEditor->preference()->get<SETTING::DEFAULT_PRESET>());
     }
     showWelcomeDialog();
     return true;
@@ -1340,9 +1340,9 @@ bool MainWindow2::tryLoadPreset()
 
 void MainWindow2::showWelcomeDialog()
 {
-    auto* presetDialog = new WelcomeDialog(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET),
+    auto* presetDialog = new WelcomeDialog(mEditor->preference()->get<SETTING::DEFAULT_PRESET>(),
                                            mSession->recentFiles(),
-                                           mEditor->preference()->getString(SETTING::LAST_TEMPLATE), this);
+                                           mEditor->preference()->get<SETTING::LAST_TEMPLATE>(), this);
     presetDialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(presetDialog, &WelcomeDialog::finished, [=](int result)
     {
@@ -1353,10 +1353,10 @@ void MainWindow2::showWelcomeDialog()
 
         if (presetDialog->shouldHide())
         {
-            mEditor->preference()->set(SETTING::STARTUP_ACTION, Welcome::hiddenStartupAction(!mSession->recentFiles().isEmpty()));
+            mEditor->preference()->set<SETTING::STARTUP_ACTION>(Welcome::hiddenStartupAction(!mSession->recentFiles().isEmpty()));
             if (presetDialog->templateIndex() < 0)
             {
-                mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetDialog->presetIndex());
+                mEditor->preference()->set<SETTING::DEFAULT_PRESET>(presetDialog->presetIndex());
             }
         }
 
@@ -1375,7 +1375,7 @@ void MainWindow2::showWelcomeDialog()
         {
             if (Object* object = Welcome::newObjectFromTemplate(presetDialog->templateIndex()))
             {
-                mEditor->preference()->set(SETTING::LAST_TEMPLATE, Welcome::templates().at(presetDialog->templateIndex()).name);
+                mEditor->preference()->set<SETTING::LAST_TEMPLATE>(Welcome::templates().at(presetDialog->templateIndex()).name);
                 mEditor->setObject(object);
                 mEditor->setFps(mEditor->playback()->fps());
                 closeDialogs();
@@ -1410,10 +1410,10 @@ void MainWindow2::readSettings()
     dropOutdatedLayouts(settings);
     restoreState(settings.value(SETTING_WINDOW_STATE).toByteArray());
 
-    int opacity = mEditor->preference()->getInt(SETTING::WINDOW_OPACITY);
+    int opacity = mEditor->preference()->get<SETTING::WINDOW_OPACITY>();
     setOpacity(100 - opacity);
 
-    bool isWindowsLocked = mEditor->preference()->isOn(SETTING::LAYOUT_LOCK);
+    bool isWindowsLocked = mEditor->preference()->get<SETTING::LAYOUT_LOCK>();
     lockWidgets(isWindowsLocked);
 }
 

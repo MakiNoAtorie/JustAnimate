@@ -49,7 +49,7 @@ ToolType MoveTool::type() const
 
 void MoveTool::loadSettings()
 {
-    mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
+    mRotationIncrement = mEditor->preference()->get<SETTING::ROTATION_INCREMENT>();
     QSettings& settings = pencilSettings();
 
     mPropertyUsed[TransformToolProperties::SHOWSELECTIONINFO_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
@@ -97,16 +97,16 @@ void MoveTool::updateSettings(const SETTING setting)
     switch (setting)
     {
     case SETTING::ROTATION_INCREMENT:
-        mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
+        mRotationIncrement = mEditor->preference()->get<SETTING::ROTATION_INCREMENT>();
         break;
     case SETTING::OVERLAY_PERSPECTIVE1:
-        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->isOn(setting));
+        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->get<SETTING::OVERLAY_PERSPECTIVE1>());
         break;
     case SETTING::OVERLAY_PERSPECTIVE2:
-        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->isOn(setting));
+        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->get<SETTING::OVERLAY_PERSPECTIVE2>());
         break;
     case SETTING::OVERLAY_PERSPECTIVE3:
-        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->isOn(setting));
+        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->get<SETTING::OVERLAY_PERSPECTIVE3>());
         break;
     default:
         break;

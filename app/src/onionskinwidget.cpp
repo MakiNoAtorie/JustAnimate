@@ -54,10 +54,25 @@ OnionSkinWidget::~OnionSkinWidget()
     delete ui;
 }
 
+template<SETTING S>
+QToolButton* OnionSkinWidget::addColorButton(QLayout* layout, const QString& toolTip)
+{
+    QToolButton* button = new QToolButton(this);
+    button->setToolTip(toolTip);
+    button->setAutoRaise(true);
+    layout->addWidget(button);
+    connect(button, &QToolButton::clicked, this, [this] {
+        PreferenceManager* prefs = editor()->preference();
+        const QColor color = QColorDialog::getColor(QColor(prefs->get<S>()), this, tr("Onion Skin Color"));
+        if (color.isValid()) { prefs->set<S>(color.name()); }
+    });
+    return button;
+}
+
 void OnionSkinWidget::initUI()
 {
-    mPrevColorButton = addColorButton(ui->onionPrevLayout, SETTING::ONION_PREV_COLOR, tr("Previous frames tint color"));
-    mNextColorButton = addColorButton(ui->onionNextlLayout, SETTING::ONION_NEXT_COLOR, tr("Next frames tint color"));
+    mPrevColorButton = addColorButton<SETTING::ONION_PREV_COLOR>(ui->onionPrevLayout, tr("Previous frames tint color"));
+    mNextColorButton = addColorButton<SETTING::ONION_NEXT_COLOR>(ui->onionNextlLayout, tr("Next frames tint color"));
     mFalloffBox = new QComboBox(this);
     mFalloffBox->addItems({ tr("Linear"), tr("Gentle"), tr("Steep") });
     mFalloffBox->setToolTip(tr("How opacity falls from max to min with distance from the current frame"));
@@ -174,27 +189,13 @@ void OnionSkinWidget::updateUI()
     QSignalBlocker b8(mFalloffBox);
     mFalloffBox->setCurrentIndex(prefs->get<SETTING::ONION_FALLOFF>());
 
-    const auto swatch = [prefs](SETTING setting) {
+    const auto swatch = [](const QString& color) {
         QPixmap pixmap(16, 16);
-        pixmap.fill(QColor(prefs->getString(setting)));
+        pixmap.fill(QColor(color));
         return QIcon(pixmap);
     };
-    mPrevColorButton->setIcon(swatch(SETTING::ONION_PREV_COLOR));
-    mNextColorButton->setIcon(swatch(SETTING::ONION_NEXT_COLOR));
-}
-
-QToolButton* OnionSkinWidget::addColorButton(QLayout* layout, SETTING setting, const QString& toolTip)
-{
-    QToolButton* button = new QToolButton(this);
-    button->setToolTip(toolTip);
-    button->setAutoRaise(true);
-    layout->addWidget(button);
-    connect(button, &QToolButton::clicked, this, [this, setting] {
-        PreferenceManager* prefs = editor()->preference();
-        const QColor color = QColorDialog::getColor(QColor(prefs->getString(setting)), this, tr("Onion Skin Color"));
-        if (color.isValid()) { prefs->set(setting, color.name()); }
-    });
-    return button;
+    mPrevColorButton->setIcon(swatch(prefs->get<SETTING::ONION_PREV_COLOR>()));
+    mNextColorButton->setIcon(swatch(prefs->get<SETTING::ONION_NEXT_COLOR>()));
 }
 
 void OnionSkinWidget::prevFramesGroupClicked(bool isOn)

@@ -47,7 +47,7 @@ void PencilTool::loadSettings()
 void PencilTool::strokeStarted()
 {
     // note: why are we doing this on device press event?
-    if (mEditor->layers()->currentLayer()->type() == Layer::VECTOR && !mEditor->preference()->isOn(SETTING::INVISIBLE_LINES))
+    if (mEditor->layers()->currentLayer()->type() == Layer::VECTOR && !mEditor->preference()->get<SETTING::INVISIBLE_LINES>())
     {
         mScribbleArea->toggleThinLines();
     }

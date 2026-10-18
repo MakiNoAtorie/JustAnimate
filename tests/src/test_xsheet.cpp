@@ -408,7 +408,7 @@ TEST_CASE("The Timesheet layout shows every fixed column and an empty one takes 
     key->setTimesheetColumn(TimesheetColumn::KeyA);
     REQUIRE(s.start());
     Editor* editor = s.editor.get();
-    editor->preference()->set(SETTING::XSHEET_LAYOUT, 1);
+    editor->preference()->set<SETTING::XSHEET_LAYOUT>(1);
     XSheet xsheet(nullptr);
     xsheet.setEditor(editor);
     xsheet.initUI();
@@ -468,7 +468,7 @@ TEST_CASE("Layers that share a Timesheet column each get a sub-column bottom-up"
 
     // Panel: both layers show, side by side in Key A, bottom first.
     REQUIRE(s.start());
-    s.editor->preference()->set(SETTING::XSHEET_LAYOUT, 1);
+    s.editor->preference()->set<SETTING::XSHEET_LAYOUT>(1);
     XSheet xsheet(nullptr);
     xsheet.setEditor(s.editor.get());
     xsheet.initUI();

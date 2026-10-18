@@ -97,7 +97,7 @@ void PolylineTool::pointerPressEvent(PointerEvent* event)
             {
                 VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
                 if (vectorImage) { vectorImage->deselectAll(); }
-                if (mScribbleArea->makeInvisible() && !mEditor->preference()->isOn(SETTING::INVISIBLE_LINES))
+                if (mScribbleArea->makeInvisible() && !mEditor->preference()->get<SETTING::INVISIBLE_LINES>())
                 {
                     mScribbleArea->toggleThinLines();
                 }

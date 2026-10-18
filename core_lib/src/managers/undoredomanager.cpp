@@ -95,7 +95,7 @@ bool UndoRedoManager::init()
 {
     qDebug() << "UndoRedoManager: init";
 
-    mUndoStack.setUndoLimit(editor()->preference()->getInt(SETTING::UNDO_REDO_MAX_STEPS));
+    mUndoStack.setUndoLimit(editor()->preference()->get<SETTING::UNDO_REDO_MAX_STEPS>());
 
     return true;
 }
@@ -106,7 +106,7 @@ void UndoRedoManager::onSettingChanged(SETTING setting)
         // The stack needs to be cleared in order to change the undo redo limit
         clearStack();
         qDebug() << "updated undo stack limit";
-        mUndoStack.setUndoLimit(editor()->preference()->getInt(SETTING::UNDO_REDO_MAX_STEPS));
+        mUndoStack.setUndoLimit(editor()->preference()->get<SETTING::UNDO_REDO_MAX_STEPS>());
     }
 }
 

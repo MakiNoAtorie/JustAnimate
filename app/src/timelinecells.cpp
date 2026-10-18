@@ -67,11 +67,11 @@ TimeLineCells::TimeLineCells(TimeLine* parent, Editor* editor, TIMELINE_CELL_TYP
     mPrefs = editor->preference();
     mType = type;
 
-    mFrameLength = mPrefs->getInt(SETTING::TIMELINE_SIZE);
-    mFontSize = mPrefs->getInt(SETTING::LABEL_FONT_SIZE);
-    mFrameSize = mPrefs->getInt(SETTING::FRAME_SIZE);
-    mbShortScrub = mPrefs->isOn(SETTING::SHORT_SCRUB);
-    mDrawFrameNumber = mPrefs->isOn(SETTING::DRAW_LABEL);
+    mFrameLength = mPrefs->get<SETTING::TIMELINE_SIZE>();
+    mFontSize = mPrefs->get<SETTING::LABEL_FONT_SIZE>();
+    mFrameSize = mPrefs->get<SETTING::FRAME_SIZE>();
+    mbShortScrub = mPrefs->get<SETTING::SHORT_SCRUB>();
+    mDrawFrameNumber = mPrefs->get<SETTING::DRAW_LABEL>();
 
     setMinimumSize(500, 4 * mLayerHeight);
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
@@ -111,21 +111,21 @@ void TimeLineCells::loadSetting(SETTING setting)
     switch (setting)
     {
     case SETTING::TIMELINE_SIZE:
-        mFrameLength = mPrefs->getInt(SETTING::TIMELINE_SIZE);
+        mFrameLength = mPrefs->get<SETTING::TIMELINE_SIZE>();
         mTimeLine->updateLength();
         break;
     case SETTING::LABEL_FONT_SIZE:
-        mFontSize = mPrefs->getInt(SETTING::LABEL_FONT_SIZE);
+        mFontSize = mPrefs->get<SETTING::LABEL_FONT_SIZE>();
         break;
     case SETTING::FRAME_SIZE:
-        mFrameSize = mPrefs->getInt(SETTING::FRAME_SIZE);
+        mFrameSize = mPrefs->get<SETTING::FRAME_SIZE>();
         mTimeLine->updateLength();
         break;
     case SETTING::SHORT_SCRUB:
-        mbShortScrub = mPrefs->isOn(SETTING::SHORT_SCRUB);
+        mbShortScrub = mPrefs->get<SETTING::SHORT_SCRUB>();
         break;
     case SETTING::DRAW_LABEL:
-        mDrawFrameNumber = mPrefs->isOn(SETTING::DRAW_LABEL);
+        mDrawFrameNumber = mPrefs->get<SETTING::DRAW_LABEL>();
         break;
     default:
         break;
@@ -159,7 +159,7 @@ int TimeLineCells::exposureEdgeAt(const QPoint& pos) const
 void TimeLineCells::setFrameSize(int size)
 {
     mFrameSize = size;
-    mPrefs->set(SETTING::FRAME_SIZE, mFrameSize);
+    mPrefs->set<SETTING::FRAME_SIZE>(mFrameSize);
     updateContent();
 }
 
@@ -840,13 +840,13 @@ void TimeLineCells::paintOnionSkin(QPainter& painter) const
 
     int frameNumber = mEditor->currentFrame();
 
-    int prevOnionSkinCount = mEditor->preference()->getInt(SETTING::ONION_PREV_FRAMES_NUM);
-    int nextOnionSkinCount = mEditor->preference()->getInt(SETTING::ONION_NEXT_FRAMES_NUM);
+    int prevOnionSkinCount = mEditor->preference()->get<SETTING::ONION_PREV_FRAMES_NUM>();
+    int nextOnionSkinCount = mEditor->preference()->get<SETTING::ONION_NEXT_FRAMES_NUM>();
 
     const bool isAbsolute = mEditor->preference()->isOnionAbsolute();
     const MarkFilter filter = mEditor->preference()->markFilter();
 
-    if (mEditor->preference()->isOn(SETTING::PREV_ONION) && prevOnionSkinCount > 0)
+    if (mEditor->preference()->get<SETTING::PREV_ONION>() && prevOnionSkinCount > 0)
     {
         int onionFrameNumber = frameNumber;
         if (isAbsolute)
@@ -871,7 +871,7 @@ void TimeLineCells::paintOnionSkin(QPainter& painter) const
         }
     }
 
-    if (mEditor->preference()->isOn(SETTING::NEXT_ONION) && nextOnionSkinCount > 0) {
+    if (mEditor->preference()->get<SETTING::NEXT_ONION>() && nextOnionSkinCount > 0) {
 
         int onionFrameNumber = layer->getNextFrameNumber(frameNumber, isAbsolute, filter);
         int onionPosition = 0;
@@ -1310,7 +1310,7 @@ void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
     // -- short scrub --
     if (event->pos().y() < 20 && (mType != TIMELINE_CELL_TYPE::Layers || event->pos().x() >= 15))
     {
-        mPrefs->set(SETTING::SHORT_SCRUB, !mbShortScrub);
+        mPrefs->set<SETTING::SHORT_SCRUB>(!mbShortScrub);
     }
 
     // -- layer --

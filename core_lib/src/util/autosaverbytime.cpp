@@ -6,7 +6,7 @@ AutosaverByTime::AutosaverByTime(PreferenceManager* manager, QObject* parent)
 {
     mAutoSaveTimer.setSingleShot(false);
     resetTimer();
-    if(mPref->isOn(SETTING::AUTO_SAVE_BY_TIME))
+    if(mPref->get<SETTING::AUTO_SAVE_BY_TIME>())
         mAutoSaveTimer.start();
 
     connect(mPref, &PreferenceManager::optionChanged, this, &AutosaverByTime::configChanged);
@@ -17,14 +17,14 @@ void AutosaverByTime::configChanged(SETTING setting){
     switch(setting)
     {
         case SETTING::AUTO_SAVE_BY_TIME:
-            if(mPref->isOn(SETTING::AUTO_SAVE_BY_TIME)) mAutoSaveTimer.start();
+            if(mPref->get<SETTING::AUTO_SAVE_BY_TIME>()) mAutoSaveTimer.start();
             else mAutoSaveTimer.stop();
             break;
 
         case SETTING::AUTO_SAVE_BY_TIME_TIMER:
             mAutoSaveTimer.stop();
             resetTimer();
-            if(mPref->isOn(SETTING::AUTO_SAVE_BY_TIME))
+            if(mPref->get<SETTING::AUTO_SAVE_BY_TIME>())
                 mAutoSaveTimer.start();
 
             break;
@@ -52,5 +52,5 @@ void AutosaverByTime::timerTimeout()
 
 void AutosaverByTime::resetTimer()
 {
-    mAutoSaveTimer.setInterval(mPref->getInt(SETTING::AUTO_SAVE_BY_TIME_TIMER) * 1000 * 60); // Interval in minutes
+    mAutoSaveTimer.setInterval(mPref->get<SETTING::AUTO_SAVE_BY_TIME_TIMER>() * 1000 * 60); // Interval in minutes
 }

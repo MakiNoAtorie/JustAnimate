@@ -69,13 +69,13 @@ TEST_CASE("Shift and Trace moves and rotates onion neighbours without changing a
     QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
 
     PreferenceManager* prefs = editor->preference();
-    prefs->set(SETTING::PREV_ONION, true);
-    prefs->set(SETTING::NEXT_ONION, false);
-    prefs->set(SETTING::ONION_RED, false);
-    prefs->set(SETTING::ONION_PREV_FRAMES_NUM, 2);
-    prefs->set(SETTING::ONION_MAX_OPACITY, 100);
-    prefs->set(SETTING::ONION_MARKS, MarkFilter({ Mark::Key }).toInt());
-    prefs->set(SETTING::ONION_TYPE, QString("marked"));
+    prefs->set<SETTING::PREV_ONION>(true);
+    prefs->set<SETTING::NEXT_ONION>(false);
+    prefs->set<SETTING::ONION_RED>(false);
+    prefs->set<SETTING::ONION_PREV_FRAMES_NUM>(2);
+    prefs->set<SETTING::ONION_MAX_OPACITY>(100);
+    prefs->set<SETTING::ONION_MARKS>(MarkFilter({ Mark::Key }).toInt());
+    prefs->set<SETTING::ONION_TYPE>(QString("marked"));
 
     REQUIRE(layer->addNewKeyFrameAt(2));
     REQUIRE(layer->addNewKeyFrameAt(3));

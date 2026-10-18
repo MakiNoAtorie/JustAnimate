@@ -39,23 +39,10 @@ public:
     Status save(Object*) override;
 
     void loadPrefs();
-    void set(SETTING option, QString value);
-    void set(SETTING option, int value);
-    void set(SETTING option, bool value);
-    void set(SETTING option, float value);
-
-    void turnOn(SETTING option);
-    void turnOff(SETTING option);
-    bool isOn(SETTING option);
-
-    QString getString(SETTING option);
-    int     getInt(SETTING option);
-    float getFloat(SETTING option);
-
     /// Typed access: a value of the wrong type for row S does not compile.
     template<SETTING S> PrefType<S> get() const { return std::get<PrefType<S>>(mValues[static_cast<int>(S)]); }
     template<SETTING S, typename V, typename = std::enable_if_t<kPrefAccepts<S, V>>>
-    void set(V&& value) { set(S, PrefType<S>(std::forward<V>(value))); }
+    void set(V&& value) { store(S, PrefType<S>(std::forward<V>(value))); }
 
     /// The Mark filter onion skin and Flip share: the saved Marks in Marked drawings mode, else one that passes every Drawing.
     MarkFilter markFilter();

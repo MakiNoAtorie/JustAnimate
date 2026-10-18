@@ -42,13 +42,13 @@ FilesPage::FilesPage()
     ui->startupGroup->setId(ui->welcomeRbtn, STARTUP_WELCOME);
     ui->startupGroup->setId(ui->loadLastActiveRbtn, STARTUP_LAST_PROJECT);
     ui->startupGroup->setId(ui->loadDefaultPresetRbtn, STARTUP_DEFAULT_PRESET);
-    connect(ui->startupGroup, &QButtonGroup::idClicked, this, [this](int id) { mManager->set(SETTING::STARTUP_ACTION, id); });
+    connect(ui->startupGroup, &QButtonGroup::idClicked, this, [this](int id) { mManager->set<SETTING::STARTUP_ACTION>(id); });
     connect(ui->presetListWidget, &QListWidget::itemChanged, this, &FilesPage::presetNameChanged);
 
     auto spinBoxValueChange = static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged);
     connect(ui->autosaveCheckBox, &QCheckBox::stateChanged, this, &FilesPage::autoSaveChange);
     connect(ui->autosaveNumberBox, spinBoxValueChange, this, &FilesPage::autoSaveNumberChange);
-    connect(ui->autosaveReminderCheckBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::AUTO_SAVE_REMINDER, on); });
+    connect(ui->autosaveReminderCheckBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set<SETTING::AUTO_SAVE_REMINDER>(on); });
     connect(ui->autosaveByTimeCheckBox, &QCheckBox::stateChanged, this, &FilesPage::autoSaveByTimeChange);
     connect(ui->autosaveByTimeNumberBox, spinBoxValueChange, this, &FilesPage::autoSaveByTimeTimerChange);
 }
@@ -150,13 +150,13 @@ void FilesPage::removePreset()
     }
 
     // 4. check if the default preset has been deleted
-    int prevDefaultIndex = mManager->getInt(SETTING::DEFAULT_PRESET);
+    int prevDefaultIndex = mManager->get<SETTING::DEFAULT_PRESET>();
     for (QListWidgetItem* item : itemsToRemove)
     {
         int index = item->data(Qt::UserRole).toInt();
         if (index == prevDefaultIndex)
         {
-            mManager->set(SETTING::DEFAULT_PRESET, 0);
+            mManager->set<SETTING::DEFAULT_PRESET>(0);
         }
     }
 
@@ -178,7 +178,7 @@ void FilesPage::setDefaultPreset()
         int newDefaultIndex = newDefaultPresetItem->data(Qt::UserRole).toInt(&ok);
         Q_ASSERT(ok);
 
-        mManager->set(SETTING::DEFAULT_PRESET, newDefaultIndex);
+        mManager->set<SETTING::DEFAULT_PRESET>(newDefaultIndex);
         updateValues();
     }
 }
@@ -197,7 +197,7 @@ void FilesPage::presetNameChanged(QListWidgetItem* item)
 void FilesPage::updateValues()
 {
     bool ok = true;
-    int defaultPresetIndex = mManager->getInt(SETTING::DEFAULT_PRESET);
+    int defaultPresetIndex = mManager->get<SETTING::DEFAULT_PRESET>();
 
     for (int i = 0; i < ui->presetListWidget->count(); i++)
     {
@@ -213,31 +213,31 @@ void FilesPage::updateValues()
         QBrush backgroundBrush = (isDefault) ? palette().light() : palette().window();
         item->setBackground(backgroundBrush);
     }
-    ui->autosaveCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE));
-    ui->autosaveNumberBox->setValue(mManager->getInt(SETTING::AUTO_SAVE_NUMBER));
-    ui->autosaveReminderCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE_REMINDER));
-    ui->autosaveByTimeCheckBox->setChecked(mManager->isOn(SETTING::AUTO_SAVE_BY_TIME));
-    ui->autosaveByTimeNumberBox->setValue(mManager->getInt(SETTING::AUTO_SAVE_BY_TIME_TIMER));
-    QAbstractButton* startup = ui->startupGroup->button(mManager->getInt(SETTING::STARTUP_ACTION));
+    ui->autosaveCheckBox->setChecked(mManager->get<SETTING::AUTO_SAVE>());
+    ui->autosaveNumberBox->setValue(mManager->get<SETTING::AUTO_SAVE_NUMBER>());
+    ui->autosaveReminderCheckBox->setChecked(mManager->get<SETTING::AUTO_SAVE_REMINDER>());
+    ui->autosaveByTimeCheckBox->setChecked(mManager->get<SETTING::AUTO_SAVE_BY_TIME>());
+    ui->autosaveByTimeNumberBox->setValue(mManager->get<SETTING::AUTO_SAVE_BY_TIME_TIMER>());
+    QAbstractButton* startup = ui->startupGroup->button(mManager->get<SETTING::STARTUP_ACTION>());
     (startup ? startup : ui->welcomeRbtn)->setChecked(true);
 }
 
 void FilesPage::autoSaveChange(int b)
 {
-    mManager->set(SETTING::AUTO_SAVE, b != Qt::Unchecked);
+    mManager->set<SETTING::AUTO_SAVE>(b != Qt::Unchecked);
 }
 
 void FilesPage::autoSaveNumberChange(int number)
 {
-    mManager->set(SETTING::AUTO_SAVE_NUMBER, number);
+    mManager->set<SETTING::AUTO_SAVE_NUMBER>(number);
 }
 
 void FilesPage::autoSaveByTimeChange(int b)
 {
-    mManager->set(SETTING::AUTO_SAVE_BY_TIME, b != Qt::Unchecked);
+    mManager->set<SETTING::AUTO_SAVE_BY_TIME>(b != Qt::Unchecked);
 }
 
 void FilesPage::autoSaveByTimeTimerChange(int number)
 {
-    mManager->set(SETTING::AUTO_SAVE_BY_TIME_TIMER, number);
+    mManager->set<SETTING::AUTO_SAVE_BY_TIME_TIMER>(number);
 }

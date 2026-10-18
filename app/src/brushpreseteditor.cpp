@@ -214,7 +214,7 @@ BrushPresetEditor::BrushPresetEditor(const BrushPresets& presets, const QString&
     mGlobalCurve->setChecked(brush->pressureCurve().isEmpty());
     mCurve = new PressureCurveWidget(this);
     mCurve->setCurve(PressureCurve::fromString(brush->pressureCurve().isEmpty()
-                                                   ? mSampler->editor->preference()->getString(SETTING::PRESSURE_CURVE)
+                                                   ? mSampler->editor->preference()->get<SETTING::PRESSURE_CURVE>()
                                                    : brush->pressureCurve()));
     mCurve->setEnabled(!mGlobalCurve->isChecked());
     connect(mGlobalCurve, &QCheckBox::toggled, this, [this](bool global) {

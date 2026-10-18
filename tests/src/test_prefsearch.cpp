@@ -80,7 +80,7 @@ TEST_CASE("Preferences - undo steps apply when editing finishes after one confir
     Editor editor;
     PreferenceManager prefs(&editor);
     prefs.loadPrefs();
-    prefs.set(SETTING::UNDO_REDO_MAX_STEPS, 100);
+    prefs.set<SETTING::UNDO_REDO_MAX_STEPS>(100);
     PreferencesDialog dialog(nullptr);
     dialog.init(&prefs);
     auto* box = dialog.findChild<QSpinBox*>("undoStepsBox");
@@ -93,17 +93,17 @@ TEST_CASE("Preferences - undo steps apply when editing finishes after one confir
     bool answer = false;
     page->confirmUndoStepsChange = [&] { ++asked; return answer; };
     box->setValue(150);
-    CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 100);
+    CHECK(prefs.get<SETTING::UNDO_REDO_MAX_STEPS>() == 100);
     emit box->editingFinished();
     CHECK(asked == 1);
-    CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 100);
+    CHECK(prefs.get<SETTING::UNDO_REDO_MAX_STEPS>() == 100);
     CHECK(box->value() == 100);
 
     answer = true;
     box->setValue(150);
     emit box->editingFinished();
     CHECK(asked == 2);
-    CHECK(prefs.getInt(SETTING::UNDO_REDO_MAX_STEPS) == 150);
+    CHECK(prefs.get<SETTING::UNDO_REDO_MAX_STEPS>() == 150);
 }
 
 TEST_CASE("Reset all tools button asks first and resets only on yes", "[PrefSearch]")

@@ -358,9 +358,9 @@ QRect outlineBounds(Editor* editor, ScribbleArea* area)
     QMouseEvent move(QEvent::MouseMove, pos, area->mapToGlobal(pos), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
     QApplication::sendEvent(area, &move);
     PreferenceManager* prefs = editor->preference();
-    prefs->set(SETTING::CURSOR_STYLE, CURSOR_CROSS_ONLY);
+    prefs->set<SETTING::CURSOR_STYLE>(CURSOR_CROSS_ONLY);
     const QImage cross = area->grab().toImage();
-    prefs->set(SETTING::CURSOR_STYLE, CURSOR_BRUSH_OUTLINE);
+    prefs->set<SETTING::CURSOR_STYLE>(CURSOR_BRUSH_OUTLINE);
     const QImage outline = area->grab().toImage();
     QRect bounds;
     for (int y = 0; y < cross.height(); ++y)
@@ -433,7 +433,7 @@ TEST_CASE("ScribbleArea - the Brush outline paints its centre cross")
     const QRect b = outlineBounds(editor, area);
     REQUIRE(b.contains(centre));
     const QImage outline = area->grab().toImage();
-    editor->preference()->set(SETTING::CURSOR_STYLE, CURSOR_CROSS_ONLY);
+    editor->preference()->set<SETTING::CURSOR_STYLE>(CURSOR_CROSS_ONLY);
     const QImage cross = area->grab().toImage();
     CHECK(outline.pixel(centre + QPoint(3, 0)) != cross.pixel(centre + QPoint(3, 0)));
     CHECK(outline.pixel(centre + QPoint(0, 3)) != cross.pixel(centre + QPoint(0, 3)));
@@ -471,8 +471,8 @@ TEST_CASE("Preferences - the dotted-cursor key migrates once to the cursor style
     {
         TestSession s;
         REQUIRE(s.start());
-        CHECK(s.editor->preference()->getInt(SETTING::CURSOR_STYLE) == CURSOR_CROSS_ONLY);
-        s.editor->preference()->set(SETTING::CURSOR_STYLE, CURSOR_BRUSH_OUTLINE);
+        CHECK(s.editor->preference()->get<SETTING::CURSOR_STYLE>() == CURSOR_CROSS_ONLY);
+        s.editor->preference()->set<SETTING::CURSOR_STYLE>(CURSOR_BRUSH_OUTLINE);
     }
     CHECK_FALSE(store.contains(SETTING_CANVAS_CURSOR));
     CHECK_FALSE(store.contains(SETTING_TOOL_CURSOR));
@@ -480,5 +480,5 @@ TEST_CASE("Preferences - the dotted-cursor key migrates once to the cursor style
     store.setValue(SETTING_CANVAS_CURSOR, false); // a stale old key no longer wins
     TestSession s;
     REQUIRE(s.start());
-    CHECK(s.editor->preference()->getInt(SETTING::CURSOR_STYLE) == CURSOR_BRUSH_OUTLINE);
+    CHECK(s.editor->preference()->get<SETTING::CURSOR_STYLE>() == CURSOR_BRUSH_OUTLINE);
 }

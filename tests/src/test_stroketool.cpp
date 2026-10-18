@@ -831,9 +831,9 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
         }
         return std::make_pair(height, alpha);
     };
-    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+    editor->preference()->set<SETTING::PRESSURE_CURVE>(QString());
     const auto linear = lightStroke(1);
-    editor->preference()->set(SETTING::PRESSURE_CURVE, QString("0,0.9 1,1"));
+    editor->preference()->set<SETTING::PRESSURE_CURVE>(QString("0,0.9 1,1"));
     const auto firm = lightStroke(2);
     INFO("linear " << linear.first << "px a" << linear.second << " firm " << firm.first << "px a" << firm.second);
     CHECK(linear.first < 8);
@@ -841,7 +841,7 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
     CHECK(firm.second > linear.second);
 
     // A tool curve (from a preset) overrides the global one; empty gives the global curve back.
-    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+    editor->preference()->set<SETTING::PRESSURE_CURVE>(QString());
     brush->setPressureCurve("0,0.9 1,1");
     CHECK(lightStroke(3) == firm);
     brush->setPressureCurve(QString());
@@ -1526,8 +1526,8 @@ TEST_CASE("StrokeTool - perspective snap locks a stroke to the line toward the n
     brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     PreferenceManager* prefs = editor->preference();
-    const bool twoPointWas = prefs->isOn(SETTING::OVERLAY_PERSPECTIVE2);
-    prefs->set(SETTING::OVERLAY_PERSPECTIVE2, true);
+    const bool twoPointWas = prefs->get<SETTING::OVERLAY_PERSPECTIVE2>();
+    prefs->set<SETTING::OVERLAY_PERSPECTIVE2>(true);
 
     // Vanishing points live in camera space; strokes are drawn on the canvas.
     const QTransform toCanvas = camera->getViewAtFrame(1).inverted();
@@ -1561,11 +1561,11 @@ TEST_CASE("StrokeTool - perspective snap locks a stroke to the line toward the n
     CHECK_FALSE(inkAt(3, penEnd));
 
     // Snap needs a visible perspective overlay.
-    prefs->set(SETTING::OVERLAY_PERSPECTIVE2, false);
+    prefs->set<SETTING::OVERLAY_PERSPECTIVE2>(false);
     draw(4);
     CHECK(inkAt(4, penEnd));
 
-    prefs->set(SETTING::OVERLAY_PERSPECTIVE2, twoPointWas);
+    prefs->set<SETTING::OVERLAY_PERSPECTIVE2>(twoPointWas);
 }
 
 TEST_CASE("Eraser - a stroke shrinks the bitmap bounds to the remaining ink and undo restores them")
@@ -1651,7 +1651,7 @@ TEST_CASE("Pencil - a stroke on a held frame makes a new Drawing by default")
     {
         // Reload so the test reads the default, not a value another test set.
         editor->preference()->loadPrefs();
-        REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == CREATE_NEW_KEY);
+        REQUIRE(editor->preference()->get<SETTING::DRAW_ON_EMPTY_FRAME_ACTION>() == CREATE_NEW_KEY);
 
         editor->scrubTo(3);
         stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
@@ -1672,7 +1672,7 @@ TEST_CASE("Pencil - a stroke on a held frame makes a new Drawing by default")
     {
         pencilSettings().setValue(SETTING_DRAW_ON_EMPTY_FRAME_ACTION, int(KEEP_DRAWING_ON_PREVIOUS_KEY));
         editor->preference()->loadPrefs();
-        REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == KEEP_DRAWING_ON_PREVIOUS_KEY);
+        REQUIRE(editor->preference()->get<SETTING::DRAW_ON_EMPTY_FRAME_ACTION>() == KEEP_DRAWING_ON_PREVIOUS_KEY);
 
         editor->scrubTo(3);
         stroke(area, origin + QPointF(-10, 0), origin + QPointF(10, 0), 1.0);
@@ -1693,7 +1693,7 @@ TEST_CASE("Polyline lasso fill and Delete selection on a held frame undo their n
     REQUIRE(s.start());
     Editor* editor = s.editor.get();
     editor->preference()->loadPrefs();
-    REQUIRE(editor->preference()->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION) == CREATE_NEW_KEY);
+    REQUIRE(editor->preference()->get<SETTING::DRAW_ON_EMPTY_FRAME_ACTION>() == CREATE_NEW_KEY);
     ScribbleArea* area = s.area.get();
     area->init();
     area->resize(800, 600);
@@ -1779,7 +1779,7 @@ TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure
     area->init();
     area->resize(800, 600);
     editor->layers()->setCurrentLayer(layer);
-    editor->preference()->set(SETTING::PRESSURE_CURVE, QString());
+    editor->preference()->set<SETTING::PRESSURE_CURVE>(QString());
 
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));

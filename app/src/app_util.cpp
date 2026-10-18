@@ -37,25 +37,6 @@ void setMenuActionChecked(QAction* action, bool checked)
     action->setChecked(checked);
 }
 
-void bindPreferenceSetting(QAction* action, PreferenceManager* prefs, const SETTING& setting)
-{
-    Q_ASSERT(action->isCheckable());
-    Q_ASSERT(prefs);
-
-    QSignalBlocker b(action);
-    action->setChecked(prefs->isOn(setting)); // set initial state
-
-    // 2-way binding
-    QObject::connect(action, &QAction::triggered, [=](bool b) { prefs->set(setting, b); });
-    QObject::connect(prefs, &PreferenceManager::optionChanged, [=](SETTING s)
-    {
-        if (s == setting)
-        {
-            action->setChecked(prefs->isOn(setting));
-        }
-    });
-}
-
 bool prefLabelMatches(const QString& label, const QString& query)
 {
     QString text = label;

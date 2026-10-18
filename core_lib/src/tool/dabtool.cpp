@@ -44,7 +44,7 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     mMouseDownPoint = getCurrentPoint();
 
     startStroke(event->inputType());
-    mPressureCurve = PressureCurve::fromString(pressureCurve().isEmpty() ? mEditor->preference()->getString(SETTING::PRESSURE_CURVE)
+    mPressureCurve = PressureCurve::fromString(pressureCurve().isEmpty() ? mEditor->preference()->get<SETTING::PRESSURE_CURVE>()
                                                                          : pressureCurve());
     mBuffer.tiles().setWashOpacity(get(ToolProperty::WashEnabled) ? get(ToolProperty::Opacity) / 100 : 1.0);
     mTip = BrushTip();

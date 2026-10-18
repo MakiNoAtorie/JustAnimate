@@ -87,7 +87,6 @@ public:
     void applyTransformedSelection();
     void cancelTransformedSelection();
 
-    void setEffect(SETTING e, bool isOn);
 
     LayerVisibility getLayerVisibility() const { return mLayerVisibility; }
     qreal getCurveSmoothing() const { return mCurveSmoothingLevel; }

@@ -40,7 +40,7 @@ constexpr int kColumn = 72;
 constexpr int kHandle = 3;      // the bottom pixels of an Exposure's last cell
 constexpr int kExtraRows = 24;  // empty rows after the scene, to click into
 
-bool isTimesheetLayout(Editor* editor) { return editor->preference()->getInt(SETTING::XSHEET_LAYOUT) == 1; }
+bool isTimesheetLayout(Editor* editor) { return editor->preference()->get<SETTING::XSHEET_LAYOUT>() == 1; }
 }
 
 
@@ -318,7 +318,7 @@ void XSheet::initUI()
     timesheet->setToolTip(tr("Timesheet layout: Key A-F, Dialogue, In-between A-F, Camera"));
     timesheet->setCheckable(true);
     timesheet->setChecked(isTimesheetLayout(editor()));
-    connect(timesheet, &QAction::toggled, this, [this](bool on) { editor()->preference()->set(SETTING::XSHEET_LAYOUT, on ? 1 : 0); });
+    connect(timesheet, &QAction::toggled, this, [this](bool on) { editor()->preference()->set<SETTING::XSHEET_LAYOUT>(on ? 1 : 0); });
     mToolBar->addSeparator();
     mCells = new XSheetCells(editor(), content);
     QVBoxLayout* layout = new QVBoxLayout(content);

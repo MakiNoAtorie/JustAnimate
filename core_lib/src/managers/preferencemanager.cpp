@@ -34,6 +34,9 @@ QVariant defaultValue(const PrefRow& r)
 }
 
 // Ranges the stored value must keep; other int rows take any value.
+template<typename D>
+using PrefValueType = std::conditional_t<std::is_same_v<D, const char*>, QString, D>;
+
 int clamped(SETTING option, int value)
 {
     switch (option)
@@ -51,13 +54,7 @@ PreferenceManager::PreferenceManager(Editor* editor) : BaseManager(editor, __FUN
 {
     for (const PrefRow& r : kPrefRows)
     {
-        switch (r.def.index())
-        {
-        case 0: mValues[static_cast<int>(r.id)] = false; break;
-        case 1: mValues[static_cast<int>(r.id)] = 0; break;
-        case 2: mValues[static_cast<int>(r.id)] = 0.f; break;
-        default: mValues[static_cast<int>(r.id)] = QString(); break;
-        }
+        std::visit([&](auto def) { mValues[static_cast<int>(r.id)] = PrefValueType<decltype(def)>(); }, r.def);
     }
 }
 
@@ -110,42 +107,8 @@ void PreferenceManager::loadPrefs()
             settings.remove(r.migratedFrom);
         }
         const QVariant value = settings.value(r.key, defaultValue(r));
-        switch (r.def.index())
-        {
-        case 0: set(r.id, value.toBool()); break;
-        case 1: set(r.id, value.toInt()); break;
-        case 2: set(r.id, value.toFloat()); break;
-        default: set(r.id, value.toString()); break;
-        }
+        std::visit([&](auto def) { store(r.id, value.value<PrefValueType<decltype(def)>>()); }, r.def);
     }
-}
-
-void PreferenceManager::turnOn(SETTING option)
-{
-    set(option, true);
-}
-
-void PreferenceManager::turnOff(SETTING option)
-{
-    set(option, false);
-}
-
-bool PreferenceManager::isOn(SETTING option)
-{
-    const bool* value = std::get_if<bool>(&mValues[static_cast<int>(option)]);
-    return value && *value;
-}
-
-int PreferenceManager::getInt(SETTING option)
-{
-    const int* value = std::get_if<int>(&mValues[static_cast<int>(option)]);
-    return value ? *value : -1;
-}
-
-float PreferenceManager::getFloat(SETTING option)
-{
-    const float* value = std::get_if<float>(&mValues[static_cast<int>(option)]);
-    return value ? *value : -1;
 }
 
 MarkFilter PreferenceManager::markFilter()
@@ -159,26 +122,10 @@ bool PreferenceManager::isOnionAbsolute()
     return get<SETTING::ONION_TYPE>() != "relative";
 }
 
-QString PreferenceManager::getString(SETTING option)
-{
-    return std::visit([](const auto& value) {
-        using T = std::decay_t<decltype(value)>;
-        if constexpr (std::is_same_v<T, int>) { return QString::number(value); }
-        else if constexpr (std::is_same_v<T, bool>) { return QString(value ? "true" : "false"); }
-        else if constexpr (std::is_same_v<T, QString>) { return value; }
-        else { return QString(); }
-    }, mValues[static_cast<int>(option)]);
-}
-
 template<typename T>
 void PreferenceManager::store(SETTING option, T value)
 {
     PrefValue& slot = mValues[static_cast<int>(option)];
-    if (!std::holds_alternative<T>(slot))
-    {
-        Q_ASSERT_X(false, "PreferenceManager::set", row(option).key);
-        return;
-    }
     if constexpr (std::is_same_v<T, int>) { value = clamped(option, value); }
     pencilSettings().setValue(row(option).key, value);
 
@@ -192,7 +139,7 @@ void PreferenceManager::store(SETTING option, T value)
     }
 }
 
-void PreferenceManager::set(SETTING option, QString value) { store(option, value); }
-void PreferenceManager::set(SETTING option, float value) { store(option, value); }
-void PreferenceManager::set(SETTING option, int value) { store(option, value); }
-void PreferenceManager::set(SETTING option, bool value) { store(option, value); }
+template void PreferenceManager::store<bool>(SETTING, bool);
+template void PreferenceManager::store<int>(SETTING, int);
+template void PreferenceManager::store<float>(SETTING, float);
+template void PreferenceManager::store<QString>(SETTING, QString);

@@ -103,14 +103,14 @@ TEST_CASE("Welcome dialog preselects the last chosen template by name", "[Welcom
     TestSession s;
     REQUIRE(s.start());
     PreferenceManager* prefs = s.editor->preference();
-    prefs->set(SETTING::LAST_TEMPLATE, QString("Square 1080"));
+    prefs->set<SETTING::LAST_TEMPLATE>(QString("Square 1080"));
     CHECK(pencilSettings().value(SETTING_LAST_TEMPLATE).toString() == "Square 1080");
 
     const auto currentTemplate = [&](const QString& last) {
         WelcomeDialog dialog(0, {}, last);
         return dialog.findChild<QComboBox*>("welcomeNew")->currentIndex();
     };
-    CHECK(currentTemplate(prefs->getString(SETTING::LAST_TEMPLATE)) == Welcome::templateIndex("Square 1080"));
+    CHECK(currentTemplate(prefs->get<SETTING::LAST_TEMPLATE>()) == Welcome::templateIndex("Square 1080"));
     CHECK(Welcome::templateIndex("Square 1080") > 0);
     CHECK(currentTemplate("Removed template") == 0);
     CHECK(currentTemplate(QString()) == 0);

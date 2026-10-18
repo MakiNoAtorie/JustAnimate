@@ -248,8 +248,8 @@ TEST_CASE("Editor: each edit counts once toward autosave")
     };
 
     const SettingsGuard guard({ SETTING_AUTO_SAVE, SETTING_AUTO_SAVE_NUMBER });
-    editor->preference()->set(SETTING::AUTO_SAVE, true);
-    editor->preference()->set(SETTING::AUTO_SAVE_NUMBER, 2);
+    editor->preference()->set<SETTING::AUTO_SAVE>(true);
+    editor->preference()->set<SETTING::AUTO_SAVE_NUMBER>(2);
     editor->resetAutoSaveCounter();
 
     removeFrame(5);
@@ -1118,7 +1118,7 @@ TEST_CASE("UndoRedoManager: one user action is one undo step")
     SECTION("Paste onto an empty frame")
     {
         const SettingsGuard guard({ SETTING_DRAW_ON_EMPTY_FRAME_ACTION });
-        editor->preference()->set(SETTING::DRAW_ON_EMPTY_FRAME_ACTION, CREATE_NEW_KEY);
+        editor->preference()->set<SETTING::DRAW_ON_EMPTY_FRAME_ACTION>(CREATE_NEW_KEY);
 
         layer->getBitmapImageAtFrame(1)->setPixel(10, 10, qRgba(0, 0, 0, 255));
         editor->scrubTo(1);

@@ -59,17 +59,17 @@ TimelinePage::~TimelinePage()
 void TimelinePage::updateValues()
 {
     QSignalBlocker b1(ui->scrubBox);
-    ui->scrubBox->setChecked(mManager->isOn(SETTING::SHORT_SCRUB));
+    ui->scrubBox->setChecked(mManager->get<SETTING::SHORT_SCRUB>());
 
     QSignalBlocker b3(ui->timelineLength);
-    ui->timelineLength->setValue(mManager->getInt(SETTING::TIMELINE_SIZE));
-    if (mManager->getString(SETTING::TIMELINE_SIZE).toInt() <= 0)
+    ui->timelineLength->setValue(mManager->get<SETTING::TIMELINE_SIZE>());
+    if (mManager->get<SETTING::TIMELINE_SIZE>() <= 0)
         ui->timelineLength->setValue(240);
 
     QSignalBlocker b4(ui->radioButtonAddNewKey);
     QSignalBlocker b5(ui->radioButtonDuplicate);
     QSignalBlocker b6(ui->radioButtonDrawOnPrev);
-    int action = mManager->getInt(SETTING::DRAW_ON_EMPTY_FRAME_ACTION);
+    int action = mManager->get<SETTING::DRAW_ON_EMPTY_FRAME_ACTION>();
     switch (action)
     {
     case CREATE_NEW_KEY:
@@ -86,49 +86,49 @@ void TimelinePage::updateValues()
     }
 
     // to secure that you have a relevant minimum setting for sound scrub
-    int fps = mManager->getInt(SETTING::FPS);
+    int fps = mManager->get<SETTING::FPS>();
     int minMsec = 1000 / fps;
     if (minMsec > 100) { minMsec = 100; }
     ui->soundScrubSpinBox->setMinimum(minMsec);
     ui->soundScrubSlider->setMinimum(minMsec);
 
-    ui->flipRollMsecsSlider->setValue(mManager->getInt(SETTING::FLIP_ROLL_MSEC));
-    ui->flipRollNumDrawingsSlider->setValue(mManager->getInt(SETTING::FLIP_ROLL_DRAWINGS));
-    ui->flipInBtwnMsecSlider->setValue(mManager->getInt(SETTING::FLIP_INBETWEEN_MSEC));
-    ui->flipRollMsecsSpinBox->setValue(mManager->getInt(SETTING::FLIP_ROLL_MSEC));
-    ui->flipRollNumDrawingsSpinBox->setValue(mManager->getInt(SETTING::FLIP_ROLL_DRAWINGS));
-    ui->flipInBtwnMsecSpinBox->setValue(mManager->getInt(SETTING::FLIP_INBETWEEN_MSEC));
-    ui->soundScrubSpinBox->setValue(mManager->getInt(SETTING::SOUND_SCRUB_MSEC));
-    ui->soundScrubSlider->setValue(mManager->getInt(SETTING::SOUND_SCRUB_MSEC));
+    ui->flipRollMsecsSlider->setValue(mManager->get<SETTING::FLIP_ROLL_MSEC>());
+    ui->flipRollNumDrawingsSlider->setValue(mManager->get<SETTING::FLIP_ROLL_DRAWINGS>());
+    ui->flipInBtwnMsecSlider->setValue(mManager->get<SETTING::FLIP_INBETWEEN_MSEC>());
+    ui->flipRollMsecsSpinBox->setValue(mManager->get<SETTING::FLIP_ROLL_MSEC>());
+    ui->flipRollNumDrawingsSpinBox->setValue(mManager->get<SETTING::FLIP_ROLL_DRAWINGS>());
+    ui->flipInBtwnMsecSpinBox->setValue(mManager->get<SETTING::FLIP_INBETWEEN_MSEC>());
+    ui->soundScrubSpinBox->setValue(mManager->get<SETTING::SOUND_SCRUB_MSEC>());
+    ui->soundScrubSlider->setValue(mManager->get<SETTING::SOUND_SCRUB_MSEC>());
 
-    int convertedVisibilityThreshold = static_cast<int>(mManager->getFloat(SETTING::LAYER_VISIBILITY_THRESHOLD)*100);
+    int convertedVisibilityThreshold = static_cast<int>(mManager->get<SETTING::LAYER_VISIBILITY_THRESHOLD>()*100);
 
     ui->visibilitySlider->setValue(convertedVisibilityThreshold);
     ui->visibilitySpinbox->setValue(convertedVisibilityThreshold);
 
-    int visibilityType = mManager->getInt(SETTING::LAYER_VISIBILITY);
+    int visibilityType = mManager->get<SETTING::LAYER_VISIBILITY>();
     ui->layerVisibilityComboBox->setCurrentIndex(visibilityType);
     layerVisibilityChanged(visibilityType);
 }
 
 void TimelinePage::timelineLengthChanged(int value)
 {
-    mManager->set(SETTING::TIMELINE_SIZE, value);
+    mManager->set<SETTING::TIMELINE_SIZE>(value);
 }
 
 void TimelinePage::fontSizeChanged(int value)
 {
-    mManager->set(SETTING::LABEL_FONT_SIZE, value);
+    mManager->set<SETTING::LABEL_FONT_SIZE>(value);
 }
 
 void TimelinePage::scrubChanged(int value)
 {
-    mManager->set(SETTING::SHORT_SCRUB, value != Qt::Unchecked);
+    mManager->set<SETTING::SHORT_SCRUB>(value != Qt::Unchecked);
 }
 
 void TimelinePage::layerVisibilityChanged(int value)
 {
-    mManager->set(SETTING::LAYER_VISIBILITY, value);
+    mManager->set<SETTING::LAYER_VISIBILITY>(value);
     ui->visibilitySlider->setEnabled(value == 1);
     ui->visibilitySpinbox->setEnabled(value == 1);
 }
@@ -136,7 +136,7 @@ void TimelinePage::layerVisibilityChanged(int value)
 void TimelinePage::layerVisibilityThresholdChanged(int value)
 {
     float percentage = static_cast<float>(value/100.0f);
-    mManager->set(SETTING::LAYER_VISIBILITY_THRESHOLD, percentage);
+    mManager->set<SETTING::LAYER_VISIBILITY_THRESHOLD>(percentage);
 
     QSignalBlocker b8(ui->visibilitySlider);
     ui->visibilitySlider->setValue(value);
@@ -149,52 +149,52 @@ void TimelinePage::drawEmptyKeyRadioButtonToggled(bool)
 {
     if (ui->radioButtonAddNewKey->isChecked())
     {
-        mManager->set(SETTING::DRAW_ON_EMPTY_FRAME_ACTION, CREATE_NEW_KEY);
+        mManager->set<SETTING::DRAW_ON_EMPTY_FRAME_ACTION>(CREATE_NEW_KEY);
     }
     else if (ui->radioButtonDuplicate->isChecked())
     {
-        mManager->set(SETTING::DRAW_ON_EMPTY_FRAME_ACTION, DUPLICATE_PREVIOUS_KEY);
+        mManager->set<SETTING::DRAW_ON_EMPTY_FRAME_ACTION>(DUPLICATE_PREVIOUS_KEY);
     }
     else if (ui->radioButtonDrawOnPrev->isChecked())
     {
-        mManager->set(SETTING::DRAW_ON_EMPTY_FRAME_ACTION, KEEP_DRAWING_ON_PREVIOUS_KEY);
+        mManager->set<SETTING::DRAW_ON_EMPTY_FRAME_ACTION>(KEEP_DRAWING_ON_PREVIOUS_KEY);
     }
 }
 
 void TimelinePage::flipRollMsecSliderChanged(int value)
 {
     ui->flipRollMsecsSpinBox->setValue(value);
-    mManager->set(SETTING::FLIP_ROLL_MSEC, value);
+    mManager->set<SETTING::FLIP_ROLL_MSEC>(value);
 }
 
 void TimelinePage::flipRollMsecSpinboxChanged(int value)
 {
     ui->flipRollMsecsSlider->setValue(value);
-    mManager->set(SETTING::FLIP_ROLL_MSEC, value);
+    mManager->set<SETTING::FLIP_ROLL_MSEC>(value);
 }
 
 void TimelinePage::flipRollNumDrawingsSliderChanged(int value)
 {
     ui->flipRollNumDrawingsSpinBox->setValue(value);
-    mManager->set(SETTING::FLIP_ROLL_DRAWINGS, value);
+    mManager->set<SETTING::FLIP_ROLL_DRAWINGS>(value);
 }
 
 void TimelinePage::flipRollNumDrawingsSpinboxChanged(int value)
 {
     ui->flipRollNumDrawingsSlider->setValue(value);
-    mManager->set(SETTING::FLIP_ROLL_DRAWINGS, value);
+    mManager->set<SETTING::FLIP_ROLL_DRAWINGS>(value);
 }
 
 void TimelinePage::flipInbetweenMsecSliderChanged(int value)
 {
     ui->flipInBtwnMsecSpinBox->setValue(value);
-    mManager->set(SETTING::FLIP_INBETWEEN_MSEC, value);
+    mManager->set<SETTING::FLIP_INBETWEEN_MSEC>(value);
 }
 
 void TimelinePage::flipInbetweenMsecSpinboxChanged(int value)
 {
     ui->flipInBtwnMsecSlider->setValue(value);
-    mManager->set(SETTING::FLIP_INBETWEEN_MSEC, value);
+    mManager->set<SETTING::FLIP_INBETWEEN_MSEC>(value);
 }
 
 void TimelinePage::soundScrubActiveChanged(int i)
@@ -202,20 +202,20 @@ void TimelinePage::soundScrubActiveChanged(int i)
     bool b = true;
     if (i == 0)
         b = false;
-    mManager->set(SETTING::SOUND_SCRUB_ACTIVE, b);
+    mManager->set<SETTING::SOUND_SCRUB_ACTIVE>(b);
     emit soundScrubChanged(b);
 }
 
 void TimelinePage::soundScrubMsecSliderChanged(int value)
 {
     ui->soundScrubSpinBox->setValue(value);
-    mManager->set(SETTING::SOUND_SCRUB_MSEC, value);
+    mManager->set<SETTING::SOUND_SCRUB_MSEC>(value);
     emit soundScrubMsecChanged(value);
 }
 
 void TimelinePage::soundScrubMsecSpinboxChanged(int value)
 {
     ui->soundScrubSlider->setValue(value);
-    mManager->set(SETTING::SOUND_SCRUB_MSEC, value);
+    mManager->set<SETTING::SOUND_SCRUB_MSEC>(value);
     emit soundScrubMsecChanged(value);
 }

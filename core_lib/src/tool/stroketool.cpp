@@ -69,8 +69,8 @@ StrokeTool::~StrokeTool()
 
 void StrokeTool::loadSettings()
 {
-    mQuickSizingEnabled = mEditor->preference()->isOn(SETTING::QUICK_SIZING);
-    mOutlineStyle = mEditor->preference()->getInt(SETTING::CURSOR_STYLE) != CURSOR_CROSS_ONLY;
+    mQuickSizingEnabled = mEditor->preference()->get<SETTING::QUICK_SIZING>();
+    mOutlineStyle = mEditor->preference()->get<SETTING::CURSOR_STYLE>() != CURSOR_CROSS_ONLY;
 
     QSettings& settings = pencilSettings();
     toolProperties().loadTool(type(), typeName(), settings);
@@ -126,9 +126,9 @@ bool StrokeTool::leavingThisTool()
 void StrokeTool::onPreferenceChanged(SETTING setting)
 {
     if (setting == SETTING::QUICK_SIZING) {
-        mQuickSizingEnabled = mEditor->preference()->isOn(setting);
+        mQuickSizingEnabled = mEditor->preference()->get<SETTING::QUICK_SIZING>();
     } else if (setting == SETTING::CURSOR_STYLE) {
-        mOutlineStyle = mEditor->preference()->getInt(setting) != CURSOR_CROSS_ONLY;
+        mOutlineStyle = mEditor->preference()->get<SETTING::CURSOR_STYLE>() != CURSOR_CROSS_ONLY;
         if (mEditor->tools()->currentTool() == this) { updateCanvasCursor(); }
     }
 }
@@ -239,7 +239,7 @@ void StrokeTool::endStroke()
 void StrokeTool::drawScreenPath(const QPainterPath& path, const QPen& pen)
 {
     mBuffer.tiles().drawPath(mEditor->view()->mapScreenToCanvas(path), pen, Qt::NoBrush, QPainter::CompositionMode_Source,
-                             mEditor->preference()->isOn(SETTING::ANTIALIAS));
+                             mEditor->preference()->get<SETTING::ANTIALIAS>());
 }
 
 void StrokeTool::commitBuffer()
@@ -506,12 +506,12 @@ void StrokeTool::prepareInput(const QPointF& pressViewportPos)
         // Vanishing points are in camera space, as the overlay painter draws them.
         PreferenceManager* prefs = mEditor->preference();
         QList<QPointF> points;
-        if (prefs->isOn(SETTING::OVERLAY_PERSPECTIVE1)) { points << overlays->getSinglePerspectivePoint(); }
-        if (prefs->isOn(SETTING::OVERLAY_PERSPECTIVE2) || prefs->isOn(SETTING::OVERLAY_PERSPECTIVE3))
+        if (prefs->get<SETTING::OVERLAY_PERSPECTIVE1>()) { points << overlays->getSinglePerspectivePoint(); }
+        if (prefs->get<SETTING::OVERLAY_PERSPECTIVE2>() || prefs->get<SETTING::OVERLAY_PERSPECTIVE3>())
         {
             points << overlays->getLeftPerspectivePoint() << overlays->getRightPerspectivePoint();
         }
-        if (prefs->isOn(SETTING::OVERLAY_PERSPECTIVE3)) { points << overlays->getMiddlePerspectivePoint(); }
+        if (prefs->get<SETTING::OVERLAY_PERSPECTIVE3>()) { points << overlays->getMiddlePerspectivePoint(); }
         const QTransform toCanvas = camera->getViewAtFrame(mEditor->currentFrame()).inverted();
         for (const QPointF& point : points)
         {

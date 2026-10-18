@@ -147,7 +147,7 @@ TEST_CASE("Create inbetweens stores the chosen easing and preselects it next tim
     TestSession session;
     session.start();
     Editor* editor = session.editor.get();
-    editor->preference()->set(SETTING::INBETWEEN_EASING, static_cast<int>(CameraEasingType::LINEAR));
+    editor->preference()->set<SETTING::INBETWEEN_EASING>(static_cast<int>(CameraEasingType::LINEAR));
 
     QMenu first;
     CameraEasingType picked = CameraEasingType::LINEAR;
@@ -155,7 +155,7 @@ TEST_CASE("Create inbetweens stores the chosen easing and preselects it next tim
     REQUIRE(first.activeAction() == first.actions().at(0));
     first.actions().at(static_cast<int>(CameraEasingType::OUTQUAD))->trigger();
     CHECK(picked == CameraEasingType::OUTQUAD);
-    CHECK(editor->preference()->getInt(SETTING::INBETWEEN_EASING) == static_cast<int>(CameraEasingType::OUTQUAD));
+    CHECK(editor->preference()->get<SETTING::INBETWEEN_EASING>() == static_cast<int>(CameraEasingType::OUTQUAD));
 
     QMenu second;
     CellMenus::fillInbetweenEasingMenu(&second, editor, [](CameraEasingType) {});

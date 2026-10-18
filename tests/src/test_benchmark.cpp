@@ -279,8 +279,10 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         {
             // Scrub again with tinted onion skin on both sides (default 5 frames each).
             const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
-            for (SETTING o : { SETTING::PREV_ONION, SETTING::NEXT_ONION, SETTING::ONION_RED, SETTING::ONION_BLUE })
-                s.editor->preference()->set(o, true);
+            s.editor->preference()->set<SETTING::PREV_ONION>(true);
+            s.editor->preference()->set<SETTING::NEXT_ONION>(true);
+            s.editor->preference()->set<SETTING::ONION_RED>(true);
+            s.editor->preference()->set<SETTING::ONION_BLUE>(true);
             s.area->onObjectLoaded();
             counter.paints = 0;
             t.start();

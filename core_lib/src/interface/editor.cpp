@@ -97,8 +97,8 @@ bool Editor::init()
 
     makeConnections();
 
-    mIsAutosave = mPreferenceManager->isOn(SETTING::AUTO_SAVE);
-    mAutosaveNumber = mPreferenceManager->getInt(SETTING::AUTO_SAVE_NUMBER);
+    mIsAutosave = mPreferenceManager->get<SETTING::AUTO_SAVE>();
+    mAutosaveNumber = mPreferenceManager->get<SETTING::AUTO_SAVE_NUMBER>();
 
     return true;
 }
@@ -115,7 +115,7 @@ int Editor::fps()
 
 void Editor::setFps(int fps)
 {
-    mPreferenceManager->set(SETTING::FPS, fps);
+    mPreferenceManager->set<SETTING::FPS>(fps);
     emit fpsChanged(fps);
 }
 
@@ -138,10 +138,10 @@ void Editor::settingUpdated(SETTING setting)
     switch (setting)
     {
     case SETTING::AUTO_SAVE:
-        mIsAutosave = mPreferenceManager->isOn(SETTING::AUTO_SAVE);
+        mIsAutosave = mPreferenceManager->get<SETTING::AUTO_SAVE>();
         break;
     case SETTING::AUTO_SAVE_NUMBER:
-        mAutosaveNumber = mPreferenceManager->getInt(SETTING::AUTO_SAVE_NUMBER);
+        mAutosaveNumber = mPreferenceManager->get<SETTING::AUTO_SAVE_NUMBER>();
         break;
     case SETTING::ONION_TYPE:
     case SETTING::ONION_MARKS:
@@ -149,10 +149,10 @@ void Editor::settingUpdated(SETTING setting)
         emit updateTimeLineCached();
         break;
     case SETTING::FRAME_POOL_SIZE:
-        mObject->setActiveFramePoolSize(mPreferenceManager->getInt(SETTING::FRAME_POOL_SIZE));
+        mObject->setActiveFramePoolSize(mPreferenceManager->get<SETTING::FRAME_POOL_SIZE>());
         break;
     case SETTING::LAYER_VISIBILITY:
-        mScribbleArea->setLayerVisibility(static_cast<LayerVisibility>(mPreferenceManager->getInt(SETTING::LAYER_VISIBILITY)));
+        mScribbleArea->setLayerVisibility(static_cast<LayerVisibility>(mPreferenceManager->get<SETTING::LAYER_VISIBILITY>()));
         emit updateTimeLine();
         break;
     default:
@@ -587,7 +587,7 @@ void Editor::updateObject()
 
     if (mPreferenceManager)
     {
-        mObject->setActiveFramePoolSize(mPreferenceManager->getInt(SETTING::FRAME_POOL_SIZE));
+        mObject->setActiveFramePoolSize(mPreferenceManager->get<SETTING::FRAME_POOL_SIZE>());
     }
 
     emit updateLayerCount();
@@ -1090,9 +1090,9 @@ void Editor::switchVisibilityOfLayer(int layerNumber)
 
 void Editor::toggleOnionSkin()
 {
-    const bool on = !mPreferenceManager->isOn(SETTING::PREV_ONION) && !mPreferenceManager->isOn(SETTING::NEXT_ONION);
-    mPreferenceManager->set(SETTING::PREV_ONION, on);
-    mPreferenceManager->set(SETTING::NEXT_ONION, on);
+    const bool on = !mPreferenceManager->get<SETTING::PREV_ONION>() && !mPreferenceManager->get<SETTING::NEXT_ONION>();
+    mPreferenceManager->set<SETTING::PREV_ONION>(on);
+    mPreferenceManager->set<SETTING::NEXT_ONION>(on);
 }
 
 void Editor::switchOnionSkinOfLayer(int layerNumber)

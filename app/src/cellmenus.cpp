@@ -245,9 +245,9 @@ QMenu* addEasingMenu(QMenu* menu, const QString& title, CameraEasingType checked
 void fillInbetweenEasingMenu(QMenu* menu, Editor* editor, const std::function<void(CameraEasingType)>& pick)
 {
     PreferenceManager* prefs = editor->preference();
-    const int last = qBound(0, prefs->getInt(SETTING::INBETWEEN_EASING), static_cast<int>(CameraEasingType::OUTINBOUNCE));
+    const int last = qBound(0, prefs->get<SETTING::INBETWEEN_EASING>(), static_cast<int>(CameraEasingType::OUTINBOUNCE));
     fillEasingMenu(menu, static_cast<CameraEasingType>(last), [=](CameraEasingType type) {
-        prefs->set(SETTING::INBETWEEN_EASING, static_cast<int>(type));
+        prefs->set<SETTING::INBETWEEN_EASING>(static_cast<int>(type));
         pick(type);
     });
     // Enter accepts the preselected easing.

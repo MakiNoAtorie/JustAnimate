@@ -68,5 +68,5 @@ TEST_CASE("Tablet API: Windows Ink stays in use when the switch to WinTab fails"
 
     REQUIRE_FALSE(winTabInUse);
     // The request is kept: WinTab is tried again at the next start.
-    REQUIRE(prefs->isOn(SETTING::TABLET_WINTAB));
+    REQUIRE(prefs->get<SETTING::TABLET_WINTAB>());
 }
