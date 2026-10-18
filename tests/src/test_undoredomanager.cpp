@@ -124,7 +124,7 @@ TEST_CASE("UndoRedoManager: unsaved changes survive a failed save")
     Editor* editor = session.editor.get();
 
     UndoRedoManager* undoRedo = editor->undoRedo();
-    undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
+    editor->edit(editor->layers()->currentLayer(), editor->currentFrame(), "Draw").commit();
     REQUIRE(undoRedo->hasUnsavedChanges());
 
     QTemporaryDir dir;
@@ -203,9 +203,10 @@ TEST_CASE("UndoRedoManager: undo and redo refresh the modified state")
     QAction* undoAction = undoRedo->createUndoAction(&parent, QIcon());
     QAction* redoAction = undoRedo->createRedoAction(&parent, QIcon());
 
-    undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
+    const auto draw = [&] { session.editor->edit(session.editor->layers()->currentLayer(), 1, "Draw").commit(); };
+    draw();
     undoRedo->markSaved();
-    undoRedo->record(undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY), "Draw");
+    draw();
     REQUIRE(undoRedo->hasUnsavedChanges());
 
     int updated = 0;
@@ -514,14 +515,14 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
         undoAction->trigger();
         REQUIRE(frames() == before);
     };
-    // Records `edit` as one step of the given type, as the timeline and the frame actions do.
-    auto recorded = [&](UndoRedoRecordType type, const std::function<void()>& edit)
+    // Records `edit` as one step, as the timeline and the frame actions do.
+    auto recorded = [&](const std::function<void()>& edit)
     {
-        return [&, type, edit]
+        return [&, edit]
         {
-            const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(type);
+            Edit step = editor->edit(layer, "Frame operation");
             edit();
-            editor->undoRedo()->record(saveStateId, "Frame operation");
+            step.commit();
         };
     };
 
@@ -534,7 +535,7 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
     SECTION("Remove the selected frames")
     {
         select({ 3, 6 });
-        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAMES_REMOVE, [&]
+        checkUndoRedo(recorded([&]
         {
             for (int pos : layer->selectedKeyFramesPositions()) { layer->removeKeyFrame(pos); }
         }), "5=5 1=1");
@@ -557,31 +558,31 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
     SECTION("Move frames")
     {
         select({ 5, 6 });
-        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->moveSelectedFrames(2); }), "8=6 7=5 3=3 1=1");
+        checkUndoRedo(recorded([&] { layer->moveSelectedFrames(2); }), "8=6 7=5 3=3 1=1");
     }
 
     SECTION("Move frames, shortened by the frame in the way at position 1")
     {
         select({ 3 });
-        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->moveSelectedFrames(-5); }), "6=6 5=5 2=3 1=1");
+        checkUndoRedo(recorded([&] { layer->moveSelectedFrames(-5); }), "6=6 5=5 2=3 1=1");
     }
 
     SECTION("Reverse")
     {
         select({ 1, 3, 6 });
-        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->reverseOrderOfSelection(); }), "6=1 5=5 3=3 1=6");
+        checkUndoRedo(recorded([&] { layer->reverseOrderOfSelection(); }), "6=1 5=5 3=3 1=6");
     }
 
     SECTION("Add exposure")
     {
         select({ 3 });
-        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->setExposureForSelectedFrames(1); }), "7=6 6=5 3=3 1=1");
+        checkUndoRedo(recorded([&] { layer->setExposureForSelectedFrames(1); }), "7=6 6=5 3=3 1=1");
     }
 
     SECTION("Subtract exposure")
     {
         select({ 1 });
-        checkUndoRedo(recorded(UndoRedoRecordType::KEYFRAME_MOVE, [&] { layer->setExposureForSelectedFrames(-1); }), "5=6 4=5 2=3 1=1");
+        checkUndoRedo(recorded([&] { layer->setExposureForSelectedFrames(-1); }), "5=6 4=5 2=3 1=1");
     }
 
     SECTION("Reposition Frames")
@@ -1134,11 +1135,14 @@ TEST_CASE("UndoRedoManager: one user action is one undo step")
         REQUIRE(layer->addNewKeyFrameAt(2));
         editor->scrubTo(1);
         {
-            const UndoMacro macro(editor->undoRedo(), "Add frame");
-            const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
-            REQUIRE(layer->insertExposureAt(1));
-            editor->undoRedo()->record(saveStateId, "Add exposure");
+            Edit addFrame = editor->edit("Add frame");
+            {
+                Edit exposure = editor->edit(layer, "Add exposure");
+                REQUIRE(layer->insertExposureAt(1));
+                exposure.commit();
+            }
             REQUIRE(editor->addNewKey() != nullptr);
+            addFrame.commit();
         }
         REQUIRE(layer->keyFrameCount() == 3);
         REQUIRE(layer->keyExists(3));
@@ -1151,9 +1155,9 @@ TEST_CASE("UndoRedoManager: one user action is one undo step")
         REQUIRE(layer->keyExists(3));
     }
 
-    SECTION("A macro with no record makes no undo step")
+    SECTION("An Edit with no record makes no undo step")
     {
-        { const UndoMacro macro(editor->undoRedo(), "Nothing"); }
+        editor->edit("Nothing").commit();
         REQUIRE(edits == 0);
         REQUIRE_FALSE(undoAction->isEnabled());
     }

@@ -38,10 +38,9 @@ namespace
 // A recorded edit as a stroke tool makes it: snapshot, mark the frame, record.
 void drawStroke(Editor* editor)
 {
-    UndoRedoManager* undoRedo = editor->undoRedo();
-    const SAVESTATE_ID state = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    Edit stroke = editor->edit(editor->layers()->currentLayer(), editor->currentFrame(), "Draw");
     editor->setModified(editor->currentLayerIndex(), editor->currentFrame());
-    undoRedo->record(state, "Draw");
+    stroke.commit();
 }
 }
 

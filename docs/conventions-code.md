@@ -6,13 +6,14 @@ Rules for every code change, read before you edit code. Same limits as
 - Follow the ground rules and lean rules in `ROADMAP.md`.
 - File format: new XML attributes are optional; old files must still load.
   Homes for new project data: `docs/file-format.md`.
-- Undo: every edit records through `UndoRedoManager` (`createState` after
-  `handleDrawingOnEmptyFrame()`, `record` on every path; layers through
-  `recordLayerAdd/Remove`). A gesture records once, at its end; a state it
-  never records goes to `discardState()`. A gesture that may add a Drawing
-  wraps both in `beginMacro`/`endMacroWith(state)`. Commands address frames by
-  position and keep removed layers alive. Camera key edits record as
-  `CAMERA_MODIFY`. Undo tests assert content, never selection state.
+- Undo: open `Editor::edit(...)` before the change and `commit()` it on
+  every success path. A gesture that may add a Drawing opens an outer
+  `edit(description)`, calls `handleDrawingOnEmptyFrame()`, then the inner
+  `edit(layer, frame, ...)`. A held gesture keeps `std::optional<Edit>`.
+  Pass a frame only for a Drawing pixel edit. A record the Edit cannot
+  infer (layers, attributes, markers) is a direct `record*` call inside an
+  open Edit. Commands address frames by position and keep removed layers
+  alive. Undo tests assert content, never selection state.
 - An unrecorded edit still emits `frameModified`, `framesModified` or
   `layerCountChanged`, or calls `object()->modification()`.
 - Do not tell the user an action cannot be undone unless no record exists.
@@ -60,8 +61,8 @@ Rules for every code change, read before you edit code. Same limits as
 - Frame pool: frames over 50 from the playhead unload unless modified;
   viewing never marks modified. Playback preloads through
   `Object::preloadFrames`.
-- Frame selections span layers. Multi-layer edits: one `createState` per
-  layer in one `UndoMacro`; a re-time ends in one `moveKeyFrames`.
+- Frame selections span layers. Multi-layer edits: one outer Edit
+  with one Edit per layer.
 - Snapping: viewport-px guides added in `StrokeTool::prepareInput`; ruler
   state in `OverlayManager`, unsaved.
 - Selection transforms change only through `SelectionManager` setters; a

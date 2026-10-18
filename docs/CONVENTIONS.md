@@ -84,7 +84,7 @@ Temporary: decided before the v1.7 tickets start; folded at the end.
   `Editor::edit(layer, frame, description)`, and `Editor::edit(description)`
   for an outer multi-layer Edit; `commit()`. Nesting depth lives in
   `UndoRedoManager`. Attribute commands inside an open Edit join its step.
-  Until #256 lands, new code uses today's protocol; #256/#257 migrate it.
+  The raw snapshot, record and macro calls are private to Edit (#258).
   Test: `test_edit.cpp`.
 - Frame renderer (#259-#261): `core_lib/src/framerenderer.*` holds the
   layer rules and the export adapter. `CanvasPainter` is the screen

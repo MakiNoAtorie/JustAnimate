@@ -44,10 +44,10 @@ namespace
 void paintSquare(Editor* editor, LayerBitmap* layer, int frame, QRect square)
 {
     editor->scrubTo(frame);
-    const SAVESTATE_ID state = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    Edit paint = editor->edit(layer, frame, "Paint");
     layer->getLastBitmapImageAtFrame(frame)->drawRect(square, Qt::NoPen, QBrush(Qt::black),
                                                       QPainter::CompositionMode_SourceOver, false);
-    editor->undoRedo()->record(state, "Paint");
+    paint.commit();
 }
 
 QRgb pixelAt(LayerBitmap* layer, int frame, QPoint p)
@@ -243,10 +243,10 @@ TEST_CASE("A keyframe record syncs the Linked Drawings of its own layer", "[Link
     editor->layers()->setCurrentLayer(other);
     editor->scrubTo(1);
 
-    const SAVESTATE_ID state = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY, linked);
+    Edit paint = editor->edit(linked, 1, "Paint");
     linked->getBitmapImageAtFrame(1)->drawRect(QRect(0, 0, 4, 4), Qt::NoPen, QBrush(Qt::black),
                                                QPainter::CompositionMode_SourceOver, false);
-    editor->undoRedo()->record(state, "Paint");
+    paint.commit();
     CHECK(qAlpha(pixelAt(linked, 3, QPoint(1, 1))) == 255);
 }
 
