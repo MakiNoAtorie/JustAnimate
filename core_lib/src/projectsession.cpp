@@ -175,7 +175,7 @@ bool ProjectSession::autoSave()
     });
     mSkippedSoundClips = fm.skippedSoundClips();
     // The working folder could not be written: no worker runs.
-    if (mBackgroundSave.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+    if (mBackgroundSave.ready())
     {
         return finishBackgroundSave().ok();
     }
@@ -185,7 +185,7 @@ bool ProjectSession::autoSave()
 Status ProjectSession::finishBackgroundSave()
 {
     if (!mBackgroundSave.valid()) { return Status::OK; }
-    const Status st = mBackgroundSave.get();
+    const Status st = mBackgroundSave.finish(mEditor->object());
     if (!st.ok())
     {
         if (mBackgroundWasModified) { mEditor->object()->setModified(true); }

@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <QPair>
 #include <QString>
 #include <QDomElement>
+#include <QImage>
 #include "pencilerror.h"
 #include "blendmode.h"
 #include "keyframe.h"
@@ -36,6 +37,16 @@ struct TweenState;
 class Status;
 
 typedef std::function<void()> ProgressCallback;
+
+/// A Drawing that a save encodes after its snapshot, on any thread: image has the pixels of key at stamp.
+struct DrawingWrite
+{
+    const KeyFrame* key = nullptr; // compare only: the key can be gone when the write ends
+    qint64 stamp = 0;
+    QString path;
+    QImage image;
+    bool written = false;
+};
 
 /** A layer's Timesheet column, in sheet order. Default resolves through effectiveTimesheetColumn (object.h). */
 enum class TimesheetColumn { Default, KeyA, KeyB, KeyC, KeyD, KeyE, KeyF, Dialogue,
@@ -109,7 +120,7 @@ public:
     /** Get selected keyframe positions based on the order they were selected */
     QList<int> selectedKeyFramesByLast() const { return mSelectedFrames_byLast; }
 
-    virtual Status saveKeyFrameFile(KeyFrame*, QString dataPath) = 0;
+    virtual Status saveKeyFrameFile(KeyFrame*, QString dataPath) { Q_UNUSED(dataPath); return Status::SAFE; }
     virtual void loadDomElement(const QDomElement& element, QString dataDirPath, ProgressCallback progressForward) = 0;
     virtual QDomElement createDomElement(QDomDocument& doc) const = 0;
     QDomElement createBaseDomElement(QDomDocument& doc) const;
@@ -186,8 +197,10 @@ public:
      */
     bool canMoveSelectedFramesToOffset(int offset) const;
 
-    // writtenFiles gets the files this save wrote; presave's movedFiles the files it moved.
-    Status save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles, ProgressCallback progressStep);
+    // writtenFiles gets the files this save wrote or will write; presave's movedFiles the files it moved.
+    // Runs on the calling thread; files a worker must write go to writes.
+    virtual Status save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles,
+                        std::vector<DrawingWrite>& writes, ProgressCallback progressStep);
     virtual Status presave(const QString& sDataFolder, QStringList& movedFiles) { Q_UNUSED(sDataFolder); Q_UNUSED(movedFiles); return Status::SAFE; }
 
     bool isPaintable() const;

@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <QObject>
 #include <QStringList>
 
+#include "filemanager.h"
 #include "pencilerror.h"
 
 class Editor;
@@ -98,7 +99,7 @@ private:
     QStringList mSkippedSoundClips;
     QStringList mRecentFiles;
 
-    std::future<Status> mBackgroundSave;
+    FileManager::BackgroundSave mBackgroundSave;
     QString mBackgroundPath;
     QPair<int, int> mBackgroundPoint;
     bool mBackgroundWasModified = false;

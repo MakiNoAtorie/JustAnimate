@@ -29,6 +29,9 @@ GNU General Public License for more details.
 #include <QFile>
 #include <QSemaphore>
 #include <QThreadPool>
+#include <QSet>
+#include <QThread>
+#include <future>
 #include "qminiz.h"
 #include "beziercurve.h"
 #include "blendmode.h"
@@ -1909,4 +1912,60 @@ TEST_CASE("Frame pool: the memory total follows a Drawing that painting grew")
     CHECK(s.object->framePoolMemory() == loaded);
     s.editor->scrubTo(2);
     CHECK(s.object->framePoolMemory() == image->memoryUsage() + layer->getBitmapImageAtFrame(2)->memoryUsage());
+}
+TEST_CASE("Save loads the Drawings it writes on the calling thread")
+{
+    QTemporaryDir dir;
+    std::unique_ptr<Object> object(savedDrawings(dir.filePath("threads.pclx"), 1, { 1, 2, 3, 4 }));
+    REQUIRE(object);
+    struct LoadThreads : KeyFrameEventListener
+    {
+        QSet<QThread*> threads;
+        void onKeyFrameDestroy(KeyFrame*) override {}
+        void onKeyFrameLoaded(KeyFrame*) override { threads.insert(QThread::currentThread()); }
+    } listener;
+    auto* layer = static_cast<LayerBitmap*>(object->getLayer(1));
+    std::vector<BitmapImage*> keys;
+    for (int k : { 1, 2, 3, 4 })
+    {
+        BitmapImage* b = layer->getBitmapImageAtFrame(k);
+        REQUIRE_FALSE(b->isLoaded());
+        b->modification(); // to be written, not loaded
+        b->addEventListener(&listener);
+        keys.push_back(b);
+    }
+
+    FileManager fm;
+    REQUIRE(fm.save(object.get(), dir.filePath("threads.pclx")).ok());
+    for (BitmapImage* b : keys) { b->removeEventListner(&listener); }
+    CHECK(listener.threads == QSet<QThread*>{ QThread::currentThread() });
+}
+
+TEST_CASE("A background save encodes the Drawings and writes main.xml on a worker")
+{
+    QTemporaryDir dir;
+    Object object;
+    object.init();
+    LayerBitmap* layer = object.addNewBitmapLayer();
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(0, 0, 10, 10), Qt::NoPen, Qt::red, QPainter::CompositionMode_SourceOver, false);
+    const QDir data(object.dataDir());
+    const QString mainXml = QDir(object.workingDir()).filePath(PFF_XML_FILE_NAME);
+    QFile::remove(mainXml);
+
+    QSemaphore release;
+    const int workers = parallelWorkerCount();
+    for (int i = 0; i < workers; ++i) { workerPool()->start([&release] { release.acquire(); }); }
+    FileManager fm;
+    FileManager::BackgroundSave saved = fm.saveInBackground(&object, dir.filePath("bg.pclx"), {});
+    const QStringList pngs = data.entryList({ "*.png" });
+    const bool xmlWritten = QFile::exists(mainXml);
+    release.release(workers);
+    REQUIRE(saved.finish(&object).ok());
+
+    CHECK(pngs.isEmpty());
+    CHECK_FALSE(layer->getBitmapImageAtFrame(1)->isModified());
+    CHECK_FALSE(xmlWritten);
+    std::unique_ptr<Object> loaded(fm.load(dir.filePath("bg.pclx")));
+    REQUIRE(loaded);
+    CHECK(qRed(static_cast<LayerBitmap*>(loaded->getLayer(0))->getBitmapImageAtFrame(1)->image()->pixel(5, 5)) == 255);
 }

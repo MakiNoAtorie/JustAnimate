@@ -33,6 +33,9 @@ public:
     QDomElement createDomElement(QDomDocument& doc) const override;
     void loadDomElement(const QDomElement& element, QString dataDirPath, ProgressCallback progressStep) override;
     Status presave(const QString& sDataFolder, QStringList& movedFiles) override;
+    // Snapshots the Drawings to write into writes; their files are written later, on any thread.
+    Status save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles,
+                std::vector<DrawingWrite>& writes, ProgressCallback progressStep) override;
 
     BitmapImage* getBitmapImageAtFrame(int frameNumber);
     BitmapImage* getLastBitmapImageAtFrame(int frameNumber);
@@ -46,7 +49,6 @@ public:
     void setLockAlpha(bool b) { mLockAlpha = b; }
 
 protected:
-    Status saveKeyFrameFile(KeyFrame*, QString strPath) override;
     KeyFrame* createKeyFrame(int position) override;
 
 private:

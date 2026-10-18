@@ -162,7 +162,10 @@ public:
     bool isMinimallyBounded() const { return mMinBound; }
     void enableAutoCrop(bool b) { mEnableAutoCrop = b; }
 
-    Status writeFile(const QString& filename);
+    /// The pixels as they are, without a load: null for an empty or unloaded Drawing. A save snapshots them.
+    QImage pixelsInMemory() const { return mImage; }
+    /// Writes image as a PNG file. Reads nothing else, so it runs on any thread.
+    static Status writeImage(const QImage& image, const QString& filename);
 
     /** Compare colors for the purposes of flood filling
      *

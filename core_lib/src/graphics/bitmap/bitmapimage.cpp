@@ -939,42 +939,16 @@ BitmapImage* BitmapImage::scanToTransparent(BitmapImage *img, const int threshol
     return img;
 }
 
-Status BitmapImage::writeFile(const QString& filename)
+Status BitmapImage::writeImage(const QImage& image, const QString& filename)
 {
-    DebugDetails dd;
-    dd << "BitmapImage::writeFile";
-    mPendingLoad = {}; // the file changes
-    dd << QString("&nbsp;&nbsp;filename = ").append(filename);
-
     QImageWriter writer(filename);
-    if (!mImage.isNull())
-    {
-        bool b = writer.write(mImage);
-        if (b) {
-            return Status::OK;
-        } else {
-            dd << QString("&nbsp;&nbsp;Error: %1 (Code %2)").arg(writer.errorString()).arg(static_cast<int>(writer.error()));
-            return Status(Status::FAIL, dd);
-        }
-    }
+    if (writer.write(image)) { return Status::OK; }
 
-    if (bounds().isEmpty())
-    {
-        QFile f(filename);
-        if(f.exists())
-        {
-            bool b = f.remove();
-            if (!b) {
-                dd << "&nbsp;&nbsp;Error: Image is empty but unable to remove file.";
-                return Status::FAIL;
-            }
-        }
-
-        // The frame is likely empty, act like there's no file name
-        // so we don't end up writing to it later.
-        setFileName("");
-    }
-    return Status::SAFE;
+    DebugDetails dd;
+    dd << "BitmapImage::writeImage";
+    dd << QString("&nbsp;&nbsp;filename = ").append(filename);
+    dd << QString("&nbsp;&nbsp;Error: %1 (Code %2)").arg(writer.errorString()).arg(static_cast<int>(writer.error()));
+    return Status(Status::FAIL, dd);
 }
 
 void BitmapImage::clear()

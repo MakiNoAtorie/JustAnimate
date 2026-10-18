@@ -462,46 +462,34 @@ bool Layer::loadKey(KeyFrame* pKey)
     return true;
 }
 
-Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles, ProgressCallback progressStep)
+Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles,
+                   std::vector<DrawingWrite>& writes, ProgressCallback progressStep)
 {
+    Q_UNUSED(writes)
     DebugDetails dd;
     dd << "\n[Layer SAVE diagnostics]\n";
 
     bool ok = true;
-
-    std::vector<KeyFrame*> keys;
     for (auto pair : mKeyFrames)
-        keys.push_back(pair.second);
-    std::vector<Status> results(keys.size(), Status::OK);
-
-    // Bitmap keys are independent PNG files: encode them in parallel, a chunk at a time for progress.
-    const int count = static_cast<int>(keys.size());
-    const int chunk = (type() == BITMAP) ? parallelWorkerCount() * 4 : 1;
-    for (int start = 0; start < count; start += chunk)
     {
-        const int end = std::min(start + chunk, count);
-        parallelFor(end - start, [&](int i) { results[start + i] = saveKeyFrameFile(keys[start + i], sDataFolder); });
-
-        for (int i = start; i < end; ++i)
+        KeyFrame* keyFrame = pair.second;
+        const Status result = saveKeyFrameFile(keyFrame, sDataFolder);
+        if (result.ok())
         {
-            KeyFrame* keyFrame = keys[i];
-            if (results[i].ok())
-            {
-                // A sound clip whose file is missing saves without it.
-                if (!keyFrame->fileName().isEmpty() && QFile::exists(keyFrame->fileName()))
-                    attachedFiles.append(keyFrame->fileName());
-                // SAFE: the file was already up to date and was not written.
-                if (results[i] != Status::SAFE && !keyFrame->fileName().isEmpty())
-                    writtenFiles.append(keyFrame->fileName());
-            }
-            else
-            {
-                ok = false;
-                dd.collect(results[i].details());
-                dd << QString("- Keyframe[%1] failed to save").arg(keyFrame->pos());
-            }
-            progressStep();
+            // A sound clip whose file is missing saves without it.
+            if (!keyFrame->fileName().isEmpty() && QFile::exists(keyFrame->fileName()))
+                attachedFiles.append(keyFrame->fileName());
+            // SAFE: the file was already up to date and was not written.
+            if (result != Status::SAFE && !keyFrame->fileName().isEmpty())
+                writtenFiles.append(keyFrame->fileName());
         }
+        else
+        {
+            ok = false;
+            dd.collect(result.details());
+            dd << QString("- Keyframe[%1] failed to save").arg(keyFrame->pos());
+        }
+        progressStep();
     }
     if (!ok)
     {
