@@ -388,7 +388,7 @@ TEST_CASE("Camera size change is one undo step and marks the project modified", 
 
     editor->layers()->setCameraSize(layer, QSize(1920, 1080));
     CHECK(layer->getViewRect() == QRect(-960, -540, 1920, 1080));
-    CHECK(session.object->isModified());
+    CHECK(editor->undoRedo()->hasUnsavedChanges());
 
     undo->trigger();
     CHECK(layer->getViewRect() == QRect(-400, -300, 800, 600));

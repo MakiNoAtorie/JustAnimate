@@ -230,11 +230,11 @@ void Editor::removeSelectedKeyFrames(const QString& undoText)
 {
     Layer* currentLayer = layers()->currentLayer();
     if (refusesEdit(currentLayer)) { return; }
-    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_REMOVE);
+    Edit edit = this->edit(currentLayer, undoText);
     for (int pos : currentLayer->selectedKeyFramesPositions()) {
         currentLayer->removeKeyFrame(pos);
     }
-    undoRedo()->record(saveStateId, undoText);
+    edit.commit();
     layers()->notifyLayerChanged(currentLayer); // timeline repaint
 }
 
@@ -247,7 +247,7 @@ void Editor::pasteFromPreviousFrame()
         return;
     }
 
-    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    Edit edit = this->edit(currentLayer, mFrame, tr("Paste from previous drawing"));
     if (currentLayer->type() == Layer::BITMAP)
     {
         BitmapImage* bitmapImage = static_cast<BitmapImage*>(currentLayer->getKeyFrameAt(prevFrame));
@@ -266,7 +266,7 @@ void Editor::pasteFromPreviousFrame()
         VectorImage* vectorImage = static_cast<VectorImage*>(currentLayer->getKeyFrameAt(prevFrame));
         pasteToCanvas(vectorImage, mFrame);
     }
-    undoRedo()->record(saveStateId, tr("Paste from previous drawing"));
+    edit.commit();
 }
 
 void Editor::pasteToCanvas(BitmapImage* bitmapImage, int frameNumber)
@@ -364,9 +364,9 @@ void Editor::paste()
 
 
         // Create the key first: the undo state must hold the frame that the paste changes.
-        const UndoMacro macro(undoRedo(), tr("Paste"));
+        Edit paste = edit(tr("Paste"));
         mScribbleArea->handleDrawingOnEmptyFrame();
-        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        Edit drawing = edit(currentLayer, mFrame, tr("Paste"));
 
         clipboards()->setFromSystemClipboard(mScribbleArea->getCentralPoint(), currentLayer);
 
@@ -377,11 +377,12 @@ void Editor::paste()
         } else if (currentLayer->type() == Layer::VECTOR && !clipboardVectorImage.isEmpty()) {
             pasteToCanvas(&clipboardVectorImage, mFrame);
         }
-        undoRedo()->record(saveStateId, tr("Paste"));
+        drawing.commit();
+        paste.commit();
     } else {
-        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_PASTE);
+        Edit edit = this->edit(currentLayer, tr("Paste frames"));
         pasteToFrames();
-        undoRedo()->record(saveStateId, tr("Paste frames"));
+        edit.commit();
     }
 
     emit frameModified(mFrame);
@@ -392,9 +393,9 @@ void Editor::flipSelection(bool flipVertical)
     if (!select()->somethingSelected() || refusesEdit(layers()->currentLayer())) { return; }
 
     const QString undoText = flipVertical ? tr("Flip selection vertically") : tr("Flip selection horizontally");
-    const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    Edit edit = this->edit(layers()->currentLayer(), mFrame, undoText);
     mScribbleArea->flipSelection(flipVertical);
-    undoRedo()->record(saveStateId, undoText);
+    edit.commit();
 }
 
 void Editor::repositionImage(QPoint transform, int frame)
@@ -402,14 +403,14 @@ void Editor::repositionImage(QPoint transform, int frame)
     if (layers()->currentLayer()->type() == Layer::BITMAP && !refusesEdit(layers()->currentLayer()))
     {
         scrubTo(frame);
-        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
         LayerBitmap* layer = static_cast<LayerBitmap*>(layers()->currentLayer());
+        Edit edit = this->edit(layer, mFrame, tr("Reposition frame"));
         QRect reposRect = layer->getFrameBounds(frame);
         select()->setSelection(reposRect);
         QPoint point = reposRect.topLeft();
         point += transform;
         layer->repositionFrame(point, frame);
-        undoRedo()->record(saveStateId, tr("Reposition frame"));
+        edit.commit();
     }
 }
 
@@ -635,7 +636,7 @@ Status Editor::importBitmapImage(const QString& filePath, const QTransform& impo
                                         -img.height() / 2));
 
     {
-        const UndoMacro macro(undoRedo(), tr("Import Image"));
+        Edit step = edit(tr("Import Image"));
         if (!layer->keyExists(mFrame))
         {
             const bool ok = addNewKey();
@@ -643,11 +644,12 @@ Status Editor::importBitmapImage(const QString& filePath, const QTransform& impo
         }
         BitmapImage* bitmapImage = layer->getBitmapImageAtFrame(mFrame);
         BitmapImage importedBitmapImage(pos, img);
-        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        Edit drawing = edit(layer, mFrame, tr("Import Image"));
         bitmapImage->paste(&importedBitmapImage);
         emit frameModified(bitmapImage->pos());
         // Record before the scrub: the record reads the image at the current frame.
-        undoRedo()->record(saveStateId, tr("Import Image"));
+        drawing.commit();
+        step.commit();
     }
 
     scrubTo(mFrame+1);
@@ -668,7 +670,7 @@ Status Editor::importVectorImage(const QString& filePath)
     DebugDetails dd;
     dd << QString("Raw file path: %1").arg(filePath);
 
-    const UndoMacro macro(undoRedo(), tr("Import Image"));
+    Edit step = edit(tr("Import Image"));
     VectorImage* vectorImage = layer->getVectorImageAtFrame(currentFrame());
     if (vectorImage == nullptr)
     {
@@ -680,12 +682,12 @@ Status Editor::importVectorImage(const QString& filePath)
     bool ok = importedVectorImage.read(filePath);
     if (ok)
     {
-        const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        Edit drawing = edit(layer, currentFrame(), tr("Import Image"));
         importedVectorImage.selectAll();
         vectorImage->paste(importedVectorImage);
         emit frameModified(importedVectorImage.pos());
-        undoRedo()->record(saveStateId, tr("Import Image"));
-
+        drawing.commit();
+        step.commit();
     }
     else {
         status = Status(Status::FAIL, dd, tr("Import failed"), tr("You cannot import images into a vector layer."));
@@ -793,18 +795,19 @@ Status Editor::importAnimatedImage(const QString& filePath, int frameSpacing, co
         }
 
         {
-            const UndoMacro macro(undoRedo(), tr("Import Image"));
+            Edit step = edit(tr("Import Image"));
             if (!bitmapLayer->keyExists(mFrame))
             {
                 addNewKey();
             }
             BitmapImage* bitmapImage = bitmapLayer->getBitmapImageAtFrame(mFrame);
             BitmapImage importedBitmapImage(pos, img);
-            const SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+            Edit drawing = edit(bitmapLayer, mFrame, tr("Import Image"));
             bitmapImage->paste(&importedBitmapImage);
             emit frameModified(bitmapImage->pos());
             // Record before the cancel check and the scrub: the record reads the image at the current frame.
-            undoRedo()->record(saveStateId, tr("Import Image"));
+            drawing.commit();
+            step.commit();
         }
 
         if (wasCanceled())
@@ -958,16 +961,16 @@ KeyFrame* Editor::addKeyFrame(const int layerNumber, int frameIndex)
         }
     }
 
+    Edit edit = this->edit(layer, frameIndex, tr("New drawing"));
     const bool ok = layer->addNewKeyFrameAt(frameIndex);
     Q_ASSERT(ok); // We already ensured that there is no keyframe at frameIndex, so this should always succeed
     scrubTo(frameIndex); // currentFrameChanged() emit inside.
 
-    SAVESTATE_ID saveStateId = undoRedo()->createState(UndoRedoRecordType::KEYFRAME_ADD);
     emit frameModified(frameIndex);
     layers()->notifyAnimationLengthChanged();
     KeyFrame* newFrame = layer->getKeyFrameAt(frameIndex);
 
-    undoRedo()->record(saveStateId, tr("New drawing"));
+    edit.commit();
 
     return newFrame;
 }
@@ -985,14 +988,14 @@ void Editor::removeKey()
         return;
     }
 
-    SAVESTATE_ID saveStateId =  undoRedo()->createState(UndoRedoRecordType::KEYFRAME_REMOVE);
+    Edit edit = this->edit(layer, currentFrame(), tr("Remove drawing"));
 
     deselectAll();
     layer->removeKeyFrame(currentFrame());
     layers()->notifyAnimationLengthChanged();
     emit layers()->currentLayerChanged(layers()->currentLayerIndex()); // trigger timeline repaint.
 
-    undoRedo()->record(saveStateId, tr("Remove drawing"));
+    edit.commit();
 }
 
 void Editor::scrubNextKeyFrame()
@@ -1012,6 +1015,21 @@ void Editor::scrubPreviousKeyFrame()
 
     int prevPosition = layer->getPreviousKeyFramePosition(currentFrame());
     scrubTo(prevPosition);
+}
+
+Edit Editor::edit(const QString& description)
+{
+    return Edit(mUndoRedoManager, description, nullptr, 0);
+}
+
+Edit Editor::edit(Layer* layer, const QString& description)
+{
+    return Edit(mUndoRedoManager, description, layer, 0);
+}
+
+Edit Editor::edit(Layer* layer, int frame, const QString& description)
+{
+    return Edit(mUndoRedoManager, description, layer, frame);
 }
 
 bool Editor::refusesEdit(const Layer* layer)
@@ -1038,14 +1056,18 @@ void Editor::setPaperTemplate(const PaperTemplate& paper)
 {
     const PaperTemplate before = mObject->data()->paperTemplate();
     if (paper == before) { return; }
-    mObject->data()->setPaperTemplate(paper);
     // One undo step per changed field: the user undoes field by field.
     PaperTemplate step = before;
     auto record = [&](auto PaperTemplate::*field) {
         if (step.*field == paper.*field) { return; }
         PaperTemplate next = step;
         next.*field = paper.*field;
-        mUndoRedoManager->recordAttribute(AttributeId::PaperTemplate, 0, 0, QVariant::fromValue(step), QVariant::fromValue(next));
+        const QVariant after = QVariant::fromValue(next);
+        Edit edit = this->edit(attribute(AttributeId::PaperTemplate).undoText(after));
+        mObject->data()->setPaperTemplate(next);
+        mUndoRedoManager->recordAttribute(AttributeId::PaperTemplate, 0, 0, QVariant::fromValue(step), after);
+        emit framesModified();
+        edit.commit();
         step = next;
     };
     record(&PaperTemplate::on);
@@ -1055,7 +1077,6 @@ void Editor::setPaperTemplate(const PaperTemplate& paper)
     record(&PaperTemplate::state);
     record(&PaperTemplate::date);
     record(&PaperTemplate::notes);
-    emit framesModified();
 }
 
 void Editor::switchVisibilityOfLayer(int layerNumber)

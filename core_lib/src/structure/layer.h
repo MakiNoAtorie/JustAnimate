@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #define LAYER_H
 
 #include <map>
+#include <memory>
+#include <vector>
 #include <functional>
 #include <QObject>
 #include <QList>
@@ -147,6 +149,9 @@ public:
      */
     virtual bool addKeyFrame(int position, KeyFrame* pKeyFrame);
     virtual bool removeKeyFrame(int position);
+    /** While set, removeKeyFrame moves removed keys here instead of deleting them. For Edit only. */
+    void setRemovedKeySink(std::vector<std::unique_ptr<KeyFrame>>* sink) { mRemovedKeySink = sink; }
+    std::vector<std::unique_ptr<KeyFrame>>* removedKeySink() const { return mRemovedKeySink; }
     virtual void replaceKeyFrame(const KeyFrame* pKeyFrame) = 0;
 
     bool swapKeyFrames(int position1, int position2);
@@ -251,6 +256,7 @@ private:
     QString    mName;
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;
+    std::vector<std::unique_ptr<KeyFrame>>* mRemovedKeySink = nullptr;
 
     // We need to keep track of selected frames ordered by last selected
     // and by position.

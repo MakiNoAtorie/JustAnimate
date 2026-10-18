@@ -8,6 +8,7 @@ the original Pencil2D history is kept below for reference.
 - Timeline click select, box select and frame move run through one frame-edit gesture, driven by layer and frame instead of pixels (#264).
 - The canvas paints its layers through the frame renderer rules, pinned to the export pixels by a parity test (#261).
 - Image and image sequence export run through one core exporter; a cancelled or failed export leaves no partial files, and replacing an existing image asks first (#273).
+- Editor and LayerManager edits record through one scoped Edit that picks the undo record; undoing a new layer, attribute or marker edit back to the save point leaves the project clean (#256).
 - Movie, GIF, paper page export and the Welcome thumbnail render through the frame renderer export adapter (#260).
 - The Tool settings Panel and the brush preset editor build their rows from the tool property registry; the editor picks grain and smudge mixing from a list (#267).
 - Project length and Paper template edits are project rows of the attribute table; the per-value undo commands are gone (#255).

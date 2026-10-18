@@ -190,9 +190,16 @@ void UndoRedoManager::pushCommand(QUndoCommand* command)
     mPushCount++;
     if (mMacroDepth > 0)
     {
+        // Commands skip their first redo, so the push can wait for the step's end.
+        if (!mMacroOpen && !mPendingCommand)
+        {
+            mPendingCommand.reset(command);
+            return;
+        }
         if (!mMacroOpen)
         {
             mUndoStack.beginMacro(mMacroDescription);
+            mUndoStack.push(mPendingCommand.release());
             mMacroOpen = true;
         }
         mUndoStack.push(command);
@@ -218,9 +225,18 @@ void UndoRedoManager::endMacroWith(SAVESTATE_ID saveStateId)
 
 void UndoRedoManager::endMacro()
 {
-    if (--mMacroDepth > 0 || !mMacroOpen) { return; }
-    mMacroOpen = false;
-    mUndoStack.endMacro();
+    if (--mMacroDepth > 0) { return; }
+    if (mPendingCommand)
+    {
+        mPendingCommand->setText(mMacroDescription);
+        mUndoStack.push(mPendingCommand.release());
+    }
+    else if (mMacroOpen)
+    {
+        mMacroOpen = false;
+        mUndoStack.endMacro();
+    }
+    else { return; }
 
     emit didUpdateUndoStack();
     emit didRecordEdit();
@@ -447,30 +463,7 @@ void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState, cons
     undoSaveState->layerType = layer->type();
     undoSaveState->layerId = layer->id();
     undoSaveState->currentFrameIndex = editor()->currentFrame();
-
-    if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR) {
-        auto selectMan = editor()->select();
-        undoSaveState->selectionState = SelectionSaveState(
-            selectMan->mySelectionRect(),
-            selectMan->myRotation(),
-            selectMan->myScaleX(),
-            selectMan->myScaleY(),
-            selectMan->mySkewX(),
-            selectMan->mySkewY(),
-            selectMan->myTranslation(),
-            selectMan->currentTransformAnchor());
-    }
-
-    const int frameIndex = editor()->currentFrame();
-    auto keyframe = layer->getKeyFrameWhichCovers(frameIndex);
-    if (keyframe == nullptr)
-    {
-        keyframe = layer->getLastKeyFrameAtPosition(frameIndex);
-    }
-
-    if (keyframe != nullptr) {
-        undoSaveState->keyframe = std::unique_ptr<KeyFrame>(keyframe->clone());
-    }
+    snapshotDrawing(undoSaveState, layer, editor()->currentFrame());
 
     if (undoSaveState->recordType == UndoRedoRecordType::KEYFRAME_MOVE ||
         undoSaveState->recordType == UndoRedoRecordType::KEYFRAMES_PASTE) {
@@ -490,6 +483,131 @@ void UndoRedoManager::initCommonKeyFrameState(UndoSaveState* undoSaveState, cons
             }
         }
     }
+}
+
+void UndoRedoManager::snapshotDrawing(UndoSaveState* undoSaveState, const Layer* layer, int frame) const
+{
+    if (layer->type() == Layer::BITMAP || layer->type() == Layer::VECTOR) {
+        auto selectMan = editor()->select();
+        undoSaveState->selectionState = SelectionSaveState(
+            selectMan->mySelectionRect(),
+            selectMan->myRotation(),
+            selectMan->myScaleX(),
+            selectMan->myScaleY(),
+            selectMan->mySkewX(),
+            selectMan->mySkewY(),
+            selectMan->myTranslation(),
+            selectMan->currentTransformAnchor());
+    }
+
+    auto keyframe = layer->getKeyFrameWhichCovers(frame);
+    if (keyframe == nullptr)
+    {
+        keyframe = layer->getLastKeyFrameAtPosition(frame);
+    }
+
+    if (keyframe != nullptr) {
+        undoSaveState->keyframe = std::unique_ptr<KeyFrame>(keyframe->clone());
+    }
+}
+
+SAVESTATE_ID UndoRedoManager::beginEdit(const QString& description, Layer* layer, int frame)
+{
+    UndoSaveState* state = new UndoSaveState();
+    state->description = description;
+    state->pushCount = mPushCount;
+    state->unrecordedChange = object()->isModified();
+    if (layer != nullptr)
+    {
+        state->layer = layer;
+        state->layerId = layer->id();
+        state->layerType = layer->type();
+        state->currentFrameIndex = frame;
+        layer->foreachKeyFrame([state](KeyFrame* key) { state->keyframePositions.insert(key, key->pos()); });
+        if (layer->type() == Layer::CAMERA)
+        {
+            layer->foreachKeyFrame([state](KeyFrame* key) { state->selectedKeyframes.emplace_back(key->clone()); });
+        }
+        else if (frame > 0 && layer->isPaintable())
+        {
+            snapshotDrawing(state, layer, frame);
+        }
+        state->outerRemovedKeys = layer->removedKeySink();
+        layer->setRemovedKeySink(&state->removedKeys);
+    }
+    beginMacro(description);
+
+    const SAVESTATE_ID saveStateId = mSaveStateId++;
+    mSaveStates[saveStateId] = state;
+    return saveStateId;
+}
+
+void UndoRedoManager::endEdit(SAVESTATE_ID saveStateId, bool commit)
+{
+    std::unique_ptr<UndoSaveState> state(mSaveStates.take(saveStateId));
+    if (state == nullptr) { return; }
+
+    // A step recorded inside this Edit already holds its change.
+    const bool records = commit && state->layer != nullptr && mPushCount == state->pushCount;
+    if (state->layer != nullptr)
+    {
+        state->layer->setRemovedKeySink(state->outerRemovedKeys);
+        if (state->outerRemovedKeys != nullptr && !records)
+        {
+            for (std::unique_ptr<KeyFrame>& key : state->removedKeys) { state->outerRemovedKeys->push_back(std::move(key)); }
+            state->removedKeys.clear();
+        }
+    }
+    endMacro();
+    if (records) { recordEdit(*state); }
+
+    // The edit's signals flagged the object; the undo stack now holds the edit.
+    if (mPushCount != state->pushCount) { object()->setModified(state->unrecordedChange); }
+}
+
+void UndoRedoManager::recordEdit(const UndoSaveState& state)
+{
+    const Layer* layer = state.layer;
+    const QString& description = state.description;
+
+    QList<QPair<int, int>> moves;
+    QList<const KeyFrame*> added;
+    layer->foreachKeyFrame([&](KeyFrame* key)
+    {
+        auto it = state.keyframePositions.constFind(key);
+        if (it == state.keyframePositions.constEnd()) { added.append(key); }
+        else if (it.value() != key->pos()) { moves.append(qMakePair(it.value(), key->pos())); }
+    });
+    QList<const KeyFrame*> removed;
+    for (const std::unique_ptr<KeyFrame>& key : state.removedKeys)
+    {
+        if (state.keyframePositions.contains(key.get())) { removed.append(key.get()); }
+    }
+
+    if (removed.isEmpty() && added.isEmpty())
+    {
+        if (!moves.isEmpty()) { moveKeyFrames(state, description); }
+        else if (layer->type() == Layer::CAMERA) { modifyCameras(state, description); }
+        else if (state.currentFrameIndex > 0) { replaceKeyFrame(state, description); }
+        return;
+    }
+    if (removed.isEmpty() && moves.isEmpty() && added.size() == 1 && added.first()->pos() == state.currentFrameIndex)
+    {
+        addKeyFrame(state, description);
+        return;
+    }
+    if (removed.size() == 1 && moves.isEmpty() && added.isEmpty())
+    {
+        pushCommand(new KeyFrameRemoveCommand(removed.first(), state.layerId, description, editor()));
+        return;
+    }
+
+    // Children redo in order and undo in reverse: remove, move, then insert.
+    QUndoCommand* step = new QUndoCommand(description);
+    for (const KeyFrame* key : removed) { new KeyFrameRemoveCommand(key, state.layerId, description, editor(), step); }
+    if (!moves.isEmpty()) { new MoveKeyFramesCommand(moves, state.layerId, description, editor(), step); }
+    for (const KeyFrame* key : added) { new KeyFramePasteCommand(key, state.layerId, description, editor(), step); }
+    pushCommand(step);
 }
 
 QAction* UndoRedoManager::createUndoAction(QObject* parent, const QIcon& icon)
@@ -521,5 +639,6 @@ void UndoRedoManager::replay(void (QUndoStack::*step)())
 
 void UndoRedoManager::clearStack()
 {
+    mPendingCommand.reset();
     mUndoStack.clear();
 }

@@ -131,6 +131,37 @@ TEST_CASE("ProjectSession: dirty follows undo to the clean index")
     }
 }
 
+TEST_CASE("ProjectSession: undoing an attribute edit or a new layer to the clean index leaves the project clean")
+{
+    TestSession session;
+    session.object->addNewBitmapLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ProjectSession project(editor, nullptr);
+
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    REQUIRE_FALSE(project.isDirty());
+
+    SECTION("Attribute")
+    {
+        const int length = editor->object()->sceneLength();
+        REQUIRE(editor->layers()->setSceneLength(length + 10));
+        REQUIRE(project.isDirty());
+        undoAction->trigger();
+        CHECK(editor->object()->sceneLength() == length);
+    }
+    SECTION("New layer")
+    {
+        const int count = editor->object()->getLayerCount();
+        REQUIRE(editor->layers()->createBitmapLayer("Ink") != nullptr);
+        REQUIRE(project.isDirty());
+        undoAction->trigger();
+        CHECK(editor->object()->getLayerCount() == count);
+    }
+    CHECK_FALSE(project.isDirty());
+}
+
 TEST_CASE("ProjectSession: the save-changes prompt appears exactly when dirty")
 {
     TestSession session;

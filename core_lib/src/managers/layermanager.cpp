@@ -200,6 +200,7 @@ QString LayerManager::nameSuggestLayer(const QString& name)
 
 Layer* LayerManager::createLayer(Layer::LAYER_TYPE type, const QString& strLayerName)
 {
+    Edit edit = editor()->edit(tr("Add Layer"));
     Layer* layer = nullptr;
     switch (type) {
     case Layer::BITMAP:
@@ -223,12 +224,15 @@ Layer* LayerManager::createLayer(Layer::LAYER_TYPE type, const QString& strLayer
     emit layerCountChanged(count());
     setCurrentLayer(getLastLayerIndex());
     recordLayerAdd(layer);
+    edit.commit();
 
     return layer;
 }
 
 Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
 {
+    // Add Layer's undo takes the whole copy out.
+    Edit edit = editor()->edit(tr("Add Layer"));
     Layer* to = createLayer(from->type(), name);
     if (to == nullptr) { return nullptr; }
     copyLayerAttributes(*from, *to);
@@ -250,6 +254,7 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
         }
     });
     if (!from->keyExists(1)) { to->removeKeyFrame(1); }
+    edit.commit();
     return to;
 }
 
@@ -346,6 +351,7 @@ Status LayerManager::deleteLayer(int index)
     }
     Q_ASSERT(object()->getLayerCount() >= 2);
 
+    Edit edit = editor()->edit(tr("Delete Layer"));
     layer = takeLayer(index);
     // An editor that is not initialised has no undo manager
     if (editor()->undoRedo())
@@ -356,6 +362,7 @@ Status LayerManager::deleteLayer(int index)
     {
         delete layer;
     }
+    edit.commit();
 
     return Status::OK;
 }
@@ -473,10 +480,12 @@ void LayerManager::setAttribute(Layer* layer, AttributeId id, const QVariant& va
     if (layer == nullptr || row.scope != AttributeScope::Layer || !row.appliesTo(layer->type())) { return; }
     const QVariant before = row.get(layer);
     if (before == value) { return; }
+    Edit edit = editor()->edit(row.undoText(value));
     row.set(layer, nullptr, value);
     editor()->undoRedo()->recordAttribute(id, layer->id(), 0, before, value);
     notifyLayerChanged(layer);
     emit editor()->updateTimeLine();
+    edit.commit();
 }
 
 bool LayerManager::setKeyAttribute(Layer* layer, int frame, AttributeId id, const QVariant& value)
@@ -486,9 +495,11 @@ bool LayerManager::setKeyAttribute(Layer* layer, int frame, AttributeId id, cons
     KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
     if (key == nullptr || row.get(layer, key) == value || editor()->refusesEdit(layer)) { return false; }
     const QVariant before = row.get(layer, key);
+    Edit edit = editor()->edit(row.undoText(value));
     row.set(layer, key, value);
     editor()->undoRedo()->recordAttribute(id, layer->id(), key->pos(), before, value);
     emit editor()->frameModified(key->pos());
+    edit.commit();
     return true;
 }
 
@@ -521,9 +532,11 @@ void LayerManager::setProjectAttribute(AttributeId id, const QVariant& value)
     if (row.scope != AttributeScope::Project) { return; }
     const QVariant before = row.get(*object());
     if (before == value) { return; }
+    Edit edit = editor()->edit(row.undoText(value));
     row.set(*object(), value);
     editor()->undoRedo()->recordAttribute(id, 0, 0, before, value);
     notifyProjectChanged();
+    edit.commit();
 }
 
 void LayerManager::notifyProjectChanged()
@@ -538,10 +551,11 @@ void LayerManager::setCameraSize(LayerCamera* layer, QSize size)
     const QRect old = layer->getViewRect();
     const QRect rect(-size.width() / 2, -size.height() / 2, size.width(), size.height());
     if (rect == old) { return; }
+    Edit edit = editor()->edit(tr("Camera Size"));
     layer->setViewRect(rect);
     editor()->undoRedo()->recordCameraSize(layer->id(), old, rect, tr("Camera Size"));
-    object()->modification();
     editor()->view()->forceUpdateViewTransform();
+    edit.commit();
 }
 
 void LayerManager::setStoryboard(Layer* layer, bool storyboard)
@@ -569,8 +583,10 @@ bool LayerManager::commitLayerArrangement(const LayerArrangement& after, const Q
 {
     const LayerArrangement before = object()->layerArrangement();
     if (after == before) { return false; }
+    Edit edit = editor()->edit(description);
     applyLayerArrangement(after);
     editor()->undoRedo()->recordLayerArrangement(before, description);
+    edit.commit();
     return true;
 }
 
@@ -607,7 +623,7 @@ void LayerManager::addLayerToGroup(Layer* layer, int groupId)
     if (getIndex(layer) < 0 || layer->groupId() == groupId || object()->layerGroupRange(groupId).first < 0) { return; }
     if (layer->type() == Layer::CAMERA && getIndex(layer) == 0) { return; } // the bottom camera layer does not move
 
-    UndoMacro macro(editor()->undoRedo(), tr("Add Layer to Group"));
+    Edit edit = editor()->edit(tr("Add Layer to Group"));
     if (layer->groupId() != 0) { removeLayerFromGroup(layer); }
     const int from = getIndex(layer);
     const int top = object()->layerGroupRange(groupId).second;
@@ -615,6 +631,7 @@ void LayerManager::addLayerToGroup(Layer* layer, int groupId)
     a.groupIds[from] = groupId;
     moveLayerBlock(a, from, from, from > top ? top + 1 : top);
     commitLayerArrangement(a, tr("Add Layer to Group"));
+    edit.commit();
 }
 
 void LayerManager::removeLayerFromGroup(Layer* layer)
@@ -778,7 +795,7 @@ Status LayerManager::createInbetweens(CameraEasingType easing)
     }
     start->deselectAll();
 
-    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_PASTE, layer);
+    Edit edit = editor()->edit(layer, tr("Create Inbetweens"));
     for (int f : empty)
     {
         const qreal t = easedProgress(easing, qreal(f - from) / (to - from));
@@ -802,7 +819,7 @@ Status LayerManager::createInbetweens(CameraEasingType easing)
         image->modification();
         layer->addKeyFrame(f, image);
     }
-    editor()->undoRedo()->record(saveStateId, tr("Create Inbetweens"));
+    edit.commit();
     notifyLayerChanged(layer);
     emit editor()->framesModified();
     return Status::OK;
@@ -864,19 +881,19 @@ bool LayerManager::selectionRefusesEdit()
 void LayerManager::setExposureForSelectedFrames(int value, bool hold)
 {
     if (selectionRefusesEdit()) { return; }
-    UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = hold ? tr("Set exposure") : value > 0 ? tr("Add exposure") : tr("Subtract exposure");
-    const UndoMacro macro(undoRedo, description);
+    Edit step = editor()->edit(description);
     for (int i = 0; i < count(); ++i)
     {
         Layer* layer = object()->getLayer(i);
         if (!layer->hasAnySelectedFrames()) { continue; }
-        const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
+        Edit edit = editor()->edit(layer, description);
         layer->setExposureForSelectedFrames(value, hold);
-        undoRedo->record(saveStateId, description);
+        edit.commit();
     }
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
+    step.commit();
 }
 
 static bool sameDrawing(Layer::LAYER_TYPE type, KeyFrame* a, KeyFrame* b)
@@ -898,9 +915,8 @@ static bool sameDrawing(Layer::LAYER_TYPE type, KeyFrame* a, KeyFrame* b)
 void LayerManager::cleanExposureOfSelectedFrames()
 {
     if (selectionRefusesEdit()) { return; }
-    UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = tr("Clean exposure");
-    const UndoMacro macro(undoRedo, description);
+    Edit step = editor()->edit(description);
     for (int i = 0; i < count(); ++i)
     {
         Layer* layer = object()->getLayer(i);
@@ -918,15 +934,14 @@ void LayerManager::cleanExposureOfSelectedFrames()
         layer->deselectAll();
         if (repeats.isEmpty()) { continue; }
 
-        // KEYFRAMES_REMOVE records the selected keyframes.
-        for (int pos : repeats) { layer->setFrameSelected(pos, true); }
-        const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAMES_REMOVE, layer);
+        Edit edit = editor()->edit(layer, description);
         for (int pos : repeats) { layer->removeKeyFrame(pos); }
-        undoRedo->record(saveStateId, description);
+        edit.commit();
         notifyLayerChanged(layer);
     }
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
+    step.commit();
 }
 
 void LayerManager::deselectAllFrames()
@@ -947,7 +962,7 @@ void LayerManager::selectFrames(int fromLayer, int toLayer, int fromFrame, int t
 }
 
 // Moves every keyframe after `position` by `offset` in one pass and records the move. Keeps the frame selection.
-static void shiftFramesAfter(LayerManager* layers, UndoRedoManager* undoRedo, Layer* layer, int position, int offset, const QString& description)
+static void shiftFramesAfter(LayerManager* layers, Editor* editor, Layer* layer, int position, int offset, const QString& description)
 {
     if (layer->getMaxKeyFramePosition() <= position) { return; }
     QList<QPair<int, int>> fromTo;
@@ -955,10 +970,10 @@ static void shiftFramesAfter(LayerManager* layers, UndoRedoManager* undoRedo, La
         if (key->pos() > position) { fromTo.append(qMakePair(key->pos(), key->pos() + offset)); }
     });
     const QList<int> selected = layer->selectedKeyFramesByLast();
-    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
+    Edit edit = editor->edit(layer, description);
     layer->moveKeyFrames(fromTo);
     layers->moveSoundMarkers(layer, fromTo);
-    undoRedo->record(saveStateId, description);
+    edit.commit();
     // setFrameSelected puts each frame first in the by-last list, so restore from the oldest.
     for (auto it = selected.crbegin(); it != selected.crend(); ++it)
     {
@@ -973,12 +988,12 @@ bool LayerManager::rippleInsertFrame()
     if (editor()->refuses(layer)) { return false; }
 
     const int position = editor()->currentFrame();
-    UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = tr("Insert Frame");
-    const UndoMacro macro(undoRedo, description);
-    shiftFramesAfter(this, undoRedo, layer, position, 1, description);
+    Edit step = editor()->edit(description);
+    shiftFramesAfter(this, editor(), layer, position, 1, description);
     const bool added = editor()->addKeyFrame(currentLayerIndex(), position + 1) != nullptr;
     emit editor()->framesModified();
+    step.commit();
     return added;
 }
 
@@ -990,20 +1005,19 @@ bool LayerManager::rippleRemoveFrame()
     if (editor()->refuses(layer)) { return false; }
     if (onKey ? layer->keyFrameCount() == 1 : layer->getMaxKeyFramePosition() <= position) { return false; }
 
-    UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = tr("Delete Frame");
-    const UndoMacro macro(undoRedo, description);
+    Edit step = editor()->edit(description);
     if (onKey)
     {
-        // The remove state records the keyframe at the current frame.
-        const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_REMOVE, layer);
+        Edit edit = editor()->edit(layer, description);
         layer->removeKeyFrame(position);
-        undoRedo->record(saveStateId, description);
+        edit.commit();
     }
-    shiftFramesAfter(this, undoRedo, layer, position, -1, description);
+    shiftFramesAfter(this, editor(), layer, position, -1, description);
 
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
+    step.commit();
     return true;
 }
 
@@ -1021,7 +1035,7 @@ bool LayerManager::changeExposure(int frame, int delta)
     if (shift == 0) { return false; }
 
     const QString description = shift > 0 ? tr("Add exposure") : tr("Subtract exposure");
-    shiftFramesAfter(this, editor()->undoRedo(), layer, position, shift, description);
+    shiftFramesAfter(this, editor(), layer, position, shift, description);
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
     return true;
@@ -1037,12 +1051,11 @@ bool LayerManager::linkDrawing(int from, int to)
     // A link id left on a key with no copy is harmless, so undo need not clear it.
     if (source->linkId() == 0) { source->setLinkId(layer->newLinkId()); }
 
-    UndoRedoManager* undoRedo = editor()->undoRedo();
-    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAMES_PASTE, layer);
+    Edit edit = editor()->edit(layer, tr("Link Drawing"));
     layer->addKeyFrame(to, source->clone());
-    undoRedo->record(saveStateId, tr("Link Drawing"));
     notifyAnimationLengthChanged();
     emit editor()->frameModified(to);
+    edit.commit();
     return true;
 }
 
@@ -1118,9 +1131,10 @@ void LayerManager::removeMarker(int layerId, int frame)
 
 void LayerManager::markersChanged(int layerId, const QMap<int, FrameMarker>& before, const QString& description)
 {
+    Edit edit = editor()->edit(description);
     editor()->undoRedo()->recordMarkers(layerId, before, description);
-    object()->modification();
     emit editor()->updateTimeLine();
+    edit.commit();
 }
 
 bool LayerManager::moveSelectedFrames(int offset)
@@ -1143,20 +1157,20 @@ bool LayerManager::moveSelectedFrames(int offset)
         if (!layer->canMoveSelectedFramesToOffset(offset)) { return false; }
     }
 
-    UndoRedoManager* undoRedo = editor()->undoRedo();
     const QString description = tr("Move Frames");
-    const UndoMacro macro(undoRedo, description);
+    Edit step = editor()->edit(description);
     for (Layer* layer : selected)
     {
         QList<QPair<int, int>> fromTo;
         for (int pos : layer->selectedKeyFramesPositions()) { fromTo.append(qMakePair(pos, pos + offset)); }
-        const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MOVE, layer);
+        Edit edit = editor()->edit(layer, description);
         layer->moveSelectedFrames(offset);
         moveSoundMarkers(layer, fromTo);
-        undoRedo->record(saveStateId, description);
+        edit.commit();
     }
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
+    step.commit();
     return true;
 }
 

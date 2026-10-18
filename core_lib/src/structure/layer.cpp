@@ -329,7 +329,8 @@ bool Layer::removeKeyFrame(int position)
         removeFromSelectionList(frame->pos());
         mKeyFrames.erase(frame->pos());
         markFrameAsDirty(frame->pos());
-        delete frame;
+        if (mRemovedKeySink) { mRemovedKeySink->emplace_back(frame); }
+        else { delete frame; }
     }
     return true;
 }

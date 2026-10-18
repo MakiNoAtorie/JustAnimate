@@ -25,6 +25,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/vectorselection.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/vertexref.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/backgroundwidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/edit.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/editor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/flowlayout.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/frameeditgesture.h
@@ -141,6 +142,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/vectorselection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/vertexref.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/backgroundwidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/edit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/editor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/flowlayout.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/frameeditgesture.cpp

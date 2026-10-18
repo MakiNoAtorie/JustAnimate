@@ -134,6 +134,15 @@ struct UndoSaveState {
     bool endsMacro = false;
     // The object's unrecorded-change flag when the state was taken.
     bool unrecordedChange = false;
+
+    // Edit only: its step text, the push count when it began, and its layer (nullptr: no snapshot).
+    QString description;
+    int pushCount = 0;
+    Layer* layer = nullptr;
+    // Keys the layer removed during the Edit, kept alive so that a record can copy them
+    // and so that no new key reuses their address.
+    std::vector<std::unique_ptr<KeyFrame>> removedKeys;
+    std::vector<std::unique_ptr<KeyFrame>>* outerRemovedKeys = nullptr;
 };
 
 class UndoRedoManager : public BaseManager
@@ -221,6 +230,11 @@ signals:
     void didRecordEdit();
 
 private:
+    friend class Edit;
+    SAVESTATE_ID beginEdit(const QString& description, Layer* layer, int frame);
+    void endEdit(SAVESTATE_ID saveStateId, bool commit);
+    void recordEdit(const UndoSaveState& state);
+    void snapshotDrawing(UndoSaveState* state, const Layer* layer, int frame) const;
 
     void replaceKeyFrame(const UndoSaveState& undoState, const QString& description);
     void replaceBitmap(const UndoSaveState& undoState, const QString& description);
@@ -246,6 +260,8 @@ private:
     int mMacroDepth = 0;
     bool mMacroOpen = false; // the stack macro starts at the first record
     QString mMacroDescription;
+    // The first command of an open step: a step of one command stays that command.
+    std::unique_ptr<QUndoCommand> mPendingCommand;
     int mPushCount = 0;
 
     QMap<SAVESTATE_ID, UndoSaveState*> mSaveStates;

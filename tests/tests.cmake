@@ -21,6 +21,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_spritesheet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_inputsmoother.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_attributes.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_edit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerbitmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layercamera.cpp
