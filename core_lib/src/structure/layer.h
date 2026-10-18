@@ -26,15 +26,27 @@ GNU General Public License for more details.
 #include <QPair>
 #include <QString>
 #include <QDomElement>
+#include <QImage>
 #include "pencilerror.h"
 #include "blendmode.h"
 #include "keyframe.h"
 
 class KeyFrame;
+class ActiveFramePool;
 struct TweenState;
 class Status;
 
 typedef std::function<void()> ProgressCallback;
+
+/// A Drawing that a save encodes after its snapshot, on any thread: image has the pixels of key at stamp.
+struct DrawingWrite
+{
+    const KeyFrame* key = nullptr; // compare only: the key can be gone when the write ends
+    qint64 stamp = 0;
+    QString path;
+    QImage image;
+    bool written = false;
+};
 
 /** A layer's Timesheet column, in sheet order. Default resolves through effectiveTimesheetColumn (object.h). */
 enum class TimesheetColumn { Default, KeyA, KeyB, KeyC, KeyD, KeyE, KeyF, Dialogue,
@@ -108,7 +120,7 @@ public:
     /** Get selected keyframe positions based on the order they were selected */
     QList<int> selectedKeyFramesByLast() const { return mSelectedFrames_byLast; }
 
-    virtual Status saveKeyFrameFile(KeyFrame*, QString dataPath) = 0;
+    virtual Status saveKeyFrameFile(KeyFrame*, QString dataPath) { Q_UNUSED(dataPath); return Status::SAFE; }
     virtual void loadDomElement(const QDomElement& element, QString dataDirPath, ProgressCallback progressForward) = 0;
     virtual QDomElement createDomElement(QDomDocument& doc) const = 0;
     QDomElement createBaseDomElement(QDomDocument& doc) const;
@@ -161,6 +173,10 @@ public:
     KeyFrame *getKeyFrameWhichCovers(int frameNumber) const;
 
     void foreachKeyFrame(std::function<void(KeyFrame*)>) const;
+    /// The keys at positions from..to, last first like foreachKeyFrame.
+    void foreachKeyFrameIn(int from, int to, const std::function<void(KeyFrame*)>& action) const;
+    /** The pool watches every key of this layer, now and when a key is added, so it sees every load */
+    void setFramePool(ActiveFramePool* pool);
 
     /// The other keys of this layer linked to `key` (Linked Drawing, GLOSSARY.md).
     QList<KeyFrame*> linkedKeys(const KeyFrame* key) const;
@@ -181,8 +197,11 @@ public:
      */
     bool canMoveSelectedFramesToOffset(int offset) const;
 
-    Status save(const QString& sDataFolder, QStringList& attachedFiles, ProgressCallback progressStep);
-    virtual Status presave(const QString& sDataFolder) { Q_UNUSED(sDataFolder); return Status::SAFE; }
+    // writtenFiles gets the files this save wrote or will write; presave's movedFiles the files it moved.
+    // Runs on the calling thread; files a worker must write go to writes.
+    virtual Status save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles,
+                        std::vector<DrawingWrite>& writes, ProgressCallback progressStep);
+    virtual Status presave(const QString& sDataFolder, QStringList& movedFiles) { Q_UNUSED(sDataFolder); Q_UNUSED(movedFiles); return Status::SAFE; }
 
     bool isPaintable() const;
 
@@ -252,6 +271,7 @@ private:
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;
     std::vector<std::unique_ptr<KeyFrame>>* mRemovedKeySink = nullptr;
+    ActiveFramePool* mFramePool = nullptr;
 
     // We need to keep track of selected frames ordered by last selected
     // and by position.

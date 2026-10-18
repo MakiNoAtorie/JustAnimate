@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <algorithm>
+#include <functional>
 
 #include <QAction>
 #include <QApplication>
@@ -1979,5 +1980,118 @@ TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure
             pen(QEvent::TabletMove, QPointF(i % 2 ? 450 : 150, 300), 0.2, clock += 1);
         pen(QEvent::TabletRelease, QPointF(300, 300), 0.2, clock += 1);
         checkLight(14);
+    }
+}
+
+TEST_CASE("DabTool - a pointer move updates the canvas once however many dabs and tiles it paints")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    StrokeTool* pencil = static_cast<StrokeTool*>(editor->tools()->getTool(PENCIL));
+    const ToolSettingsGuard guard(pencil);
+    pencil->set(ToolProperty::Width, 4);
+    pencil->set(ToolProperty::PressureEnabled, false);
+    pencil->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+    editor->scrubTo(1);
+
+    int updates = 0;
+    QRect updated;
+    QObject::connect(&pencil->buffer().tiles(), &TiledBuffer::updated, area, [&](const QRect& r) {
+        ++updates;
+        updated |= r;
+    });
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    tablet(area, QEvent::TabletPress, QPointF(100, 300), 1.0);
+    updates = 0;
+    StageProfiler::reset();
+    tablet(area, QEvent::TabletMove, QPointF(500, 300), 1.0);
+    const int moveUpdates = updates;
+    const QRect tilesAfterMove = pencil->buffer().tiles().bounds();
+    const quint64 dabs = StageProfiler::calls(StageProfiler::DabMask);
+    tablet(area, QEvent::TabletRelease, QPointF(500, 300), 1.0);
+    StageProfiler::enabled() = profiling;
+
+    INFO("dabs " << dabs);
+    CHECK(dabs > 100);
+    CHECK(tilesAfterMove.width() > 4 * 64); // the move crosses many tiles
+    CHECK(moveUpdates == 1);
+    CHECK(updated.contains(tilesAfterMove));
+}
+
+TEST_CASE("Eraser and Smudge - a setting changed mid-stroke waits for the next press")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+
+    // Paints over red left of canvas x = 0 and returns the frame; change runs between press and move.
+    auto paint = [&](const std::function<void()>& change) {
+        BitmapImage* image = layer->getBitmapImageAtFrame(1);
+        *image = BitmapImage();
+        image->drawRect(QRectF(-100, -50, 100, 100), Qt::NoPen, QBrush(Qt::red), QPainter::CompositionMode_Source, false);
+        const QPointF from = editor->view()->mapCanvasToScreen(QPointF(-60, 0));
+        const QPointF to = editor->view()->mapCanvasToScreen(QPointF(40, 0));
+        tablet(area, QEvent::TabletPress, from, 1.0);
+        change();
+        for (int i = 1; i <= 10; ++i)
+            tablet(area, QEvent::TabletMove, from + (to - from) * i / 10.0, 1.0);
+        tablet(area, QEvent::TabletRelease, to, 1.0);
+        return *layer->getBitmapImageAtFrame(1)->image();
+    };
+
+    SECTION("Eraser")
+    {
+        editor->tools()->setCurrentTool(ERASER);
+        StrokeTool* eraser = static_cast<StrokeTool*>(editor->tools()->getTool(ERASER));
+        const ToolSettingsGuard guard(eraser);
+        eraser->set(ToolProperty::Width, 20);
+        eraser->set(ToolProperty::Feather, 60);
+        eraser->set(ToolProperty::FeatherEnabled, true);
+        eraser->set(ToolProperty::AntiAliasingEnabled, true);
+        eraser->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+        const QImage held = paint([] {});
+        const QImage changed = paint([&] {
+            eraser->set(ToolProperty::FeatherEnabled, false);
+            eraser->set(ToolProperty::AntiAliasingEnabled, false);
+        });
+        CHECK(changed == held);
+        CHECK(paint([] {}) != held); // the next press reads the new settings
+    }
+    SECTION("Smudge")
+    {
+        editor->tools()->setCurrentTool(SMUDGE);
+        StrokeTool* smudge = static_cast<StrokeTool*>(editor->tools()->getTool(SMUDGE));
+        const ToolSettingsGuard guard(smudge);
+        smudge->set(ToolProperty::Width, 20);
+        smudge->set(ToolProperty::Feather, 48);
+        smudge->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+        smudge->setValue(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+        smudge->setValue(StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE, 0);
+        editor->color()->setFrontColor(Qt::blue);
+        const QImage held = paint([] {});
+        const QImage changed = paint([&] {
+            smudge->setValue(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 0);
+            smudge->setValue(StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE, 100);
+        });
+        CHECK(changed == held);
+        CHECK(paint([] {}) != held);
     }
 }

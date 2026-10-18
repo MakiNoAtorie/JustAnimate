@@ -83,6 +83,8 @@ public:
     void removeVertex(int curve, int vertex);
 
     QRectF getBoundsOfTransformedCurves() const;
+    /** Holds every pixel paintImage draws, in image coordinates, apart from pens of a fixed device width. */
+    QRectF paintBounds() const;
 
     bool isEmpty() const { return mCurves.isEmpty(); }
 
@@ -166,6 +168,7 @@ private:
     QRectF mSelectionRect;
     QTransform mSelectionTransformation;
     QSize mSize;
+    qint64 mAreasStamp = 0; // stamp() when paintImage last updated the area paths
 };
 
 #endif

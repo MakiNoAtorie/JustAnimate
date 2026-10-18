@@ -21,12 +21,13 @@ GNU General Public License for more details.
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <utility>
 #include <QGuiApplication>
 #include <QStyleHints>
 #include <QKeySequence>
 #include <QPainterPath>
 #include <QtMath>
-#include <QPixmapCache>
 #include <QTimer>
 
 #include "basetool.h"
@@ -56,6 +57,37 @@ GNU General Public License for more details.
 #include "viewmanager.h"
 #include "selectionmanager.h"
 #include "overlaymanager.h"
+
+#ifdef Q_OS_WIN
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+namespace
+{
+qint64 physicalRamBytes()
+{
+#ifdef Q_OS_WIN
+    MEMORYSTATUSEX status;
+    status.dwLength = sizeof(status);
+    return GlobalMemoryStatusEx(&status) ? static_cast<qint64>(status.ullTotalPhys) : 0;
+#else
+    const long pages = sysconf(_SC_PHYS_PAGES);
+    const long pageSize = sysconf(_SC_PAGESIZE);
+    return pages > 0 && pageSize > 0 ? qint64(pages) * pageSize : 0;
+#endif
+}
+}
+
+qsizetype ScribbleArea::frameCacheLimitKb(QSize devicePx, qint64 ramBytes)
+{
+    const qint64 floorKb = 100 * 1024;
+    const qint64 frameKb = qint64(devicePx.width()) * devicePx.height() * 4 / 1024;
+    return static_cast<qsizetype>(qBound(floorKb, frameKb * 240, std::max(floorKb, ramBytes / 4 / 1024)));
+}
 
 ScribbleArea::ScribbleArea(QWidget* parent) : QWidget(parent),
     mCanvasPainter(mCanvas),
@@ -87,8 +119,7 @@ bool ScribbleArea::init()
             connect(tool, &StrokeTool::propertyChanged, this, [this](int id) {
                 if (id == StrokeToolProperties::WIDTH_VALUE) { update(); }
             });
-            connect(&tool->buffer().tiles(), &TiledBuffer::tileUpdated, this, &ScribbleArea::onTileUpdated, Qt::UniqueConnection);
-            connect(&tool->buffer().tiles(), &TiledBuffer::tileCreated, this, &ScribbleArea::onTileCreated, Qt::UniqueConnection);
+            connect(&tool->buffer().tiles(), &TiledBuffer::updated, this, &ScribbleArea::onTilesUpdated, Qt::UniqueConnection);
         }
     }
 
@@ -114,20 +145,20 @@ bool ScribbleArea::init()
     mLayerVisibility = static_cast<LayerVisibility>(mPrefs->get<SETTING::LAYER_VISIBILITY>());
 
     mDeltaFactor = mEditor->preference()->get<SETTING::INVERT_SCROLL_ZOOM_DIRECTION>() ? -1 : 1;
+    refreshPaintOptions();
+    if (BaseTool* tool = mEditor->tools()->currentTool()) { mShownTool = tool->type(); }
 
     setMouseTracking(true); // reacts to mouse move events, even if the button is not pressed
     setTabletTracking(true); // tablet tracking first added in 5.9
 
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
 
-    QPixmapCache::setCacheLimit(100 * 1024); // unit is kb, so it's 100MB cache
-    mPixmapCacheKeys.clear();
-
     return true;
 }
 
 void ScribbleArea::settingUpdated(SETTING setting)
 {
+    refreshPaintOptions();
     switch (setting)
     {
     case SETTING::CURVE_SMOOTHING:
@@ -199,18 +230,9 @@ void ScribbleArea::setCurveSmoothing(int newSmoothingLevel)
 /************************************************************************************/
 // update methods
 
-void ScribbleArea::onTileUpdated(TiledBuffer* tiledBuffer, Tile* tile)
+void ScribbleArea::onTilesUpdated(const QRect& canvasRect)
 {
-    Q_UNUSED(tiledBuffer);
-    const QRectF& mappedRect = mEditor->view()->getView().mapRect(QRectF(tile->bounds()));
-    update(mappedRect.toAlignedRect());
-}
-
-void ScribbleArea::onTileCreated(TiledBuffer* tiledBuffer, Tile* tile)
-{
-    Q_UNUSED(tiledBuffer)
-    const QRectF& mappedRect = mEditor->view()->getView().mapRect(QRectF(tile->bounds()));
-    update(mappedRect.toAlignedRect());
+    update(mEditor->view()->getView().mapRect(QRectF(canvasRect)).toAlignedRect());
 }
 
 void ScribbleArea::updateFrame()
@@ -279,8 +301,7 @@ void ScribbleArea::invalidateAllCache()
 {
     if (currentTool()->isDrawingTool() && currentTool()->isActive()) { return; }
 
-    QPixmapCache::clear();
-    mPixmapCacheKeys.clear();
+    clearFrameCache();
     invalidatePainterCaches();
     mEditor->layers()->currentLayer()->clearDirtyFrames();
 
@@ -305,26 +326,14 @@ void ScribbleArea::invalidateCacheForFrame(int frameNumber)
             start = std::min(start, key->pos());
         }
     }
-    auto it = mPixmapCacheKeys.lowerBound(static_cast<unsigned int>(start));
-    while (it != mPixmapCacheKeys.end())
+    const QList<int> cached = mFrameKeys.keys();
+    for (int frame : cached)
     {
-        const int frame = static_cast<int>(it.key());
+        if (frame < start) continue;
         const bool held = frame == frameNumber || std::any_of(holds.begin(), holds.end(), [frame](const auto& h) {
             return h.first->getLastKeyFrameAtPosition(frame) == h.second;
         });
-        if (held)
-        {
-            QPixmapCache::remove(it.value());
-            it = mPixmapCacheKeys.erase(it);
-        }
-        else if (frame > frameNumber)
-        {
-            break; // holds are contiguous: none reaches past this frame
-        }
-        else
-        {
-            ++it;
-        }
+        if (held) { mFrameCache.remove(mFrameKeys.take(frame)); }
     }
 }
 
@@ -335,12 +344,16 @@ void ScribbleArea::invalidatePainterCaches()
     updateFrame();
 }
 
-void ScribbleArea::onToolChanged(ToolType)
+void ScribbleArea::onToolChanged(ToolType tool)
 {
+    // Stroke tools show the same canvas: a pen eraser flip keeps the cached frame.
+    const auto isStroke = [this](ToolType t) { return t != INVALID_TOOL && dynamic_cast<StrokeTool*>(mEditor->tools()->getTool(t)); };
+    const bool sameCanvas = isStroke(mShownTool) && isStroke(tool);
+    mShownTool = tool;
     int frame = mEditor->currentFrame();
     prepOverlays(frame);
     prepCameraPainter(frame);
-    invalidateCacheForFrame(frame);
+    if (!sameCanvas) { invalidateCacheForFrame(frame); }
     updateFrame();
 }
 
@@ -378,17 +391,113 @@ void ScribbleArea::onFramesModified()
 
 void ScribbleArea::onFrameModified(int frameNumber)
 {
+    const QRect area = std::exchange(mModifiedArea, QRect());
     if (mPrefs->get<SETTING::PREV_ONION>() || mPrefs->get<SETTING::NEXT_ONION>()) {
         invalidateOnionSkinsCacheAround(frameNumber);
-        invalidatePainterCaches();
+        mCameraPainter.resetCache();
     }
     invalidateCacheForFrame(frameNumber);
-    updateFrame();
+
+    // The rest of the canvas is unchanged unless the modified key also shows as an onion frame.
+    const Layer* layer = mEditor->layers()->currentLayer();
+    const KeyFrame* key = layer ? layer->getLastKeyFrameAtPosition(frameNumber) : nullptr;
+    bool onlyArea = !area.isEmpty() && key && frameNumber == mEditor->currentFrame();
+    if (onlyArea)
+    {
+        const auto onion = OnionSkinSubPainter().neighbours(layer, onionSkinOptions(), frameNumber);
+        onlyArea = std::none_of(onion.begin(), onion.end(), [key](const auto& n) { return n.frame == key->pos(); });
+    }
+    // After a view change in a stroke, the canvas outside the area still has the old view.
+    if (!mFrameCacheView) { update(); }
+    else if (onlyArea) { update(area); }
+    else { updateFrame(); }
+}
+
+// QPixmap::scroll for an image: moves the pixels by step and returns the area they no longer cover.
+static QRegion scrollImage(QImage& image, QPoint step)
+{
+    const QRect to = image.rect().translated(step) & image.rect();
+    if (to.isEmpty()) { return QRegion(image.rect()); }
+    const QRect from = to.translated(-step);
+    const int bytes = to.width() * image.depth() / 8;
+    uchar* bits = image.bits();
+    const qsizetype bpl = image.bytesPerLine();
+    // Rows move down from the bottom and up from the top, so no source row is overwritten first.
+    for (int i = 0; i < to.height(); ++i)
+    {
+        const int row = step.y() > 0 ? to.height() - 1 - i : i;
+        std::memmove(bits + (to.top() + row) * bpl + to.left() * image.depth() / 8,
+                     bits + (from.top() + row) * bpl + from.left() * image.depth() / 8, bytes);
+    }
+    return QRegion(image.rect()) - QRegion(to);
 }
 
 void ScribbleArea::onViewChanged()
 {
-    invalidateAllCache();
+    if (currentTool()->isDrawingTool() && currentTool()->isActive())
+    {
+        // The painter caches stay for the stroke; the frame cache holds the old view.
+        clearFrameCache();
+        mFrameCacheView.reset();
+        return;
+    }
+    const QTransform view = mEditor->view()->getView();
+    const int frame = mEditor->currentFrame();
+    const auto shownKey = mFrameKeys.constFind(frame);
+    const QImage* shown = shownKey != mFrameKeys.cend() ? mFrameCache.object(*shownKey) : nullptr;
+    const std::optional<QTransform> old = std::exchange(mFrameCacheView, view);
+    // A pan by exactly whole device pixels shifts the cached canvas and renders only the strips it exposes.
+    // Rotated draws do not shift pixel for pixel. An unchanged view is a request to redraw everything.
+    const QPointF moved = old ? QPointF(view.dx() - old->dx(), view.dy() - old->dy()) * mDevicePixelRatio : QPointF();
+    const QPoint step = moved.toPoint();
+    const bool pan = shown && old && shown->size() == mCanvas.size() && !step.isNull() && moved == QPointF(step)
+                     && view.m12() == 0 && view.m21() == 0 && view.m11() == old->m11() && view.m22() == old->m22() && old->m12() == 0 && old->m21() == 0;
+    if (!pan)
+    {
+        invalidateAllCache();
+        return;
+    }
+    mCanvas = *shown;
+    clearFrameCache();
+    mFrameCacheView = *old * QTransform::fromTranslate(step.x() / mDevicePixelRatio, step.y() / mDevicePixelRatio);
+    QRegion exposed = scrollImage(mCanvas, step);
+    // Onion tints outline the canvas edges: the old edge lines are drawn again too.
+    const QRect was(step, mCanvas.size());
+    exposed += QRegion(QRect(was.left(), 0, 1, mCanvas.height())) + QRegion(QRect(was.right(), 0, 1, mCanvas.height()))
+             + QRegion(QRect(0, was.top(), mCanvas.width(), 1)) + QRegion(QRect(0, was.bottom(), mCanvas.width(), 1));
+    exposed &= mCanvas.rect();
+    invalidatePainterCaches(); // the camera image and the layer cells hold the old view
+    for (const QRect& r : exposed)
+    {
+        drawCanvas(frame, QRectF(QPointF(r.topLeft()) / mDevicePixelRatio, QSizeF(r.size()) / mDevicePixelRatio).toAlignedRect());
+    }
+    cacheCanvas(frame);
+    updateFrame();
+}
+
+// Call after the painters were prepared for frame (drawCanvas does).
+void ScribbleArea::cacheCanvas(int frame)
+{
+    const QVector<qint64> key = frameKey();
+    const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
+    mFrameCache.insert(key, new QImage(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
+    mFrameKeys.insert(frame, key);
+    // Frames whose image the cache evicted keep only their key: drop those keys.
+    if (mFrameKeys.size() > 2 * mFrameCache.count() + 64)
+    {
+        mFrameKeys.removeIf([this](const std::pair<const int&, QVector<qint64>&>& it) { return !mFrameCache.contains(it.second); });
+    }
+}
+
+QVector<qint64> ScribbleArea::frameKey() const
+{
+    return mCanvasPainter.frameKey() + mCameraPainter.frameKey();
+}
+
+void ScribbleArea::clearFrameCache()
+{
+    mFrameCache.clear();
+    mFrameKeys.clear();
 }
 
 void ScribbleArea::onLayerChanged()
@@ -885,13 +994,13 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
     mDevicePixelRatio = devicePixelRatioF();
-    mCanvas = QPixmap(QSizeF(size() * mDevicePixelRatio).toSize());
+    mCanvas = QImage(QSizeF(size() * mDevicePixelRatio).toSize(), QImage::Format_ARGB32_Premultiplied);
     mCanvas.setDevicePixelRatio(mDevicePixelRatio);
     mEditor->view()->setCanvasSize(size());
 
     // Every cached frame has the old size.
-    QPixmapCache::clear();
-    mPixmapCacheKeys.clear();
+    clearFrameCache();
+    mFrameCache.setMaxCost(frameCacheLimitKb(mCanvas.size(), physicalRamBytes()));
     invalidatePainterCaches();
     mCanvasPainter.reset();
     mCameraPainter.reset();
@@ -966,34 +1075,37 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
     if (!currentTool()->isActive())
     {
         // --- we retrieve the canvas from the cache; we create it if it doesn't exist
-        const int frameNumber = mEditor->layers()->lastFrameAtFrame(currentFrame);
-
-        // The frame cache is keyed by frame: onion skins and the camera differ inside a hold. A transformed or in-between frame skips it (CanvasPainter caches by content).
+        // The frame cache is keyed by content, so held frames share one image. A transformed or in-between frame skips it (CanvasPainter caches by content).
+        bool anyKey = false;
         bool transformed = !mShiftAndTraceOffsets.isEmpty();
         for (int i = 0; i < mEditor->object()->getLayerCount() && !transformed; ++i)
         {
             const Layer* layer = mEditor->object()->getLayer(i);
             const KeyFrame* key = layer->getLastKeyFrameAtPosition(currentFrame);
+            anyKey = anyKey || key;
             transformed = !layer->tweenStateAt(currentFrame).isIdentity() || (key && key->tween() && key->pos() != currentFrame);
         }
 
-        if (frameNumber < 0 || transformed)
+        if (!anyKey || transformed)
         {
             drawCanvas(currentFrame, event->rect());
         }
         else
         {
-            auto cacheKeyIter = mPixmapCacheKeys.find(static_cast<unsigned>(currentFrame));
-
-            if (cacheKeyIter == mPixmapCacheKeys.end() || !QPixmapCache::find(cacheKeyIter.value(), &mCanvas))
+            prepCanvas(currentFrame);
+            prepCameraPainter(currentFrame);
+            const QVector<qint64> key = frameKey();
+            if (const QImage* cached = mFrameCache.object(key))
             {
-                drawCanvas(currentFrame, event->rect());
-                mPixmapCacheKeys[static_cast<unsigned>(currentFrame)] = QPixmapCache::insert(mCanvas);
-                //qDebug() << "Repaint canvas!";
+                mCanvas = *cached; // a held frame shares the image of the frame it holds
+                mFrameKeys.insert(currentFrame, key);
             }
             else
             {
-                // Simply use the cached canvas from PixmapCache
+                // The cache keeps only whole canvases of one view: with the view unknown, draw all of it.
+                drawCanvas(currentFrame, mFrameCacheView ? event->rect() : rect());
+                mFrameCacheView = mEditor->view()->getView();
+                cacheCanvas(currentFrame);
             }
         }
     }
@@ -1030,7 +1142,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
     // the main pixmap which needs to be scaled accordingly to DPI, which is not accounted for when using the event rect
     // instead we can set a clipRect to avoid the area being updated needlessly
     painter.setClipRect(event->rect());
-    painter.drawPixmap(QPointF(), mCanvas);
+    painter.drawImage(QPointF(), mCanvas);
 
     currentTool()->paint(painter, event->rect());
     if (mShiftAndTrace) { paintShiftAndTraceHandles(painter); }
@@ -1170,9 +1282,15 @@ VectorImage* ScribbleArea::currentVectorImage(Layer* layer) const
 
 OnionSkinPainterOptions ScribbleArea::onionSkinOptions() const
 {
-    OnionSkinPainterOptions o;
-    o.enabledWhilePlaying = mPrefs->get<SETTING::ONION_WHILE_PLAYBACK>();
+    OnionSkinPainterOptions o = mOnionOptions;
     o.isPlaying = mEditor->playback()->isPlaying();
+    return o;
+}
+
+void ScribbleArea::refreshPaintOptions()
+{
+    OnionSkinPainterOptions& o = mOnionOptions;
+    o.enabledWhilePlaying = mPrefs->get<SETTING::ONION_WHILE_PLAYBACK>();
     o.isAbsolute = mPrefs->isOnionAbsolute();
     o.markFilter = mPrefs->markFilter();
     o.skinPrevFrames = mPrefs->get<SETTING::PREV_ONION>();
@@ -1186,7 +1304,32 @@ OnionSkinPainterOptions ScribbleArea::onionSkinOptions() const
     o.falloff = static_cast<OnionSkinFalloff>(mPrefs->get<SETTING::ONION_FALLOFF>());
     o.prevColor = QColor(mPrefs->get<SETTING::ONION_PREV_COLOR>());
     o.nextColor = QColor(mPrefs->get<SETTING::ONION_NEXT_COLOR>());
-    return o;
+
+    CanvasPainterOptions& c = mCanvasOptions;
+    c.bOnionSkinMultiLayer = mPrefs->get<SETTING::ONION_MUTLIPLE_LAYERS>();
+    c.bAntiAlias = mPrefs->get<SETTING::ANTIALIAS>();
+    c.bThinLines = mPrefs->get<SETTING::INVISIBLE_LINES>();
+    c.bFastLayersAbove = mPrefs->get<SETTING::FAST_RENDER_LAYERS_ABOVE>();
+    c.bOutlines = mPrefs->get<SETTING::OUTLINES>();
+    c.fLayerVisibilityThreshold = mPrefs->get<SETTING::LAYER_VISIBILITY_THRESHOLD>();
+
+    OverlayPainterOptions& v = mOverlayOptions;
+    v.bGrid = mPrefs->get<SETTING::GRID>();
+    v.nGridSizeW = mPrefs->get<SETTING::GRID_SIZE_W>();
+    v.nGridSizeH = mPrefs->get<SETTING::GRID_SIZE_H>();
+    v.bCenter = mPrefs->get<SETTING::OVERLAY_CENTER>();
+    v.bThirds = mPrefs->get<SETTING::OVERLAY_THIRDS>();
+    v.bGoldenRatio = mPrefs->get<SETTING::OVERLAY_GOLDEN>();
+    v.bSafeArea = mPrefs->get<SETTING::OVERLAY_SAFE>();
+    v.bPerspective1 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE1>();
+    v.bPerspective2 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE2>();
+    v.bPerspective3 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE3>();
+    v.nOverlayAngle = mPrefs->get<SETTING::OVERLAY_ANGLE>();
+    v.bActionSafe = mPrefs->get<SETTING::ACTION_SAFE_ON>();
+    v.nActionSafe = mPrefs->get<SETTING::ACTION_SAFE>();
+    v.bShowSafeAreaHelperText = mPrefs->get<SETTING::OVERLAY_SAFE_HELPER_TEXT_ON>();
+    v.bTitleSafe = mPrefs->get<SETTING::TITLE_SAFE_ON>();
+    v.nTitleSafe = mPrefs->get<SETTING::TITLE_SAFE>();
 }
 
 void ScribbleArea::prepCameraPainter(int frame)
@@ -1199,7 +1342,7 @@ void ScribbleArea::prepCameraPainter(int frame)
                                   mEditor->view()->getView(),
                                   mEditor->playback()->isPlaying(),
                                   mLayerVisibility,
-                                  mPrefs->get<SETTING::LAYER_VISIBILITY_THRESHOLD>(),
+                                  mCanvasOptions.fLayerVisibilityThreshold,
                                   mEditor->view()->getScaleInversed());
 
     mCameraPainter.setOnionSkinPainterOptions(onionSkinOptions());
@@ -1209,14 +1352,8 @@ void ScribbleArea::prepCanvas(int frame)
 {
     Object* object = mEditor->object();
 
-    CanvasPainterOptions o;
-    o.bOnionSkinMultiLayer = mPrefs->get<SETTING::ONION_MUTLIPLE_LAYERS>();
-    o.bAntiAlias = mPrefs->get<SETTING::ANTIALIAS>();
-    o.bThinLines = mPrefs->get<SETTING::INVISIBLE_LINES>();
-    o.bFastLayersAbove = mPrefs->get<SETTING::FAST_RENDER_LAYERS_ABOVE>();
-    o.bOutlines = mPrefs->get<SETTING::OUTLINES>();
+    CanvasPainterOptions o = mCanvasOptions;
     o.eLayerVisibility = mLayerVisibility;
-    o.fLayerVisibilityThreshold = mPrefs->get<SETTING::LAYER_VISIBILITY_THRESHOLD>();
     o.scaling = mEditor->view()->scaling();
     // A Stroke tool's buffer shows over the current layer as it will commit.
     auto* strokeTool = dynamic_cast<StrokeTool*>(currentTool());
@@ -1252,25 +1389,7 @@ void ScribbleArea::flipSelection(bool flipVertical)
 
 void ScribbleArea::prepOverlays(int frame)
 {
-    OverlayPainterOptions o;
-
-    o.bGrid = mPrefs->get<SETTING::GRID>();
-    o.nGridSizeW = mPrefs->get<SETTING::GRID_SIZE_W>();
-    o.nGridSizeH = mPrefs->get<SETTING::GRID_SIZE_H>();
-    o.bCenter = mPrefs->get<SETTING::OVERLAY_CENTER>();
-    o.bThirds = mPrefs->get<SETTING::OVERLAY_THIRDS>();
-    o.bGoldenRatio = mPrefs->get<SETTING::OVERLAY_GOLDEN>();
-    o.bSafeArea = mPrefs->get<SETTING::OVERLAY_SAFE>();
-    o.bPerspective1 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE1>();
-    o.bPerspective2 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE2>();
-    o.bPerspective3 = mPrefs->get<SETTING::OVERLAY_PERSPECTIVE3>();
-    o.nOverlayAngle = mPrefs->get<SETTING::OVERLAY_ANGLE>();
-    o.bActionSafe = mPrefs->get<SETTING::ACTION_SAFE_ON>();
-    o.nActionSafe = mPrefs->get<SETTING::ACTION_SAFE>();
-    o.bShowSafeAreaHelperText = mPrefs->get<SETTING::OVERLAY_SAFE_HELPER_TEXT_ON>();
-    o.bTitleSafe = mPrefs->get<SETTING::TITLE_SAFE_ON>();
-    o.nTitleSafe = mPrefs->get<SETTING::TITLE_SAFE>();
-    o.nOverlayAngle = mPrefs->get<SETTING::OVERLAY_ANGLE>();
+    OverlayPainterOptions o = mOverlayOptions;
     o.bShowHandle = mEditor->tools()->currentTool()->type() == MOVE && mEditor->layers()->currentLayer()->type() != Layer::CAMERA;
 
     o.mSinglePerspPoint = mEditor->overlays()->getSinglePerspectivePoint();

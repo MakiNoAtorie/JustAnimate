@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include "object.h"
 #include "editor.h"
 
+#include <optional>
+
 #include <QAction>
 #include <QDebug>
 
@@ -55,6 +57,12 @@ struct UndoSaveState {
     int currentFrameIndex = 0;
     Layer::LAYER_TYPE layerType = Layer::UNDEFINED;
     std::unique_ptr<KeyFrame> keyframe;
+    // Bitmap: set by Edit::willChange; then `keyframe` holds no pixels and the Drawing changes only in its rect.
+    std::optional<BitmapPatch> bitmapBefore;
+    // Bitmap: pixels that changed with no record since the stack last left the Drawing, and that Drawing.
+    // The record covers the rect too, and its undo leaves the stack expecting that Drawing.
+    QRect unrecordedRect;
+    std::optional<BitmapPatch> below;
     SelectionSaveState selectionState = {};
 
     // The position of each key of the layer at the start. The keys can dangle: compare them, do not dereference them.
@@ -74,6 +82,27 @@ struct UndoSaveState {
     std::vector<std::unique_ptr<KeyFrame>> removedKeys;
     std::vector<std::unique_ptr<KeyFrame>>* outerRemovedKeys = nullptr;
 };
+
+// Grows `before` to cover `rect`. Outside its old rect, `image` still has the pixels of `before`.
+static void growPatch(BitmapPatch& before, const QRect& rect, BitmapImage* image)
+{
+    if (rect.isEmpty() || before.rect.contains(rect)) { return; }
+    const QRect grownRect = rect | before.rect;
+    BitmapPatch grown = image->patch(grownRect);
+    if (!before.pixels.isNull())
+    {
+        QPainter painter(&grown.pixels);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.drawImage(before.rect.topLeft() - grownRect.topLeft(), before.pixels);
+    }
+    before.rect = grownRect;
+    before.pixels = grown.pixels;
+}
+
+static bool samePixels(const BitmapPatch& a, const BitmapPatch& b)
+{
+    return a.bounds == b.bounds && a.pixels.cacheKey() == b.pixels.cacheKey();
+}
 
 UndoRedoManager::UndoRedoManager(Editor* editor) : BaseManager(editor, "UndoRedoManager")
 {
@@ -267,7 +296,21 @@ void UndoRedoManager::modifyCameras(const UndoSaveState& undoState, const QStrin
 void UndoRedoManager::replaceBitmap(const UndoSaveState& undoState, const QString& description)
 {
     if (undoState.keyframe == nullptr || undoState.layerType != Layer::BITMAP) { return; }
-    BitmapReplaceCommand* element = new BitmapReplaceCommand(static_cast<BitmapImage*>(undoState.keyframe.get()),
+    BitmapImage* before = static_cast<BitmapImage*>(undoState.keyframe.get());
+    BitmapImage* after = static_cast<LayerBitmap*>(undoState.layer)->getLastBitmapImageAtFrame(undoState.currentFrameIndex);
+    if (after == nullptr) { return; }
+    BitmapPatch undoPatch;
+    if (undoState.bitmapBefore)
+    {
+        undoPatch = *undoState.bitmapBefore;
+        growPatch(undoPatch, undoState.unrecordedRect, after);
+    }
+    else { undoPatch = before->patch(BitmapImage::changedRect(*before, *after) | undoState.unrecordedRect); }
+    setExpectedDrawing(undoState.layerId, after, after->whole());
+    BitmapReplaceCommand* element = new BitmapReplaceCommand(before->pos(),
+                                               undoPatch,
+                                               after->patch(undoPatch.rect),
+                                               undoState.below,
                                                undoState.layerId,
                                                description,
                                                editor());
@@ -389,6 +432,7 @@ SAVESTATE_ID UndoRedoManager::beginEdit(const QString& description, Layer* layer
         else if (frame > 0 && layer->isPaintable())
         {
             snapshotDrawing(state, layer, frame);
+            if (layer->type() == Layer::BITMAP && state->keyframe) { findUnrecordedChange(state); }
         }
         state->outerRemovedKeys = layer->removedKeySink();
         layer->setRemovedKeySink(&state->removedKeys);
@@ -398,6 +442,81 @@ SAVESTATE_ID UndoRedoManager::beginEdit(const QString& description, Layer* layer
     const SAVESTATE_ID saveStateId = mSaveStateId++;
     mSaveStates[saveStateId] = state;
     return saveStateId;
+}
+
+void UndoRedoManager::findUnrecordedChange(UndoSaveState* state)
+{
+    auto* snapshot = static_cast<BitmapImage*>(state->keyframe.get());
+    const BitmapImage* key = static_cast<LayerBitmap*>(state->layer)->getLastBitmapImageAtFrame(state->currentFrameIndex);
+    auto it = mExpectedDrawings.find(qMakePair(state->layerId, snapshot->pos()));
+    if (it == mExpectedDrawings.end()) { return; }
+    const ExpectedDrawing expected = it.value();
+    // The stack stops sharing the Drawing, so the next paint copies nothing.
+    mExpectedDrawings.erase(it);
+    if (expected.key != key || samePixels(snapshot->whole(), expected.whole)) { return; }
+
+    BitmapImage base(expected.whole.bounds.topLeft(), expected.whole.pixels);
+    state->unrecordedRect = BitmapImage::changedRect(base, *snapshot);
+    if (!state->unrecordedRect.isEmpty()) { state->below = expected.whole; }
+}
+
+void UndoRedoManager::restoreExpectedDrawing(int layerId, BitmapImage* image)
+{
+    auto it = mExpectedDrawings.constFind(qMakePair(layerId, image->pos()));
+    if (it == mExpectedDrawings.constEnd() || it->key != image || samePixels(image->whole(), it->whole)) { return; }
+    image->applyPatch(it->whole);
+}
+
+void UndoRedoManager::setExpectedDrawing(int layerId, BitmapImage* image, const BitmapPatch& whole)
+{
+    mExpectedDrawings.insert(qMakePair(layerId, image->pos()), { image, whole, image->stamp() });
+}
+
+void UndoRedoManager::releaseExpectedDrawings()
+{
+    for (auto it = mExpectedDrawings.begin(); it != mExpectedDrawings.end();)
+    {
+        Layer* layer = editor()->layers()->findLayerById(it.key().first);
+        BitmapImage* image = (layer && layer->type() == Layer::BITMAP)
+            ? static_cast<LayerBitmap*>(layer)->getBitmapImageAtFrame(it.key().second) : nullptr;
+        // An unloaded Drawing has no unsaved change to find; another key at the position never matches.
+        if (image != it->key || !image->isLoaded())
+        {
+            it = mExpectedDrawings.erase(it);
+            continue;
+        }
+        if (it->checkedStamp != image->stamp() && !samePixels(image->whole(), it->whole))
+        {
+            it->checkedStamp = image->stamp();
+            BitmapImage kept(it->whole.bounds.topLeft(), it->whole.pixels);
+            if (BitmapImage::changedRect(kept, *image).isEmpty()) { it->whole = image->whole(); }
+        }
+        ++it;
+    }
+}
+
+void UndoRedoManager::willChange(SAVESTATE_ID saveStateId, const QRect& canvasRect)
+{
+    UndoSaveState* state = mSaveStates.value(saveStateId);
+    if (state == nullptr || state->layerType != Layer::BITMAP || state->keyframe == nullptr) { return; }
+    auto* layer = static_cast<LayerBitmap*>(state->layer);
+    auto* snapshot = static_cast<BitmapImage*>(state->keyframe.get());
+    BitmapImage* image = layer->getLastBitmapImageAtFrame(state->currentFrameIndex);
+    if (image == nullptr) { return; }
+    // A change before the first call is not in any rect: keep the whole snapshot.
+    if (!state->bitmapBefore && !samePixels(image->whole(), snapshot->whole())) { return; }
+
+    // Smooth transforms can touch one pixel past the mapped rect.
+    const QTransform toImage = layer->tweenStateAt(state->currentFrameIndex).transform().inverted();
+    QRect rect = toImage.mapRect(QRectF(canvasRect)).toAlignedRect().adjusted(-1, -1, 1, 1);
+    if (!state->bitmapBefore)
+    {
+        state->bitmapBefore = snapshot->patch(rect);
+        // Drop the shared pixels before the paint, so the paint does not copy the whole Drawing.
+        snapshot->clear();
+        return;
+    }
+    growPatch(*state->bitmapBefore, rect, image);
 }
 
 void UndoRedoManager::endEdit(SAVESTATE_ID saveStateId, bool commit)
@@ -499,4 +618,5 @@ void UndoRedoManager::clearStack()
 {
     mPendingCommand.reset();
     mUndoStack.clear();
+    mExpectedDrawings.clear();
 }

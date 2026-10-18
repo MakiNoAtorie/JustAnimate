@@ -2,6 +2,8 @@
 #include "vectorimage.h"
 #include "catch.hpp"
 
+#include <QPainter>
+
 #include "editor.h"
 #include "object.h"
 #include "layermanager.h"
@@ -165,4 +167,58 @@ TEST_CASE("Object importVectorColors remaps once")
     REQUIRE(target.getColor(img->curve(1).getColorNumber()).color == source.getColor(2).color);
     REQUIRE(target.getColor(layerB->getVectorImageAtFrame(1)->curve(0).getColorNumber()).color == source.getColor(2).color);
     REQUIRE(target.getColorCount() == 4);
+}
+
+namespace
+{
+// The image painted on a transparent canvas.
+QImage paintedSquare(VectorImage& image, const Object& object)
+{
+    QImage canvas(200, 120, QImage::Format_ARGB32_Premultiplied);
+    canvas.fill(Qt::transparent);
+    QPainter painter(&canvas);
+    image.paintImage(painter, object, false, false, true);
+    return canvas;
+}
+
+void addFilledSquare(VectorImage& image, qreal x)
+{
+    BezierCurve square(QList<QPointF>{ QPointF(x, 10), QPointF(x + 60, 10), QPointF(x + 60, 70), QPointF(x, 70), QPointF(x, 10) }, false);
+    image.addCurve(square, 1.0, false);
+    image.selectAll();
+    image.fillSelectedPath(3);
+    image.deselectAll();
+}
+} // namespace
+
+TEST_CASE("VectorImage paints the fill of a moved curve where the curve went", "[VectorImage]")
+{
+    Object object;
+    object.init();
+    VectorImage moved;
+    addFilledSquare(moved, 10);
+    paintedSquare(moved, object); // the area paths are now up to date
+    moved.selectAll();
+    moved.setSelectionTransformation(QTransform::fromTranslate(100, 0));
+    moved.applySelectionTransformation();
+    moved.deselectAll();
+
+    VectorImage there;
+    addFilledSquare(there, 110);
+    CHECK(paintedSquare(moved, object) == paintedSquare(there, object));
+}
+
+TEST_CASE("VectorImage selection changes the stamp but does not mark the Drawing modified", "[VectorImage]")
+{
+    VectorImage image;
+    addFilledSquare(image, 10);
+    image.setModified(false);
+    qint64 stamp = image.stamp();
+    image.selectAll();
+    CHECK_FALSE(image.isModified());
+    CHECK(image.stamp() != stamp);
+    stamp = image.stamp();
+    image.deselectAll();
+    CHECK_FALSE(image.isModified());
+    CHECK(image.stamp() != stamp);
 }

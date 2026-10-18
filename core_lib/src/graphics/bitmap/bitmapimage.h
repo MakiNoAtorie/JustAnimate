@@ -25,6 +25,15 @@ GNU General Public License for more details.
 
 class TiledBuffer;
 
+/// The pixels of one rect and the bounds around them: what an undo record keeps of a Drawing.
+struct BitmapPatch
+{
+    QRect bounds;
+    bool minBound = true;
+    QRect rect;
+    QImage pixels;
+};
+
 class BitmapImage : public KeyFrame
 {
 public:
@@ -48,8 +57,7 @@ public:
 
     /** Loads the backing image data from disk and into memory if it exists but hasn't been loaded yet */
     void loadFile() override;
-    /** Starts reading the backing file on a worker thread; the next loadFile() takes the result */
-    void loadFileAsync();
+    void loadFileAsync() override;
 
     /** Unloads the image data from memory if there's valid backing data on disk and the latest state has been stored */
     void unloadFile() override;
@@ -73,6 +81,15 @@ public:
     /// Pastes the buffer mapped through `toImage`, from canvas space into the space of this image.
     void paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver,
                const QTransform& toImage = QTransform());
+
+    /// The pixels of `rect` and the bounds as they are, without an auto-crop; transparent outside the bounds.
+    BitmapPatch patch(const QRect& rect);
+    /// The whole image as a patch; it shares the pixels, so it copies nothing until one side is painted.
+    BitmapPatch whole();
+    /// Sets the bounds and the `rect` pixels of `p`; every other pixel keeps its place.
+    void applyPatch(const BitmapPatch& p);
+    /// The smallest rect outside which `a` and `b` have the same pixels.
+    static QRect changedRect(BitmapImage& a, BitmapImage& b);
 
     void moveTopLeft(QPoint point);
     void moveTopLeft(QPointF point) { moveTopLeft(point.toPoint()); }
@@ -145,7 +162,10 @@ public:
     bool isMinimallyBounded() const { return mMinBound; }
     void enableAutoCrop(bool b) { mEnableAutoCrop = b; }
 
-    Status writeFile(const QString& filename);
+    /// The pixels as they are, without a load: null for an empty or unloaded Drawing. A save snapshots them.
+    QImage pixelsInMemory() const { return mImage; }
+    /// Writes image as a PNG file. Reads nothing else, so it runs on any thread.
+    static Status writeImage(const QImage& image, const QString& filename);
 
     /** Compare colors for the purposes of flood filling
      *
@@ -200,6 +220,7 @@ protected:
 private:
     QImage mImage;
     std::shared_future<QImage> mPendingLoad; // from loadFileAsync(); reset on load, unload and write
+    QString mPendingPath; // the file mPendingLoad reads: a save can move the Drawing to another file
     QRect mBounds{0, 0, 0, 0};
 
     /** @see isMinimallyBounded() */

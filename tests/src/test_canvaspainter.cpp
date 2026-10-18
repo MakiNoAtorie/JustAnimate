@@ -21,7 +21,9 @@ GNU General Public License for more details.
 #include "bitmapimage.h"
 #include "canvaspainter.h"
 #include "layerbitmap.h"
+#include "layervector.h"
 #include "object.h"
+#include "vectorimage.h"
 
 namespace
 {
@@ -58,11 +60,11 @@ void setUp(CanvasPainter& painter, const Object* object, int paintedLayer = 2, b
 // The frame rendered by a fresh painter, with nothing cached.
 QImage uncached(const Object* object, int paintedLayer = 2)
 {
-    QPixmap canvas(kCanvas.size());
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     setUp(painter, object, paintedLayer);
     painter.paint(kCanvas);
-    return canvas.toImage();
+    return canvas;
 }
 
 } // namespace
@@ -70,40 +72,40 @@ QImage uncached(const Object* object, int paintedLayer = 2)
 TEST_CASE("Below-layers cache: cells filled by small updates match an uncached render", "[CanvasPainter]")
 {
     std::unique_ptr<Object> object = threeLayers();
-    QPixmap canvas(kCanvas.size());
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     setUp(painter, object.get());
 
     painter.paintCached(QRect(10, 10, 40, 40));
     painter.paintCached(QRect(100, 50, 30, 80));
     painter.paintCached(kCanvas);
-    CHECK(canvas.toImage() == uncached(object.get()));
+    CHECK(canvas == uncached(object.get()));
 
     painter.paint(QRect(200, 20, 50, 50));
     painter.paint(kCanvas);
-    CHECK(canvas.toImage() == uncached(object.get()));
+    CHECK(canvas == uncached(object.get()));
 }
 
 TEST_CASE("Below-layers cache: a change to a layer below the painted layer shows on the next paint", "[CanvasPainter]")
 {
     std::unique_ptr<Object> object = threeLayers();
-    QPixmap canvas(kCanvas.size());
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     setUp(painter, object.get());
     painter.paint(kCanvas);
-    const QImage before = canvas.toImage();
+    const QImage before = canvas;
 
     // No signal and no resetLayerCache(): the cache must notice the change itself.
     auto* below = static_cast<LayerBitmap*>(object->getLayer(0));
     below->getBitmapImageAtFrame(1)->drawRect(QRectF(-150, -100, 120, 80), Qt::NoPen, QColor(20, 120, 40),
                                               QPainter::CompositionMode_SourceOver, false);
     painter.paintCached(kCanvas);
-    CHECK(canvas.toImage() != before);
-    CHECK(canvas.toImage() == uncached(object.get()));
+    CHECK(canvas != before);
+    CHECK(canvas == uncached(object.get()));
 
     object->getLayer(1)->switchVisibility();
     painter.paint(kCanvas);
-    CHECK(canvas.toImage() == uncached(object.get()));
+    CHECK(canvas == uncached(object.get()));
 }
 
 TEST_CASE("Fast mode is off by default", "[CanvasPainter]")
@@ -114,36 +116,36 @@ TEST_CASE("Fast mode is off by default", "[CanvasPainter]")
 TEST_CASE("Fast mode: cells of the layers above filled by small updates match an uncached render", "[CanvasPainter]")
 {
     std::unique_ptr<Object> object = threeLayers();
-    QPixmap canvas(kCanvas.size());
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     setUp(painter, object.get(), 0, true);
 
     painter.paint(QRect(10, 10, 40, 40));
     painter.paintCached(QRect(100, 50, 30, 80));
     painter.paint(kCanvas);
-    CHECK(canvas.toImage() == uncached(object.get(), 0));
+    CHECK(canvas == uncached(object.get(), 0));
 }
 
 TEST_CASE("Fast mode: a change to a layer above the painted layer shows on the next paint", "[CanvasPainter]")
 {
     std::unique_ptr<Object> object = threeLayers();
-    QPixmap canvas(kCanvas.size());
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     setUp(painter, object.get(), 0, true);
     painter.paint(kCanvas);
-    const QImage before = canvas.toImage();
+    const QImage before = canvas;
 
     // No signal and no resetLayerCache(): the cache must notice the change itself.
     auto* above = static_cast<LayerBitmap*>(object->getLayer(2));
     above->getBitmapImageAtFrame(1)->drawRect(QRectF(-150, -100, 120, 80), Qt::NoPen, QColor(20, 120, 40),
                                               QPainter::CompositionMode_SourceOver, false);
     painter.paintCached(kCanvas);
-    CHECK(canvas.toImage() != before);
-    CHECK(canvas.toImage() == uncached(object.get(), 0));
+    CHECK(canvas != before);
+    CHECK(canvas == uncached(object.get(), 0));
 
     object->getLayer(1)->switchVisibility();
     painter.paint(kCanvas);
-    CHECK(canvas.toImage() == uncached(object.get(), 0));
+    CHECK(canvas == uncached(object.get(), 0));
 }
 
 namespace
@@ -201,11 +203,11 @@ TEST_CASE("Onion skin: tinted onion frames render as before", "[CanvasPainter]")
     {
         for (const QTransform& view : kOnionViews)
         {
-            QPixmap canvas(kCanvas.size());
+            QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
             CanvasPainter painter(canvas);
             setUpOnion(painter, object.get(), view, colorize);
             painter.paint(kCanvas);
-            const QImage full = canvas.toImage();
+            const QImage full = canvas;
             all.addData(sha1(full));
 
             // Small updates and a repaint after a scrub give the same pixels.
@@ -213,7 +215,7 @@ TEST_CASE("Onion skin: tinted onion frames render as before", "[CanvasPainter]")
             painter.paintCached(QRect(10, 10, 40, 40));
             painter.paintCached(QRect(240, 50, 60, 100));
             painter.paintCached(kCanvas);
-            CHECK(canvas.toImage() == full);
+            CHECK(canvas == full);
         }
     }
     CHECK(all.result().toHex().toStdString() == "fa4395ff4b7fd0fc2fe848b040d8b65431ce330b");
@@ -222,11 +224,11 @@ TEST_CASE("Onion skin: tinted onion frames render as before", "[CanvasPainter]")
 TEST_CASE("Onion skin: a scrub back reuses the tinted onion frames", "[CanvasPainter]")
 {
     std::unique_ptr<Object> object = onionFrames();
-    QPixmap canvas(kCanvas.size());
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     setUpOnion(painter, object.get(), kOnionViews[0], true);
     painter.paint(kCanvas);
-    const QImage frame3 = canvas.toImage();
+    const QImage frame3 = canvas;
     const int tinted = painter.onionFramesTinted();
     CHECK(tinted == 4);
 
@@ -236,7 +238,7 @@ TEST_CASE("Onion skin: a scrub back reuses the tinted onion frames", "[CanvasPai
     painter.setPaintSettings(object.get(), 0, 3, nullptr);
     painter.resetLayerCache();
     painter.paint(kCanvas);
-    CHECK(canvas.toImage() == frame3);
+    CHECK(canvas == frame3);
     const int afterScrubBack = painter.onionFramesTinted();
     CHECK(afterScrubBack == tinted + 3); // only frame 4's onion frames were new
 
@@ -246,11 +248,168 @@ TEST_CASE("Onion skin: a scrub back reuses the tinted onion frames", "[CanvasPai
     painter.resetLayerCache(); // as on frameModified
     painter.paint(kCanvas);
     CHECK(painter.onionFramesTinted() == afterScrubBack + 1);
-    CHECK(canvas.toImage() != frame3);
+    CHECK(canvas != frame3);
 
-    QPixmap fresh(kCanvas.size());
+    QImage fresh(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     CanvasPainter freshPainter(fresh);
     setUpOnion(freshPainter, object.get(), kOnionViews[0], true);
     freshPainter.paint(kCanvas);
-    CHECK(canvas.toImage() == fresh.toImage());
+    CHECK(canvas == fresh);
+}
+
+TEST_CASE("Onion skin: a pure pan reuses the tinted onion frames and a zoom tints them again", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object = onionFrames();
+    const QRect wide(0, 0, 400, 300); // every onion frame inside the canvas, before and after the pan
+    // Unrotated, a pan reuses the frames at any scale; rotated, a pan tints them again.
+    const QTransform views[] = { kOnionViews[0], QTransform().translate(140, 150).scale(1.2, 1.2), kOnionViews[1] };
+    for (const QTransform& view : views)
+    {
+        const bool rotated = view.m12() != 0;
+        QImage canvas(wide.size(), QImage::Format_ARGB32_Premultiplied);
+        CanvasPainter painter(canvas);
+        setUpOnion(painter, object.get(), view, true);
+        painter.paint(wide);
+        const int tinted = painter.onionFramesTinted();
+        REQUIRE(tinted == 4);
+
+        const auto matchesFresh = [&](const QTransform& v) {
+            QImage fresh(wide.size(), QImage::Format_ARGB32_Premultiplied);
+            CanvasPainter freshPainter(fresh);
+            setUpOnion(freshPainter, object.get(), v, true);
+            freshPainter.paint(wide);
+            return canvas == fresh;
+        };
+        const QTransform panned = view * QTransform::fromTranslate(11, -7);
+        painter.setViewTransform(panned, panned.inverted());
+        painter.paint(wide);
+        const int afterPan = painter.onionFramesTinted();
+        CHECK(afterPan == (rotated ? 2 * tinted : tinted));
+        CHECK(matchesFresh(panned));
+
+        const QTransform zoomed = panned * QTransform::fromScale(1.25, 1.25);
+        painter.setViewTransform(zoomed, zoomed.inverted());
+        painter.paint(wide);
+        CHECK(painter.onionFramesTinted() == afterPan + tinted);
+        CHECK(matchesFresh(zoomed));
+    }
+}
+
+namespace
+{
+
+// One vector layer, keyframes 1-5: a filled square and a pressure stroke each; frame 5 crosses the right canvas edge.
+std::unique_ptr<Object> vectorOnionFrames()
+{
+    std::unique_ptr<Object> object(new Object);
+    object->init();
+    LayerVector* layer = object->addNewVectorLayer();
+    for (int f = 1; f <= 5; ++f)
+    {
+        layer->addNewKeyFrameAt(f);
+        VectorImage* image = layer->getVectorImageAtFrame(f);
+        const qreal x = -160 + f * 50;
+        const qreal y = -80 + f * 12;
+        BezierCurve square(QList<QPointF>{ QPointF(x, y), QPointF(x + 90, y), QPointF(x + 90, y + 70), QPointF(x, y + 70), QPointF(x, y) }, false);
+        square.setWidth(3);
+        image->addCurve(square, 1.0, false);
+        image->selectAll();
+        image->fillSelectedPath(f % 3 + 1);
+        image->deselectAll();
+        BezierCurve stroke(QList<QPointF>{ QPointF(x, y + 90), QPointF(x + 50, y + 75), QPointF(x + 110, y + 100) },
+                           QList<qreal>{ 0.2, 1.0, 0.5 }, 0.5);
+        stroke.setWidth(8);
+        stroke.setVariableWidth(true);
+        stroke.setColorNumber(f % 3 + 2);
+        image->addCurve(stroke, 1.0, false);
+    }
+    layer->getVectorImageAtFrame(2)->setOpacity(0.7);
+    return object;
+}
+
+QImage freshOnion(const Object* object, const QTransform& view, bool colorize)
+{
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
+    CanvasPainter painter(canvas);
+    setUpOnion(painter, object, view, colorize);
+    painter.paint(kCanvas);
+    return canvas;
+}
+
+} // namespace
+
+// Hash of these vector onion renders before vector onion frames were cached.
+TEST_CASE("Onion skin: vector onion frames render as before", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object = vectorOnionFrames();
+    QCryptographicHash all(QCryptographicHash::Sha1);
+    for (bool colorize : { true, false })
+    {
+        for (const QTransform& view : kOnionViews)
+        {
+            QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
+            CanvasPainter painter(canvas);
+            setUpOnion(painter, object.get(), view, colorize);
+            painter.paint(kCanvas);
+            const QImage full = canvas;
+            all.addData(sha1(full));
+
+            painter.resetLayerCache();
+            painter.paintCached(QRect(10, 10, 40, 40));
+            painter.paintCached(QRect(240, 50, 60, 100));
+            painter.paintCached(kCanvas);
+            CHECK(canvas == full);
+        }
+    }
+    const std::string hash = all.result().toHex().toStdString();
+    CAPTURE(hash);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0) && QT_VERSION < QT_VERSION_CHECK(6, 6, 0)
+    // Qt 6.5 rasterises antialiased vector paths differently (CI Windows and macOS).
+    CHECK(hash == "bfdfc1197d10d9e427c5df12a09b160f8b40e791");
+#else
+    CHECK(hash == "1a82d3eb51e9e80f57d4f840b393c1fd11a94b21");
+#endif
+}
+
+TEST_CASE("Onion skin: vector onion frames stay cached until their Drawing or the palette changes", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object = vectorOnionFrames();
+    REQUIRE(object->getColorCount() > 4);
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
+    CanvasPainter painter(canvas);
+    setUpOnion(painter, object.get(), kOnionViews[0], true);
+    painter.paint(kCanvas);
+    const QImage before = canvas;
+    REQUIRE(painter.onionFramesTinted() == 4);
+
+    painter.resetLayerCache(); // as on every scrub
+    painter.paint(kCanvas);
+    CHECK(painter.onionFramesTinted() == 4);
+    CHECK(canvas == before);
+
+    // No resetLayerCache(): the below-layers cell key holds the vector Drawing's modification stamp.
+    BezierCurve line(QList<QPointF>{ QPointF(-120, 60), QPointF(-40, 80) }, false);
+    line.setWidth(4);
+    static_cast<LayerVector*>(object->getLayer(0))->getVectorImageAtFrame(2)->addCurve(line, 1.0, false);
+    painter.paintCached(kCanvas);
+    CHECK(painter.onionFramesTinted() == 5);
+    CHECK(canvas != before);
+    CHECK(canvas == freshOnion(object.get(), kOnionViews[0], true));
+
+    // Uncolourised onion frames show the palette colours.
+    setUpOnion(painter, object.get(), kOnionViews[0], false);
+    painter.paint(kCanvas);
+    const QImage plain = canvas;
+    object->setColor(3, QColor(250, 20, 20)); // palette-exempt: drawing data
+    painter.paintCached(kCanvas);
+    CHECK(canvas != plain);
+    CHECK(canvas == freshOnion(object.get(), kOnionViews[0], false));
+
+    // A pure pan moves the cached frames; frames 4 and 5 reach the right canvas edge, so they are tinted again.
+    const int tinted = painter.onionFramesTinted();
+    const QTransform panned = kOnionViews[0] * QTransform::fromTranslate(11, -7);
+    painter.setViewTransform(panned, panned.inverted());
+    painter.paint(kCanvas);
+    CHECK(painter.onionFramesTinted() == tinted + 2);
+    CHECK(canvas == freshOnion(object.get(), panned, false));
 }

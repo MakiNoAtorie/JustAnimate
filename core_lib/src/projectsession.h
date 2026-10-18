@@ -16,10 +16,12 @@ GNU General Public License for more details.
 #define PROJECTSESSION_H
 
 #include <functional>
+#include <future>
 
 #include <QObject>
 #include <QStringList>
 
+#include "filemanager.h"
 #include "pencilerror.h"
 
 class Editor;
@@ -35,6 +37,7 @@ public:
     enum class RecoverChoice { Open, Discard, Cancel };
 
     ProjectSession(Editor* editor, QObject* parent);
+    ~ProjectSession() override;
 
     /// The "save changes?" prompt. Unset means Cancel.
     std::function<SaveChoice()> askSaveChanges;
@@ -59,7 +62,10 @@ public:
     bool close();
 
     /// The count-based autosave: saves a named project, else emits autoSaveSkipped.
+    /// A .pclx project is archived on the worker pool with no progress; true when that started.
     bool autoSave();
+    /// Waits for the background autosave and applies its result as saveAs does. OK when none runs.
+    Status finishBackgroundSave();
     /// The timed autosave: writes the project to its working folder for crash recovery.
     Status autoSaveTick();
     /// Offers each crashed project in turn; true when one was restored.
@@ -92,6 +98,11 @@ private:
     Editor* mEditor = nullptr;
     QStringList mSkippedSoundClips;
     QStringList mRecentFiles;
+
+    FileManager::BackgroundSave mBackgroundSave;
+    QString mBackgroundPath;
+    QPair<int, int> mBackgroundPoint;
+    bool mBackgroundWasModified = false;
 };
 
 #endif // PROJECTSESSION_H

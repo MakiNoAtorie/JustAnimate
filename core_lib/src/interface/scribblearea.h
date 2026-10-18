@@ -23,13 +23,15 @@ GNU General Public License for more details.
 #include <ctime>
 #include <deque>
 #include <memory>
+#include <optional>
 
 #include <QColor>
 #include <QMap>
 #include <QPoint>
 #include <QStringList>
 #include <QWidget>
-#include <QPixmapCache>
+#include <QCache>
+#include <QImage>
 
 #include "movemode.h"
 #include "pencildef.h"
@@ -94,6 +96,11 @@ public:
 
     QPointF getCentralPoint();
 
+    /// Rendered-frame cache limit in KB: 240 viewport frames, at most a quarter of RAM, at least 100 MB.
+    static qsizetype frameCacheLimitKb(QSize devicePx, qint64 ramBytes);
+    qsizetype frameCacheLimitKb() const { return mFrameCache.maxCost(); }
+    qsizetype frameCacheCostKb() const { return mFrameCache.totalCost(); }
+
     /** Update frame.
      * calls update() behind the scene and update cache if necessary */
     void updateFrame();
@@ -112,6 +119,8 @@ public:
 
     /** Frame modified, invalidate cache for frame if any */
     void onFrameModified(int frameNumber);
+    /// The screen area the next onFrameModified of the current frame repaints instead of the whole canvas.
+    void setModifiedArea(const QRect& area) { mModifiedArea = area; }
 
     /** Layer changed, invalidate relevant cache */
     void onLayerChanged();
@@ -182,8 +191,7 @@ public slots:
 
     /// Shows a short notice on the canvas for a few seconds.
     void showNote(const QString& text);
-    void onTileUpdated(TiledBuffer* tiledBuffer, Tile* tile);
-    void onTileCreated(TiledBuffer* tiledBuffer, Tile* tile);
+    void onTilesUpdated(const QRect& canvasRect);
 
 protected:
     bool event(QEvent *event) override;
@@ -221,6 +229,10 @@ private:
     /** Invalidate all cache.
      * call this if you're certain that the change you've made affects all frames */
     void invalidateAllCache();
+    /// Stores mCanvas as the canvas of rame.
+    void cacheCanvas(int frame);
+    QVector<qint64> frameKey() const;
+    void clearFrameCache();
 
     /** invalidate cache for dirty keyframes. */
     void invalidateCacheForDirtyFrames();
@@ -230,6 +242,7 @@ private:
 
     void prepOverlays(int frame);
     OnionSkinPainterOptions onionSkinOptions() const;
+    void refreshPaintOptions();
     void prepCameraPainter(int frame);
     void prepCanvas(int frame);
     void drawCanvas(int frame, QRect rect);
@@ -294,7 +307,7 @@ private:
 
     PreferenceManager* mPrefs = nullptr;
 
-    QPixmap mCanvas;
+    QImage mCanvas;
     CanvasPainter mCanvasPainter;
     OverlayPainter mOverlayPainter;
     SelectionPainter mSelectionPainter;
@@ -302,8 +315,16 @@ private:
 
     QPolygonF mOriginalPolygonF = QPolygonF();
 
-    // Pixmap Cache keys
-    QMap<unsigned int, QPixmapCache::Key> mPixmapCacheKeys;
+    QCache<QVector<qint64>, QImage> mFrameCache; ///< composited frames by content (frameKey): held frames share one, cost in KB
+    QHash<int, QVector<qint64>> mFrameKeys;       ///< the frameKey each cached frame number showed
+    std::optional<QTransform> mFrameCacheView; ///< the view mFrameCache was drawn with; empty when unknown
+    QRect mModifiedArea; ///< see setModifiedArea; empty means the whole canvas
+
+    // The preference parts of the paint options; settingUpdated refreshes them so a paint reads no preference.
+    OnionSkinPainterOptions mOnionOptions;
+    CanvasPainterOptions mCanvasOptions;
+    OverlayPainterOptions mOverlayOptions;
+    ToolType mShownTool = INVALID_TOOL; ///< the tool of the last toolChanged
 
     // debug
     QLoggingCategory mLog{ "ScribbleArea" };

@@ -20,6 +20,8 @@ GNU General Public License for more details.
 
 
 #include <functional>
+#include <future>
+#include <memory>
 #include <QObject>
 #include <QString>
 #include <QDomElement>
@@ -43,6 +45,26 @@ public:
 
     Object* load(const QString& sFilenNme);
     Status  save(const Object*, const QString& sFileName);
+    struct PendingArchive;
+    /// A save that a worker finishes. finish() waits for it, then marks the Drawings it wrote as saved.
+    class BackgroundSave
+    {
+    public:
+        bool valid() const { return mResult.valid(); }
+        bool ready() const;
+        void wait() const;
+        /// On the thread that started the save, with the Object it saved.
+        Status finish(const Object* object);
+
+    private:
+        friend class FileManager;
+        std::future<Status> mResult;
+        std::shared_ptr<PendingArchive> mArchive;
+    };
+    // Snapshots the modified Drawings and main.xml, moves frames and writes the palette now; the worker pool
+    // encodes the Drawings, writes main.xml, zips and renames. done() runs on the worker before the result is
+    // ready. The Object is read again only by finish().
+    BackgroundSave saveInBackground(const Object*, const QString& sFileName, const std::function<void()>& done);
     Status  writeToWorkingFolder(const Object*);
 
     Status error() const { return mError; }
@@ -65,8 +87,11 @@ private:
     bool loadObjectOldWay(Object*, const QDomElement& root);
     bool isArchiveFormat(const QString& fileName) const;
     bool loadPalette(Object*);
-    Status writeKeyFrameFiles(const Object* obj, const QString& dataFolder, QStringList& filesWritten);
-    Status writeMainXml(const Object* obj, const QString& mainXmlPath, QStringList& filesWritten);
+    // framesWritten gets every frame file this save wrote or moved.
+    Status writeKeyFrameFiles(const Object* obj, const QString& dataFolder, QStringList& filesWritten,
+                              QStringList& framesWritten, std::vector<DrawingWrite>& drawings);
+    QByteArray mainXmlBytes(const Object* obj);
+    static Status writeMainXml(const QString& mainXmlPath, const QByteArray& xml);
     Status writePalette(const Object* obj, const QString& dataFolder, QStringList& filesWritten);
 
     ObjectData loadProjectData(const QDomElement& element);
@@ -76,6 +101,8 @@ private:
     void handleOpenProjectError(Status::ErrorCode, const DebugDetails&);
 
     void progressForward();
+    // Checks the path and writes the working folder; on OK, archive zips it into the target.
+    Status writeProjectFiles(const Object*, const QString& sFileName, std::shared_ptr<PendingArchive>& archive);
     // Runs job(progress) on a worker thread and emits progress here until it is done.
     Status runArchiveJob(const std::function<Status(const std::function<void(int, int)>&)>& job);
 

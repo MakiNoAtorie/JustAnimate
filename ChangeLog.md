@@ -5,6 +5,22 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The canvas blends a blend-mode layer straight into its image, without copies of the view (#286).
+- Vector onion frames are tinted once and kept until their Drawing or the palette changes, and vector Drawings recompute their fills only after an edit (#289).
+- A canvas repaint reads no preference and walks no frames, and flipping the pen to its eraser end keeps the cached frame (#287).
+- Long strokes cost less: the canvas draws only the stroke tiles it repaints, a Drawing grows only to the painted pixels, the eraser trims the empty border without a scan of the whole Drawing, and frames load in one pass less (#288).
+- A pan at any zoom without rotation shifts the canvas and draws only the uncovered strips, and keeps the tinted onion frames; the onion cache is kept per zoom and rotation (#280).
+- A pen lift repaints only the stroke's area; with onion skin on, the layers below and the onion frames stay cached unless an onion frame changed (#278).
+- The autosave after a number of changes writes the archive in the background with no progress dialog, so you can keep drawing; a failed autosave keeps the previous file (#283).
+- Move tool drags are lighter: a Transform key drag marks the project modified once on release, and a selection drag repaints only the old and new selection areas (#285).
+- The rendered-frame cache is sized from RAM and the canvas size and no longer shares Qt's pixmap cache, so looped playback repaints from it after the first pass (#275).
+- Save stores PNG frames without compressing them again and copies unchanged frames from the previous archive, so a save costs what changed (#282).
+- Image sequence export encodes frames on all cores while the next frames render, and movie export renders the next frame while ffmpeg reads the last (#284).
+- The timeline draws only the keys in view, and a stroke repaints one column instead of every cell of every layer (#276).
+- Thin brushes draw faster: a pointer move repaints the canvas once, and the Eraser and Smudge read their settings once per stroke (#277).
+- Export blends a blend-mode layer straight into the frame image, without copies of the frame (#286).
+- A timeline jump decodes only the shown Drawings at once and reads nearby ones in the background; held and onion Drawings unload when far away (#279).
+- Undo keeps only the changed rectangle of a bitmap Drawing, so long sessions on large canvases use much less memory (#281).
 - Single-image export asks once before it replaces a file; brush scatter places the same dabs on macOS as on Windows and Linux (#217).
 - Every preference is read and written through its typed table row; the untyped accessors and the runtime type check are gone (#272).
 - Pen, Pencil, Brush, Shape and Polyline vector curves commit through the stroke buffer, mapped into the key's space in one place (#269).

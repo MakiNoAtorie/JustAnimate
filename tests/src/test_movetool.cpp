@@ -16,10 +16,13 @@ GNU General Public License for more details.
 
 #include <QAction>
 #include <QApplication>
+#include <QElapsedTimer>
 #include <QIcon>
 #include <QKeyEvent>
+#include <QPaintEvent>
 #include <QPointingDevice>
 #include <QTabletEvent>
+#include <QWindow>
 
 #include "bitmapimage.h"
 #include "colormanager.h"
@@ -379,4 +382,104 @@ TEST_CASE("MoveTool: Transform key drags write the current Drawing's key transfo
     redoAction->trigger();
     CHECK(state().tx == Approx(30).margin(0.5));
     move->setKeyTransformEnabled(false);
+}
+
+TEST_CASE("MoveTool: a Transform key drag modifies the project once on release")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(MOVE);
+    auto* move = static_cast<TransformTool*>(editor->tools()->getTool(MOVE));
+    move->setKeyTransformEnabled(true);
+    int modified = 0;
+    QObject::connect(editor, &Editor::frameModified, area, [&] { ++modified; });
+    int recorded = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, area, [&] { ++recorded; });
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+
+    tablet(area, QEvent::TabletPress, screen(QPointF(0, 0)), Qt::LeftButton);
+    for (int i = 1; i <= 5; ++i)
+        tablet(area, QEvent::TabletMove, screen(QPointF(6 * i, 2 * i)), Qt::LeftButton);
+    CHECK(layer->getKeyFrameAt(1)->tweenState().tx == Approx(30).margin(0.5)); // the drag previews
+    CHECK(modified == 0);
+    tablet(area, QEvent::TabletRelease, screen(QPointF(30, 10)), Qt::NoButton);
+    CHECK(modified == 1);
+    CHECK(recorded == 1);
+    CHECK(layer->getKeyFrameAt(1)->tweenState().tx == Approx(30).margin(0.5));
+    undoAction->trigger();
+    CHECK(layer->getKeyFrameAt(1)->tweenState().isIdentity());
+    move->setKeyTransformEnabled(false);
+}
+
+TEST_CASE("MoveTool: a selection drag repaints only the selection and modifies the project once")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    s.start();
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(800, 600);
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(1);
+    editor->tools()->setCurrentTool(MOVE);
+    area->show();
+    QElapsedTimer wait;
+    wait.start();
+    while (!area->windowHandle()->isExposed() && wait.elapsed() < 5000)
+        QApplication::processEvents();
+    REQUIRE(area->windowHandle()->isExposed());
+
+    layer->getBitmapImageAtFrame(1)->setPixel(10, 10, qRgba(0, 0, 0, 255));
+    editor->select()->setSelection(QRectF(0, 0, 40, 40), true);
+    int modified = 0;
+    QObject::connect(editor, &Editor::frameModified, area, [&] { ++modified; });
+    int recorded = 0;
+    QObject::connect(editor->undoRedo(), &UndoRedoManager::didRecordEdit, area, [&] { ++recorded; });
+    QObject parent;
+    QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    auto screen = [&](QPointF canvas) { return editor->view()->mapCanvasToScreen(canvas); };
+
+    struct PaintRects : QObject
+    {
+        QRegion painted;
+        int paints = 0;
+        bool eventFilter(QObject*, QEvent* e) override
+        {
+            if (e->type() == QEvent::Paint) { painted += static_cast<QPaintEvent*>(e)->region(); ++paints; }
+            return false;
+        }
+    } rects;
+
+    tablet(area, QEvent::TabletMove, screen(QPointF(20, 20)), Qt::NoButton);
+    tablet(area, QEvent::TabletPress, screen(QPointF(20, 20)), Qt::LeftButton);
+    QApplication::processEvents();
+    area->installEventFilter(&rects);
+    for (int i = 1; i <= 5; ++i)
+    {
+        tablet(area, QEvent::TabletMove, screen(QPointF(20 + 4 * i, 20)), Qt::LeftButton);
+        QApplication::processEvents();
+    }
+    area->removeEventFilter(&rects);
+    CHECK(rects.paints > 0);
+    CHECK(rects.painted.boundingRect().width() < area->width() / 2);
+    CHECK(modified == 0);
+    tablet(area, QEvent::TabletRelease, screen(QPointF(40, 20)), Qt::NoButton);
+    CHECK(modified == 1);
+    CHECK(recorded == 1);
+    CHECK(editor->select()->selectionTransform().map(QPointF(0, 0)).x() == Approx(20).margin(0.5));
+    undoAction->trigger();
+    BitmapImage* image = layer->getBitmapImageAtFrame(1);
+    CHECK(qAlpha(image->pixel(10, 10)) == 255);
+    CHECK(qAlpha(image->pixel(30, 10)) == 0);
+    CHECK((!editor->select()->somethingSelected() || editor->select()->selectionTransform().isIdentity()));
 }

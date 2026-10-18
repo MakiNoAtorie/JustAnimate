@@ -85,13 +85,17 @@ Tile* TiledBuffer::getTileFromIndex(const TileIndex& tileIndex)
             selectedTile->coverageDirty = true;
         }
         mTiles.insert(tileIndex, selectedTile);
-
-        emit this->tileCreated(this, selectedTile);
-    } else {
-        emit this->tileUpdated(this, selectedTile);
     }
+    mDirty |= selectedTile->bounds();
 
     return selectedTile;
+}
+
+void TiledBuffer::emitUpdated()
+{
+    if (mDirty.isEmpty()) return;
+    emit updated(mDirty);
+    mDirty = QRect();
 }
 
 void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush brush, QPainter::CompositionMode cm, bool antialiasing) {
@@ -120,6 +124,7 @@ void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush br
         }
     }
     const QRectF brushRect(point.x() - 0.5 * brushWidth, point.y() - 0.5 * brushWidth, brushWidth, brushWidth);
+    mPaintBounds.extend(brushRect.toAlignedRect().adjusted(-1, -1, 1, 1)); // antialiasing and the single-pixel fallback
 
     for (int tileY = yTop; tileY <= yBottom; tileY++) {
         for (int tileX = xLeft; tileX <= xRight; tileX++) {
@@ -732,6 +737,7 @@ void TiledBuffer::drawDab(QPointF center, qreal diameter, qreal feather, QColor 
     // Timing costs as much as a tiny dab, so only dabs near the limit update the mean.
     const bool timed = inlineDab && predictedNs > 500;
     QElapsedTimer timer;
+    mPaintBounds.extend(rect);
     if (timed) timer.start();
 
     const qreal tileSize = UNIFORM_TILE_SIZE;
@@ -879,6 +885,7 @@ void TiledBuffer::smudgeDab(QPointF center, qreal diameter, qreal feather, QColo
 
     // Every point is within 0.71 px of a pixel centre, so the sample is never empty.
     const qreal radius = qMax(0.75, 0.5 * diameter * smudge.radius);
+    mPaintBounds.extend(rect);
     const QRect area = rect | QRectF(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius).toAlignedRect();
     const qreal tileSize = UNIFORM_TILE_SIZE;
     for (int tileY = qFloor(area.top() / tileSize); tileY <= qFloor(area.bottom() / tileSize); tileY++) {
@@ -912,6 +919,8 @@ void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPain
     const int xRight = qFloor((qFloor(imageBounds.right() + imageXRad)) / tileSize);
     const int yTop = qFloor(qFloor(imageBounds.top() - imageYRad) / tileSize);
     const int yBottom = qFloor(qFloor(imageBounds.bottom() + imageYRad) / tileSize);
+    mPaintBounds.extend(QRect(QPoint(qFloor(imageBounds.left() - imageXRad), qFloor(imageBounds.top() - imageYRad)),
+                              QPoint(qFloor(imageBounds.right() + imageXRad), qFloor(imageBounds.bottom() + imageYRad))));
 
     for (int tileY = yTop; tileY <= yBottom; tileY++) {
         for (int tileX = xLeft; tileX <= xRight; tileX++) {
@@ -929,6 +938,7 @@ void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPain
             mTileBounds.extend(tile->bounds());
         }
     }
+    emitUpdated();
 }
 
 
@@ -946,6 +956,7 @@ void TiledBuffer::drawPath(QPainterPath path, QPen pen, QBrush brush,
     const int xRight = qFloor((qFloor(pathRect.right() + width)) / tileSize);
     const int yTop = qFloor(qFloor(pathRect.top() - width) / tileSize);
     const int yBottom = qFloor(qFloor(pathRect.bottom() + width) / tileSize);
+    mPaintBounds.extend(pathRect.adjusted(-width, -width, width, width).toAlignedRect().adjusted(-1, -1, 1, 1));
 
     for (int tileY = yTop; tileY <= yBottom; tileY++) {
         for (int tileX = xLeft; tileX <= xRight; tileX++) {
@@ -965,6 +976,7 @@ void TiledBuffer::drawPath(QPainterPath path, QPen pen, QBrush brush,
             mTileBounds.extend(tile->bounds());
         }
     }
+    emitUpdated();
 }
 
 void TiledBuffer::clear()
@@ -996,6 +1008,7 @@ void TiledBuffer::clear()
     }
 
     mTileBounds = BlitRect();
+    mPaintBounds = BlitRect();
     mCoverageMode = false;
     mSmudging = false;
     mSmudgeSource = QImage();

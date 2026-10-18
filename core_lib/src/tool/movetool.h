@@ -57,6 +57,8 @@ private:
     void beginInteraction(const QPointF& pos, Qt::KeyboardModifiers keyMod, Layer* layer);
     void createVectorSelection(const QPointF& pos, Qt::KeyboardModifiers keyMod, Layer* layer);
     void transformSelection(const QPointF& pos, Qt::KeyboardModifiers keyMod);
+    /// The widget rect the bitmap selection and its handles cover; null when the whole canvas must repaint.
+    QRect selectionUpdateRect(const Layer* layer) const;
     void storeClosestVectorCurve(const QPointF& pos, Layer* layer);
 
     void setCurveSelected(VectorImage* vectorImage, Qt::KeyboardModifiers keyMod);

@@ -42,6 +42,9 @@ public:
     ~Edit();
 
     void commit();
+    /** Bitmap Edit: the next pixel change stays inside canvasRect. Call before each change, so that
+     *  the record keeps only those rects; after the first call, every change must make this call. */
+    void willChange(const QRect& canvasRect);
 
     // Records the Edit cannot infer from its snapshot. They join this Edit's step and take its description.
     void recordLayerAdd(int layerId);

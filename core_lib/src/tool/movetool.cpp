@@ -36,6 +36,7 @@ GNU General Public License for more details.
 #include "layercamera.h"
 #include "mathutils.h"
 #include "vectorimage.h"
+#include "viewmanager.h"
 #include "pencilsettings.h"
 
 MoveTool::MoveTool(QObject* parent) : TransformTool(parent)
@@ -158,9 +159,9 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
         KeyFrame* key = mKeyFrame > 0 ? currentLayer->getKeyFrameAt(mKeyFrame) : nullptr;
         if (key && mScribbleArea->isPointerInUse())
         {
-            // Live preview; the release records the gesture through LayerManager::setKeyTween.
+            // Live preview, no modification; the release records the gesture through LayerManager::setKeyTween.
             key->setTweenState(keyTransformAt(event->canvasPos()));
-            emit mEditor->frameModified(mEditor->currentFrame());
+            mScribbleArea->updateFrame();
         }
         return;
     }
@@ -169,6 +170,7 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
     const QPointF keyPos = canvasToKey().map(event->canvasPos());
     if (mScribbleArea->isPointerInUse())   // the user is also pressing the mouse (dragging)
     {
+        const QRect before = selectionUpdateRect(currentLayer);
         transformSelection(keyPos, event->modifiers());
 
         if (mEditor->overlays()->anyOverlayEnabled())
@@ -178,9 +180,14 @@ void MoveTool::pointerMoveEvent(PointerEvent* event)
             mEditor->overlays()->updatePerspective(layerCam->getViewAtFrame(mEditor->currentFrame()).map(event->canvasPos()));
             mEditor->overlays()->updateRuler(event->canvasPos());
         }
-        if (mEditor->select()->somethingSelected())
+        else
         {
-            transformSelection(keyPos, event->modifiers());
+            const QRect after = selectionUpdateRect(currentLayer);
+            if (!before.isNull() && !after.isNull())
+            {
+                mScribbleArea->update(before | after);
+                return;
+            }
         }
     }
     else
@@ -217,9 +224,10 @@ void MoveTool::pointerReleaseEvent(PointerEvent* event)
         key->setTweenState(mKeyStart);
         if (event->canvasPos() != mKeyPress)
         {
+            // Emits the drag's one frameModified when the state changes.
             mEditor->layers()->setKeyTween(frame, key->tween(), key->tweenEasing(), keyTransformAt(event->canvasPos()));
         }
-        emit mEditor->frameModified(mEditor->currentFrame());
+        mScribbleArea->updateFrame();
         return;
     }
 
@@ -265,6 +273,21 @@ void MoveTool::transformSelection(const QPointF& pos, Qt::KeyboardModifiers keyM
     {
         selectMan->setMoveMode(MoveMode::NONE);
     }
+}
+
+QRect MoveTool::selectionUpdateRect(const Layer* layer) const
+{
+    const SelectionManager* selectMan = mEditor->select();
+    const auto* select = static_cast<const TransformTool*>(mEditor->tools()->getTool(SELECT));
+    // The selection info text and vector curves can paint outside the selection rect.
+    if (layer->type() != Layer::BITMAP || !selectMan->somethingSelected() || select->transformSettings().showSelectionInfoEnabled())
+    {
+        return QRect();
+    }
+    const QTransform keyView = layer->tweenStateAt(mEditor->currentFrame()).transform() * mEditor->view()->getView();
+    const int margin = 8; // the handles (6 px), their pen and the smooth transform's edge
+    return (selectMan->selectionTransform() * keyView).mapRect(selectMan->mySelectionRect()).toAlignedRect()
+        .adjusted(-margin, -margin, margin, margin);
 }
 
 void MoveTool::beginInteraction(const QPointF& pos, Qt::KeyboardModifiers keyMod, Layer* layer)

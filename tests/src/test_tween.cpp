@@ -81,7 +81,7 @@ QImage exportFrame(const Object* object, int frame)
 
 QImage canvasFrame(const Object* object, int frame)
 {
-    QPixmap canvas(80, 40);
+    QImage canvas(80, 40, QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     const QTransform view = QTransform::fromTranslate(30, 20);
     painter.setViewTransform(view, view.inverted());
@@ -90,7 +90,7 @@ QImage canvasFrame(const Object* object, int frame)
     painter.setOptions(options);
     painter.setPaintSettings(object, 0, frame, nullptr);
     painter.paint(QRect(0, 0, 80, 40));
-    return canvas.toImage();
+    return canvas;
 }
 
 } // namespace
@@ -333,7 +333,7 @@ TEST_CASE("Onion skins draw each key with its tween state", "[Tween]")
 
     for (const Object* object : { bitmap.get(), vector.get() })
     {
-        QPixmap canvas(80, 40);
+        QImage canvas(80, 40, QImage::Format_ARGB32_Premultiplied);
         CanvasPainter painter(canvas);
         const QTransform view = QTransform::fromTranslate(30, 20);
         painter.setViewTransform(view, view.inverted());
@@ -349,7 +349,7 @@ TEST_CASE("Onion skins draw each key with its tween state", "[Tween]")
         TiledBuffer buffer;
         painter.setPaintSettings(object, 0, 3, &buffer);
         painter.paint(QRect(0, 0, 80, 40));
-        const QImage image = canvas.toImage();
+        const QImage image = canvas;
         CHECK(qAlpha(image.pixel(30 + 20, 20)) > 0); // key 5's onion skin, 20 px right
         CHECK(qAlpha(image.pixel(30 - 2, 20)) == 0);  // not at the canvas origin
     }

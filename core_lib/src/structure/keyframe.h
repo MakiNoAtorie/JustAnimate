@@ -84,9 +84,13 @@ public:
     int length() const { return mLength; }
     void setLength(int len) { mLength = len; }
 
-    void modification() { mIsModified = true; }
-    void setModified(bool b) { mIsModified = b; }
+    void modification() { mIsModified = true; mStamp = nextStamp(); }
+    void setModified(bool b) { mIsModified = b; if (b) { mStamp = nextStamp(); } }
     bool isModified() const { return mIsModified; }
+    /** Changes on every modification; no two keys share one, so it can key a cache like QImage::cacheKey. */
+    qint64 stamp() const { return mStamp; }
+    /** Changes the stamp only: for state that changes the pixels but is not saved, such as the selection. */
+    void touchStamp() { mStamp = nextStamp(); }
 
     /** With tween on, the frames this key holds interpolate its state to the next key's. */
     bool tween() const { return mTween; }
@@ -120,6 +124,8 @@ public:
     virtual KeyFrame* clone() const { return nullptr; }
     /** Loads the backing file into memory if it exists, otherwise it does nothing */
     virtual void loadFile() {}
+    /** Starts loading the backing file on a worker thread; the next loadFile() takes the result */
+    virtual void loadFileAsync() {}
 
     /** Unloads the data from memory in order to save memory. This will only work if a backing file exists
      *  and the latest keyframe data has been saved to disk, eg. `isModified` is false */
@@ -131,10 +137,17 @@ public:
 
     virtual quint64 memoryUsage() { return 0; }
 
+protected:
+    /** Tells the listeners that the backing file is now in memory */
+    void notifyLoaded();
+
 private:
+    static qint64 nextStamp();
+
     int mFrame = -1;
     int mLength = 1;
     bool mIsModified = true;
+    qint64 mStamp = nextStamp(); // a copy gets its own
     bool mTween = false;
     CameraEasingType mTweenEasing = CameraEasingType::LINEAR;
     TweenState mTweenState;
@@ -171,6 +184,7 @@ class KeyFrameEventListener
 {
 public:
     virtual void onKeyFrameDestroy(KeyFrame*) = 0;
+    virtual void onKeyFrameLoaded(KeyFrame*) {}
 };
 
 Q_DECLARE_METATYPE(KeyTween)

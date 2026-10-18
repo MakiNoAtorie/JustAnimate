@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #ifndef CANVASPAINTER_H
 #define CANVASPAINTER_H
 
+#include <functional>
 #include <memory>
 #include <QBitArray>
 #include <QCache>
@@ -36,6 +37,7 @@ GNU General Public License for more details.
 
 
 class TiledBuffer;
+class Tile;
 class Object;
 class BitmapImage;
 class ViewManager;
@@ -68,7 +70,7 @@ class CanvasPainter
 {
     Q_DECLARE_TR_FUNCTIONS(CanvasPainter)
 public:
-    explicit CanvasPainter(QPixmap& canvas);
+    explicit CanvasPainter(QImage& canvas);
     virtual ~CanvasPainter();
 
     void reset();
@@ -83,6 +85,8 @@ public:
 
     void setPaintSettings(const Object* object, int currentLayer, int frame, TiledBuffer* tilledBuffer);
     void paint(const QRect& blitRect);
+    /// What paint() puts on the canvas for this frame, without the frame number: frames with equal keys paint equal pixels.
+    QVector<qint64> frameKey() const;
     void paintCached(const QRect& blitRect);
     void resetLayerCache();
     int onionFramesTinted() const { return mOnionFramesTinted; }
@@ -104,10 +108,11 @@ private:
 
     void renderPostLayers(QPainter& painter, const QRect& blitRect);
     void renderPreLayers(QPainter& painter, const QRect& blitRect);
-    void updateCells(LayerCellCache& cache, QPixmap& pixmap, const QVector<qint64>& key, const QRect& blitRect,
+    void updateCells(LayerCellCache& cache, QImage& image, const QVector<qint64>& key, const QRect& blitRect,
                      void (CanvasPainter::*render)(QPainter&, const QRect&));
     /// Positions below are positions in mPaintOrder, not layer indexes.
     QVector<qint64> layersKey(int startPos, int endPos) const;
+    QVector<qint64> onionKey() const;
 
     void paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startPos, int endPos);
     /// Paints the visible layer at index: relative opacity, its key, the stroke buffer, the selection and the Rough tint.
@@ -115,23 +120,28 @@ private:
     /// Positions painted with the current layer: its group's non-Rough layers when the group is translucent.
     QPair<int, int> currentRange() const;
 
-    void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView) const;
+    void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView);
 
-    void paintBitmapOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
-    void paintVectorOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
+    void paintBitmapOnionSkinFrame(QPainter& painter, Layer* layer, int nFrame, bool colorize);
+    void paintVectorOnionSkinFrame(QPainter& painter, Layer* layer, int nFrame, bool colorize);
+    /// Draws the tinted onion frame cached under key, or renders, tints and caches it.
+    /// bounds hold what render paints, in Drawing coordinates; pad is in device pixels.
+    void paintOnionFrame(QPainter& painter, const Layer* layer, int nFrame, bool colorize, QVector<qint64> key,
+                         const QRectF& bounds, int pad, const std::function<void(QPainter&)>& render);
     void tintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPainter, int nFrame, bool colorize, qreal frameOpacity);
     /// The onion frame's canvas transform: its tween, then its Shift and Trace offset.
     QTransform onionTransform(const Layer* layer, int nFrame) const;
 
+    bool isTileVisible(const Tile* tile, const QRect& blitRect) const;
     void paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
     void paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
-    /// Draws mCurrentLayerPixmap onto painter within blitRect, blended with mode.
-    void drawLayerPixmap(QPainter& painter, const QRect& blitRect, BlendMode mode);
+    /// Draws mCurrentLayerImage onto painter within blitRect, blended with mode.
+    void drawLayerImage(QPainter& painter, const QRect& blitRect, BlendMode mode);
 
     CanvasPainterOptions mOptions;
 
     const Object* mObject = nullptr;
-    QPixmap& mCanvas;
+    QImage& mCanvas;
     QTransform mViewTransform;
     QTransform mViewInverse;
 
@@ -145,21 +155,25 @@ private:
     bool mRenderTransform = false;
     QRect mSelection;
     QTransform mSelectionTransform;
+    // The selected pixels, reused while the image, its origin and the selection rect stay.
+    QPixmap mSelectionPixmap;
+    qint64 mSelectionPixmapKey = 0;
+    QRect mSelectionPixmapRect;
+    QPoint mSelectionPixmapOrigin;
 
     // Caches specifically for when drawing on the canvas
-    QPixmap mPostLayersPixmap;
-    QPixmap mPreLayersPixmap;
-    QPixmap mCurrentLayerPixmap;
+    QImage mPostLayersImage;
+    QImage mPreLayersImage;
+    QImage mCurrentLayerImage;
     QPixmap mOnionSkinPixmap;
     LayerCellCache mPreLayersCache;
     LayerCellCache mPostLayersCache; // used only with bFastLayersAbove
-    bool mPostLayersPixmapCacheValid = false;
+    bool mPostLayersImageCacheValid = false;
     QVector<int> mPaintOrder; // FrameRenderer::paintOrder with Rough layers
 
-    // Tinted bitmap onion frames, cropped to their bounds, keyed by content; another view empties it.
-    struct OnionFrame { QPixmap pixmap; QPoint pos; };
+    // Tinted onion frames, cropped to their bounds, keyed by content and the view's scale and rotation.
+    struct OnionFrame { QPixmap pixmap; QPoint pos; QPointF view; }; // pos holds for the view translation view
     QCache<QVector<qint64>, OnionFrame> mOnionCache{ 64 << 20 }; // cost in bytes
-    QTransform mOnionCacheView;
     int mOnionFramesTinted = 0;
 
     // There's a considerable amount of overhead in simply allocating a QPointF on the fly.

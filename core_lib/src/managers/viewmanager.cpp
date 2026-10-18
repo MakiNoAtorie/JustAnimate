@@ -56,6 +56,8 @@ Status ViewManager::load(Object*)
 
 Status ViewManager::save(Object* o)
 {
+    foldPan();
+    updateViewTransforms();
     o->data()->setCurrentView(mView);
     return Status::OK;
 }
@@ -133,18 +135,31 @@ void ViewManager::updateViewTransforms()
     float flipY = mIsFlipVertical ? -1.f : 1.f;
     QTransform f = QTransform::fromScale(static_cast<qreal>(flipX), static_cast<qreal>(flipY));
 
-    mViewCanvas = mView * f * mCentre;
+    const QPoint pan = mScreenPan.toPoint();
+    mViewCanvas = mView * f * mCentre * QTransform::fromTranslate(pan.x(), pan.y());
     mViewCanvasInverse = mViewCanvas.inverted();
+}
+
+QPointF ViewManager::panInCanvas() const
+{
+    return mViewCanvasInverse.map(QPointF(mScreenPan.toPoint())) - mViewCanvasInverse.map(QPointF(0, 0));
+}
+
+void ViewManager::foldPan()
+{
+    mTranslation += panInCanvas();
+    mScreenPan -= QPointF(mScreenPan.toPoint());
 }
 
 QPointF ViewManager::translation() const
 {
-    return mTranslation;
+    return mTranslation + panInCanvas();
 }
 
 void ViewManager::translate(float dx, float dy)
 {
     mTranslation = QPointF(dx, dy);
+    mScreenPan = QPointF();
     updateViewTransforms();
 
     emit viewChanged();
@@ -167,6 +182,7 @@ float ViewManager::rotation()
 
 void ViewManager::rotate(float degree)
 {
+    foldPan();
     // Keep the angle in (-180, 180].
     mRotation = std::remainder(static_cast<qreal>(degree), 360.0);
     if (mRotation <= -180.0) { mRotation += 360.0; }
@@ -193,16 +209,19 @@ void ViewManager::rotateByDrag(QPointF centre, QPointF from, QPointF to)
 void ViewManager::rotateAtOffset(float degrees, QPointF screenPoint)
 {
     const QPointF anchor = mapScreenToCanvas(screenPoint);
-    rotateRelative(degrees);
+    rotateRelative(degrees); // folds the screen pan
     mTranslation += mapScreenToCanvas(screenPoint) - anchor;
     updateViewTransforms();
     emit viewChanged();
 }
 
+// The pan stays in screen pixels until another view change folds it into the translation:
+// a pan by whole pixels then moves every canvas pixel by exactly that many.
 void ViewManager::panByScreen(QPointF screenDelta)
 {
-    const QPointF origin = mapScreenToCanvas(QPointF(0, 0));
-    translate(mTranslation + mapScreenToCanvas(screenDelta) - origin);
+    mScreenPan += screenDelta;
+    updateViewTransforms();
+    emit viewChanged();
 }
 
 void ViewManager::resetRotation()
@@ -290,6 +309,7 @@ void ViewManager::scale(qreal scaleValue)
         scaleValue = mMaxScale;
     }
 
+    foldPan();
     mScaling = scaleValue;
     updateViewTransforms();
 
@@ -306,6 +326,7 @@ void ViewManager::scaleAtOffset(qreal scaleValue, QPointF offset)
     {
         scaleValue = mMaxScale;
     }
+    foldPan();
     mTranslation = (mTranslation + offset) * mScaling / scaleValue - offset;
     mScaling = scaleValue;
     updateViewTransforms();
@@ -317,6 +338,7 @@ void ViewManager::flipHorizontal(bool b)
 {
     if (b != mIsFlipHorizontal)
     {
+        foldPan();
         mIsFlipHorizontal = b;
         updateViewTransforms();
 
@@ -329,6 +351,7 @@ void ViewManager::flipVertical(bool b)
 {
     if (b != mIsFlipVertical)
     {
+        foldPan();
         mIsFlipVertical = b;
         updateViewTransforms();
 
@@ -361,6 +384,7 @@ void ViewManager::onCurrentFrameChanged()
 void ViewManager::resetView()
 {
     mTranslation = QPointF(0,0);
+    mScreenPan = QPointF();
     mScaling = 1.0;
     mRotation = 0.0;
 

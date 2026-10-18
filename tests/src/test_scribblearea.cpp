@@ -15,17 +15,22 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QApplication>
+#include <QPaintEvent>
+#include <QPixmapCache>
 #include <QTabletEvent>
+#include <QWindow>
 #include <QWheelEvent>
 #include <QTemporaryDir>
 #include <QtMath>
 #include "mathutils.h"
 
 #include "bitmapimage.h"
+#include "camera.h"
 #include "brushpresets.h"
 #include "brushtool.h"
 #include "editor.h"
 #include "layerbitmap.h"
+#include "layercamera.h"
 #include "layermanager.h"
 #include "object.h"
 #include "pencildef.h"
@@ -318,6 +323,169 @@ TEST_CASE("ScribbleArea - a held frame repaints from the frame cache")
     StageProfiler::reset();
 }
 
+TEST_CASE("ScribbleArea - held frames share one cached frame")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show(); // grab() on a hidden widget resizes it, which clears the cache
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    REQUIRE(layer->addNewKeyFrameAt(3)); // on 2s: frame 2 holds the key at 1
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-20, -20, 40, 40), Qt::NoPen, QBrush(Qt::red),
+                                              QPainter::CompositionMode_SourceOver, false);
+    area->onObjectLoaded();
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    editor->scrubTo(1);
+    const QImage first = area->grab().toImage();
+    const qsizetype oneFrame = area->frameCacheCostKb();
+    StageProfiler::reset();
+    editor->scrubTo(2);
+    CHECK(area->grab().toImage() == first);
+    CHECK(StageProfiler::calls(StageProfiler::Composite) == 0);
+    CHECK(area->frameCacheCostKb() == oneFrame);
+
+    // An edit on the held key reaches every frame that shares its image.
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-20, -20, 40, 40), Qt::NoPen, QBrush(Qt::blue),
+                                              QPainter::CompositionMode_Source, false);
+    area->onFrameModified(1);
+    editor->scrubTo(1);
+    CHECK(area->grab().toImage().pixelColor(100, 100) == QColor(Qt::blue));
+    editor->scrubTo(2);
+    CHECK(area->grab().toImage().pixelColor(100, 100) == QColor(Qt::blue));
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
+}
+
+TEST_CASE("ScribbleArea - a frame shared from the cache matches its own paint")
+{
+    const SettingsGuard settings({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_TYPE, SETTING_ONION_PREV_FRAMES_NUM,
+                                   SETTING_ONION_NEXT_FRAMES_NUM, SETTING_ONION_FALLOFF });
+    TestSession s;
+    LayerCamera* camera = s.object->addNewCameraLayer();
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(300, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    // Keys on 4s; the camera moves across the holds.
+    for (int f : { 1, 5, 9 })
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f));
+        layer->getBitmapImageAtFrame(f)->drawRect(QRectF(-80 + f * 10, -20, 40, 40), Qt::NoPen, QBrush(Qt::black),
+                                                  QPainter::CompositionMode_SourceOver, false);
+    }
+    REQUIRE(camera->addNewKeyFrameAt(9));
+    static_cast<Camera*>(camera->getKeyFrameAt(9))->translate(40, 0);
+    camera->setViewRect(QRect(-60, -40, 120, 80)); // its border shows inside the canvas
+
+    PreferenceManager* prefs = editor->preference();
+    for (const QString& type : { QString("relative"), QString("absolute") })
+    {
+        CAPTURE(type);
+        prefs->set<SETTING::PREV_ONION>(true);
+        prefs->set<SETTING::NEXT_ONION>(true);
+        prefs->set<SETTING::ONION_TYPE>(type);
+        prefs->set<SETTING::ONION_PREV_FRAMES_NUM>(2);
+        prefs->set<SETTING::ONION_NEXT_FRAMES_NUM>(2);
+        prefs->set<SETTING::ONION_FALLOFF>(1);
+        area->onObjectLoaded();
+        std::vector<QImage> fresh;
+        for (int f = 1; f <= 10; ++f)
+        {
+            editor->scrubTo(f);
+            area->onObjectLoaded(); // drops every cached frame
+            fresh.push_back(area->grab().toImage());
+        }
+        CHECK(fresh[5] != fresh[6]); // frames 6 and 7 hold the key at 5 while the camera moves
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            for (int f = 10; f >= 1; --f)
+            {
+                CAPTURE(pass, f);
+                editor->scrubTo(f);
+                CHECK(area->grab().toImage() == fresh[f - 1]);
+            }
+        }
+    }
+}
+
+TEST_CASE("ScribbleArea - a 48-frame loop repaints from the frame cache from the second pass")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    QPixmapCache::setCacheLimit(12345);
+    area->init();
+    CHECK(QPixmapCache::cacheLimit() == 12345); // the frame cache keeps its own limit
+    QPixmapCache::setCacheLimit(10240);         // Qt's default
+    area->resize(1280, 720);
+    area->show(); // grab() on a hidden widget resizes it, which clears the cache
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    const int frames = 48;
+    for (int f = 1; f <= frames; ++f)
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f));
+        layer->getBitmapImageAtFrame(f)->drawRect(QRectF(-300 + f * 10, -100, 60, 60), Qt::NoPen, QBrush(Qt::red),
+                                                  QPainter::CompositionMode_SourceOver, false);
+    }
+    area->onObjectLoaded();
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    std::vector<QImage> firstPass;
+    for (int f = 1; f <= frames; ++f)
+    {
+        editor->scrubTo(f);
+        firstPass.push_back(area->grab().toImage());
+    }
+    StageProfiler::reset();
+    for (int f = 1; f <= frames; ++f)
+    {
+        editor->scrubTo(f);
+        CAPTURE(f);
+        CHECK(area->grab().toImage() == firstPass[f - 1]); // a cached frame matches its composite
+    }
+    CHECK(StageProfiler::calls(StageProfiler::Composite) == 0);
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
+}
+
+TEST_CASE("ScribbleArea - the frame cache limit follows RAM and the viewport")
+{
+    const qint64 gb = qint64(1) << 30;
+    const qsizetype frame1080Kb = 1920 * 1080 * 4 / 1024;
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(1920, 1080), 64 * gb) == 240 * frame1080Kb);
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(1920, 1080), 1 * gb) == gb / 4 / 1024); // a quarter of RAM
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(3840, 2160), 64 * gb) > 240 * frame1080Kb);
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(100, 100), 64 * gb) == 100 * 1024);     // the old 100 MB floor
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(1920, 1080), 0) == 100 * 1024);         // RAM unknown
+
+    TestSession s;
+    s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(640, 360);
+    area->show();
+    const qsizetype before = area->frameCacheLimitKb();
+    area->resize(1280, 720);
+    CHECK(area->frameCacheLimitKb() > before);
+}
+
 TEST_CASE("ScribbleArea - an edit on another layer's key repaints its held frames")
 {
     TestSession s;
@@ -346,6 +514,99 @@ TEST_CASE("ScribbleArea - an edit on another layer's key repaints its held frame
     CHECK(centre() == QColor(Qt::red));
     fill(Qt::blue);
     CHECK(centre() == QColor(Qt::blue));
+}
+
+namespace
+{
+
+/// The bounds of every area painted while installed.
+struct PaintedArea : QObject
+{
+    QRect painted;
+    bool eventFilter(QObject*, QEvent* e) override
+    {
+        if (e->type() == QEvent::Paint) { painted |= static_cast<QPaintEvent*>(e)->rect(); }
+        return false;
+    }
+};
+
+void mouse(QWidget* w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
+{
+    QMouseEvent e(type, pos, w->mapToGlobal(pos), Qt::LeftButton, buttons, Qt::NoModifier);
+    QApplication::sendEvent(w, &e);
+}
+
+}
+
+TEST_CASE("ScribbleArea - a stroke end with onion skin repaints only the stroke")
+{
+    const SettingsGuard settings({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
+    TestSession s;
+    LayerBitmap* below = s.object->addNewBitmapLayer();
+    LayerBitmap* top = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    QObject::connect(editor, &Editor::frameModified, area, &ScribbleArea::onFrameModified);
+    area->init();
+    area->resize(400, 300);
+    area->show();
+    for (int i = 0; i < 100 && !area->windowHandle()->isExposed(); ++i) { QApplication::processEvents(); }
+    REQUIRE(area->windowHandle()->isExposed());
+    for (int f = 1; f <= 5; ++f)
+    {
+        if (f > 1) { REQUIRE(below->addNewKeyFrameAt(f)); REQUIRE(top->addNewKeyFrameAt(f)); }
+        below->getBitmapImageAtFrame(f)->drawRect(QRectF(-150, -100, 300, 200), Qt::NoPen, QBrush(Qt::gray),
+                                                  QPainter::CompositionMode_SourceOver, false);
+        top->getBitmapImageAtFrame(f)->drawRect(QRectF(-120 + f * 30, -60, 40, 40), Qt::NoPen, QBrush(Qt::black),
+                                                QPainter::CompositionMode_SourceOver, false);
+    }
+    PreferenceManager* prefs = editor->preference();
+    prefs->set<SETTING::PREV_ONION>(true);
+    prefs->set<SETTING::NEXT_ONION>(true);
+    prefs->set<SETTING::ONION_RED>(true);
+    prefs->set<SETTING::ONION_BLUE>(true);
+    editor->layers()->setCurrentLayer(top);
+    editor->tools()->setCurrentTool(PENCIL);
+    editor->scrubTo(3);
+    area->onObjectLoaded();
+    area->repaint();
+
+    const QPointF from = editor->view()->mapCanvasToScreen(QPointF(-30, 40));
+    mouse(area, QEvent::MouseButtonPress, from, Qt::LeftButton);
+    for (int p = 1; p <= 10; ++p)
+    {
+        mouse(area, QEvent::MouseMove, from + QPointF(p * 5, 0), Qt::LeftButton);
+        area->repaint();
+    }
+    PaintedArea painted;
+    area->installEventFilter(&painted);
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    mouse(area, QEvent::MouseButtonRelease, from + QPointF(50, 0), Qt::NoButton);
+    QApplication::processEvents();
+    StageProfiler::enabled() = profiling;
+    area->removeEventFilter(&painted);
+    REQUIRE_FALSE(painted.painted.isEmpty());
+    CHECK(painted.painted.width() < area->width() / 2); // the stroke, not the whole canvas
+    CHECK(StageProfiler::calls(StageProfiler::LayerDraw) == 1);  // the current layer only
+    CHECK(StageProfiler::calls(StageProfiler::CellRender) == 0); // the layers below and the onion frames stay cached
+    StageProfiler::reset();
+
+    // The cached frame matches a paint with every cache empty.
+    const QImage cached = area->grab().toImage();
+    area->onObjectLoaded();
+    CHECK(area->grab().toImage() == cached);
+
+    // An onion frame changes: the cached cells follow it.
+    top->getBitmapImageAtFrame(2)->drawRect(QRectF(-100, 50, 60, 30), Qt::NoPen, QBrush(Qt::black),
+                                            QPainter::CompositionMode_SourceOver, false);
+    editor->setModified(editor->currentLayerIndex(), 2);
+    const QImage onionChanged = area->grab().toImage();
+    CHECK(onionChanged != cached);
+    area->onObjectLoaded();
+    CHECK(area->grab().toImage() == onionChanged);
 }
 
 namespace
@@ -481,4 +742,171 @@ TEST_CASE("Preferences - the dotted-cursor key migrates once to the cursor style
     TestSession s;
     REQUIRE(s.start());
     CHECK(s.editor->preference()->get<SETTING::CURSOR_STYLE>() == CURSOR_BRUSH_OUTLINE);
+}
+
+TEST_CASE("ScribbleArea - a pen eraser flip keeps the cached frame")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show(); // grab() on a hidden widget resizes it, which clears the cache
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    const QImage before = area->grab().toImage();
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    editor->tools()->tabletSwitchToEraser();
+    CHECK(area->grab().toImage() == before);
+    editor->tools()->tabletRestorePrevTool();
+    CHECK(area->grab().toImage() == before);
+    CHECK(StageProfiler::calls(StageProfiler::Composite) == 0);
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
+}
+
+TEST_CASE("ScribbleArea - the grid follows its setting at once")
+{
+    const SettingsGuard settings({ SETTING_SHOW_GRID });
+    TestSession s;
+    s.object->addNewCameraLayer();
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+
+    editor->preference()->set<SETTING::GRID>(false);
+    const QImage off = area->grab().toImage();
+    editor->preference()->set<SETTING::GRID>(true);
+    const QImage on = area->grab().toImage();
+    CHECK(on != off);
+    editor->preference()->set<SETTING::GRID>(false);
+    CHECK(area->grab().toImage() == off);
+    editor->preference()->set<SETTING::GRID>(true);
+    CHECK(area->grab().toImage() == on);
+}
+
+TEST_CASE("ScribbleArea - a pan with onion skin shifts the canvas and renders only the exposed strips")
+{
+    const SettingsGuard settings({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    ViewManager* view = editor->view();
+    QObject::connect(view, &ViewManager::viewChanged, area, &ScribbleArea::onViewChanged);
+    area->init();
+    area->resize(400, 300);
+    area->show();
+    for (int f = 1; f <= 5; ++f)
+    {
+        if (f > 1) { REQUIRE(layer->addNewKeyFrameAt(f)); }
+        layer->getBitmapImageAtFrame(f)->drawEllipse(QRectF(-180 + f * 40, -70 + f * 10, 120, 90), QPen(Qt::black, 3),
+                                                     QBrush(QColor(60 + f * 30, 180, 90)), QPainter::CompositionMode_SourceOver, true);
+    }
+    PreferenceManager* prefs = editor->preference();
+    prefs->set<SETTING::PREV_ONION>(true);
+    prefs->set<SETTING::NEXT_ONION>(true);
+    prefs->set<SETTING::ONION_RED>(true);
+    prefs->set<SETTING::ONION_BLUE>(true);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    editor->scrubTo(3);
+    area->onObjectLoaded();
+    area->grab();
+
+    const auto fresh = [&] { area->onObjectLoaded(); return area->grab().toImage(); };
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    view->panByScreen(QPointF(13, -7));
+    const QImage panned = area->grab().toImage();
+    CHECK(StageProfiler::calls(StageProfiler::OnionTint) == 0);
+    StageProfiler::enabled() = profiling;
+    CHECK(panned == fresh());
+
+    // Zoomed, a pan shifts too; rotated, it renders the whole canvas. Both stay pixel-exact.
+    view->scale(1.25);
+    area->grab();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    view->panByScreen(QPointF(-9, 17));
+    const QImage zoomed = area->grab().toImage();
+    CHECK(StageProfiler::calls(StageProfiler::OnionTint) == 0);
+    StageProfiler::enabled() = profiling;
+    CHECK(zoomed == fresh());
+    view->rotate(30);
+    area->grab();
+    view->panByScreen(QPointF(6, -4));
+    const QImage turned = area->grab().toImage();
+    CHECK(turned == fresh());
+    view->rotate(0);
+    view->scale(1.0);
+    area->grab();
+
+    // A change made without a signal shows only in the strip the pan exposes.
+    layer->getBitmapImageAtFrame(3)->drawRect(QRectF(-2000, -2000, 4000, 4000), Qt::NoPen, QBrush(Qt::red),
+                                              QPainter::CompositionMode_SourceOver, false);
+    view->panByScreen(QPointF(10, 0));
+    const QImage shifted = area->grab().toImage();
+    CHECK(shifted.pixelColor(3, 150) == QColor(Qt::red));
+    CHECK(shifted.pixelColor(200, 150) != QColor(Qt::red));
+}
+
+TEST_CASE("ScribbleArea - a view change during a stroke leaves no frame cached with the old view")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    ViewManager* view = editor->view();
+    QObject::connect(view, &ViewManager::viewChanged, area, &ScribbleArea::onViewChanged);
+    QObject::connect(editor, &Editor::frameModified, area, &ScribbleArea::onFrameModified);
+    area->init();
+    area->resize(400, 300);
+    area->show();
+    for (int f = 1; f <= 3; ++f)
+    {
+        if (f > 1) { REQUIRE(layer->addNewKeyFrameAt(f)); }
+        layer->getBitmapImageAtFrame(f)->drawEllipse(QRectF(-180 + f * 40, -70 + f * 10, 120, 90), QPen(Qt::black, 3),
+                                                     QBrush(Qt::darkGreen), QPainter::CompositionMode_SourceOver, true);
+    }
+    for (int i = 0; i < 100 && !area->windowHandle()->isExposed(); ++i) { QApplication::processEvents(); }
+    REQUIRE(area->windowHandle()->isExposed());
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    area->onObjectLoaded();
+    editor->scrubTo(2);
+    area->grab(); // frame 2 enters the cache
+    editor->scrubTo(3);
+    area->grab();
+
+    const QPointF from = view->mapCanvasToScreen(QPointF(-30, 40));
+    mouse(area, QEvent::MouseButtonPress, from, Qt::LeftButton);
+    mouse(area, QEvent::MouseMove, from + QPointF(10, 0), Qt::LeftButton);
+    area->repaint();
+    REQUIRE(editor->tools()->currentTool()->isActive());
+    view->panByScreen(QPointF(40, 25));
+    mouse(area, QEvent::MouseMove, from + QPointF(20, 0), Qt::LeftButton);
+    mouse(area, QEvent::MouseButtonRelease, from + QPointF(30, 0), Qt::NoButton);
+    QApplication::processEvents();
+
+    const auto fresh = [&] { area->onObjectLoaded(); return area->grab().toImage(); };
+    const QImage drawn = area->grab().toImage();
+    CHECK(drawn == fresh());
+    editor->scrubTo(2);
+    const QImage other = area->grab().toImage();
+    CHECK(other == fresh());
 }

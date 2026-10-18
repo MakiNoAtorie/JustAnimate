@@ -20,13 +20,14 @@ GNU General Public License for more details.
 
 #include <list>
 #include <unordered_map>
+#include <unordered_set>
 #include "keyframe.h"
 
 
 /**
- * ActiveFramePool implemented a LRU cache to keep tracking the most recent accessed key frames
- * A key frame will be unloaded if it's not accessed for a while (at the end of cache list)
- * The ActiveFramePool will be updated whenever Editor::scrubTo() gets called.
+ * ActiveFramePool keeps the loaded Drawings in a LRU list under a memory budget.
+ * It listens to every key of the object's layers, so each load enters the pool, also loads it did not start.
+ * Object::updateActiveFrames() updates it on every scrub.
  *
  * Note: ActiveFramePool does not handle file saving. It loads frames, but never writes frames to disks.
  */
@@ -36,28 +37,41 @@ public:
     explicit ActiveFramePool();
     virtual ~ActiveFramePool();
 
-    void put(KeyFrame* key);
+    /** Pools the key: loads it now, or with `now` false starts a background load */
+    void put(KeyFrame* key, bool now);
+    /** Listens to the key, so its loads enter the pool */
+    void watch(KeyFrame* key);
     void clear();
     void resize(quint64 memoryBudget);
-    bool isFrameInPool(KeyFrame*);
     void setMinFrameCount(size_t frameCount);
-    /** Unloads pooled frames more than `distance` frames away from `frame`, whatever the budget */
+    /** Sets the playhead and unloads pooled frames last used more than `distance` frames from it, whatever the budget */
     void unloadFramesFarFrom(int frame, int distance);
+    /** The loaded size of the pooled frames, also of frames that painting grew since they entered */
+    quint64 usedMemory();
 
     void onKeyFrameDestroy(KeyFrame*) override;
+    void onKeyFrameLoaded(KeyFrame*) override;
 
 private:
-    void discardLeastUsedFrames();
-    void unloadFrame(KeyFrame* key);
-    void recalcuateTotalUsedMemory();
+    struct Entry
+    {
+        std::list<KeyFrame*>::iterator it;
+        quint64 bytes = 0;
+        int usedAt = 0; // the playhead when the key was last put or loaded
+    };
 
-    using list_iterator_t = std::list<KeyFrame*>::iterator;
+    void touch(KeyFrame* key);
+    void refreshSize(Entry& e, KeyFrame* key);
+    void forget(KeyFrame* key);
+    void discardLeastUsedFrames();
 
     std::list<KeyFrame*> mCacheFramesList;
-    std::unordered_map<KeyFrame*, list_iterator_t> mCacheFramesMap;
+    std::unordered_map<KeyFrame*, Entry> mCacheFramesMap;
+    std::unordered_set<KeyFrame*> mWatched;
     quint64 mMemoryBudgetInBytes = 1024 * 1024 * 1024; // 1GB
     quint64 mTotalUsedMemory = 0;
     size_t mMinFrameCount = 15;
+    int mPlayhead = 1;
 };
 
 #endif // ACTIVEFRAMEPOOL_H

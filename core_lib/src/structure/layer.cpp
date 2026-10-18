@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <QFile>
 #include <QSet>
 #include "attributes.h"
+#include "activeframepool.h"
 #include "keyframe.h"
 #include "util.h"
 
@@ -93,6 +94,22 @@ void Layer::foreachKeyFrame(std::function<void(KeyFrame*)> action) const
     {
         action(pair.second);
     }
+}
+
+void Layer::foreachKeyFrameIn(int from, int to, const std::function<void(KeyFrame*)>& action) const
+{
+    for (auto it = mKeyFrames.lower_bound(to); it != mKeyFrames.end() && it->first >= from; ++it)
+    {
+        action(it->second);
+    }
+}
+
+void Layer::setFramePool(ActiveFramePool* pool)
+{
+    if (pool == mFramePool) { return; }
+    mFramePool = pool;
+    if (!pool) { return; }
+    for (auto pair : mKeyFrames) { pool->watch(pair.second); }
 }
 
 QList<KeyFrame*> Layer::linkedKeys(const KeyFrame* key) const
@@ -301,6 +318,7 @@ bool Layer::addKeyFrame(int position, KeyFrame* pKeyFrame)
 
     pKeyFrame->setPos(position);
     mKeyFrames.emplace(position, pKeyFrame);
+    if (mFramePool) { mFramePool->watch(pKeyFrame); }
     markFrameAsDirty(position);
     return true;
 }
@@ -440,46 +458,38 @@ bool Layer::loadKey(KeyFrame* pKey)
         mKeyFrames.erase(it);
     }
     mKeyFrames.emplace(pKey->pos(), pKey);
+    if (mFramePool) { mFramePool->watch(pKey); }
     return true;
 }
 
-Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, ProgressCallback progressStep)
+Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles,
+                   std::vector<DrawingWrite>& writes, ProgressCallback progressStep)
 {
+    Q_UNUSED(writes)
     DebugDetails dd;
     dd << "\n[Layer SAVE diagnostics]\n";
 
     bool ok = true;
-
-    std::vector<KeyFrame*> keys;
     for (auto pair : mKeyFrames)
-        keys.push_back(pair.second);
-    std::vector<Status> results(keys.size(), Status::OK);
-
-    // Bitmap keys are independent PNG files: encode them in parallel, a chunk at a time for progress.
-    const int count = static_cast<int>(keys.size());
-    const int chunk = (type() == BITMAP) ? parallelWorkerCount() * 4 : 1;
-    for (int start = 0; start < count; start += chunk)
     {
-        const int end = std::min(start + chunk, count);
-        parallelFor(end - start, [&](int i) { results[start + i] = saveKeyFrameFile(keys[start + i], sDataFolder); });
-
-        for (int i = start; i < end; ++i)
+        KeyFrame* keyFrame = pair.second;
+        const Status result = saveKeyFrameFile(keyFrame, sDataFolder);
+        if (result.ok())
         {
-            KeyFrame* keyFrame = keys[i];
-            if (results[i].ok())
-            {
-                // A sound clip whose file is missing saves without it.
-                if (!keyFrame->fileName().isEmpty() && QFile::exists(keyFrame->fileName()))
-                    attachedFiles.append(keyFrame->fileName());
-            }
-            else
-            {
-                ok = false;
-                dd.collect(results[i].details());
-                dd << QString("- Keyframe[%1] failed to save").arg(keyFrame->pos());
-            }
-            progressStep();
+            // A sound clip whose file is missing saves without it.
+            if (!keyFrame->fileName().isEmpty() && QFile::exists(keyFrame->fileName()))
+                attachedFiles.append(keyFrame->fileName());
+            // SAFE: the file was already up to date and was not written.
+            if (result != Status::SAFE && !keyFrame->fileName().isEmpty())
+                writtenFiles.append(keyFrame->fileName());
         }
+        else
+        {
+            ok = false;
+            dd.collect(result.details());
+            dd << QString("- Keyframe[%1] failed to save").arg(keyFrame->pos());
+        }
+        progressStep();
     }
     if (!ok)
     {

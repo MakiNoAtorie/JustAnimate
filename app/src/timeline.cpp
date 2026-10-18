@@ -236,7 +236,7 @@ void TimeLine::initUI()
     connect(mTracks, &TimeLineCells::insertNewKeyFrame, this, &TimeLine::insertKeyClick);
 
     connect(editor(), &Editor::scrubbed, this, &TimeLine::updateFrame);
-    connect(editor(), &Editor::frameModified, this, &TimeLine::updateContent);
+    connect(editor(), &Editor::frameModified, mTracks, &TimeLineCells::onFrameModified);
     connect(editor(), &Editor::framesModified, this, &TimeLine::updateContent);
 
     LayerManager* layer = editor()->layers();

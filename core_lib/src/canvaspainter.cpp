@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "layercamera.h"
 #include "objectdata.h"
 #include "paperpainter.h"
+#include "stageprofiler.h"
 #include "bitmapimage.h"
 #include "tile.h"
 #include "tiledbuffer.h"
@@ -37,9 +38,19 @@ GNU General Public License for more details.
 namespace
 {
 const int kCell = 64; // below-composite cache cell, in logical px
+
+// Vector Drawings paint with the palette colours.
+qint64 paletteKey(const Object& object)
+{
+    size_t hash = 0;
+    for (int i = 0; i < object.getColorCount(); ++i) { hash = qHashMulti(hash, quint64(object.getColor(i).color.rgba64())); }
+    return qint64(hash);
 }
 
-CanvasPainter::CanvasPainter(QPixmap& canvas) : mCanvas(canvas)
+using FrameRenderer::appendTransformKey;
+}
+
+CanvasPainter::CanvasPainter(QImage& canvas) : mCanvas(canvas)
 {
     reset();
 }
@@ -50,21 +61,21 @@ CanvasPainter::~CanvasPainter()
 
 void CanvasPainter::reset()
 {
-    mPostLayersPixmap = QPixmap(mCanvas.size());
-    mPreLayersPixmap = QPixmap(mCanvas.size());
-    mCurrentLayerPixmap = QPixmap(mCanvas.size());
+    mPostLayersImage = QImage(mCanvas.size(), QImage::Format_ARGB32_Premultiplied);
+    mPreLayersImage = QImage(mCanvas.size(), QImage::Format_ARGB32_Premultiplied);
+    mCurrentLayerImage = QImage(mCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     mOnionSkinPixmap = QPixmap(mCanvas.size());
-    mPreLayersPixmap.fill(Qt::transparent);
+    mPreLayersImage.fill(Qt::transparent);
     mPreLayersCache.cells.clear();
     mPostLayersCache.cells.clear();
     mOnionCache.clear(); // the tint covers the whole canvas size
     mCanvas.fill(Qt::transparent);
-    mCurrentLayerPixmap.fill(Qt::transparent);
-    mPostLayersPixmap.fill(Qt::transparent);
+    mCurrentLayerImage.fill(Qt::transparent);
+    mPostLayersImage.fill(Qt::transparent);
     mOnionSkinPixmap.fill(Qt::transparent);
-    mCurrentLayerPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
-    mPreLayersPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
-    mPostLayersPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
+    mCurrentLayerImage.setDevicePixelRatio(mCanvas.devicePixelRatioF());
+    mPreLayersImage.setDevicePixelRatio(mCanvas.devicePixelRatioF());
+    mPostLayersImage.setDevicePixelRatio(mCanvas.devicePixelRatioF());
     mOnionSkinPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
 }
 
@@ -97,19 +108,20 @@ void CanvasPainter::ignoreTransformedSelection()
     mRenderTransform = false;
     mSelectionTransform.reset();
     mSelection = QRect();
+    mSelectionPixmap = QPixmap();
 }
 
 void CanvasPainter::paintCached(const QRect& blitRect)
 {
     mPaintOrder = FrameRenderer::paintOrder(*mObject, true);
     const QPair<int, int> range = currentRange();
-    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, range.first - 1), blitRect, &CanvasPainter::renderPreLayers);
+    updateCells(mPreLayersCache, mPreLayersImage, layersKey(0, range.first - 1) + onionKey(), blitRect, &CanvasPainter::renderPreLayers);
 
     QPainter mainPainter;
     initializePainter(mainPainter, mCanvas, blitRect);
     paintPaper(mainPainter);
     mainPainter.setWorldMatrixEnabled(false);
-    mainPainter.drawPixmap(mPointZero, mPreLayersPixmap);
+    mainPainter.drawImage(mPointZero, mPreLayersImage);
     mainPainter.setWorldMatrixEnabled(true);
 
     paintCurrentFrame(mainPainter, blitRect, range.first, range.second);
@@ -122,20 +134,20 @@ void CanvasPainter::paintCached(const QRect& blitRect)
     }
     if (mOptions.bFastLayersAbove)
     {
-        updateCells(mPostLayersCache, mPostLayersPixmap, layersKey(range.second + 1, mObject->getLayerCount() - 1),
+        updateCells(mPostLayersCache, mPostLayersImage, layersKey(range.second + 1, mObject->getLayerCount() - 1),
                     blitRect, &CanvasPainter::renderPostLayers);
     }
-    else if (!mPostLayersPixmapCacheValid)
+    else if (!mPostLayersImageCacheValid)
     {
         QPainter postLayerPainter;
-        initializePainter(postLayerPainter, mPostLayersPixmap, blitRect);
+        initializePainter(postLayerPainter, mPostLayersImage, blitRect);
         renderPostLayers(postLayerPainter, blitRect);
         postLayerPainter.end();
-        mPostLayersPixmapCacheValid = true;
+        mPostLayersImageCacheValid = true;
     }
 
     mainPainter.setWorldMatrixEnabled(false);
-    mainPainter.drawPixmap(mPointZero, mPostLayersPixmap);
+    mainPainter.drawImage(mPointZero, mPostLayersImage);
     mainPainter.setWorldMatrixEnabled(true);
 }
 
@@ -159,7 +171,7 @@ void CanvasPainter::resetLayerCache()
 {
     mPreLayersCache.cells.fill(false);
     mPostLayersCache.cells.fill(false);
-    mPostLayersPixmapCacheValid = false;
+    mPostLayersImageCacheValid = false;
 }
 
 // Identifies what positions startPos..endPos show on this frame; another key empties the cache.
@@ -168,18 +180,69 @@ QVector<qint64> CanvasPainter::layersKey(int startPos, int endPos) const
     QVector<qint64> key{ qint64(quintptr(mObject)), mCurrentLayerIndex, mFrameNumber };
     for (auto it = mShiftAndTraceOffsets.cbegin(); it != mShiftAndTraceOffsets.cend(); ++it)
     {
-        const QTransform& t = it.value();
-        key << it.key() << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6)
-            << qRound64(t.m22() * 1e6) << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6);
+        key << it.key();
+        appendTransformKey(key, it.value());
     }
     return key + FrameRenderer::layersKey(*mObject, mFrameNumber, mPaintOrder, startPos, endPos);
 }
 
-// Renders into the stale 64 px cells of pixmap that blitRect touches.
-void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QVector<qint64>& key, const QRect& blitRect,
+// Identifies what paint() puts on the canvas for this frame, without the frame number: held frames share it.
+QVector<qint64> CanvasPainter::frameKey() const
+{
+    QVector<qint64> key{ qint64(quintptr(mObject)), mCurrentLayerIndex, int(mOptions.eLayerVisibility), mRenderTransform };
+    for (auto it = mShiftAndTraceOffsets.cbegin(); it != mShiftAndTraceOffsets.cend(); ++it)
+    {
+        key << it.key();
+        appendTransformKey(key, it.value());
+    }
+    if (mRenderTransform)
+    {
+        key << mSelection.x() << mSelection.y() << mSelection.width() << mSelection.height();
+        appendTransformKey(key, mSelectionTransform);
+    }
+    const QVector<int> order = FrameRenderer::paintOrder(*mObject, true);
+    return key + FrameRenderer::layersKey(*mObject, mFrameNumber, order, 0, order.size() - 1) + onionKey();
+}
+
+// Identifies the onion frames renderPreLayers paints; a changed onion frame empties the cache.
+QVector<qint64> CanvasPainter::onionKey() const
+{
+    QVector<qint64> key;
+    bool vector = false;
+    const bool allLayers = mOptions.bOnionSkinMultiLayer && mOptions.eLayerVisibility != LayerVisibility::CURRENTONLY;
+    for (int i = 0; i < mObject->getLayerCount(); ++i)
+    {
+        Layer* layer = mObject->getLayer(i);
+        if ((!allLayers && i != mCurrentLayerIndex) || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR)) { continue; }
+        key << i << mObject->isLayerVisible(layer);
+        for (const OnionSkinSubPainter::Neighbour& n : mOnionSkinSubPainter.neighbours(layer, mOnionSkinPainterOptions, mFrameNumber))
+        {
+            KeyFrame* image = layer->getKeyFrameAt(n.frame);
+            if (image == nullptr) { continue; }
+            key << n.frame << int(n.state) << qRound64(n.opacity * 1e6);
+            if (layer->type() == Layer::BITMAP)
+            {
+                auto* bitmap = static_cast<BitmapImage*>(image);
+                key << bitmap->topLeft().x() << bitmap->topLeft().y() << bitmap->image()->cacheKey();
+            }
+            else
+            {
+                key << image->stamp();
+                vector = true;
+            }
+            appendTransformKey(key, onionTransform(layer, n.frame));
+            key << qRound64(layer->tweenStateAt(n.frame).opacity * 1e6);
+        }
+    }
+    if (vector) { key << paletteKey(*mObject); }
+    return key;
+}
+
+// Renders into the stale 64 px cells of image that blitRect touches.
+void CanvasPainter::updateCells(LayerCellCache& cache, QImage& image, const QVector<qint64>& key, const QRect& blitRect,
                                 void (CanvasPainter::*render)(QPainter&, const QRect&))
 {
-    const QSize size = pixmap.deviceIndependentSize().toSize();
+    const QSize size = image.deviceIndependentSize().toSize();
     const int cols = (size.width() + kCell - 1) / kCell;
     const int cells = cols * ((size.height() + kCell - 1) / kCell);
     if (cache.cells.size() != cells || key != cache.key || mViewTransform != cache.view)
@@ -202,10 +265,11 @@ void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QV
         }
     }
     if (stale.isEmpty()) { return; }
+    StageScope stage(StageProfiler::CellRender);
 
     // shortcut: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
     QPainter painter;
-    initializePainter(painter, pixmap, stale);
+    initializePainter(painter, image, stale);
     (this->*render)(painter, stale);
 }
 
@@ -259,7 +323,7 @@ void CanvasPainter::setPaintSettings(const Object* object, int currentLayer, int
 
 void CanvasPainter::paint(const QRect& blitRect)
 {
-    mPostLayersPixmapCacheValid = false;
+    mPostLayersImageCacheValid = false;
     paintCached(blitRect);
 }
 
@@ -270,16 +334,16 @@ void CanvasPainter::paintOnionSkinOnLayer(QPainter& painter, const QRect& blitRe
         if (state == OnionSkinPaintState::PREV) {
             switch (layer->type())
             {
-            case Layer::BITMAP: { paintBitmapOnionSkinFrame(painter, blitRect, layer, onionFrameNumber, mOnionSkinPainterOptions.colorizePrevFrames); break; }
-            case Layer::VECTOR: { paintVectorOnionSkinFrame(painter, blitRect, layer, onionFrameNumber, mOnionSkinPainterOptions.colorizePrevFrames); break; }
+            case Layer::BITMAP: { paintBitmapOnionSkinFrame(painter, layer, onionFrameNumber, mOnionSkinPainterOptions.colorizePrevFrames); break; }
+            case Layer::VECTOR: { paintVectorOnionSkinFrame(painter, layer, onionFrameNumber, mOnionSkinPainterOptions.colorizePrevFrames); break; }
             default: break;
             }
         }
         if (state == OnionSkinPaintState::NEXT) {
             switch (layer->type())
             {
-            case Layer::BITMAP: { paintBitmapOnionSkinFrame(painter, blitRect, layer, onionFrameNumber, mOnionSkinPainterOptions.colorizeNextFrames); break; }
-            case Layer::VECTOR: { paintVectorOnionSkinFrame(painter, blitRect, layer, onionFrameNumber, mOnionSkinPainterOptions.colorizeNextFrames); break; }
+            case Layer::BITMAP: { paintBitmapOnionSkinFrame(painter, layer, onionFrameNumber, mOnionSkinPainterOptions.colorizeNextFrames); break; }
+            case Layer::VECTOR: { paintVectorOnionSkinFrame(painter, layer, onionFrameNumber, mOnionSkinPainterOptions.colorizeNextFrames); break; }
             default: break;
             }
         }
@@ -301,80 +365,85 @@ void CanvasPainter::paintOnionSkin(QPainter& painter, const QRect& blitRect)
     }
 }
 
-void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize)
+void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, Layer* layer, int nFrame, bool colorize)
 {
-    LayerBitmap* bitmapLayer = static_cast<LayerBitmap*>(layer);
-
-    BitmapImage* bitmapImage = bitmapLayer->getBitmapImageAtFrame(nFrame);
-
+    BitmapImage* bitmapImage = static_cast<LayerBitmap*>(layer)->getBitmapImageAtFrame(nFrame);
     if (bitmapImage == nullptr) { return; }
     bitmapImage->loadFile(); // Critical! force the BitmapImage to load the image
 
-    Q_UNUSED(blitRect) // cached whole; the painter clips
-    if (mOnionCacheView != mViewTransform)
-    {
-        mOnionCache.clear();
-        mOnionCacheView = mViewTransform;
-    }
-    // Everything tintOnionSkinFrame reads; QImage::cacheKey changes on every write to the image.
+    // QImage::cacheKey changes on every write to the image.
+    const QPoint topLeft = bitmapImage->topLeft();
+    const QVector<qint64> key{ bitmapImage->image()->cacheKey(), topLeft.x(), topLeft.y() };
+    paintOnionFrame(painter, layer, nFrame, colorize, key, bitmapImage->bounds(), 1,
+                    [&](QPainter& onionSkinPainter) { onionSkinPainter.drawImage(topLeft, *bitmapImage->image()); });
+}
+
+void CanvasPainter::paintVectorOnionSkinFrame(QPainter& painter, Layer* layer, int nFrame, bool colorize)
+{
+    CANVASPAINTER_LOG("Paint Onion skin vector, Frame = %d", nFrame);
+    VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getVectorImageAtFrame(nFrame);
+    if (vectorImage == nullptr) { return; }
+
+    // One entry more than a bitmap key, so the two never match. Pens of a fixed device width reach 2 px past paintBounds.
+    const QVector<qint64> key{ vectorImage->stamp(), paletteKey(*mObject), mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias };
+    paintOnionFrame(painter, layer, nFrame, colorize, key, vectorImage->paintBounds(), 2, [&](QPainter& onionSkinPainter) {
+        vectorImage->paintImage(onionSkinPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
+    });
+}
+
+void CanvasPainter::paintOnionFrame(QPainter& painter, const Layer* layer, int nFrame, bool colorize, QVector<qint64> key,
+                                    const QRectF& bounds, int pad, const std::function<void(QPainter&)>& render)
+{
+    // Everything the tint reads.
     QColor tint = Qt::transparent;
     if (nFrame < mFrameNumber) { tint = mOnionSkinPainterOptions.prevColor; }
     else if (nFrame > mFrameNumber) { tint = mOnionSkinPainterOptions.nextColor; }
     const TweenState tween = layer->tweenStateAt(nFrame);
     const qreal opacity = tween.opacity - (1.0 - painter.opacity());
-    const QPoint topLeft = bitmapImage->topLeft();
     const QTransform canvasTransform = onionTransform(layer, nFrame);
-    const QVector<qint64> key{ bitmapImage->image()->cacheKey(), topLeft.x(), topLeft.y(), colorize,
-                               colorize ? qint64(tint.rgba64()) : 0, colorize ? qRound64(opacity * 1e6) : 0,
-                               qRound64(canvasTransform.m11() * 1e6), qRound64(canvasTransform.m12() * 1e6),
-                               qRound64(canvasTransform.m21() * 1e6), qRound64(canvasTransform.m22() * 1e6),
-                               qRound64(canvasTransform.dx() * 1e6), qRound64(canvasTransform.dy() * 1e6) };
+    // The view's translation is not in the key: a pan moves the cached pixmap by whole pixels.
+    key << colorize << (colorize ? qint64(tint.rgba64()) : 0) << (colorize ? qRound64(opacity * 1e6) : 0);
+    appendTransformKey(key, canvasTransform);
+    appendTransformKey(key, mViewTransform, false);
 
-    OnionFrame frame;
+    painter.setWorldMatrixEnabled(false);
+    const QRect canvasRect(QPoint(), mOnionSkinPixmap.deviceIndependentSize().toSize());
+    const QTransform world = canvasTransform * mViewTransform;
+    const QRect shown = world.mapRect(bounds).toAlignedRect().adjusted(-pad, -pad, pad, pad) & canvasRect;
+    if (shown.isEmpty()) { return; }
+
+    // A pan by exactly whole pixels moves the cached pixmap. Only unrotated draws shift pixel for pixel, and the tint
+    // outlines the canvas edges, so a frame that touches an edge is tinted again.
+    const QPointF view(mViewTransform.dx(), mViewTransform.dy());
     if (const OnionFrame* cached = mOnionCache.object(key))
     {
-        frame = *cached;
-    }
-    else
-    {
-        // Outside the image the onion pixmap stays transparent, so only its bounds are rendered.
-        const QRect canvasRect(QPoint(), mOnionSkinPixmap.deviceIndependentSize().toSize());
-        const QTransform world = canvasTransform * mViewTransform;
-        const QRect r = world.mapRect(QRectF(bitmapImage->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1) & canvasRect;
-        if (!r.isEmpty())
+        const QPointF moved = view - cached->view;
+        const QPoint step = moved.toPoint();
+        const QRect drawn(cached->pos, cached->pixmap.deviceIndependentSize().toSize());
+        const QRect inner = canvasRect.adjusted(1, 1, -1, -1);
+        const bool shifts = world.m12() == 0 && world.m21() == 0 && moved == QPointF(step)
+                            && inner.contains(drawn) && inner.contains(shown);
+        const QRect at = drawn.translated(step);
+        if ((moved.isNull() || shifts) && at.contains(shown))
         {
-            QPainter onionSkinPainter;
-            initializePainter(onionSkinPainter, mOnionSkinPixmap, r);
-            onionSkinPainter.setWorldTransform(world);
-            onionSkinPainter.drawImage(topLeft, *bitmapImage->image());
-            tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
-            onionSkinPainter.end();
-            const qreal dpr = mOnionSkinPixmap.devicePixelRatio();
-            frame = { mOnionSkinPixmap.copy(QRectF(QPointF(r.topLeft()) * dpr, QSizeF(r.size()) * dpr).toAlignedRect()), r.topLeft() };
-            ++mOnionFramesTinted;
+            painter.drawPixmap(at.topLeft(), cached->pixmap);
+            return;
         }
-        mOnionCache.insert(key, new OnionFrame(frame), qMax(1, frame.pixmap.width() * frame.pixmap.height() * 4));
     }
-    painter.setWorldMatrixEnabled(false);
-    if (!frame.pixmap.isNull()) { painter.drawPixmap(frame.pos, frame.pixmap); }
-}
 
-void CanvasPainter::paintVectorOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize)
-{
-    LayerVector* vectorLayer = static_cast<LayerVector*>(layer);
-
-    CANVASPAINTER_LOG("Paint Onion skin vector, Frame = %d", nFrame);
-    VectorImage* vectorImage = vectorLayer->getVectorImageAtFrame(nFrame);
-    if (vectorImage == nullptr) { return; }
-
+    StageScope stage(StageProfiler::OnionTint);
+    // Outside the Drawing the onion pixmap stays transparent, so only its bounds are rendered.
     QPainter onionSkinPainter;
-    initializePainter(onionSkinPainter, mOnionSkinPixmap, blitRect);
-
-    const TweenState tween = layer->tweenStateAt(nFrame);
-    onionSkinPainter.setWorldTransform(onionTransform(layer, nFrame) * mViewTransform);
-    vectorImage->paintImage(onionSkinPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
+    initializePainter(onionSkinPainter, mOnionSkinPixmap, shown);
+    onionSkinPainter.setWorldTransform(world);
+    render(onionSkinPainter);
     tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
-    painter.drawPixmap(mPointZero, mOnionSkinPixmap);
+    onionSkinPainter.end();
+    const qreal dpr = mOnionSkinPixmap.devicePixelRatio();
+    const QPixmap pixmap = mOnionSkinPixmap.copy(QRectF(QPointF(shown.topLeft()) * dpr, QSizeF(shown.size()) * dpr).toAlignedRect());
+    ++mOnionFramesTinted;
+    mOnionCache.insert(key, new OnionFrame{ pixmap, shown.topLeft(), view }, qMax(1, pixmap.width() * pixmap.height() * 4));
+    painter.drawPixmap(shown.topLeft(), pixmap);
 }
 
 QTransform CanvasPainter::onionTransform(const Layer* layer, int nFrame) const
@@ -419,6 +488,12 @@ static void tintRough(QPainter& layerPainter, const QRect& blitRect)
     layerPainter.fillRect(blitRect, QColor(107, 143, 201, 96));
 }
 
+// A tile outside the blit rect would be clipped whole; the margin covers smooth resampling.
+bool CanvasPainter::isTileVisible(const Tile* tile, const QRect& blitRect) const
+{
+    return mViewTransform.mapRect(QRectF(tile->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1).intersects(blitRect);
+}
+
 void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer)
 {
     LayerBitmap* bitmapLayer = static_cast<LayerBitmap*>(layer);
@@ -430,7 +505,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
     const bool isDrawing = mTiledBuffer && !mTiledBuffer->bounds().isEmpty();
 
     QPainter currentBitmapPainter;
-    initializePainter(currentBitmapPainter, mCurrentLayerPixmap, blitRect);
+    initializePainter(currentBitmapPainter, mCurrentLayerImage, blitRect);
 
     painter.setWorldMatrixEnabled(false);
 
@@ -443,6 +518,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
         currentBitmapPainter.setCompositionMode(mOptions.cmBufferBlendMode);
         const auto tiles = mTiledBuffer->tiles();
         for (const Tile* tile : tiles) {
+            if (!isTileVisible(tile, blitRect)) { continue; }
             currentBitmapPainter.drawImage(tile->posF(), tile->image());
         }
     }
@@ -454,7 +530,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
     }
 
     if (layer->isRough()) { tintRough(currentBitmapPainter, blitRect); }
-    drawLayerPixmap(painter, blitRect, layer->blendMode());
+    drawLayerImage(painter, blitRect, layer->blendMode());
 }
 
 void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer)
@@ -467,7 +543,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     }
 
     QPainter currentVectorPainter;
-    initializePainter(currentVectorPainter, mCurrentLayerPixmap, blitRect);
+    initializePainter(currentVectorPainter, mCurrentLayerImage, blitRect);
 
     const bool isDrawing = mTiledBuffer && mTiledBuffer->isValid();
 
@@ -486,6 +562,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
 
         const auto tiles = mTiledBuffer->tiles();
         for (const Tile* tile : tiles) {
+            if (!isTileVisible(tile, blitRect)) { continue; }
             currentVectorPainter.drawImage(tile->posF(), tile->image());
         }
     }
@@ -495,35 +572,49 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     painter.setTransform(QTransform());
 
     if (layer->isRough()) { tintRough(currentVectorPainter, blitRect); }
-    drawLayerPixmap(painter, blitRect, layer->blendMode());
+    drawLayerImage(painter, blitRect, layer->blendMode());
 }
 
-void CanvasPainter::drawLayerPixmap(QPainter& painter, const QRect& blitRect, BlendMode mode)
+void CanvasPainter::drawLayerImage(QPainter& painter, const QRect& blitRect, BlendMode mode)
 {
     if (mode == BlendMode::Normal)
     {
-        painter.drawPixmap(mPointZero, mCurrentLayerPixmap);
+        painter.drawImage(mPointZero, mCurrentLayerImage);
         return;
     }
-    const qreal dpr = mCurrentLayerPixmap.devicePixelRatioF();
+    const qreal dpr = mCurrentLayerImage.devicePixelRatioF();
     const QRect rect = QRectF(QPointF(blitRect.topLeft()) * dpr, QSizeF(blitRect.size()) * dpr).toAlignedRect()
-                       & mCurrentLayerPixmap.rect();
-    if (!rect.isEmpty()) { drawBlended(painter, mCurrentLayerPixmap.copy(rect).toImage(), rect.topLeft(), mode); }
+                       & mCurrentLayerImage.rect();
+    if (rect.isEmpty()) { return; }
+    // A read-only view of rect: no copy of the layer pixels.
+    const QImage& layer = mCurrentLayerImage;
+    const QImage part(layer.constScanLine(rect.top()) + rect.left() * 4, rect.width(), rect.height(), layer.bytesPerLine(),
+                      layer.format());
+    drawBlended(painter, part, rect.topLeft(), mode);
 }
 
-void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView) const
+void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView)
 {
     // Make sure there is something selected
     if (selection.width() == 0 && selection.height() == 0)
         return;
 
-    QPixmap transformedPixmap = QPixmap(mSelection.size());
-    transformedPixmap.fill(Qt::transparent);
+    const QPoint origin = bitmapImage->topLeft(); // crops first, which can replace the image
+    const qint64 key = bitmapImage->image()->cacheKey();
+    if (mSelectionPixmap.isNull() || key != mSelectionPixmapKey || selection != mSelectionPixmapRect
+        || origin != mSelectionPixmapOrigin)
+    {
+        mSelectionPixmap = QPixmap(selection.size());
+        mSelectionPixmap.fill(Qt::transparent);
 
-    QPainter imagePainter(&transformedPixmap);
-    imagePainter.translate(-selection.topLeft());
-    imagePainter.drawImage(bitmapImage->topLeft(), *bitmapImage->image());
-    imagePainter.end();
+        QPainter imagePainter(&mSelectionPixmap);
+        imagePainter.translate(-selection.topLeft());
+        imagePainter.drawImage(origin, *bitmapImage->image());
+        imagePainter.end();
+        mSelectionPixmapKey = key;
+        mSelectionPixmapRect = selection;
+        mSelectionPixmapOrigin = origin;
+    }
 
     painter.save();
 
@@ -540,7 +631,7 @@ void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bi
     painter.setTransform(mSelectionTransform * keyView);
 
     // Draw the selection image separately and on top
-    painter.drawPixmap(selection, transformedPixmap);
+    painter.drawPixmap(selection, mSelectionPixmap);
     painter.restore();
 }
 
@@ -563,8 +654,8 @@ void CanvasPainter::paintLayer(QPainter& painter, const QRect& blitRect, int ind
     CANVASPAINTER_LOG("  Render Layer[%d] %s", index, layer->name());
     switch (layer->type())
     {
-    case Layer::BITMAP: { paintCurrentBitmapFrame(painter, blitRect, layer, isCurrentLayer); break; }
-    case Layer::VECTOR: { paintCurrentVectorFrame(painter, blitRect, layer, isCurrentLayer); break; }
+    case Layer::BITMAP: { StageScope stage(StageProfiler::LayerDraw); paintCurrentBitmapFrame(painter, blitRect, layer, isCurrentLayer); break; }
+    case Layer::VECTOR: { StageScope stage(StageProfiler::LayerDraw); paintCurrentVectorFrame(painter, blitRect, layer, isCurrentLayer); break; }
     default: break;
     }
 }

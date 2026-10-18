@@ -141,16 +141,27 @@ void BitmapImage::copyImageFrom(KeyFrame* source)
 
 static QImage readImageFile(const QString& path)
 {
-    return QImage(path).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    QImage image(path);
+    image.convertTo(QImage::Format_ARGB32_Premultiplied);
+    return image;
 }
 
 void BitmapImage::loadFile()
 {
     if (!fileName().isEmpty() && !isLoaded())
     {
-        mImage = mPendingLoad.valid() ? mPendingLoad.get() : readImageFile(fileName());
+        if (mPendingLoad.valid() && mPendingPath == fileName())
+        {
+            mImage = mPendingLoad.get();
+        }
+        else
+        {
+            StageScope stage(StageProfiler::DrawingLoad); // a decode on the calling thread
+            mImage = readImageFile(fileName());
+        }
         mBounds.setSize(mImage.size());
         mMinBound = false;
+        notifyLoaded();
     }
     mPendingLoad = {};
 }
@@ -160,6 +171,7 @@ void BitmapImage::loadFileAsync()
     if (fileName().isEmpty() || isLoaded() || mPendingLoad.valid()) { return; }
     auto promise = std::make_shared<std::promise<QImage>>();
     mPendingLoad = promise->get_future().share();
+    mPendingPath = fileName();
     workerPool()->start([promise, path = fileName()] { promise->set_value(readImageFile(path)); });
 }
 
@@ -240,8 +252,16 @@ void BitmapImage::paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm, 
     {
         return;
     }
-    extend(toImage.mapRect(QRectF(tiledBuffer->bounds())).toAlignedRect());
-
+    // Erasing cannot add pixels. Smudge tiles hold copies of the whole tile, so they keep the tile bounds.
+    // Under a layer transform, smooth resampling can reach one pixel past the painted rect.
+    if (cm != QPainter::CompositionMode_DestinationOut)
+    {
+        const QRect painted = cm == QPainter::CompositionMode_Source ? tiledBuffer->bounds() : tiledBuffer->paintBounds();
+        const bool wholePixels = toImage.type() <= QTransform::TxTranslate && toImage.dx() == qRound(toImage.dx()) && toImage.dy() == qRound(toImage.dy());
+        const int margin = wholePixels ? 0 : 1;
+        extend(toImage.mapRect(QRectF(painted)).toAlignedRect().adjusted(-margin, -margin, margin, margin));
+    }
+    if (image()->isNull()) { return; } // nothing to erase
     QPainter painter(image());
 
     painter.setCompositionMode(cm);
@@ -261,6 +281,98 @@ void BitmapImage::paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm, 
         mMinBound = false;
         autoCrop();
     }
+}
+
+BitmapPatch BitmapImage::patch(const QRect& rect)
+{
+    const QImage* source = image();
+    BitmapPatch p{ mBounds, mMinBound, rect, QImage() };
+    if (rect.isEmpty()) { return p; }
+    if (source->isNull())
+    {
+        p.pixels = QImage(rect.size(), QImage::Format_ARGB32_Premultiplied);
+        p.pixels.fill(Qt::transparent);
+    }
+    else
+    {
+        // QImage::copy fills the part outside the image with 0, which is transparent.
+        p.pixels = source->copy(rect.translated(-mBounds.topLeft()));
+    }
+    return p;
+}
+
+BitmapPatch BitmapImage::whole()
+{
+    const QImage* source = image();
+    return { mBounds, mMinBound, mBounds, *source };
+}
+
+void BitmapImage::applyPatch(const BitmapPatch& p)
+{
+    image();
+    if (p.rect == p.bounds && p.pixels.size() == p.bounds.size())
+    {
+        // A whole patch: share its pixels.
+        mImage = p.pixels;
+        mBounds = p.bounds;
+        mMinBound = p.minBound;
+        modification();
+        return;
+    }
+    if (mBounds != p.bounds)
+    {
+        QImage resized(p.bounds.size(), QImage::Format_ARGB32_Premultiplied);
+        resized.fill(Qt::transparent);
+        if (!resized.isNull() && !mImage.isNull())
+        {
+            QPainter painter(&resized);
+            painter.setCompositionMode(QPainter::CompositionMode_Source);
+            painter.drawImage(mBounds.topLeft() - p.bounds.topLeft(), mImage);
+        }
+        mImage = resized;
+        mBounds = p.bounds;
+    }
+    if (!p.pixels.isNull() && !mImage.isNull())
+    {
+        QPainter painter(&mImage);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.drawImage(p.rect.topLeft() - mBounds.topLeft(), p.pixels);
+    }
+    mMinBound = p.minBound;
+    modification();
+}
+
+QRect BitmapImage::changedRect(BitmapImage& a, BitmapImage& b)
+{
+    const QImage* imageA = a.image();
+    const QImage* imageB = b.image();
+    if (a.mBounds == b.mBounds && imageA->cacheKey() == imageB->cacheKey()) { return QRect(); }
+
+    auto row = [](const QImage* img, const QRect& bounds, int y) -> const QRgb* {
+        if (img->isNull() || y < bounds.top() || y > bounds.bottom()) { return nullptr; }
+        return reinterpret_cast<const QRgb*>(img->constScanLine(y - bounds.top()));
+    };
+    auto pixelAt = [](const QRgb* line, const QRect& bounds, int x) -> QRgb {
+        return (line && x >= bounds.left() && x <= bounds.right()) ? line[x - bounds.left()] : 0;
+    };
+    const QRect all = a.mBounds.united(b.mBounds);
+    QRect changed;
+    for (int y = all.top(); y <= all.bottom(); ++y)
+    {
+        const QRgb* lineA = row(imageA, a.mBounds, y);
+        const QRgb* lineB = row(imageB, b.mBounds, y);
+        if (!lineA && !lineB) { continue; }
+        for (int x = all.left(); x <= all.right(); ++x)
+        {
+            if (pixelAt(lineA, a.mBounds, x) == pixelAt(lineB, b.mBounds, x)) { continue; }
+            // Only the row ends can widen the rect: jump to the last differing pixel.
+            int last = all.right();
+            while (pixelAt(lineA, a.mBounds, last) == pixelAt(lineB, b.mBounds, last)) { --last; }
+            changed |= QRect(x, y, last - x + 1, 1);
+            break;
+        }
+    }
+    return changed;
 }
 
 void BitmapImage::moveTopLeft(QPoint point)
@@ -536,8 +648,18 @@ void BitmapImage::autoCrop()
     int relLeft = 0;
     int relRight = mBounds.width()-1;
 
+    // A pixel in the current border column ends a side at once, without a scan of every row.
+    auto columnHasPixel = [&](int col) {
+        for (int row = relTop; row <= relBottom; ++row)
+        {
+            if (qAlpha(reinterpret_cast<const QRgb*>(mImage.constScanLine(row))[col]) != 0) { return true; }
+        }
+        return false;
+    };
+
     // Check left column - find minimum transparent span at start of each row
     int minLeft = mBounds.width();
+    if (columnHasPixel(0)) { minLeft = 0; }
     for (int row = relTop; row <= relBottom; ++row)
     {
         const QRgb* cursor = reinterpret_cast<const QRgb*>(mImage.constScanLine(row));
@@ -555,6 +677,7 @@ void BitmapImage::autoCrop()
 
     // Check right column - find minimum transparent span at end of each row
     int minRight = 0;
+    if (columnHasPixel(mBounds.width() - 1)) { minRight = mBounds.width() - 1; }
     for (int row = relTop; row <= relBottom; ++row)
     {
         const QRgb* cursor = reinterpret_cast<const QRgb*>(mImage.constScanLine(row)) + mBounds.width() - 1;
@@ -816,42 +939,16 @@ BitmapImage* BitmapImage::scanToTransparent(BitmapImage *img, const int threshol
     return img;
 }
 
-Status BitmapImage::writeFile(const QString& filename)
+Status BitmapImage::writeImage(const QImage& image, const QString& filename)
 {
-    DebugDetails dd;
-    dd << "BitmapImage::writeFile";
-    mPendingLoad = {}; // the file changes
-    dd << QString("&nbsp;&nbsp;filename = ").append(filename);
-
     QImageWriter writer(filename);
-    if (!mImage.isNull())
-    {
-        bool b = writer.write(mImage);
-        if (b) {
-            return Status::OK;
-        } else {
-            dd << QString("&nbsp;&nbsp;Error: %1 (Code %2)").arg(writer.errorString()).arg(static_cast<int>(writer.error()));
-            return Status(Status::FAIL, dd);
-        }
-    }
+    if (writer.write(image)) { return Status::OK; }
 
-    if (bounds().isEmpty())
-    {
-        QFile f(filename);
-        if(f.exists())
-        {
-            bool b = f.remove();
-            if (!b) {
-                dd << "&nbsp;&nbsp;Error: Image is empty but unable to remove file.";
-                return Status::FAIL;
-            }
-        }
-
-        // The frame is likely empty, act like there's no file name
-        // so we don't end up writing to it later.
-        setFileName("");
-    }
-    return Status::SAFE;
+    DebugDetails dd;
+    dd << "BitmapImage::writeImage";
+    dd << QString("&nbsp;&nbsp;filename = ").append(filename);
+    dd << QString("&nbsp;&nbsp;Error: %1 (Code %2)").arg(writer.errorString()).arg(static_cast<int>(writer.error()));
+    return Status(Status::FAIL, dd);
 }
 
 void BitmapImage::clear()

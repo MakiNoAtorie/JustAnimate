@@ -51,7 +51,8 @@ void blendPixels(BlendMode mode, quint32* dst, const quint32* src, int count);
 void blendPixelsScalar(BlendMode mode, quint32* dst, const quint32* src, int count);
 
 /** Blends `layer` (premultiplied, in device pixels) onto the painter's device at device position `pos`,
- *  with the painter's opacity. The device must be a QImage or a QPixmap. */
+ *  with the painter's opacity. The device must be a QImage or a QPixmap. A premultiplied QImage,
+ *  unclipped or clipped to one whole-pixel rect around the layer, is blended in place; others go through a copy. */
 void drawBlended(QPainter& painter, const QImage& layer, const QPoint& pos, BlendMode mode);
 
 /** Paints a layer with `paint` into a device-size buffer with the painter's transform, then blends it

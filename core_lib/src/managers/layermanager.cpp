@@ -278,23 +278,6 @@ LayerSound* LayerManager::createSoundLayer(const QString& strLayerName)
     return static_cast<LayerSound*>(createLayer(Layer::SOUND, strLayerName));
 }
 
-int LayerManager::lastFrameAtFrame(int frameIndex)
-{
-    Object* o = object();
-    for (int i = frameIndex; i >= 0; i -= 1)
-    {
-        for (int layerIndex = 0; layerIndex < o->getLayerCount(); ++layerIndex)
-        {
-            auto pLayer = o->getLayer(layerIndex);
-            if (pLayer->keyExists(i))
-            {
-                return i;
-            }
-        }
-    }
-    return -1;
-}
-
 int LayerManager::firstKeyFrameIndex()
 {
     int minPosition = INT_MAX;

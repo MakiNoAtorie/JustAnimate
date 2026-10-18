@@ -70,7 +70,8 @@ size_t MiniZ::istreamReadCallback(void *pOpaque, mz_uint64 file_ofs, void * pBuf
 
 // ReSharper disable once CppInconsistentNaming
 Status MiniZ::compressFolder(QString zipFilePath, QString srcFolderPath, const QStringList& fileList, QString mimetype,
-                             const Progress& progress)
+                             const Progress& progress, const QString& previousZipPath,
+                             const QSet<QString>& copyFromPrevious)
 {
     DebugDetails dd;
     dd << "\n[Miniz COMPRESSION diagnostics]\n";
@@ -123,10 +124,36 @@ Status MiniZ::compressFolder(QString zipFilePath, QString srcFolderPath, const Q
         return Status(Status::FAIL, dd);
     }
     QDir baseDir(canonicalFolder);
+
+    mz_zip_archive previous;
+    mz_zip_zero_struct(&previous);
+    const bool hasPrevious = !copyFromPrevious.isEmpty() &&
+        mz_zip_reader_init_file(&previous, previousZipPath.toUtf8().constData(), 0);
+    ScopeGuard previousGuard([&] {
+        if (hasPrevious) mz_zip_reader_end(&previous);
+    });
+    const QDir srcDir(srcFolderPath);
+
     int done = 0;
     for (const QString& filePath : fileList)
     {
         if (progress) progress(done++, fileList.size());
+
+        // A copied entry reads nothing from disk, so it needs no canonical path check.
+        const QString copyName = srcDir.relativeFilePath(filePath);
+        const int previousIndex = (hasPrevious && copyFromPrevious.contains(copyName))
+            ? mz_zip_reader_locate_file(&previous, copyName.toUtf8().constData(), nullptr, 0) : -1;
+        if (previousIndex >= 0)
+        {
+            if (!mz_zip_writer_add_from_zip_reader(mz, &previous, static_cast<mz_uint>(previousIndex)))
+            {
+                mz_zip_error err = mz_zip_get_last_error(mz);
+                dd << QString("Error: Unable to copy entry: %3. Error code: %1, reason: %2 - Aborting!").arg(static_cast<int>(err)).arg(mz_zip_get_error_string(err), copyName);
+                return Status(Status::FAIL, dd);
+            }
+            continue;
+        }
+
         QString canonicalFilePath = QFileInfo(filePath).canonicalFilePath();
         if (canonicalFilePath.isEmpty())
         {
@@ -146,7 +173,9 @@ Status MiniZ::compressFolder(QString zipFilePath, QString srcFolderPath, const Q
         ok = mz_zip_writer_add_file(mz,
                                     sRelativePath.toUtf8().data(),
                                     filePath.toUtf8().data(),
-                                    "", 0, MZ_BEST_SPEED);
+                                    "", 0,
+                                    // PNG is already deflated: a second pass costs time and saves no space.
+                                    sRelativePath.endsWith(".png", Qt::CaseInsensitive) ? MZ_NO_COMPRESSION : MZ_BEST_SPEED);
         if (!ok)
         {
             mz_zip_error err = mz_zip_get_last_error(mz);

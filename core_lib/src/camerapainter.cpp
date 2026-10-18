@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "camerapainter.h"
 
 #include <QPainter>
+#include <QImage>
 #include <QPixmap>
 #include "object.h"
 #include "layercamera.h"
@@ -29,8 +30,9 @@ GNU General Public License for more details.
 #include "transform.h"
 
 #include "painterutils.h"
+#include "framerenderer.h"
 
-CameraPainter::CameraPainter(QPixmap& canvas) : mCanvas(canvas)
+CameraPainter::CameraPainter(QImage& canvas) : mCanvas(canvas)
 {
     reset();
 }
@@ -66,6 +68,25 @@ void CameraPainter::preparePainter(const Object* object,
     mViewScale = viewScale;
 }
 
+QVector<qint64> CameraPainter::frameKey() const
+{
+    QVector<qint64> key{ mCurrentLayerIndex, int(mLayerVisibility), mIsPlaying, mObject->data()->paperTemplate().on };
+    for (int i = 0; i < mObject->getLayerCount(); ++i)
+    {
+        const Layer* layer = mObject->getLayer(i);
+        if (layer->type() != Layer::CAMERA) { continue; }
+        const auto* camera = static_cast<const LayerCamera*>(layer);
+        key << i << camera->visible();
+        FrameRenderer::appendTransformKey(key, camera->getViewAtFrame(mFrameIndex));
+        for (const OnionSkinSubPainter::Neighbour& n : mOnionSkinPainter.neighbours(camera, mOnionSkinOptions, mFrameIndex))
+        {
+            key << int(n.state) << n.frame;
+            FrameRenderer::appendTransformKey(key, camera->getViewAtFrame(n.frame));
+        }
+    }
+    return key;
+}
+
 void CameraPainter::paint(const QRect& blitRect)
 {
     QPainter painter;
@@ -94,9 +115,9 @@ void CameraPainter::paintCached(const QRect& blitRect)
     }
 }
 
-void CameraPainter::initializePainter(QPainter& painter, QPixmap& pixmap, const QRect& blitRect, bool blitEnabled)
+void CameraPainter::initializePainter(QPainter& painter, QPaintDevice& device, const QRect& blitRect, bool blitEnabled)
 {
-    painter.begin(&pixmap);
+    painter.begin(&device);
 
     if (blitEnabled) {
         painter.setCompositionMode(QPainter::CompositionMode_Clear);

@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <cstdio>
 #include <random>
 #include <vector>
@@ -40,16 +41,19 @@ GNU General Public License for more details.
 #include "colormanager.h"
 #include "dabtool.h"
 #include "editor.h"
+#include "exporter.h"
 #include "filemanager.h"
 #include "layerbitmap.h"
 #include "layermanager.h"
 #include "object.h"
 #include "playbackmanager.h"
 #include "preferencemanager.h"
+#include "projectsession.h"
 #include "scribblearea.h"
 #include "stageprofiler.h"
 #include "stroketool.h"
 #include "testfixture.h"
+#include "timeline.h"
 #include "tiledbuffer.h"
 #include "toolmanager.h"
 #include "viewmanager.h"
@@ -65,8 +69,12 @@ namespace
 
 // Highest resident set seen by sampleRam(); 0 on platforms without a reading.
 quint64 peakRamBytes = 0;
+// Resident set after the "working set" scrub.
+quint64 workingSetBytes = 0;
+// Resident set after the "draw 4K" strokes, which hold their undo steps.
+quint64 draw4kBytes = 0;
 
-void sampleRam()
+quint64 ramBytes()
 {
     quint64 rss = 0;
 #if defined(Q_OS_WIN)
@@ -82,7 +90,12 @@ void sampleRam()
         std::fclose(f);
     }
 #endif
-    peakRamBytes = std::max(peakRamBytes, rss);
+    return rss;
+}
+
+void sampleRam()
+{
+    peakRamBytes = std::max(peakRamBytes, ramBytes());
 }
 
 struct BenchConfig
@@ -101,8 +114,9 @@ struct Scenario
     std::vector<double> ms;
 };
 
-// Builds the project in memory (not timed) and saves it; saveMs gets the time of the save.
-QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs)
+// Builds the project in memory (not timed) and saves it; saveMs gets the time of the save,
+// resaveMs the time of a second save with one frame modified. A key every `step` frames.
+QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs, double& resaveMs, int step = 1)
 {
     std::unique_ptr<Object> object(new Object);
     object->init();
@@ -111,7 +125,7 @@ QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs
     {
         LayerBitmap* layer = object->addNewBitmapLayer();
         const QColor color = QColor::fromHsv((l * 36) % 360, 160, 220);
-        for (int f = 1; f <= cfg.frames; ++f)
+        for (int f = 1; f <= cfg.frames; f += step)
         {
             layer->addNewKeyFrameAt(f);
             const QRectF r(-400 + (f * 7 + l * 60) % 700, -250 + l * 50, 100, 100);
@@ -121,13 +135,19 @@ QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs
     }
     object->data()->setCurrentLayer(1);
 
-    const QString path = dir + "/benchmark.pclx";
+    const QString path = dir + QString("/benchmark-%1.pclx").arg(step);
     FileManager fm;
     QElapsedTimer t;
     t.start();
     const Status st = fm.save(object.get(), path);
     saveMs = t.nsecsElapsed() / 1e6;
     REQUIRE(st.ok());
+
+    object->getLayer(1)->setModified(1, true);
+    t.start();
+    const Status resave = fm.save(object.get(), path);
+    resaveMs = t.nsecsElapsed() / 1e6;
+    REQUIRE(resave.ok());
     return path;
 }
 
@@ -176,8 +196,17 @@ void mouse(QWidget* w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
     QApplication::sendEvent(w, &e);
 }
 
+// Layer draws and cell renders from pen release to the next paint, summed over the "draw top onion" strokes.
+struct ReleaseCounts
+{
+    std::uint64_t layerDraws = 0;
+    std::uint64_t cellRenders = 0;
+};
+ReleaseCounts onionRelease;
+
 // Deterministic zig-zag strokes across the canvas, repainting after each move like the app.
-void drawStrokes(TestSession& s, ToolType tool, int strokes)
+// With counts, a release paints only the area it updated, as the event loop does, and is counted.
+void drawStrokes(TestSession& s, ToolType tool, int strokes, ReleaseCounts* counts = nullptr)
 {
     s.editor->tools()->setCurrentTool(tool);
     s.editor->scrubTo(1);
@@ -190,8 +219,21 @@ void drawStrokes(TestSession& s, ToolType tool, int strokes)
             mouse(s.area.get(), QEvent::MouseMove, QPointF(200 + p * 8, y + ((p % 10) - 5) * 6), Qt::LeftButton);
             s.area->repaint();
         }
+        if (counts == nullptr)
+        {
+            mouse(s.area.get(), QEvent::MouseButtonRelease, QPointF(1000, y), Qt::NoButton);
+            s.area->repaint();
+            continue;
+        }
+        const bool wasOn = StageProfiler::enabled();
+        StageProfiler::enabled() = true;
+        const std::uint64_t draws = StageProfiler::calls(StageProfiler::LayerDraw);
+        const std::uint64_t cells = StageProfiler::calls(StageProfiler::CellRender);
         mouse(s.area.get(), QEvent::MouseButtonRelease, QPointF(1000, y), Qt::NoButton);
-        s.area->repaint();
+        QApplication::processEvents();
+        counts->layerDraws += StageProfiler::calls(StageProfiler::LayerDraw) - draws;
+        counts->cellRenders += StageProfiler::calls(StageProfiler::CellRender) - cells;
+        StageProfiler::enabled() = wasOn;
     }
 }
 
@@ -209,14 +251,34 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "draw top",     "stroke", cfg.strokes },
         { "scrub onion",  "frame",  cfg.frames },
         { "play blend",   "frame",  cfg.frames },
+        { "loop",         "frame",  2 * std::min(48, cfg.frames) },
+        { "save one",     "file",   1 },
+        { "export",       "frame",  cfg.frames },
+        { "timeline",     "stroke", cfg.strokes },
+        { "far jump",     "jump",   10 },
+        { "working set",  "frame",  cfg.frames },
+        { "draw top onion", "stroke", cfg.strokes },
+        { "autosave ui",  "file",   1 },
+        { "autosave",     "file",   1 },
+        { "draw 4K",      "stroke", cfg.strokes },
+        { "pan onion",    "event",  50 },
+        { "erase 4K",     "stroke", cfg.strokes },
     };
+    // Rows after "play blend" are found by name, so tickets append rows without renumbering.
+    auto row = [&sc](const char* name) -> Scenario& {
+        return *std::find_if(sc.begin(), sc.end(), [name](const Scenario& r) { return std::strcmp(r.name, name) == 0; });
+    };
+    onionRelease = ReleaseCounts();
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
-        double ms = 0;
-        path = createProject(dir.path(), cfg, ms);
+        double ms = 0, resaveMs = 0;
+        path = createProject(dir.path(), cfg, ms, resaveMs);
         sc[0].ms.push_back(ms);
+        row("save one").ms.push_back(resaveMs);
     }
+    double holdsMs = 0, holdsResaveMs = 0;
+    const QString holdsPath = createProject(dir.path(), cfg, holdsMs, holdsResaveMs, 3); // 3s: most shown Drawings are held
 
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
@@ -261,6 +323,28 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         s.editor->playback()->stop();
         REQUIRE(s.editor->currentFrame() == cfg.frames + 1);
 
+        // Loop: play the first 48 frames three times; passes 2 and 3 are timed (frame cache hits).
+        const int loopFrames = std::min(48, cfg.frames);
+        s.area->onObjectLoaded();
+        s.editor->playback()->play();
+        for (int pass = 0; pass < 3; ++pass)
+        {
+            if (pass == 1)
+            {
+                counter.paints = 0;
+                t.start();
+            }
+            s.editor->scrubTo(1);
+            for (int f = 1; f <= loopFrames; ++f)
+            {
+                s.area->repaint();
+                s.editor->scrubForward();
+            }
+        }
+        row("loop").ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(counter.paints == 2 * loopFrames);
+        s.editor->playback()->stop();
+
         t.start();
         drawStrokes(s, PENCIL, cfg.strokes);
         sc[4].ms.push_back(t.nsecsElapsed() / 1e6);
@@ -294,6 +378,28 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             }
             sc[7].ms.push_back(t.nsecsElapsed() / 1e6);
             REQUIRE(counter.paints == cfg.frames);
+
+            // The top-layer pencil strokes again with the onion skin on.
+            t.start();
+            drawStrokes(s, PENCIL, cfg.strokes, &onionRelease);
+            row("draw top onion").ms.push_back(t.nsecsElapsed() / 1e6);
+
+            // Hand-tool pan steps with the onion skin on: each shifts the canvas and renders the exposed strips.
+            const QMetaObject::Connection panned =
+                QObject::connect(s.editor->view(), &ViewManager::viewChanged, s.area.get(), &ScribbleArea::onViewChanged);
+            s.editor->tools()->setCurrentTool(HAND);
+            s.editor->scrubTo(3);
+            s.area->repaint();
+            counter.paints = 0;
+            t.start();
+            for (int i = 0; i < 50; ++i)
+            {
+                s.editor->view()->panByScreen(QPointF(i % 10 < 5 ? 7 : -7, 3));
+                s.area->repaint();
+            }
+            row("pan onion").ms.push_back(t.nsecsElapsed() / 1e6);
+            REQUIRE(counter.paints == 50);
+            QObject::disconnect(panned);
         }
 
         // Play again with every bitmap layer above the bottom one blended (multiply, screen, overlay, add).
@@ -313,6 +419,89 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         sc[8].ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(counter.paints == cfg.frames);
         s.editor->playback()->stop();
+
+        // Export every frame (still blended) as a 1080p PNG sequence.
+        ExportRequest seq;
+        seq.kind = ExportRequest::Kind::Sequence;
+        seq.endFrame = cfg.frames;
+        seq.size = QSize(1920, 1080);
+        seq.path = dir.filePath("seq");
+        t.start();
+        const Status exported = Exporter::run(*s.editor->object(), seq);
+        row("export").ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(exported.ok());
+
+        // Count autosave after one stroke on a saved copy: the time the UI is blocked, then until the file is done.
+        ProjectSession project(s.editor.get(), nullptr);
+        REQUIRE(project.saveAs(dir.filePath("autosave-bench.pclx")).ok());
+        drawStrokes(s, PENCIL, 1);
+        t.start();
+        REQUIRE(project.autoSave());
+        row("autosave ui").ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(project.finishBackgroundSave().ok());
+        row("autosave").ms.push_back(t.nsecsElapsed() / 1e6);
+
+        // Timeline after a stroke end: the Drawing's frameModified, then a timeline paint.
+        TimeLine timeline(nullptr);
+        timeline.setEditor(s.editor.get());
+        timeline.initUI();
+        timeline.resize(1280, 300);
+        timeline.show(); // a hidden widget gets a resize, and so a full redraw, on every grab
+        timeline.grab();
+        t.start();
+        for (int i = 0; i < cfg.strokes; ++i)
+        {
+            emit s.editor->frameModified(1);
+            timeline.grab();
+        }
+        row("timeline").ms.push_back(t.nsecsElapsed() / 1e6);
+
+        // Far jump: between the first and the last frame, caches cleared, so each jump loads from disk.
+        counter.paints = 0;
+        t.start();
+        for (int j = 0; j < 10; ++j)
+        {
+            s.area->onObjectLoaded();
+            s.editor->scrubTo(j % 2 ? 1 : cfg.frames);
+            s.area->repaint();
+        }
+        row("far jump").ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(counter.paints == 10);
+
+        {
+            // Working set: scrub the 3s project with onion skin on both sides, then read the resident set.
+            const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION });
+            s.editor->preference()->set<SETTING::PREV_ONION>(true);
+            s.editor->preference()->set<SETTING::NEXT_ONION>(true);
+            REQUIRE(s.editor->openObject(holdsPath, [](int) {}, [](int) {}).ok());
+            s.area->onObjectLoaded();
+            counter.paints = 0;
+            t.start();
+            for (int f = 1; f <= cfg.frames; ++f)
+            {
+                s.editor->scrubTo(f);
+                s.area->repaint();
+            }
+            row("working set").ms.push_back(t.nsecsElapsed() / 1e6);
+            REQUIRE(counter.paints == cfg.frames);
+            workingSetBytes = ramBytes();
+        }
+
+        // Pencil on a 4K Drawing: each undo step keeps the stroke rect, not the frame.
+        s.editor->layers()->setCurrentLayer(1);
+        auto* bottom = static_cast<LayerBitmap*>(s.editor->layers()->currentLayer());
+        bottom->getBitmapImageAtFrame(1)->drawRect(QRectF(-1920, -1080, 3840, 2160), Qt::NoPen, QBrush(Qt::white),
+                                                   QPainter::CompositionMode_DestinationOver, false);
+        t.start();
+        drawStrokes(s, PENCIL, cfg.strokes);
+        row("draw 4K").ms.push_back(t.nsecsElapsed() / 1e6);
+        draw4kBytes = ramBytes();
+        REQUIRE(bottom->getBitmapImageAtFrame(1)->bounds().width() >= 3840);
+
+        // Eraser on the same 4K Drawing: each stroke ends with an auto-crop.
+        t.start();
+        drawStrokes(s, ERASER, cfg.strokes);
+        row("erase 4K").ms.push_back(t.nsecsElapsed() / 1e6);
     }
     return sc;
 }
@@ -330,6 +519,11 @@ void printResults(const BenchConfig& cfg, std::vector<Scenario>& sc)
                     median / s.units, s.unit);
     }
     std::printf("peak RAM during scrub and play: %.1f MB\n", peakRamBytes / (1024.0 * 1024.0));
+    std::printf("working set after the 3s onion scrub: %.1f MB\n", workingSetBytes / (1024.0 * 1024.0));
+    const double releases = double(cfg.strokes) * cfg.reps;
+    std::printf("draw top onion, per pen release: %.1f layer draws, %.1f cell renders\n",
+                onionRelease.layerDraws / releases, onionRelease.cellRenders / releases);
+    std::printf("working set after the draw 4K strokes: %.1f MB\n", draw4kBytes / (1024.0 * 1024.0));
     std::fflush(stdout);
 }
 
@@ -575,12 +769,15 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 9);
+    REQUIRE(sc.size() == 21);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);
         REQUIRE(s.ms[0] >= 0.0);
     }
+    // A pen release on the top layer draws that layer once; the layers below and the onion frames stay cached.
+    CHECK(onionRelease.layerDraws == std::uint64_t(cfg.strokes));
+    CHECK(onionRelease.cellRenders == 0);
 }
 
 // Hidden: run with `pencil2d_tests "[benchmark]"` or the `benchmark` build target.

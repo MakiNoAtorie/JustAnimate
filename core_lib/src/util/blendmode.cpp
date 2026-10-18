@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include <QPainter>
 #include <QPixmap>
 
+#include "stageprofiler.h"
+
 // SSE2 is the x86-64 baseline: no runtime check. Other targets use the scalar path.
 #if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
 #define BLEND_SSE2
@@ -126,9 +128,20 @@ int blendSse2(quint32* dst, const quint32* src, int count)
 
 QImage grabDevice(QPaintDevice* device, const QRect& rect)
 {
+    StageScope stage(StageProfiler::BlendCopy);
     if (device->devType() == QInternal::Image) { return static_cast<QImage*>(device)->copy(rect); }
     if (device->devType() == QInternal::Pixmap) { return static_cast<QPixmap*>(device)->copy(rect).toImage(); }
     return QImage();
+}
+
+// True when the painter's clip lets it paint every device pixel of rect. Only a clip of one whole-pixel rect counts.
+bool clipKeeps(const QPainter& painter, const QRect& rect)
+{
+    if (!painter.hasClipping()) { return true; }
+    const QRegion clip = painter.clipRegion();
+    if (clip.rectCount() != 1) { return false; }
+    const QRectF device = painter.deviceTransform().mapRect(QRectF(clip.boundingRect()));
+    return device == QRectF(device.toRect()) && device.toRect().contains(rect);
 }
 
 } // namespace
@@ -170,9 +183,6 @@ void blendPixelsScalar(BlendMode mode, quint32* dst, const quint32* src, int cou
 void drawBlended(QPainter& painter, const QImage& layer, const QPoint& pos, BlendMode mode)
 {
     QImage src = layer.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-    QImage result = grabDevice(painter.device(), QRect(pos, src.size())).convertToFormat(QImage::Format_ARGB32_Premultiplied);
-    if (result.isNull() || result.size() != src.size()) { return; }
-
     if (painter.opacity() < 1.0)
     {
         QImage faded(src.size(), QImage::Format_ARGB32_Premultiplied);
@@ -183,6 +193,26 @@ void drawBlended(QPainter& painter, const QImage& layer, const QPoint& pos, Blen
         fader.end();
         src = faded;
     }
+
+    // A premultiplied image takes the blend in place when the clip keeps every pixel: the painter would copy them unchanged.
+    QPaintDevice* device = painter.device();
+    if (device->devType() == QInternal::Image && clipKeeps(painter, QRect(pos, src.size())))
+    {
+        const QImage* target = static_cast<QImage*>(device);
+        if (target->format() == QImage::Format_ARGB32_Premultiplied && target->rect().contains(QRect(pos, src.size())))
+        {
+            for (int y = 0; y < src.height(); ++y)
+            {
+                // constScanLine: the active painter owns these pixels; a detach would move them.
+                auto* line = reinterpret_cast<quint32*>(const_cast<uchar*>(target->constScanLine(pos.y() + y))) + pos.x();
+                blendPixels(mode, line, reinterpret_cast<const quint32*>(src.constScanLine(y)), src.width());
+            }
+            return;
+        }
+    }
+
+    QImage result = grabDevice(device, QRect(pos, src.size())).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    if (result.isNull() || result.size() != src.size()) { return; }
     for (int y = 0; y < src.height(); ++y)
     {
         blendPixels(mode, reinterpret_cast<quint32*>(result.scanLine(y)),

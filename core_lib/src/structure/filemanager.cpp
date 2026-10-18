@@ -25,15 +25,94 @@ GNU General Public License for more details.
 #include <filesystem>
 #include <QDebug>
 #include <QDir>
+#include <QDirIterator>
+#include <QHash>
+#include <QMutex>
+#include <QThreadPool>
 #include <QVersionNumber>
 #include "qminiz.h"
 #include "emergencysave.h"
 #include "fileformat.h"
 #include "object.h"
+#include "bitmapimage.h"
+#include "layerbitmap.h"
 #include "layercamera.h"
 #include "layersound.h"
 #include "soundclip.h"
 #include "util.h"
+
+namespace
+{
+struct FileStamp
+{
+    qint64 size = -1;
+    QDateTime time;
+    bool operator==(const FileStamp& o) const { return size == o.size && time == o.time; }
+};
+
+FileStamp stampOf(const QFileInfo& info) { return { info.size(), info.lastModified() }; }
+
+// What an archive was written from: the PNG frames of its working folder, as they were then,
+// and the number of the save that wrote it.
+struct ArchiveBaseline
+{
+    QString workingDir;
+    FileStamp archive;
+    QHash<QString, FileStamp> frames;
+    quint64 save = 0;
+};
+
+// Saves counted per working folder, and the save that last wrote or moved each file there.
+// File times cannot tell a rewrite apart: a fast rewrite can keep the size and time.
+struct FolderWrites
+{
+    quint64 saves = 0;
+    QHash<QString, quint64> writtenBy;
+};
+
+// Both tables are used only under saveRecordsMutex().
+// shortcut: entries of closed projects stay until exit; drop them on close if memory matters.
+QMutex& saveRecordsMutex()
+{
+    static QMutex mutex;
+    return mutex;
+}
+
+QHash<QString, ArchiveBaseline>& archiveBaselines()
+{
+    static QHash<QString, ArchiveBaseline> baselines;
+    return baselines;
+}
+
+QHash<QString, FolderWrites>& folderWrites()
+{
+    static QHash<QString, FolderWrites> writes;
+    return writes;
+}
+
+// Recovery puts other files into a working folder: nothing in it may be copied from an archive.
+void forgetWorkingFolder(const QString& workingDir)
+{
+    const QMutexLocker locker(&saveRecordsMutex());
+    const QString clean = QDir::cleanPath(workingDir);
+    folderWrites().remove(clean);
+    for (auto it = archiveBaselines().begin(); it != archiveBaselines().end();)
+        it = (QDir::cleanPath(it->workingDir) == clean) ? archiveBaselines().erase(it) : std::next(it);
+}
+
+// Keyed by path relative to the working folder, the entry names of the archive.
+QHash<QString, FileStamp> frameStamps(const QString& workingDir, const QString& dataFolder)
+{
+    QHash<QString, FileStamp> stamps;
+    const QDir base(workingDir);
+    for (QDirIterator it(dataFolder, { "*.png" }, QDir::Files); it.hasNext();)
+    {
+        it.next();
+        stamps.insert(base.relativeFilePath(it.filePath()), stampOf(it.fileInfo()));
+    }
+    return stamps;
+}
+}
 
 FileManager::FileManager(QObject* parent) : QObject(parent)
 {
@@ -252,7 +331,86 @@ bool FileManager::isArchiveFormat(const QString& fileName) const
     return true;
 }
 
+// The archive step of a save: zip the working folder into <target>.tmp, then rename it over the target.
+// It reads files only, never the Object, so it runs on any thread. It holds the save lock until destroyed.
+struct FileManager::PendingArchive
+{
+    DebugDetails dd;
+    std::shared_ptr<void> lock;
+    QString target;
+    QString workingDir;
+    QString dataFolder;
+    QStringList files;
+    QHash<QString, FileStamp> stamps;
+    quint64 save = 0;
+    std::vector<DrawingWrite> drawings;
+    QString mainXmlPath;
+    QByteArray mainXml;
+
+    Status writeFiles();
+    Status zip(const MiniZ::Progress& progress);
+    Status publish();
+    void markSaved(const Object* object) const;
+};
+
 Status FileManager::save(const Object* object, const QString& sFileName)
+{
+    std::shared_ptr<PendingArchive> archive;
+    Status st = writeProjectFiles(object, sFileName, archive);
+    if (!st.ok()) return st;
+    st = runArchiveJob([&archive](const MiniZ::Progress& progress) {
+        const Status written = archive->writeFiles();
+        return written.ok() ? archive->zip(progress) : written;
+    });
+    archive->markSaved(object);
+    if (st.ok()) st = archive->publish();
+    progressForward();
+    return st;
+}
+
+FileManager::BackgroundSave FileManager::saveInBackground(const Object* object, const QString& sFileName,
+                                                          const std::function<void()>& done)
+{
+    auto result = std::make_shared<std::promise<Status>>();
+    BackgroundSave save;
+    save.mResult = result->get_future();
+    const Status st = writeProjectFiles(object, sFileName, save.mArchive);
+    if (!st.ok())
+    {
+        result->set_value(st);
+        return save;
+    }
+    workerPool()->start([result, archive = save.mArchive, done] {
+        Status archived = archive->writeFiles();
+        if (archived.ok()) archived = archive->zip({});
+        if (archived.ok()) archived = archive->publish();
+        archive->lock.reset(); // releases the save lock before the result is visible
+        if (done) done();
+        result->set_value(archived);
+    });
+    return save;
+}
+
+bool FileManager::BackgroundSave::ready() const
+{
+    return mResult.valid() && mResult.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+}
+
+void FileManager::BackgroundSave::wait() const
+{
+    if (mResult.valid()) mResult.wait();
+}
+
+Status FileManager::BackgroundSave::finish(const Object* object)
+{
+    if (!mResult.valid()) return Status::OK;
+    const Status st = mResult.get();
+    if (mArchive) mArchive->markSaved(object);
+    mArchive.reset();
+    return st;
+}
+
+Status FileManager::writeProjectFiles(const Object* object, const QString& sFileName, std::shared_ptr<PendingArchive>& archive)
 {
     DebugDetails dd;
     dd << "\n[Project SAVE diagnostics]\n";
@@ -279,6 +437,7 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     }
 
     // Progress handlers process events, so a timer can start a save while one runs on the same working folder.
+    // The lock lives until the archive job is done or dropped, on whatever thread runs it.
     static std::atomic<bool> sSaving{false};
     if (sSaving.exchange(true))
     {
@@ -287,7 +446,7 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("Save in Progress"),
                       tr("Another save is still running. Please try again when it is done."));
     }
-    OnScopeExit(sSaving = false);
+    const std::shared_ptr<void> saveLock(nullptr, [](void*) { sSaving = false; });
 
     const int totalCount = object->totalKeyFrameCount();
     mMaxProgressValue = totalCount + 5;
@@ -348,21 +507,29 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     }
 
     QStringList filesToZip; // A files list in the working folder needs to be zipped
-    Status stKeyFrames = writeKeyFrameFiles(object, sDataFolder, filesToZip);
+    QStringList framesWritten;
+    std::vector<DrawingWrite> drawings;
+    Status stKeyFrames = writeKeyFrameFiles(object, sDataFolder, filesToZip, framesWritten, drawings);
+    quint64 save = 0;
+    {
+        // Recorded on failure too: a file written by a failed save is not the archived one.
+        const QMutexLocker locker(&saveRecordsMutex());
+        FolderWrites& writes = folderWrites()[QDir::cleanPath(sTempWorkingFolder)];
+        save = ++writes.saves;
+        const QDir base(sTempWorkingFolder);
+        for (const QString& file : framesWritten)
+            writes.writtenBy.insert(base.relativeFilePath(file), save);
+    }
     dd.collect(stKeyFrames.details());
 
-    // Don't write a main.xml that points at frame files which weren't written.
-    Status stMainXml = Status::FAIL;
-    if (stKeyFrames.ok())
-    {
-        stMainXml = writeMainXml(object, sMainXMLFile, filesToZip);
-        dd.collect(stMainXml.details());
-    }
+    // Written after the frame files, by writeFiles. A failed frame write leaves its file name unset: no XML then.
+    const QByteArray mainXml = stKeyFrames.ok() ? mainXmlBytes(object) : QByteArray();
+    filesToZip.append(sMainXMLFile);
 
     Status stPalette = writePalette(object, sDataFolder, filesToZip);
     dd.collect(stPalette.details());
 
-    const bool saveOk = stKeyFrames.ok() && stMainXml.ok() && stPalette.ok();
+    const bool saveOk = stKeyFrames.ok() && stPalette.ok();
 
     progressForward();
 
@@ -374,15 +541,84 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("An internal error occurred. The project could not be saved."));
     }
 
+    archive = std::make_shared<PendingArchive>();
+    *archive = { dd, saveLock, sFileName, sTempWorkingFolder, sDataFolder, filesToZip, {}, save,
+                 std::move(drawings), sMainXMLFile, mainXml };
+    return Status::OK;
+}
+
+Status FileManager::PendingArchive::writeFiles()
+{
+    std::vector<Status> results(drawings.size(), Status::OK);
+    parallelFor(static_cast<int>(drawings.size()), [&](int i) {
+        results[i] = BitmapImage::writeImage(drawings[i].image, drawings[i].path);
+        drawings[i].written = results[i].ok();
+    });
+    bool framesOk = true;
+    for (size_t i = 0; i < drawings.size(); ++i)
+    {
+        if (results[i].ok()) continue;
+        framesOk = false;
+        dd.collect(results[i].details());
+        dd << QString("- Drawing %1 failed to save").arg(drawings[i].path);
+    }
+
+    // Don't write a main.xml that points at frame files which weren't written.
+    const Status st = framesOk ? writeMainXml(mainXmlPath, mainXml) : Status(Status::FAIL);
+    dd.collect(st.details());
+    if (!st.ok())
+    {
+        return Status(Status::FAIL, dd,
+                      tr("Internal Error"),
+                      tr("An internal error occurred. The project could not be saved."));
+    }
+    return Status::OK;
+}
+
+void FileManager::PendingArchive::markSaved(const Object* object) const
+{
+    QHash<const KeyFrame*, const DrawingWrite*> byKey;
+    for (const DrawingWrite& w : drawings) { if (w.written) byKey.insert(w.key, &w); }
+    if (byKey.isEmpty()) return;
+    for (LayerBitmap* layer : object->getLayersByType<LayerBitmap>())
+    {
+        layer->foreachKeyFrame([&](KeyFrame* key) {
+            const DrawingWrite* w = byKey.value(key);
+            // A Drawing painted since the snapshot keeps its changes unsaved.
+            if (w && key->stamp() == w->stamp) key->setModified(false);
+        });
+    }
+}
+
+Status FileManager::PendingArchive::zip(const MiniZ::Progress& progress)
+{
     // Write the archive next to the target and only replace the original
     // once the new file is complete, so a failed save never corrupts it.
-    const QString sTmpFile = sFileName + ".tmp";
+    const QString sTmpFile = target + ".tmp";
     QFile::remove(sTmpFile);
 
-    dd << "Miniz: Zipping...";
-    Status stMiniz = runArchiveJob([&](const MiniZ::Progress& progress) {
-        return MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx", progress);
-    });
+    // A frame that no save wrote or moved since the target archive was written, and whose file
+    // still has the size and time it had then, is still that entry: copy it from there.
+    stamps = frameStamps(workingDir, dataFolder);
+    QSet<QString> unchanged;
+    const QMutexLocker locker(&saveRecordsMutex());
+    const FolderWrites writes = folderWrites().value(QDir::cleanPath(workingDir));
+    const auto baseline = archiveBaselines().constFind(QFileInfo(target).absoluteFilePath());
+    if (baseline != archiveBaselines().cend() && baseline->workingDir == workingDir &&
+        baseline->archive == stampOf(QFileInfo(target)))
+    {
+        for (auto it = stamps.cbegin(); it != stamps.cend(); ++it)
+        {
+            const auto was = baseline->frames.constFind(it.key());
+            if (was != baseline->frames.cend() && *was == it.value() &&
+                writes.writtenBy.value(it.key(), 0) <= baseline->save)
+                unchanged.insert(it.key());
+        }
+    }
+
+    dd << QString("Miniz: Zipping, %1 entries copied from the previous archive...").arg(unchanged.size());
+    Status stMiniz = MiniZ::compressFolder(sTmpFile, workingDir, files, "application/x-pencil2d-pclx",
+                                           progress, target, unchanged);
     if (!stMiniz.ok())
     {
         QFile::remove(sTmpFile);
@@ -393,37 +629,36 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("An internal error occurred. The project could not be saved."));
     }
     dd << "Miniz: Zip file saved successfully";
+    return Status::OK;
+}
 
+Status FileManager::PendingArchive::publish()
+{
     // Replaces the original in one step (atomic on POSIX, MoveFileEx on Windows).
+    const QString sTmpFile = target + ".tmp";
     std::error_code renameError;
     std::filesystem::rename(QFileInfo(sTmpFile).filesystemFilePath(),
-                            QFileInfo(sFileName).filesystemFilePath(), renameError);
+                            QFileInfo(target).filesystemFilePath(), renameError);
     if (renameError)
     {
         QFile::remove(sTmpFile);
-        dd << QString("Error: Unable to rename %1 to %2: %3").arg(sTmpFile, sFileName, QString::fromStdString(renameError.message()));
+        dd << QString("Error: Unable to rename %1 to %2: %3").arg(sTmpFile, target, QString::fromStdString(renameError.message()));
         return Status(Status::FAIL, dd,
                       tr("Internal Error"),
-                      tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(sFileName));
+                      tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(target));
     }
-
-    progressForward();
-
-    if (!saveOk)
     {
-        return Status(Status::FAIL, dd,
-                      tr("Internal Error"),
-                      tr("An internal error occurred. The project may not have been saved successfully."));
+        const QMutexLocker locker(&saveRecordsMutex());
+        archiveBaselines().insert(QFileInfo(target).absoluteFilePath(), { workingDir, stampOf(QFileInfo(target)), stamps, save });
     }
 
     // A manual save is newer than any autosave: recovery must not go back to one.
-    const QString autosave = QDir(object->workingDir()).filePath(PFF_AUTOSAVE_FILE_NAME);
-    if (!object->workingDir().isEmpty() && QFileInfo(sFileName) != QFileInfo(autosave))
+    const QString autosave = QDir(workingDir).filePath(PFF_AUTOSAVE_FILE_NAME);
+    if (!workingDir.isEmpty() && QFileInfo(target) != QFileInfo(autosave))
     {
         EmergencySave::clearCompletedAutosave();
         QFile::remove(autosave);
     }
-
     return Status::OK;
 }
 
@@ -724,7 +959,8 @@ bool FileManager::loadPalette(Object* obj)
     return true;
 }
 
-Status FileManager::writeKeyFrameFiles(const Object* object, const QString& dataFolder, QStringList& filesFlushed)
+Status FileManager::writeKeyFrameFiles(const Object* object, const QString& dataFolder, QStringList& filesFlushed,
+                                       QStringList& framesWritten, std::vector<DrawingWrite>& drawings)
 {
     DebugDetails dd;
     dd << "\n[Keyframes WRITE diagnostics]\n";
@@ -735,7 +971,7 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
     for (int i = 0; i < numLayers; ++i)
     {
         Layer* layer = object->getLayer(i);
-        Status st = layer->presave(dataFolder);
+        Status st = layer->presave(dataFolder, framesWritten);
         if (!st.ok())
         {
             dd.collect(st.details());
@@ -760,7 +996,7 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
 
         dd << QString("Layer[%1] = [id=%2, type=%3, name=%4]").arg(i).arg(layer->id()).arg(layer->type()).arg(layer->name());
 
-        Status st = layer->save(dataFolder, filesFlushed, [this] { progressForward(); });
+        Status st = layer->save(dataFolder, filesFlushed, framesWritten, drawings, [this] { progressForward(); });
         if (!st.ok())
         {
             saveLayersOK = false;
@@ -782,21 +1018,8 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
     return Status(errorCode, dd);
 }
 
-Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPath, QStringList& filesWritten)
+QByteArray FileManager::mainXmlBytes(const Object* object)
 {
-    DebugDetails dd;
-    dd << "\n[XML WRITE diagnostics]\n";
-
-    // Written beside the target and renamed over it when complete: for a
-    // .pcl project this file is the project, and a failed save must keep it.
-    const QString tmpPath = mainXmlPath + ".tmp";
-    QFile file(tmpPath);
-    if (!file.open(QFile::WriteOnly | QFile::Text))
-    {
-        dd << QString("Error: Failed to open Main XML at: %1, \nReason: %2").arg(tmpPath).arg(file.errorString());
-        return Status(Status::ERROR_FILE_CANNOT_OPEN, dd);
-    }
-
     QDomDocument xmlDoc("PencilDocument");
     QDomElement root = xmlDoc.createElement("document");
     QDomProcessingInstruction encoding = xmlDoc.createProcessingInstruction("xml", "version=\"1.0\" encoding=\"UTF-8\"");
@@ -818,14 +1041,27 @@ Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPat
     versionElem.appendChild(xmlDoc.createTextNode(QString(APP_VERSION)));
     root.appendChild(versionElem);
 
-    dd << "Writing main xml file...";
-
     const int indentSize = 2;
+    return xmlDoc.toByteArray(indentSize);
+}
 
-    QTextStream out(&file);
-    xmlDoc.save(out, indentSize);
-    out.flush();
-    const bool written = out.status() == QTextStream::Ok && file.flush();
+Status FileManager::writeMainXml(const QString& mainXmlPath, const QByteArray& xml)
+{
+    DebugDetails dd;
+    dd << "\n[XML WRITE diagnostics]\n";
+
+    // Written beside the target and renamed over it when complete: for a
+    // .pcl project this file is the project, and a failed save must keep it.
+    const QString tmpPath = mainXmlPath + ".tmp";
+    QFile file(tmpPath);
+    if (!file.open(QFile::WriteOnly | QFile::Text))
+    {
+        dd << QString("Error: Failed to open Main XML at: %1, \nReason: %2").arg(tmpPath).arg(file.errorString());
+        return Status(Status::ERROR_FILE_CANNOT_OPEN, dd);
+    }
+
+    dd << "Writing main xml file...";
+    const bool written = file.write(xml) == xml.size() && file.flush();
     file.close();
     std::error_code renameError;
     if (written)
@@ -842,8 +1078,6 @@ Status FileManager::writeMainXml(const Object* object, const QString& mainXmlPat
     }
 
     dd << "Done writing main xml file: " << mainXmlPath;
-
-    filesWritten.append(mainXmlPath);
     return Status(Status::OK, dd);
 }
 
@@ -1017,6 +1251,7 @@ bool FileManager::isProjectRecoverable(const QString& projectFolder)
 Object* FileManager::recoverUnsavedProject(QString intermeidatePath)
 {
     qDebug() << "TODO: recover project" << intermeidatePath;
+    forgetWorkingFolder(intermeidatePath);
 
     QDir projectDir(intermeidatePath);
     const QString mainXMLPath = projectDir.filePath(PFF_XML_FILE_NAME);

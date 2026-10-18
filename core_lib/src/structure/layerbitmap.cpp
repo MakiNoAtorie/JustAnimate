@@ -73,40 +73,57 @@ void LayerBitmap::loadImageAtFrame(QString path, QPoint topLeft, int frameNumber
     loadKey(pKeyFrame);
 }
 
-Status LayerBitmap::saveKeyFrameFile(KeyFrame* keyframe, QString path)
+Status LayerBitmap::save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles,
+                         std::vector<DrawingWrite>& writes, ProgressCallback progressStep)
 {
-    QString strFilePath = filePath(keyframe, QDir(path));
-
-    BitmapImage* bitmapImage = static_cast<BitmapImage*>(keyframe);
-
-    bool needSave = needSaveFrame(keyframe, strFilePath);
-    if (!needSave)
-    {
-        return Status::SAFE;
-    }
-
-    bitmapImage->setFileName(strFilePath);
+    const QDir dataFolder(sDataFolder);
+    std::vector<BitmapImage*> changed;
+    foreachKeyFrame([&](KeyFrame* key) {
+        auto* bitmap = static_cast<BitmapImage*>(key);
+        if (needSaveFrame(bitmap, filePath(bitmap, dataFolder)))
+        {
+            // Loads from the file it has now, on this thread: the frame pool has no lock.
+            bitmap->image();
+            changed.push_back(bitmap);
+            return;
+        }
+        if (!bitmap->fileName().isEmpty() && QFile::exists(bitmap->fileName()))
+            attachedFiles.append(bitmap->fileName());
+        progressStep();
+    });
 
     // Write minimal bounds: else the crop on load marks the frame modified and it can never unload.
-    bitmapImage->autoCrop();
-    Status st = bitmapImage->writeFile(strFilePath);
-    if (!st.ok())
+    parallelFor(static_cast<int>(changed.size()), [&](int i) { changed[i]->autoCrop(); });
+
+    for (BitmapImage* bitmap : changed)
     {
-        bitmapImage->setFileName("");
-
-        DebugDetails dd;
-        dd << "LayerBitmap::saveKeyFrame";
-        dd << QString("&nbsp;&nbsp;KeyFrame.pos() = %1").arg(keyframe->pos());
-        dd << QString("&nbsp;&nbsp;strFilePath = %1").arg(strFilePath);
-        dd << QString("Error: Failed to save BitmapImage");
-        dd.collect(st.details());
-        return Status(Status::FAIL, dd);
+        const QString path = filePath(bitmap, dataFolder);
+        const QImage pixels = bitmap->pixelsInMemory();
+        if (pixels.isNull())
+        {
+            // An empty Drawing has no file.
+            if (QFile::exists(path) && !QFile::remove(path))
+            {
+                DebugDetails dd;
+                dd << "LayerBitmap::save";
+                dd << QString("Error: Drawing %1 is empty but %2 cannot be removed").arg(bitmap->pos()).arg(path);
+                return Status(Status::FAIL, dd);
+            }
+            bitmap->setFileName("");
+            bitmap->setModified(false);
+        }
+        else
+        {
+            // The Drawing stays modified until the write ends: the pool cannot unload it before its file exists.
+            bitmap->setFileName(path);
+            writes.push_back({ bitmap, bitmap->stamp(), path, pixels });
+            attachedFiles.append(path);
+            writtenFiles.append(path);
+        }
+        progressStep();
     }
-
-    bitmapImage->setModified(false);
     return Status::OK;
 }
-
 KeyFrame* LayerBitmap::createKeyFrame(int position)
 {
     BitmapImage* b = new BitmapImage;
@@ -115,7 +132,7 @@ KeyFrame* LayerBitmap::createKeyFrame(int position)
     return b;
 }
 
-Status LayerBitmap::presave(const QString& sDataFolder)
+Status LayerBitmap::presave(const QString& sDataFolder, QStringList& movedFiles)
 {
     QDir dataFolder(sDataFolder);
     // Handles keys that have been moved but not modified
@@ -167,6 +184,7 @@ Status LayerBitmap::presave(const QString& sDataFolder)
         if (!QFile::rename(b->fileName(), dest))
             return fail("rename", b->fileName(), dest);
         b->setFileName(dest);
+        movedFiles.append(dest);
     }
 
     return Status::OK;

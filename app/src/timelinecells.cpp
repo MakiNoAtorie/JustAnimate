@@ -25,13 +25,17 @@ GNU General Public License for more details.
 #include <QDoubleSpinBox>
 #include <QFontMetrics>
 #include <QFormLayout>
+#include <algorithm>
+#include <QHash>
 #include <QLineEdit>
 #include <QKeyEvent>
 #include <QPainter>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSettings>
 #include <QTimer>
 #include <QDebug>
+#include <vector>
 
 #include "attributes.h"
 #include "camerapropertiesdialog.h"
@@ -44,6 +48,7 @@ GNU General Public License for more details.
 #include "playbackmanager.h"
 #include "preferencemanager.h"
 #include "soundclip.h"
+#include "stageprofiler.h"
 #include "timeline.h"
 
 #include "cellmenus.h"
@@ -193,14 +198,35 @@ int TimeLineCells::getInbetweenLayerNumber(int y) const {
     return layerNumber;
 }
 
+std::vector<TimeLineCells::Row> TimeLineCells::rowTable() const
+{
+    // Object::isLayerFolded per layer scans the layers again for each group member.
+    const Object* object = mEditor->object();
+    const int count = object->getLayerCount();
+    QHash<int, int> groupTop; // group id to its top layer index
+    for (int i = 0; i < count; ++i)
+    {
+        if (const int group = object->getLayer(i)->groupId()) { groupTop[group] = i; }
+    }
+    std::vector<Row> rows(count);
+    for (int i = count - 1, row = 0; i >= 0; --i)
+    {
+        rows[i].y = mOffsetY + (row - mLayerOffset) * mLayerHeight;
+        const LayerGroup* group = object->findLayerGroup(object->getLayer(i)->groupId());
+        rows[i].folded = group && group->collapsed && groupTop.value(group->id) != i;
+        if (!rows[i].folded) { ++row; }
+    }
+    return rows;
+}
+
 int TimeLineCells::getLayerY(int layerNumber) const
 {
-    const Object* object = mEditor->object();
-    int row = std::min(0, object->getLayerCount() - 1 - layerNumber);
-    for (int i = object->getLayerCount() - 1; i > layerNumber; --i)
-    {
-        if (!object->isLayerFolded(i)) { ++row; }
-    }
+    const std::vector<Row> rows = rowTable();
+    const int count = static_cast<int>(rows.size());
+    if (layerNumber >= 0 && layerNumber < count) { return rows[layerNumber].y; }
+    // Below the last row, or above the first.
+    const int shown = static_cast<int>(std::count_if(rows.begin(), rows.end(), [](const Row& r) { return !r.folded; }));
+    const int row = layerNumber < 0 ? shown : count - 1 - layerNumber;
     return mOffsetY + (row - mLayerOffset) * mLayerHeight;
 }
 
@@ -214,6 +240,43 @@ void TimeLineCells::updateContent()
 {
     mRedrawContent = true;
     update();
+}
+
+void TimeLineCells::onFrameModified(int frameNumber)
+{
+    // Key adds, removals and links come with the same signal as a pixel edit.
+    if (mRedrawContent || mCache == nullptr || visibleKeysHash() != mDrawnKeysHash)
+    {
+        updateContent();
+        return;
+    }
+    updateFrame(frameNumber);
+}
+
+void TimeLineCells::foreachVisibleKey(const Layer* layer, const std::function<void(KeyFrame*)>& action) const
+{
+    // A sound clip spans many cells; sound layers have few keys.
+    if (layer->type() == Layer::SOUND) { layer->foreachKeyFrame(action); return; }
+    // The key before the view can draw a tween line into it.
+    const KeyFrame* before = layer->getLastKeyFrameAtPosition(mFrameOffset - 1);
+    const int first = before && before->pos() < mFrameOffset ? before->pos() : mFrameOffset;
+    layer->foreachKeyFrameIn(first, lastVisibleFrame(), action);
+}
+
+size_t TimeLineCells::visibleKeysHash() const
+{
+    const Object* object = mEditor->object();
+    size_t seed = qHash(object->getLayerCount());
+    for (int i = 0; i < object->getLayerCount(); ++i)
+    {
+        const Layer* layer = object->getLayer(i);
+        seed = qHashMulti(seed, layer->id());
+        foreachVisibleKey(layer, [&](KeyFrame* key) {
+            seed = qHashMulti(seed, key->pos(), key->length(), int(key->mark()), key->tween(),
+                              layer->isLinked(key), layer->isFrameSelected(key->pos()));
+        });
+    }
+    return seed;
 }
 
 bool TimeLineCells::didDetachLayer() const {
@@ -238,6 +301,7 @@ void TimeLineCells::showFrameMenu(QPoint pos)
 
 void TimeLineCells::drawContent()
 {
+    StageScope stage(StageProfiler::TimelineContent);
     if (mCache == nullptr)
     {
         mCache = new QPixmap(size());
@@ -258,12 +322,15 @@ void TimeLineCells::drawContent()
 
     const int widgetWidth = width();
 
-    // Draw non-current layers
     const Object* object = mEditor->object();
     Q_ASSERT(object != nullptr);
-    for (int i = 0; i < object->getLayerCount(); i++)
+    const int layerCount = object->getLayerCount();
+    const std::vector<Row> rows = rowTable();
+
+    // Draw non-current layers
+    for (int i = 0; i < layerCount; i++)
     {
-        if (i == mEditor->layers()->currentLayerIndex() || object->isLayerFolded(i))
+        if (i == mEditor->layers()->currentLayerIndex() || rows[i].folded)
         {
             continue;
         }
@@ -271,7 +338,7 @@ void TimeLineCells::drawContent()
 
         if (layeri != nullptr)
         {
-            const int layerY = getLayerY(i);
+            const int layerY = rows[i].y;
             switch (mType)
             {
             case TIMELINE_CELL_TYPE::Tracks:
@@ -371,9 +438,10 @@ void TimeLineCells::drawContent()
     {
         paintTicks(painter, palette);
 
-        for (int i = 0; i < object->getLayerCount(); i++) {
-            paintSelectedFrames(painter, object->getLayer(i), i);
+        for (int i = 0; i < layerCount; i++) {
+            paintSelectedFrames(painter, object->getLayer(i), rows[i].y);
         }
+        mDrawnKeysHash = visibleKeysHash();
     }
     mRedrawContent = false;
 }
@@ -495,9 +563,11 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
 
     int recHeight = height - 4;
 
-    const QList<int> selectedFrames = layer->getSelectedFramesByPos();
-    layer->foreachKeyFrame([&](KeyFrame* key)
+    const QList<int> selectedList = layer->getSelectedFramesByPos();
+    const QSet<int> selectedFrames(selectedList.cbegin(), selectedList.cend());
+    foreachVisibleKey(layer, [&](KeyFrame* key)
     {
+        StageScope keyStage(StageProfiler::TimelineKey);
         int framePos = key->pos();
         int recWidth = standardWidth;
         int recLeft = getFrameX(framePos) - recWidth;
@@ -624,17 +694,22 @@ void TimeLineCells::paintHighlightedFrame(QPainter& painter, int framePos, int r
     painter.restore();
 }
 
-void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, const int layerIndex) const
+void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, int layerY) const
 {
     int mouseX = mMouseMoveX;
     int posUnderCursor = getFrameNumber(mMousePressX);
     int standardWidth = mFrameSize - 2;
     int recWidth = standardWidth;
     int recHeight = mLayerHeight - 4;
-    int recTop = getLayerY(layerIndex) + 1;
+    int recTop = layerY + 1;
+    // Keys out of view draw nothing, unless a move hovers them into it; a sound clip spans many cells.
+    const int firstVisible = mFrameOffset;
+    const int lastVisible = lastVisibleFrame();
+    const bool all = mGesture.isMoving() || layer->type() == Layer::SOUND;
 
     painter.save();
     for (int framePos : layer->getSelectedFramesByPos()) {
+        if (!all && (framePos < firstVisible || framePos > lastVisible)) { continue; }
 
         KeyFrame* key = layer->getKeyFrameAt(framePos);
         if (key->length() > 1)

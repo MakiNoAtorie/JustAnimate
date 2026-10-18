@@ -39,6 +39,18 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | draw top | the pencil strokes on the top layer, so all other layers are below the painted one |
 | scrub onion | the scrub again on the top layer, onion skin on with 5 tinted frames before and after |
 | play blend | the play again with layers 2-10 blended (multiply, screen, overlay, add in turn) |
+| loop | playback on, frames 1-48 played three times; only passes 2 and 3 are timed (frame cache hits) |
+| save one | `FileManager::save` again with one frame modified: unchanged frames are copied from the previous archive |
+| export | `Exporter::run` of frames 1–500 as a 1920×1080 PNG sequence, layers still blended |
+| timeline | 20 times: `frameModified` on frame 1 (a stroke end), then a paint of a 1280x300 timeline |
+| far jump | 10 jumps between the first and the last frame + repaint, caches cleared before each |
+| working set | `scrubTo(f)` + repaint for frames 1–500 on a second project with a key every 3 frames, onion skin on both sides; the resident set after it is printed |
+| draw top onion | the top-layer pencil strokes with the onion skin on; each release paints only its pending area, and the layer draws and cell renders it causes are printed per release |
+| autosave ui | `ProjectSession::autoSave` after one pencil stroke on a saved project: the time the UI is blocked |
+| autosave | the same autosave until its archive is written and renamed |
+| draw 4K | the pencil strokes on frame 1 of layer 1 of the working set project after a 3840×2160 fill, so each stroke and its undo step land on a 4K Drawing; the resident set after it is printed |
+| pan onion | 50 hand-tool pan steps of 7 px on frame 3 with the onion skin on, repaint after each |
+| erase 4K | the eraser strokes on the same 4K Drawing right after draw 4K; each stroke ends with an auto-crop of the Drawing |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke. A last line prints the peak RAM (working set, sampled after

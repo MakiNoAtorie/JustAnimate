@@ -55,6 +55,9 @@ QPair<int, int> groupRange(const Object& object, const QVector<int>& order, int 
 /// Everything the layer rules read for positions first..last on frame: equal keys paint equal pixels.
 QVector<qint64> layersKey(const Object& object, int frame, const QVector<int>& order, int first, int last);
 
+/// Appends t to key as cache key values, to 1e-6.
+void appendTransformKey(QVector<qint64>& key, const QTransform& t, bool withTranslation = true);
+
 /// Sets layer's tween on frame on the painter: its opacity less fade, its transform before the painter's.
 TweenState applyTween(QPainter& painter, const Layer* layer, int frame, qreal fade = 0);
 

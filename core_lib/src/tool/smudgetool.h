@@ -43,9 +43,11 @@ protected:
     // The prediction line shows the front colour, which a smudge does not paint.
     bool showsPrediction() const override { return false; }
     StrokeBuffer::Mode bufferMode() const override { return StrokeBuffer::Mode::Smudge; }
+    void strokeStarted() override;
 
 private:
     QPointF offsetFromPressPos();
+    SmudgeSettings mSmudge; // read at each press
 };
 
 #endif // SMUDGETOOL_H
