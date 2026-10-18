@@ -87,6 +87,9 @@ public:
 
     /** Clears the undo stack */
     void clearStack();
+    /** Drops the kept state of each Drawing that unloaded or left its key, and shares again the pixels
+     *  of a Drawing that a crop copied unchanged: no copy outlives the Drawing it follows. */
+    void releaseExpectedDrawings();
 
     void onSettingChanged(SETTING setting);
 
@@ -147,6 +150,7 @@ private:
     {
         const KeyFrame* key = nullptr;
         BitmapPatch whole;
+        qint64 checkedStamp = 0; // the Drawing's stamp when releaseExpectedDrawings last compared it
     };
     /** Compares the Drawing at the start of an Edit with the one the stack expects. A change with no record
      *  in between joins the record of the Edit. */

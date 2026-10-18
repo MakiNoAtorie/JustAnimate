@@ -469,7 +469,30 @@ void UndoRedoManager::restoreExpectedDrawing(int layerId, BitmapImage* image)
 
 void UndoRedoManager::setExpectedDrawing(int layerId, BitmapImage* image, const BitmapPatch& whole)
 {
-    mExpectedDrawings.insert(qMakePair(layerId, image->pos()), { image, whole });
+    mExpectedDrawings.insert(qMakePair(layerId, image->pos()), { image, whole, image->stamp() });
+}
+
+void UndoRedoManager::releaseExpectedDrawings()
+{
+    for (auto it = mExpectedDrawings.begin(); it != mExpectedDrawings.end();)
+    {
+        Layer* layer = editor()->layers()->findLayerById(it.key().first);
+        BitmapImage* image = (layer && layer->type() == Layer::BITMAP)
+            ? static_cast<LayerBitmap*>(layer)->getBitmapImageAtFrame(it.key().second) : nullptr;
+        // An unloaded Drawing has no unsaved change to find; another key at the position never matches.
+        if (image != it->key || !image->isLoaded())
+        {
+            it = mExpectedDrawings.erase(it);
+            continue;
+        }
+        if (it->checkedStamp != image->stamp() && !samePixels(image->whole(), it->whole))
+        {
+            it->checkedStamp = image->stamp();
+            BitmapImage kept(it->whole.bounds.topLeft(), it->whole.pixels);
+            if (BitmapImage::changedRect(kept, *image).isEmpty()) { it->whole = image->whole(); }
+        }
+        ++it;
+    }
 }
 
 void UndoRedoManager::willChange(SAVESTATE_ID saveStateId, const QRect& canvasRect)

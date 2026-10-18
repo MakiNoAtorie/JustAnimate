@@ -110,6 +110,7 @@ Status ProjectSession::saveAs(const QString& path)
     });
 
     const Status st = fm.save(mEditor->object(), path);
+    mEditor->undoRedo()->releaseExpectedDrawings(); // the save crops Drawings into new buffers
     mSkippedSoundClips = fm.skippedSoundClips();
     emit progress(Task::Save, maximum, maximum);
 
@@ -174,6 +175,7 @@ bool ProjectSession::autoSave()
         QMetaObject::invokeMethod(this, [this] { finishBackgroundSave(); }, Qt::QueuedConnection);
     });
     mSkippedSoundClips = fm.skippedSoundClips();
+    mEditor->undoRedo()->releaseExpectedDrawings(); // the snapshot crops Drawings into new buffers
     // The working folder could not be written: no worker runs.
     if (mBackgroundSave.ready())
     {
@@ -206,7 +208,9 @@ Status ProjectSession::autoSaveTick()
 {
     finishBackgroundSave();
     FileManager fm;
-    return fm.writeToWorkingFolder(mEditor->object());
+    const Status st = fm.writeToWorkingFolder(mEditor->object());
+    mEditor->undoRedo()->releaseExpectedDrawings(); // the save crops Drawings into new buffers
+    return st;
 }
 
 bool ProjectSession::recover()

@@ -58,6 +58,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "soundmanager.h"
 #include "soundplayer.h"
+#include "projectsession.h"
 #include "stroketool.h"
 #include "testfixture.h"
 #include "toolmanager.h"
@@ -2049,4 +2050,68 @@ TEST_CASE("UndoRedoManager: a stroke inside a Drawing paints the Drawing in plac
     // The step before shares the Drawing until the next stroke starts.
     canvasStroke(editor, area, QPointF(-50, 30), QPointF(50, 30));
     CHECK(image->image()->constBits() == pixels);
+}
+
+namespace
+{
+// A session with a Drawing at 1 and 150; the canvas shows frame 1 of the bitmap layer.
+struct HeldSession
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    BitmapImage* image = nullptr;
+
+    bool start()
+    {
+        if (!layer->addNewKeyFrameAt(150) || !session.start()) { return false; }
+        session.area->init();
+        session.area->resize(800, 600);
+        session.editor->layers()->setCurrentLayer(layer);
+        session.editor->scrubTo(1);
+        image = layer->getBitmapImageAtFrame(1);
+        return true;
+    }
+    void stroke(ToolType type, QPointF from, QPointF to, int width)
+    {
+        session.editor->tools()->setCurrentTool(type);
+        const ToolSettingsGuard guard(session.editor->tools()->currentTool());
+        auto* tool = static_cast<StrokeTool*>(session.editor->tools()->currentTool());
+        tool->set(ToolProperty::Width, width);
+        tool->set(ToolProperty::FeatherEnabled, false);
+        tool->set(ToolProperty::PressureEnabled, false);
+        canvasStroke(session.editor.get(), session.area.get(), from, to);
+    }
+};
+} // namespace
+
+TEST_CASE("UndoRedoManager: the undo stack keeps no copy of a Drawing that a save cropped")
+{
+    HeldSession s;
+    REQUIRE(s.start());
+    // Transparent pixels around the stroke: the save crops them.
+    s.image->drawRect(QRectF(-200, -200, 400, 400), Qt::NoPen, QBrush(Qt::transparent), QPainter::CompositionMode_Source, false);
+    s.stroke(PENCIL, QPointF(-50, 0), QPointF(50, 0), 10);
+    const QImage beforeSave = *s.image->image(); // shares the pixels the stack keeps
+
+    QTemporaryDir dir;
+    ProjectSession project(s.session.editor.get(), nullptr);
+    REQUIRE(project.saveAs(dir.filePath("crop.pclx")).ok());
+    REQUIRE(s.image->image()->cacheKey() != beforeSave.cacheKey()); // the save cropped into a new buffer
+    CHECK(beforeSave.isDetached());
+}
+
+TEST_CASE("UndoRedoManager: the undo stack keeps no copy of a Drawing that the frame pool unloaded")
+{
+    HeldSession s;
+    REQUIRE(s.start());
+    s.image->drawRect(QRectF(-100, -100, 200, 200), Qt::NoPen, QBrush(Qt::gray), QPainter::CompositionMode_Source, false);
+    s.stroke(ERASER, QPointF(-100, -150), QPointF(-100, 150), 60);
+
+    QTemporaryDir dir;
+    ProjectSession project(s.session.editor.get(), nullptr);
+    REQUIRE(project.saveAs(dir.filePath("unload.pclx")).ok());
+    const QImage beforeUnload = *s.image->image(); // shares the pixels the stack keeps
+    s.session.editor->scrubTo(150);
+    REQUIRE_FALSE(s.image->isLoaded());
+    CHECK(beforeUnload.isDetached());
 }
