@@ -27,7 +27,6 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "pointerevent.h"
 #include "scribblearea.h"
-#include "undoredomanager.h"
 #include "vectorimage.h"
 #include "viewmanager.h"
 
@@ -73,12 +72,12 @@ void LassoFillTool::pointerReleaseEvent(PointerEvent* event)
 void LassoFillTool::fill()
 {
     // A Drawing added for this fill undoes with the fill in one step.
-    const UndoMacro macro(mEditor->undoRedo(), typeName());
+    Edit step = mEditor->edit(typeName());
     mScribbleArea->handleDrawingOnEmptyFrame();
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
 
     Layer* layer = mEditor->layers()->currentLayer();
     const int frame = mEditor->currentFrame();
+    Edit drawing = mEditor->edit(layer, frame, typeName());
     if (layer->type() == Layer::BITMAP)
     {
         BitmapImage* image = static_cast<LayerBitmap*>(layer)->getLastBitmapImageAtFrame(frame);
@@ -118,7 +117,8 @@ void LassoFillTool::fill()
     }
 
     mEditor->setModified(mEditor->currentLayerIndex(), frame);
-    mEditor->undoRedo()->record(saveStateId, typeName());
+    drawing.commit();
+    step.commit();
 }
 
 void LassoFillTool::paint(QPainter& painter, const QRect& blitRect)

@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "pencilerror.h"
 #include "pencildef.h"
 #include "importimageconfig.h"
+#include "edit.h"
 
 Q_MOC_INCLUDE("colormanager.h")
 Q_MOC_INCLUDE("toolmanager.h")
@@ -103,6 +104,12 @@ public:
     OverlayManager*    overlays() const { return mOverlayManager; }
     ClipboardManager*  clipboards() const { return mClipboardManager; }
     UndoRedoManager*     undoRedo() const { return mUndoRedoManager; }
+
+    /** One undo step; see Edit. A layer Edit records key adds, removals, moves and camera keys;
+     *  with a frame it also records the Drawing at that frame. The layer must outlive the Edit. */
+    Edit edit(const QString& description);
+    Edit edit(Layer* layer, const QString& description);
+    Edit edit(Layer* layer, int frame, const QString& description);
 
     Object* object() const { return mObject.get(); }
     Status openObject(const QString& strFilePath, const std::function<void(int)>& progressChanged, const std::function<void(int)>& progressRangeChanged);

@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include "attributes.h"
 #include "keyframe.h"
 #include "bitmapimage.h"
 #include "util/util.h"
@@ -195,7 +196,6 @@ bool LayerBitmap::needSaveFrame(KeyFrame* key, const QString& savePath)
 QDomElement LayerBitmap::createDomElement(QDomDocument& doc) const
 {
     QDomElement layerElem = createBaseDomElement(doc);
-    if (mLockAlpha) { layerElem.setAttribute("lockAlpha", 1); }
 
     foreachKeyFrame([&](KeyFrame* pKeyFrame)
     {
@@ -207,7 +207,7 @@ QDomElement LayerBitmap::createDomElement(QDomDocument& doc) const
         imageTag.setAttribute("topLeftX", pImg->topLeft().x());
         imageTag.setAttribute("topLeftY", pImg->topLeft().y());
         imageTag.setAttribute("opacity", pImg->getOpacity());
-        writeKeyTween(imageTag, pKeyFrame);
+        writeKeyAttributes(*this, *pKeyFrame, imageTag);
         layerElem.appendChild(imageTag);
 
         if (!pKeyFrame->fileName().isEmpty()) {
@@ -222,7 +222,6 @@ QDomElement LayerBitmap::createDomElement(QDomDocument& doc) const
 void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath, ProgressCallback progressStep)
 {
     this->loadBaseDomElement(element);
-    mLockAlpha = element.attribute("lockAlpha") == "1";
 
     const DataPathValidator dataPaths(dataDirPath);
     QDomNode imageTag = element.firstChild();
@@ -239,7 +238,7 @@ void LayerBitmap::loadDomElement(const QDomElement& element, QString dataDirPath
                 int y = imageElement.attribute("topLeftY").toInt();
                 qreal opacity = imageElement.attribute("opacity", "1.0").toDouble();
                 loadImageAtFrame(path, QPoint(x, y), position, opacity);
-                readKeyTween(imageElement, getKeyFrameAt(position));
+                readKeyAttributes(*this, getKeyFrameAt(position), imageElement);
             }
 
             progressStep();

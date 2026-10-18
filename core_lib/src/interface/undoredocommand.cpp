@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layercamera.h"
 #include "layer.h"
+#include "attributes.h"
 
 #include "editor.h"
 #include "scribblearea.h"
@@ -249,7 +250,7 @@ void MoveKeyFramesCommand::apply(const QList<QPair<int, int>>& fromTo)
     Layer* layer = editor()->layers()->findLayerById(layerId);
 
     // The frames are not where this step left them: the step cannot be applied.
-    if (!layer || !layer->moveKeyFrames(fromTo)) {
+    if (!layer || !LayerManager::moveKeyFrames(layer, fromTo)) {
         return setObsolete(true);
     }
     editor()->layers()->moveSoundMarkers(layer, fromTo);
@@ -575,183 +576,49 @@ void LayerAddRemoveCommand::detach()
     emit editor()->updateTimeLine();
 }
 
-LayerBlendModeCommand::LayerBlendModeCommand(int layerId, BlendMode oldMode, BlendMode newMode,
-                                             const QString& description, Editor* editor)
-    : UndoRedoCommand(editor), layerId(layerId), oldMode(oldMode), newMode(newMode)
+AttributeCommand::AttributeCommand(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after, Editor* editor)
+    : UndoRedoCommand(editor), id(id), layerId(layerId), frame(frame), before(before), after(after)
 {
-    setText(description);
+    setText(attribute(id).undoText(after));
 }
 
-void LayerBlendModeCommand::undo()
-{
-    UndoRedoCommand::undo();
-    apply(oldMode);
-}
-
-void LayerBlendModeCommand::redo()
-{
-    UndoRedoCommand::redo();
-
-    // Ignore automatic redo when added to undo stack
-    if (isFirstRedo()) { setFirstRedo(false); return; }
-
-    apply(newMode);
-}
-
-void LayerBlendModeCommand::apply(BlendMode mode)
-{
-    Layer* layer = editor()->layers()->findLayerById(layerId);
-    if (layer == nullptr) { return; }
-    layer->setBlendMode(mode);
-    editor()->layers()->notifyLayerChanged(layer);
-}
-
-SceneLengthCommand::SceneLengthCommand(int oldLength, int newLength, const QString& description, Editor* editor)
-    : UndoRedoCommand(editor), oldLength(oldLength), newLength(newLength)
-{
-    setText(description);
-}
-
-void SceneLengthCommand::undo()
-{
-    UndoRedoCommand::undo();
-    apply(oldLength);
-}
-
-void SceneLengthCommand::redo()
-{
-    UndoRedoCommand::redo();
-
-    // Ignore automatic redo when added to undo stack
-    if (isFirstRedo()) { setFirstRedo(false); return; }
-
-    apply(newLength);
-}
-
-void SceneLengthCommand::apply(int length)
-{
-    editor()->object()->setSceneLength(length);
-    editor()->object()->modification();
-    editor()->layers()->notifyAnimationLengthChanged();
-    emit editor()->updateTimeLine();
-}
-
-LayerTimesheetCommand::LayerTimesheetCommand(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn,
-                                             const QString& description, Editor* editor)
-    : UndoRedoCommand(editor), layerId(layerId), oldColumn(oldColumn), newColumn(newColumn)
-{
-    setText(description);
-}
-
-void LayerTimesheetCommand::undo()
-{
-    UndoRedoCommand::undo();
-    apply(oldColumn);
-}
-
-void LayerTimesheetCommand::redo()
-{
-    UndoRedoCommand::redo();
-
-    // Ignore automatic redo when added to undo stack
-    if (isFirstRedo()) { setFirstRedo(false); return; }
-
-    apply(newColumn);
-}
-
-void LayerTimesheetCommand::apply(TimesheetColumn column)
-{
-    Layer* layer = editor()->layers()->findLayerById(layerId);
-    if (layer == nullptr) { return; }
-    layer->setTimesheetColumn(column);
-    editor()->layers()->notifyLayerChanged(layer);
-}
-
-LayerRoughCommand::LayerRoughCommand(int layerId, bool rough, const QString& description, Editor* editor)
-    : UndoRedoCommand(editor), layerId(layerId), rough(rough)
-{
-    setText(description);
-}
-
-void LayerRoughCommand::undo()
-{
-    UndoRedoCommand::undo();
-    apply(!rough);
-}
-
-void LayerRoughCommand::redo()
-{
-    UndoRedoCommand::redo();
-
-    // Ignore automatic redo when added to undo stack
-    if (isFirstRedo()) { setFirstRedo(false); return; }
-
-    apply(rough);
-}
-
-void LayerRoughCommand::apply(bool value)
-{
-    Layer* layer = editor()->layers()->findLayerById(layerId);
-    if (layer == nullptr) { return; }
-    layer->setRough(value);
-    editor()->layers()->notifyLayerChanged(layer);
-}
-
-LayerStoryboardCommand::LayerStoryboardCommand(int layerId, bool storyboard, const QString& description, Editor* editor)
-    : UndoRedoCommand(editor), layerId(layerId), storyboard(storyboard)
-{
-    setText(description);
-}
-
-void LayerStoryboardCommand::undo()
-{
-    UndoRedoCommand::undo();
-    apply(!storyboard);
-}
-
-void LayerStoryboardCommand::redo()
-{
-    UndoRedoCommand::redo();
-    if (isFirstRedo()) { setFirstRedo(false); return; }
-    apply(storyboard);
-}
-
-void LayerStoryboardCommand::apply(bool value)
-{
-    Layer* layer = editor()->layers()->findLayerById(layerId);
-    if (layer == nullptr) { return; }
-    layer->setStoryboard(value);
-    editor()->layers()->notifyLayerChanged(layer);
-}
-
-PanelFieldsCommand::PanelFieldsCommand(int layerId, int frame, const PanelFields& before, const PanelFields& after,
-                                       const QString& description, Editor* editor)
-    : UndoRedoCommand(editor), layerId(layerId), frame(frame), before(before), after(after)
-{
-    setText(description);
-}
-
-void PanelFieldsCommand::undo()
+void AttributeCommand::undo()
 {
     UndoRedoCommand::undo();
     apply(before);
 }
 
-void PanelFieldsCommand::redo()
+void AttributeCommand::redo()
 {
     UndoRedoCommand::redo();
+
+    // Ignore automatic redo when added to undo stack
     if (isFirstRedo()) { setFirstRedo(false); return; }
+
     apply(after);
 }
 
-void PanelFieldsCommand::apply(const PanelFields& fields)
+void AttributeCommand::apply(const QVariant& value)
 {
+    const AttributeDescriptor& row = attribute(id);
+    if (row.scope == AttributeScope::Project)
+    {
+        row.set(*editor()->object(), value);
+        editor()->layers()->notifyProjectChanged();
+        return;
+    }
     Layer* layer = editor()->layers()->findLayerById(layerId);
-    KeyFrame* key = layer ? layer->getKeyFrameAt(frame) : nullptr;
-    if (key == nullptr) { return; }
-    key->setPanelFields(fields);
-    editor()->object()->modification();
-    emit editor()->frameModified(frame);
+    if (layer == nullptr) { return; }
+    KeyFrame* key = nullptr;
+    if (row.scope == AttributeScope::Drawing)
+    {
+        key = layer->getKeyFrameAt(frame);
+        if (key == nullptr) { return; }
+    }
+    row.set(layer, key, value);
+    if (key) { emit editor()->frameModified(frame); }
+    editor()->layers()->notifyLayerChanged(layer);
+    emit editor()->updateTimeLine();
 }
 
 LayerArrangementCommand::LayerArrangementCommand(const LayerArrangement& before, const LayerArrangement& after,
@@ -780,41 +647,6 @@ void LayerArrangementCommand::redo()
 void LayerArrangementCommand::apply(const LayerArrangement& arrangement)
 {
     editor()->layers()->applyLayerArrangement(arrangement);
-}
-
-PaperTemplateCommand::PaperTemplateCommand(const PaperTemplate& before, const PaperTemplate& after,
-                                           const QString& description, Editor* editor)
-    : UndoRedoCommand(editor), before(before), after(after)
-{
-    setText(description);
-}
-
-void PaperTemplateCommand::undo()
-{
-    UndoRedoCommand::undo();
-    apply(before);
-}
-
-void PaperTemplateCommand::redo()
-{
-    UndoRedoCommand::redo();
-
-    // Ignore automatic redo when added to undo stack
-    if (isFirstRedo()) { setFirstRedo(false); return; }
-
-    apply(after);
-}
-
-void PaperTemplateCommand::apply(const PaperTemplate& paper)
-{
-    // The Timesheet values are export memory, not undoable edits: keep the current ones.
-    const PaperTemplate& current = editor()->object()->data()->paperTemplate();
-    PaperTemplate next = paper;
-    next.sheetScene = current.sheetScene;
-    next.sheetShot = current.sheetShot;
-    next.sheetAnimator = current.sheetAnimator;
-    editor()->object()->data()->setPaperTemplate(next);
-    emit editor()->framesModified();
 }
 
 CameraSizeCommand::CameraSizeCommand(int layerId, QRect before, QRect after, const QString& description, Editor* editor)

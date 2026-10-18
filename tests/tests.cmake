@@ -20,6 +20,10 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_movieexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_spritesheet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_inputsmoother.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_dabplacer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_attributes.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_edit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_strokebuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerbitmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layercamera.cpp
@@ -35,15 +39,19 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pegbaraligner.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_playbackmanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_pointerevent.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_projectsession.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_filemanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_emergencysave.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_blendmode.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_roughlayer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_storyboard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tween.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_framerenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_exporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_mark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_inbetweens.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_exposure.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_frameeditgesture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_layerrename.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_xsheet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_sololock.cpp
@@ -72,6 +80,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_stroketool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tabletapi.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolsettings.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolpropertyregistry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_undoredomanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_vectorimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_viewmanager.cpp

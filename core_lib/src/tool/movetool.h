@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include "transformtool.h"
 #include "movemode.h"
 #include "preferencemanager.h"
-#include "undoredomanager.h"
+#include "edit.h"
 #include "keyframe.h"
 
 class Layer;
@@ -71,7 +71,7 @@ private:
     MoveMode mPerspMode;
     QPointF mOffset;
 
-    SAVESTATE_ID mUndoSaveStateId = 0;
+    std::optional<Edit> mEdit; // from press to release
 
     // Transform key gesture: the key being edited (0 when none), its state and the press point.
     int mKeyFrame = 0;

@@ -110,13 +110,10 @@ private:
     QVector<qint64> layersKey(int startPos, int endPos) const;
 
     void paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startPos, int endPos);
+    /// Paints the visible layer at index: relative opacity, its key, the stroke buffer, the selection and the Rough tint.
     void paintLayer(QPainter& painter, const QRect& blitRect, int index);
-    /// Paints positions first..last with drawWithOpacity, so the group fades as one image.
-    void paintGroup(QPainter& painter, const QRect& blitRect, int first, int last, qreal opacity);
     /// Positions painted with the current layer: its group's non-Rough layers when the group is translucent.
     QPair<int, int> currentRange() const;
-    /// Layer indexes bottom to top: Rough layers first, under the others, each part in layer order.
-    QVector<int> paintOrder() const;
 
     void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView) const;
 
@@ -157,7 +154,7 @@ private:
     LayerCellCache mPreLayersCache;
     LayerCellCache mPostLayersCache; // used only with bFastLayersAbove
     bool mPostLayersPixmapCacheValid = false;
-    QVector<int> mPaintOrder;
+    QVector<int> mPaintOrder; // FrameRenderer::paintOrder with Rough layers
 
     // Tinted bitmap onion frames, cropped to their bounds, keyed by content; another view empties it.
     struct OnionFrame { QPixmap pixmap; QPoint pos; };

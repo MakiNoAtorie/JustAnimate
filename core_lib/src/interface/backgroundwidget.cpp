@@ -41,7 +41,7 @@ void BackgroundWidget::init(PreferenceManager *prefs)
     connect(mPrefs, &PreferenceManager::optionChanged, this, &BackgroundWidget::settingUpdated);
 
     loadBackgroundStyle();
-    mHasShadow = mPrefs->isOn(SETTING::SHADOW);
+    mHasShadow = mPrefs->get<SETTING::SHADOW>();
 
     update();
 }
@@ -58,7 +58,7 @@ void BackgroundWidget::settingUpdated(SETTING setting)
 
     case SETTING::SHADOW:
 
-        mHasShadow = mPrefs->isOn(SETTING::SHADOW);
+        mHasShadow = mPrefs->get<SETTING::SHADOW>();
         update();
         break;
 
@@ -82,7 +82,7 @@ void BackgroundWidget::paintEvent(QPaintEvent* event)
 
 void BackgroundWidget::loadBackgroundStyle()
 {
-    QString bgName = mPrefs->getString(SETTING::BACKGROUND_STYLE);
+    QString bgName = mPrefs->get<SETTING::BACKGROUND_STYLE>();
     mStyle = "background-color:white; border: 1px solid lightGrey;";
 
     if ( bgName == "white" )

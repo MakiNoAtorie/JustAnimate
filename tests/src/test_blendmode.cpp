@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <QIcon>
 #include <QPixmap>
 
+#include "framerenderer.h"
 #include "bitmapimage.h"
 #include "blendmode.h"
 #include "canvaspainter.h"
@@ -157,7 +158,7 @@ TEST_CASE("A blend layer composites over the layers below on export", "[BlendMod
         image.fill(Qt::transparent);
         QPainter painter(&image);
         painter.setWorldTransform(QTransform::fromTranslate(30, 30));
-        object->paintImage(painter, 1, false, true);
+        FrameRenderer::paint(*object, 1, painter, { true, false });
         painter.end();
         CHECK(image.pixel(30, 30) == expected(mode));
     }

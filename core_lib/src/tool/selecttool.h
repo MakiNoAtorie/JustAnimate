@@ -20,11 +20,13 @@ GNU General Public License for more details.
 
 #include "transformtool.h"
 #include "movemode.h"
-#include "undoredomanager.h"
+#include "edit.h"
 
 #include "layer.h"
 
 #include <QRectF>
+
+#include <optional>
 
 class Layer;
 class SelectionManager;
@@ -70,7 +72,7 @@ private:
 
     QPixmap mCursorPixmap = QPixmap(24, 24);
 
-    SAVESTATE_ID mUndoStateId = 0;
+    std::optional<Edit> mEdit; // from press to release
 };
 
 #endif

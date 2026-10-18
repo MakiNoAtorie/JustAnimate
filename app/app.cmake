@@ -26,7 +26,6 @@ set(APP_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/colorwheel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineparser.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/doubleprogressdialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/elidedlabel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/errordialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/exportimagedialog.h
@@ -95,7 +94,6 @@ set(APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/colorwheel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineexporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/commandlineparser.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/src/doubleprogressdialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/elidedlabel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/errordialog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src/exportimagedialog.cpp
@@ -151,7 +149,6 @@ set(APP_FORMS
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/camerapropertiesdialog.ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/colorinspector.ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/colorpalette.ui
-    ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/doubleprogressdialog.ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/errordialog.ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/exportimageoptions.ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/ui/exportmovieoptions.ui

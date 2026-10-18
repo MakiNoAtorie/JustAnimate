@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 
 #include "vectorimage.h"
+#include "attributes.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -143,7 +144,7 @@ QDomElement LayerVector::createDomElement(QDomDocument& doc) const
         imageTag.setAttribute("src", fileName(keyframe));
         VectorImage* image = getVectorImageAtFrame(keyframe->pos());
         imageTag.setAttribute("opacity", image->getOpacity());
-        writeKeyTween(imageTag, keyframe);
+        writeKeyAttributes(*this, *keyframe, imageTag);
         layerElem.appendChild(imageTag);
 
         Q_ASSERT(QFileInfo(keyframe->fileName()).fileName() == fileName(keyframe));
@@ -181,7 +182,7 @@ void LayerVector::loadDomElement(const QDomElement& element, QString dataDirPath
                 getVectorImageAtFrame(position)->loadDomElement(imageElement);
                 getVectorImageAtFrame(position)->setOpacity(imageElement.attribute("opacity", "1.0").toDouble());
             }
-            if (position > 0) { readKeyTween(imageElement, getKeyFrameAt(position)); }
+            if (position > 0) { readKeyAttributes(*this, getKeyFrameAt(position), imageElement); }
 
             progressStep();
         }

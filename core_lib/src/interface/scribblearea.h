@@ -74,9 +74,6 @@ class ScribbleArea : public QWidget
 {
     Q_OBJECT
 
-    friend class MoveTool;
-    friend class BucketTool;
-
 public:
     ScribbleArea(QWidget* parent);
     ~ScribbleArea() override;
@@ -90,7 +87,6 @@ public:
     void applyTransformedSelection();
     void cancelTransformedSelection();
 
-    void setEffect(SETTING e, bool isOn);
 
     LayerVisibility getLayerVisibility() const { return mLayerVisibility; }
     qreal getCurveSmoothing() const { return mCurveSmoothingLevel; }
@@ -132,8 +128,6 @@ public:
 
     /** Tool changed, invalidate cache and frame if needed */
     void onToolChanged(ToolType);
-
-    void endStroke();
 
     void flipSelection(bool flipVertical);
 
@@ -206,20 +200,6 @@ protected:
     void resizeEvent(QResizeEvent*) override;
 
 public:
-    void drawPolyline(QPainterPath path, QPen pen, bool useAA);
-    void drawPath(QPainterPath path, QPen pen, QBrush brush, QPainter::CompositionMode cm);
-    void drawPen(QPointF thePoint, qreal brushWidth, QColor fillColor, bool useAA = true);
-    void drawPencil(QPointF thePoint, qreal brushWidth, qreal fixedBrushFeather, QColor fillColor, qreal opacity, const BrushTip& tip = {});
-    void drawBrush(QPointF thePoint, qreal brushWidth, qreal offset, QColor fillColor, qreal opacity, bool usingFeather = true, bool useAA = false, const BrushTip& tip = {});
-    void setWashOpacity(qreal opacity) { mTiledBuffer.setWashOpacity(opacity); }
-    /** One smudge dab on the current bitmap frame; the first dab of a stroke starts the smudge buffer. */
-    void smudgeDab(QPointF point, qreal width, qreal feather, QColor color, qreal opacity, const BrushTip& tip,
-                   const SmudgeSettings& smudge);
-
-    void paintBitmapBuffer();
-    QPainter::CompositionMode bufferCompositionMode() const;
-    void clearDrawingBuffer();
-
     void pointerPressEvent(PointerEvent*);
     void pointerMoveEvent(PointerEvent*);
     void pointerReleaseEvent(PointerEvent*);
@@ -228,14 +208,12 @@ public:
     /// on an empty frame, and if so, takes action according to use preference.
     void handleDrawingOnEmptyFrame();
 
-    TiledBuffer mTiledBuffer;
-private:
-
     /** Invalidate the layer pixmap and camera painter caches.
      * Call this in most situations where the layer rendering order is affected.
      * Peviously known as setAllDirty.
     */
     void invalidatePainterCaches();
+private:
 
     /** Invalidate cache for the given frame */
     void invalidateCacheForFrame(int frameNumber);

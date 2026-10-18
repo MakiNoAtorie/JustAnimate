@@ -63,7 +63,7 @@ void TimeControls::initUI()
     mTimecodeSelect->setMenu(timeSelectMenu);
     mTimecodeSelect->setPopupMode(QToolButton::InstantPopup);
     mTimecodeSelect->setStyleSheet("::menu-indicator{ image: none; }");
-    mTimecodeLabelEnum = mEditor->preference()->getInt(SETTING::TIMECODE_TEXT);
+    mTimecodeLabelEnum = mEditor->preference()->get<SETTING::TIMECODE_TEXT>();
     mTimecodeLabel = new QLabel(this);
     mTimecodeLabel->setContentsMargins(2, 0, 0, 0);
     mTimecodeLabel->setText("");
@@ -167,7 +167,7 @@ void TimeControls::initUI()
     mSoundButton->setCheckable(true);
     mSoundButton->setChecked(true);
     mSoundScrubButton->setCheckable(true);
-    mSoundScrubButton->setChecked(mEditor->preference()->isOn(SETTING::SOUND_SCRUB_ACTIVE));
+    mSoundScrubButton->setChecked(mEditor->preference()->get<SETTING::SOUND_SCRUB_ACTIVE>());
 
 
     addWidget(mJumpToStartButton);
@@ -359,7 +359,7 @@ void TimeControls::loopEndValueChanged(int i)
 void TimeControls::updateSoundScrubIcon(bool soundScrubEnabled)
 {
     mEditor->playback()->setSoundScrubActive(soundScrubEnabled);
-    mEditor->preference()->set(SETTING::SOUND_SCRUB_ACTIVE, soundScrubEnabled);
+    mEditor->preference()->set<SETTING::SOUND_SCRUB_ACTIVE>(soundScrubEnabled);
 }
 
 void TimeControls::noTimecodeText()

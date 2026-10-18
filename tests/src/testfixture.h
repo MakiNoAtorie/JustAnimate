@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #include <initializer_list>
 #include <memory>
+#include <vector>
 #include <QHash>
 #include <QSettings>
 #include <QVariant>
@@ -32,7 +33,8 @@ GNU General Public License for more details.
 class SettingsGuard
 {
 public:
-    SettingsGuard(std::initializer_list<const char*> keys)
+    SettingsGuard(std::initializer_list<const char*> keys) : SettingsGuard(std::vector<const char*>(keys)) {}
+    explicit SettingsGuard(const std::vector<const char*>& keys)
     {
         QSettings& settings = pencilSettings();
         for (const char* key : keys) { mSaved.insert(key, settings.value(key)); }

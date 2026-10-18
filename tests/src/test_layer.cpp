@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layercamera.h"
 #include "layersound.h"
+#include "layermanager.h"
 #include "bitmapimage.h"
 #include "object.h"
 #include "util.h"
@@ -348,8 +349,8 @@ TEST_CASE("Layer::moveKeyFrame(int position, int offset)")
         layer->addNewKeyFrameAt(2);
         layer->addNewKeyFrameAt(3);
 
-        layer->setFrameSelected(2, true);
-        layer->setFrameSelected(3, true);
+        LayerManager::setFrameSelected(layer, 2, true);
+        LayerManager::setFrameSelected(layer, 3, true);
 
         KeyFrame* frame1 = layer->getKeyFrameAt(2);
         KeyFrame* frame2 = layer->getKeyFrameAt(3);
@@ -372,8 +373,8 @@ TEST_CASE("Layer::moveKeyFrame(int position, int offset)")
         layer->addNewKeyFrameAt(2);
         layer->addNewKeyFrameAt(3);
 
-        layer->setFrameSelected(2, false);
-        layer->setFrameSelected(3, true);
+        LayerManager::setFrameSelected(layer, 2, false);
+        LayerManager::setFrameSelected(layer, 3, true);
 
         layer->moveKeyFrame(2, 1);
 
@@ -391,11 +392,11 @@ TEST_CASE("Layer::moveKeyFrame(int position, int offset)")
         layer->addNewKeyFrameAt(7);
         layer->addNewKeyFrameAt(8);
 
-        layer->setFrameSelected(4, false);
-        layer->setFrameSelected(5, true);
-        layer->setFrameSelected(6, true);
-        layer->setFrameSelected(7, true);
-        layer->setFrameSelected(8, true);
+        LayerManager::setFrameSelected(layer, 4, false);
+        LayerManager::setFrameSelected(layer, 5, true);
+        LayerManager::setFrameSelected(layer, 6, true);
+        LayerManager::setFrameSelected(layer, 7, true);
+        LayerManager::setFrameSelected(layer, 8, true);
 
         layer->moveKeyFrame(4, 1);
         layer->moveKeyFrame(5, 1);
@@ -420,11 +421,11 @@ TEST_CASE("Layer::moveKeyFrame(int position, int offset)")
         layer->addNewKeyFrameAt(7);
         layer->addNewKeyFrameAt(8);
 
-        layer->setFrameSelected(4, false);
-        layer->setFrameSelected(5, false);
-        layer->setFrameSelected(6, true);
-        layer->setFrameSelected(7, false);
-        layer->setFrameSelected(8, false);
+        LayerManager::setFrameSelected(layer, 4, false);
+        LayerManager::setFrameSelected(layer, 5, false);
+        LayerManager::setFrameSelected(layer, 6, true);
+        LayerManager::setFrameSelected(layer, 7, false);
+        LayerManager::setFrameSelected(layer, 8, false);
 
         layer->moveKeyFrame(6, 1);
         layer->moveKeyFrame(7, 1);
@@ -449,14 +450,14 @@ TEST_CASE("Layer::moveKeyFrame(int position, int offset)")
         layer->addNewKeyFrameAt(2);
         layer->addNewKeyFrameAt(3);
 
-        layer->setFrameSelected(2, true);
-        layer->setFrameSelected(3, true);
+        LayerManager::setFrameSelected(layer, 2, true);
+        LayerManager::setFrameSelected(layer, 3, true);
 
         KeyFrame* frameAt2 = layer->getKeyFrameAt(2);
         KeyFrame* frameAt3 = layer->getKeyFrameAt(3);
 
         layer->moveKeyFrame(2, 1);
-        REQUIRE(layer->moveSelectedFrames(1));
+        REQUIRE(LayerManager::moveSelectedFrames(layer, 1));
 
         // Every keyframe is still present, shifted one frame right
         REQUIRE(layer->keyFrameCount() == 3);
@@ -481,11 +482,11 @@ TEST_CASE("Layer::setExposureForSelectedFrames")
         layer->addNewKeyFrameAt(5);
         layer->addNewKeyFrameAt(6);
 
-        layer->setFrameSelected(1, true);
-        layer->setFrameSelected(2, true);
-        layer->setFrameSelected(3, true);
+        LayerManager::setFrameSelected(layer, 1, true);
+        LayerManager::setFrameSelected(layer, 2, true);
+        LayerManager::setFrameSelected(layer, 3, true);
 
-        layer->setExposureForSelectedFrames(1);
+        LayerManager::setExposureForSelectedFrames(layer, 1);
 
         REQUIRE(layer->selectedKeyFrameCount() == 3);
         REQUIRE(layer->isFrameSelected(1));
@@ -508,13 +509,13 @@ TEST_CASE("Layer::setExposureForSelectedFrames")
         layer->addNewKeyFrameAt(21);
         layer->addNewKeyFrameAt(24);
 
-        layer->setFrameSelected(24, true);
-        layer->setFrameSelected(21, true);
-        layer->setFrameSelected(18, true);
-        layer->setFrameSelected(15, true);
-        layer->setFrameSelected(20, true);
+        LayerManager::setFrameSelected(layer, 24, true);
+        LayerManager::setFrameSelected(layer, 21, true);
+        LayerManager::setFrameSelected(layer, 18, true);
+        LayerManager::setFrameSelected(layer, 15, true);
+        LayerManager::setFrameSelected(layer, 20, true);
 
-        layer->setExposureForSelectedFrames(2);
+        LayerManager::setExposureForSelectedFrames(layer, 2);
 
         REQUIRE(layer->selectedKeyFrameCount() == 5);
         REQUIRE(layer->isFrameSelected(15));
@@ -539,10 +540,10 @@ TEST_CASE("Layer::setExposureForSelectedFrames")
         layer->addNewKeyFrameAt(27);
         layer->addNewKeyFrameAt(30);
 
-        layer->setFrameSelected(19, true);
-        layer->setFrameSelected(24, true);
+        LayerManager::setFrameSelected(layer, 19, true);
+        LayerManager::setFrameSelected(layer, 24, true);
 
-        layer->setExposureForSelectedFrames(2);
+        LayerManager::setExposureForSelectedFrames(layer, 2);
 
         REQUIRE(layer->selectedKeyFrameCount() == 2);
         REQUIRE(layer->isFrameSelected(19));
@@ -563,12 +564,12 @@ TEST_CASE("Layer::setExposureForSelectedFrames")
         layer->addNewKeyFrameAt(22);
         layer->addNewKeyFrameAt(23);
 
-        layer->setFrameSelected(6, true);
-        layer->setFrameSelected(9, true);
-        layer->setFrameSelected(22, true);
-        layer->setFrameSelected(23, true);
+        LayerManager::setFrameSelected(layer, 6, true);
+        LayerManager::setFrameSelected(layer, 9, true);
+        LayerManager::setFrameSelected(layer, 22, true);
+        LayerManager::setFrameSelected(layer, 23, true);
 
-        layer->setExposureForSelectedFrames(-1);
+        LayerManager::setExposureForSelectedFrames(layer, -1);
 
         REQUIRE(layer->selectedKeyFrameCount() == 4);
         REQUIRE(layer->isFrameSelected(6));
@@ -586,12 +587,12 @@ TEST_CASE("Layer::setExposureForSelectedFrames")
         layer->addNewKeyFrameAt(22);
         layer->addNewKeyFrameAt(23);
 
-        layer->setFrameSelected(6, true);
-        layer->setFrameSelected(9, false);
-        layer->setFrameSelected(22, false);
-        layer->setFrameSelected(23, true);
+        LayerManager::setFrameSelected(layer, 6, true);
+        LayerManager::setFrameSelected(layer, 9, false);
+        LayerManager::setFrameSelected(layer, 22, false);
+        LayerManager::setFrameSelected(layer, 23, true);
 
-        layer->setExposureForSelectedFrames(-1);
+        LayerManager::setExposureForSelectedFrames(layer, -1);
 
         REQUIRE(layer->selectedKeyFrameCount() == 2);
         REQUIRE(layer->isFrameSelected(6));
@@ -609,11 +610,11 @@ TEST_CASE("Layer: exposure on a 500-frame selection", "[.exposure-timing]")
     Object obj;
     Layer* layer = obj.addNewBitmapLayer();
     for (int i = 1; i <= 500; i++) { layer->addNewKeyFrameAt(i); }
-    for (int i = 1; i <= 500; i++) { layer->setFrameSelected(i, true); }
+    for (int i = 1; i <= 500; i++) { LayerManager::setFrameSelected(layer, i, true); }
 
     QElapsedTimer timer;
     timer.start();
-    layer->setExposureForSelectedFrames(1);
+    LayerManager::setExposureForSelectedFrames(layer, 1);
     WARN("Add exposure, 500 selected frames: " << timer.nsecsElapsed() / 1000 << " us");
 
     REQUIRE(layer->getMaxKeyFramePosition() == 999);
@@ -630,7 +631,7 @@ TEST_CASE("layer::reverseOrderOfSelection()") {
         layer->addNewKeyFrameAt(15);
         layer->addNewKeyFrameAt(18);
 
-        REQUIRE(layer->reverseOrderOfSelection() == false);
+        REQUIRE(LayerManager::reverseOrderOfSelection(layer) == false);
     }
 
     /// Primitive check against keyframe content
@@ -647,12 +648,12 @@ TEST_CASE("layer::reverseOrderOfSelection()") {
         layer->addKeyFrame(13, image3);
         layer->addKeyFrame(15, image4);
 
-        layer->setFrameSelected(6, true);
-        layer->setFrameSelected(9, true);
-        layer->setFrameSelected(13, true);
-        layer->setFrameSelected(15, true);
+        LayerManager::setFrameSelected(layer, 6, true);
+        LayerManager::setFrameSelected(layer, 9, true);
+        LayerManager::setFrameSelected(layer, 13, true);
+        LayerManager::setFrameSelected(layer, 15, true);
 
-        CHECK(layer->reverseOrderOfSelection());
+        CHECK(LayerManager::reverseOrderOfSelection(layer));
 
 //        // Check that the content has been swapped properly
         bool test1 = layer->getBitmapImageAtFrame(15)->image() == image1->image();

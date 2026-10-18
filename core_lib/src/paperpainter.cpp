@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <QRectF>
 
 #include "bitmapimage.h"
+#include "framerenderer.h"
 #include "layer.h"
 #include "layercamera.h"
 #include "object.h"
@@ -122,7 +123,7 @@ PagePaintFn paperFramePages(const Object& object, const LayerCamera& camera, int
         paper.on = true; // the export is the sheet, whether the canvas shows it or not
         paintPaperTemplate(painter, f, paper);
         const QRect target = f.toRect();
-        painter.drawImage(target, object.renderFrame(frame, camera.getViewAtFrame(frame), camera.getViewSize(), target.size(), true, true));
+        painter.drawImage(target, FrameRenderer::renderForExport(object, frame, camera, { target.size(), true, true }));
     };
 }
 

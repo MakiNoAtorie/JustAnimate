@@ -250,6 +250,7 @@ const static int MaxFramesBound = 9999;
 
 // Save / Export
 #define LAST_PCLX_PATH          "LastFilePath"
+#define RECENT_FILES            "RecentFiles"
 
 // Import
 #define IMPORT_REPOSITION_TYPE      "ImportRepositionType"

@@ -49,6 +49,8 @@ public:
     void setExponent(const qreal);
     void setLabel(QString newText);
     void setRange(qreal min, qreal max);
+    qreal minimum() const { return mMin; }
+    qreal maximum() const { return mMax; }
 
 signals:
     void valueChanged(qreal);

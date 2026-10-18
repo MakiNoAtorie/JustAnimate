@@ -30,9 +30,6 @@ public:
 
     ToolType type() const override { return PEN; }
 
-    ToolProperties& toolProperties() override { return mSettings.toolProperties(); }
-    const StrokeToolProperties& strokeToolProperties() const override { return mSettings; }
-
     void loadSettings() override;
 
     void pointerPressEvent(PointerEvent*) override;
@@ -41,13 +38,12 @@ public:
 
     void drawStroke();
     void paintAt(QPointF point);
-    void paintVectorStroke(Layer *layer);
 
 private:
+    void drawPen(QPointF point, qreal width);
+
     QPointF mLastBrushPoint;
     QPointF mMouseDownPoint;
-
-    StrokeToolProperties mSettings;
 };
 
 #endif // PENTOOL_H

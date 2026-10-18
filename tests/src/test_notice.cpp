@@ -141,8 +141,8 @@ TEST_CASE("Autosave count on an untitled project shows a notice and no dialog", 
     Editor* editor = window.findChild<Editor*>();
     REQUIRE(editor);
     REQUIRE(editor->object()->filePath().isEmpty());
-    editor->preference()->set(SETTING::AUTO_SAVE, true);
-    editor->preference()->set(SETTING::AUTO_SAVE_NUMBER, 1);
+    editor->preference()->set<SETTING::AUTO_SAVE>(true);
+    editor->preference()->set<SETTING::AUTO_SAVE_NUMBER>(1);
     editor->resetAutoSaveCounter();
 
     QStringList notices;
@@ -184,9 +184,9 @@ TEST_CASE("Autosave count on an untitled project shows a notice and no dialog", 
     }
     SECTION("Reminder off shows nothing and keeps autosave by count")
     {
-        editor->preference()->set(SETTING::AUTO_SAVE_REMINDER, false);
+        editor->preference()->set<SETTING::AUTO_SAVE_REMINDER>(false);
         modify();
         CHECK(notices.isEmpty());
-        CHECK(editor->preference()->isOn(SETTING::AUTO_SAVE));
+        CHECK(editor->preference()->get<SETTING::AUTO_SAVE>());
     }
 }

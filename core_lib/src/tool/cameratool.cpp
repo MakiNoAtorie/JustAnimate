@@ -31,7 +31,6 @@ GNU General Public License for more details.
 #include "camera.h"
 
 #include "scribblearea.h"
-#include "undoredomanager.h"
 
 #include <QPixmap>
 #include <QPainter>
@@ -52,7 +51,7 @@ void CameraTool::loadSettings()
     connect(mEditor->layers(), &LayerManager::currentLayerChanged, this, &CameraTool::updateProperties);
     connect(mEditor, &Editor::objectLoaded, this, &CameraTool::updateProperties);
 
-    mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
+    mRotationIncrement = mEditor->preference()->get<SETTING::ROTATION_INCREMENT>();
 
     QSettings& settings = pencilSettings();
 
@@ -106,8 +105,8 @@ void CameraTool::updateProperties()
     if (!layer || layer->type() != Layer::CAMERA) { return; }
 
     LayerCamera* layerCam = static_cast<LayerCamera*>(layer);
-    toolProperties().setBaseValue(CameraToolProperties::PATH_DOTCOLOR_TYPE, static_cast<int>(layerCam->getDotColorType()));
-    toolProperties().setBaseValue(CameraToolProperties::SHOWPATH_ENABLED, layerCam->getShowCameraPath());
+    toolProperties().setValue(CameraToolProperties::PATH_DOTCOLOR_TYPE, static_cast<int>(layerCam->getDotColorType()));
+    toolProperties().setValue(CameraToolProperties::SHOWPATH_ENABLED, layerCam->getShowCameraPath());
 }
 
 void CameraTool::updateSettings(const SETTING setting)
@@ -116,7 +115,7 @@ void CameraTool::updateSettings(const SETTING setting)
     {
     case SETTING::ROTATION_INCREMENT:
     {
-        mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
+        mRotationIncrement = mEditor->preference()->get<SETTING::ROTATION_INCREMENT>();
         break;
     }
     default:
@@ -219,7 +218,7 @@ void CameraTool::updateMoveMode(const QPointF& pos)
 
 void CameraTool::performAction(ActionType actionType)
 {
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::CAMERA_MODIFY);
+    Edit edit = mEditor->edit(mEditor->layers()->currentLayer(), actionType == RESET_PATH ? tr("Reset Camera Path") : tr("Reset Camera"));
     switch (actionType)
     {
         case RESET_PATH: {
@@ -243,7 +242,7 @@ void CameraTool::performAction(ActionType actionType)
             break;
         }
     }
-    mEditor->undoRedo()->record(saveStateId, actionType == RESET_PATH ? tr("Reset Camera Path") : tr("Reset Camera"));
+    edit.commit();
 }
 
 void CameraTool::setCameraPathEnabled(bool enabled)
@@ -252,7 +251,7 @@ void CameraTool::setCameraPathEnabled(bool enabled)
 
     Q_ASSERT(layer->type() == Layer::CAMERA);
     layer->setShowCameraPath(enabled);
-    toolProperties().setBaseValue(CameraToolProperties::SHOWPATH_ENABLED, enabled);
+    toolProperties().setValue(CameraToolProperties::SHOWPATH_ENABLED, enabled);
     emit cameraPathEnabledChanged(enabled);
 
     emit mEditor->frameModified(mEditor->currentFrame());
@@ -264,7 +263,7 @@ void CameraTool::setPathDotColorType(DotColorType pathDotColor)
     Q_ASSERT(layer->type() == Layer::CAMERA);
 
     layer->updateDotColor(pathDotColor);
-    toolProperties().setBaseValue(CameraToolProperties::PATH_DOTCOLOR_TYPE, static_cast<int>(pathDotColor));
+    toolProperties().setValue(CameraToolProperties::PATH_DOTCOLOR_TYPE, static_cast<int>(pathDotColor));
     emit pathColorChanged(pathDotColor);
 
     emit mEditor->frameModified(mEditor->currentFrame());
@@ -336,8 +335,8 @@ void CameraTool::pointerPressEvent(PointerEvent* event)
     mTransformOffset = event->canvasPos();
 
     // A press whose release never came leaves its state behind
-    mEditor->undoRedo()->discardState(mUndoSaveStateId);
-    mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::CAMERA_MODIFY);
+    mEdit.reset();
+    mEdit.emplace(mEditor->edit(mEditor->layers()->currentLayer(), tr("Move Camera")));
 }
 
 void CameraTool::pointerMoveEvent(PointerEvent* event)
@@ -378,8 +377,7 @@ void CameraTool::pointerReleaseEvent(PointerEvent* event)
     }
     emit mEditor->frameModified(frame);
 
-    mEditor->undoRedo()->record(mUndoSaveStateId, tr("Move Camera"));
-    mUndoSaveStateId = 0;
+    if (mEdit) { mEdit->commit(); mEdit.reset(); }
 }
 
 qreal CameraTool::getAngleBetween(const QPointF& pos1, const QPointF& pos2) const

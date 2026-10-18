@@ -1,5 +1,9 @@
 #include "catch.hpp"
 
+#include <type_traits>
+#include <utility>
+#include <variant>
+#include <vector>
 #include <QSettings>
 
 #include "pencildef.h"
@@ -7,6 +11,24 @@
 #include "editor.h"
 #include "preferencemanager.h"
 #include "testfixture.h"
+
+namespace
+{
+// Calls f once per table row with std::integral_constant<SETTING, S>.
+template<typename F, int... I>
+void forEachRowImpl(F&& f, std::integer_sequence<int, I...>)
+{
+    (f(std::integral_constant<SETTING, static_cast<SETTING>(I)>()), ...);
+}
+template<typename F>
+void forEachRow(F&& f) { forEachRowImpl(f, std::make_integer_sequence<int, static_cast<int>(SETTING::COUNT)>()); }
+
+template<SETTING S>
+PrefType<S> rowDefault()
+{
+    return PrefType<S>(std::get<kPrefRows[static_cast<int>(S)].def.index()>(kPrefRows[static_cast<int>(S)].def));
+}
+}
 
 TEST_CASE("Preferences - every old startup key combination migrates once to one startup choice", "[Settings]")
 {
@@ -30,14 +52,14 @@ TEST_CASE("Preferences - every old startup key combination migrates once to one 
         Editor editor;
         PreferenceManager prefs(&editor);
         prefs.loadPrefs();
-        CHECK(prefs.getInt(SETTING::STARTUP_ACTION) == expected);
+        CHECK(prefs.get<SETTING::STARTUP_ACTION>() == expected);
         CHECK(store.value(SETTING_STARTUP_ACTION).toInt() == expected);
         for (const char* key : oldKeys) { CHECK_FALSE(store.contains(key)); }
 
         store.setValue(SETTING_SHOW_WELCOME_SCREEN, expected != STARTUP_WELCOME); // a stale old key no longer wins
         PreferenceManager again(&editor);
         again.loadPrefs();
-        CHECK(again.getInt(SETTING::STARTUP_ACTION) == expected);
+        CHECK(again.get<SETTING::STARTUP_ACTION>() == expected);
     }
 }
 
@@ -51,8 +73,110 @@ TEST_CASE("Preferences - an unknown startup choice loads as the Welcome screen",
         Editor editor;
         PreferenceManager prefs(&editor);
         prefs.loadPrefs();
-        CHECK(prefs.getInt(SETTING::STARTUP_ACTION) == STARTUP_WELCOME);
+        CHECK(prefs.get<SETTING::STARTUP_ACTION>() == STARTUP_WELCOME);
     }
+}
+
+namespace
+{
+std::vector<const char*> prefKeys()
+{
+    std::vector<const char*> keys;
+    for (const PrefRow& row : kPrefRows)
+    {
+        keys.push_back(row.key);
+        if (row.migratedFrom) { keys.push_back(row.migratedFrom); }
+    }
+    return keys;
+}
+
+template<SETTING S, typename V, typename = void> struct CanSet : std::false_type {};
+template<SETTING S, typename V>
+struct CanSet<S, V, std::void_t<decltype(std::declval<PreferenceManager&>().set<S>(std::declval<V>()))>> : std::true_type {};
+
+static_assert(CanSet<SETTING::GRID, bool>::value, "a bool row takes a bool");
+static_assert(!CanSet<SETTING::GRID, int>::value, "a bool row refuses an int");
+static_assert(!CanSet<SETTING::ONION_FALLOFF, bool>::value, "an int row refuses a bool");
+static_assert(CanSet<SETTING::CURSOR_STYLE, CursorStyle>::value, "an int row takes its enum");
+static_assert(!CanSet<SETTING::LAYER_VISIBILITY_THRESHOLD, double>::value, "a float row refuses a double");
+static_assert(CanSet<SETTING::ONION_TYPE, const char*>::value, "a string row takes text");
+static_assert(!CanSet<SETTING::ONION_TYPE, int>::value, "a string row refuses an int");
+template<typename P, typename = void> struct HasUntyped : std::false_type {};
+template<typename P> struct HasUntyped<P, std::void_t<decltype(std::declval<P&>().isOn(SETTING::GRID))>> : std::true_type {};
+template<typename P> struct HasUntypedSetT { template<typename V> static auto test(int) -> decltype(std::declval<P&>().set(SETTING::GRID, std::declval<V>()), std::true_type()); template<typename V> static std::false_type test(...); };
+static_assert(!HasUntyped<PreferenceManager>::value, "no untyped read is left");
+static_assert(!decltype(HasUntypedSetT<PreferenceManager>::test<bool>(0))::value, "no untyped write is left");
+static_assert(std::is_same_v<decltype(std::declval<PreferenceManager&>().get<SETTING::ONION_TYPE>()), QString>, "a string row reads a QString");
+}
+
+TEST_CASE("Preferences - every table row loads its default and round-trips a new value", "[Settings]")
+{
+    const std::vector<const char*> keys = prefKeys();
+    const SettingsGuard guard(keys);
+    QSettings& store = pencilSettings();
+    for (const char* key : keys) { store.remove(key); }
+
+    Editor editor;
+    PreferenceManager prefs(&editor);
+    prefs.loadPrefs();
+    CHECK(prefs.get<SETTING::ONION_MARKS>() == MarkFilter({ Mark::Key, Mark::Breakdown }).toInt());
+    forEachRow([&](auto id) {
+        constexpr SETTING S = decltype(id)::value;
+        const PrefRow& row = kPrefRows[static_cast<int>(S)];
+        CAPTURE(row.key);
+        const PrefType<S> def = rowDefault<S>();
+        using T = std::decay_t<decltype(def)>;
+        if constexpr (std::is_same_v<T, bool>) { CHECK(prefs.get<S>() == def); prefs.set<S>(!def); }
+        else if constexpr (std::is_same_v<T, int>) { CHECK(prefs.get<S>() == def); prefs.set<S>(def + 1); }
+        else if constexpr (std::is_same_v<T, float>) { CHECK(prefs.get<S>() == def); prefs.set<S>(def + 0.25f); }
+        else { CHECK(prefs.get<S>() == def); prefs.set<S>(def + "x"); }
+    });
+
+    PreferenceManager loaded(&editor);
+    loaded.loadPrefs();
+    forEachRow([&](auto id) {
+        constexpr SETTING S = decltype(id)::value;
+        const PrefRow& row = kPrefRows[static_cast<int>(S)];
+        CAPTURE(row.key);
+        const PrefType<S> def = rowDefault<S>();
+        using T = std::decay_t<decltype(def)>;
+        if constexpr (std::is_same_v<T, bool>) { CHECK(loaded.get<S>() == !def); CHECK(store.value(row.key).toBool() == !def); }
+        else if constexpr (std::is_same_v<T, int>) { CHECK(loaded.get<S>() == def + 1); CHECK(store.value(row.key).toInt() == def + 1); }
+        else if constexpr (std::is_same_v<T, float>) { CHECK(loaded.get<S>() == def + 0.25f); CHECK(store.value(row.key).toFloat() == def + 0.25f); }
+        else { CHECK(loaded.get<S>() == def + "x"); CHECK(store.value(row.key).toString() == def + "x"); }
+    });
+}
+
+TEST_CASE("Preferences - each migrated-from key moves once while the new key is absent", "[Settings]")
+{
+    const SettingsGuard guard(prefKeys());
+    QSettings& store = pencilSettings();
+    int migrated = 0;
+    for (const PrefRow& row : kPrefRows)
+    {
+        if (!row.migratedFrom) { continue; }
+        CAPTURE(row.key);
+        ++migrated;
+        for (bool old : { false, true })
+        {
+            store.remove(row.key);
+            store.setValue(row.migratedFrom, old);
+            const QVariant expected = row.migrate ? row.migrate(QVariant(old)) : QVariant(old);
+
+            Editor editor;
+            PreferenceManager prefs(&editor);
+            prefs.loadPrefs();
+            CHECK_FALSE(store.contains(row.migratedFrom));
+            CHECK(store.value(row.key).toString() == expected.toString());
+
+            store.setValue(row.migratedFrom, !old); // a stale old key no longer wins
+            PreferenceManager again(&editor);
+            again.loadPrefs();
+            CHECK_FALSE(store.contains(row.migratedFrom));
+            CHECK(store.value(row.key).toString() == expected.toString());
+        }
+    }
+    CHECK(migrated > 0);
 }
 
 TEST_CASE("Test settings stay out of the native store", "[Settings]")
@@ -78,14 +202,14 @@ TEST_CASE("Preferences - a fresh profile autosaves by time every 5 minutes and n
     Editor editor;
     PreferenceManager prefs(&editor);
     prefs.loadPrefs();
-    CHECK(prefs.isOn(SETTING::AUTO_SAVE_BY_TIME));
-    CHECK(prefs.getInt(SETTING::AUTO_SAVE_BY_TIME_TIMER) == 5);
-    CHECK_FALSE(prefs.isOn(SETTING::AUTO_SAVE));
+    CHECK(prefs.get<SETTING::AUTO_SAVE_BY_TIME>());
+    CHECK(prefs.get<SETTING::AUTO_SAVE_BY_TIME_TIMER>() == 5);
+    CHECK_FALSE(prefs.get<SETTING::AUTO_SAVE>());
 
     store.setValue(SETTING_AUTO_SAVE_BY_TIME, false);
     store.setValue(SETTING_AUTO_SAVE_BY_TIME_TIMER, 15);
     PreferenceManager saved(&editor);
     saved.loadPrefs();
-    CHECK_FALSE(saved.isOn(SETTING::AUTO_SAVE_BY_TIME));
-    CHECK(saved.getInt(SETTING::AUTO_SAVE_BY_TIME_TIMER) == 15);
+    CHECK_FALSE(saved.get<SETTING::AUTO_SAVE_BY_TIME>());
+    CHECK(saved.get<SETTING::AUTO_SAVE_BY_TIME_TIMER>() == 15);
 }

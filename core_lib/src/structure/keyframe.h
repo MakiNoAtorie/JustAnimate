@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <cstdint>
 #include <vector>
 #include <memory>
+#include <QMetaType>
 #include <QString>
 #include <QTransform>
 #include "pencilerror.h"
@@ -39,6 +40,17 @@ struct TweenState
     QTransform transform() const { return QTransform().translate(tx, ty).rotate(rot).scale(scale, scale); }
     /// True when the transform is identity; opacity is not part of it.
     bool isIdentity() const { return tx == 0 && ty == 0 && rot == 0 && scale == 1; }
+    bool operator==(const TweenState& o) const { return tx == o.tx && ty == o.ty && rot == o.rot && scale == o.scale && opacity == o.opacity; }
+};
+
+/// A key's tween value as one Drawing attribute: tween on, its easing and the key's drawing state.
+struct KeyTween
+{
+    bool on = false;
+    CameraEasingType easing = CameraEasingType::LINEAR;
+    TweenState state;
+
+    bool operator==(const KeyTween& o) const { return on == o.on && easing == o.easing && state == o.state; }
 };
 
 
@@ -160,5 +172,8 @@ class KeyFrameEventListener
 public:
     virtual void onKeyFrameDestroy(KeyFrame*) = 0;
 };
+
+Q_DECLARE_METATYPE(KeyTween)
+Q_DECLARE_METATYPE(PanelFields)
 
 #endif // KeyFrame_H

@@ -23,9 +23,14 @@ GNU General Public License for more details.
 #include <QDebug>
 #include <QVector>
 #include <QPair>
+#include <QStringList>
+#include <optional>
+#include <type_traits>
 
 #include "pencildef.h"
 #include "inputsmoother.h"
+
+struct ToolProperties;
 
 struct PropertyInfo
 {
@@ -202,6 +207,52 @@ private:
     QVariant mDefaultValue;
 };
 
+/// A property id that carries its value type, so a get or set with the wrong type does not compile.
+template <typename T>
+struct ToolPropertyId { int raw; };
+
+/// The values a property of type T takes: T, an int for a real, an enum for an int.
+template <typename T, typename V>
+inline constexpr bool kToolPropertyAccepts = std::is_same_v<T, V> || (std::is_same_v<T, qreal> && std::is_same_v<V, int>)
+                                             || (std::is_same_v<T, int> && std::is_enum_v<V>);
+
+enum class ToolRowKind { Slider, SpinBox, CheckBox, ComboBox };
+
+/// Layer types that show a property's Tool settings row.
+enum ToolRowLayers : quint8 { NO_ROW = 0, BITMAP_ROW = 1, VECTOR_ROW = 2, BOTH_ROWS = BITMAP_ROW | VECTOR_ROW };
+
+struct ToolPropertyUse
+{
+    ToolType tool;
+    quint8 layers = NO_ROW;                 // ToolRowLayers
+    std::optional<double> defaultValue;     // empty: the descriptor's default
+    const char* legacyKey = nullptr;        // top-level key that migrateLegacyKeys reads once
+};
+
+/// One Stroke tool property: the only home of its settings key, range and defaults.
+struct ToolPropertyDescriptor
+{
+    int id;                         // a StrokeToolProperties, PolylineToolProperties or ShapeToolProperties Type
+    const char* key;                // key in the tool's settings group and in preset JSON
+    PropertyInfo::ValueType type;
+    double min;
+    double max;
+    double defaultValue;
+    const char* label;              // translate in the "StrokeOptionsWidget" context
+    const char* disambiguation;
+    ToolRowKind row;
+    QVector<ToolPropertyUse> uses;  // tools that show a row or have their own default or legacy key
+    QVector<const char*> items;     // ComboBox item labels from min up, in the "StrokeOptionsWidget" context
+    const char* legacyGroupKey = nullptr;   // older key in the tool's group, read while key is not stored yet
+    void (*fromLegacy)(ToolProperties&, const QVariant&) = nullptr; // maps an old stored value; nullptr: stored as is
+
+    const ToolPropertyUse* use(ToolType tool) const;
+    double toolDefault(ToolType tool) const;
+    PropertyInfo info(ToolType tool) const;
+    QString text() const;               // the translated label
+    QStringList itemTexts() const;      // the translated ComboBox items; empty when the row has no item names
+};
+
 struct ToolProperties
 {
     enum Version {
@@ -257,32 +308,6 @@ struct ToolProperties
         }
         settings.endGroup();
         settings.sync();
-    }
-
-    /*  Sets the BaseValue for the given property
-
-        @param rawType The type that identifies with the value, eg. StrokeSettings::WIDTH_VALUE
-        @param info A PropertyInfo struct which can either be INTEGER|REAL|BOOL
-    */
-    void setBaseValue(int rawType, const PropertyInfo& info)
-    {
-        if (!isValidType(rawType)) { return; }
-
-        switch (info.type())
-        {
-        case PropertyInfo::INTEGER:
-            mProps[rawType].setBaseValue(info.intValue());
-            break;
-        case PropertyInfo::REAL:
-            mProps[rawType].setBaseValue(info.realValue());
-            break;
-        case PropertyInfo::BOOL:
-            mProps[rawType].setBaseValue(info.boolValue());
-            break;
-        case PropertyInfo::INVALID:
-            Q_ASSERT_X(false, __func__, "Expected value but got INVALID. Make sure the property has been setup properly before trying to set its base value.");
-            break;
-        }
     }
 
     void setVersion(Version version) { mVersion = version; }
@@ -347,7 +372,41 @@ struct ToolProperties
     void addRange(QPair<int, int> range) { mTypeRanges.append(range); }
     const QVector<QPair<int, int>>& typeRanges() const { return mTypeRanges; }
 
+    static const QVector<ToolPropertyDescriptor>& descriptors();
+    static const ToolPropertyDescriptor* descriptor(int id);
+
+    /* Registers every descriptor the Stroke tool stores, with that tool's default, then loads them from its settings group */
+    void loadTool(ToolType tool, const QString& toolIdentifier, QSettings& settings);
+
+    /* Reads the tool's old top-level keys once, before VERSION_1, and removes them */
+    void migrateLegacyKeys(ToolType tool, QSettings& settings);
+
+    /* Returns the descriptor default when the property is not registered */
+    template <typename T>
+    T get(ToolPropertyId<T> id) const
+    {
+        const auto it = mProps.constFind(id.raw);
+        if (it != mProps.cend() && it->type() != PropertyInfo::INVALID) { return it->toVariant().template value<T>(); }
+        const ToolPropertyDescriptor* d = descriptor(id.raw);
+        return d ? static_cast<T>(d->defaultValue) : T{};
+    }
+
+    /* Clamps to the property's range; ignores a property that is not registered */
+    template <typename T, typename V, typename = std::enable_if_t<kToolPropertyAccepts<T, V>>>
+    void set(ToolPropertyId<T> id, V value)
+    {
+        const auto it = mProps.find(id.raw);
+        if (it != mProps.end() && it->type() != PropertyInfo::INVALID) { it->setBaseValue(static_cast<T>(value)); }
+    }
+
+    bool has(int id) const { const auto it = mProps.constFind(id); return it != mProps.cend() && it->type() != PropertyInfo::INVALID; }
+    /* The value of a registered property; an invalid QVariant when it is not registered */
+    QVariant value(int id) const { return has(id) ? mProps.value(id).toVariant() : QVariant(); }
+    /* Converts to the property's type and clamps to its range; ignores a property that is not registered */
+    void setValue(int id, const QVariant& value) { if (has(id)) { setValue(mProps[id], value); } }
+
 private:
+    static void setValue(PropertyInfo& info, const QVariant& value);
 
     void loadProperty(const QString& settingName, PropertyInfo& info, const QSettings& settings) {
         switch (info.type()) {
@@ -393,9 +452,9 @@ struct ToolPropertiesBase {
     virtual PropertyInfo getInfo(int rawPropertyType) const = 0;
 };
 
-struct StrokeToolProperties: public ToolPropertiesBase
+// Stroke tool property ids; StrokeTool holds their values in its ToolProperties.
+struct StrokeToolProperties
 {
-
     enum Type {
         START               = 100,
         WIDTH_VALUE         = START,
@@ -438,105 +497,9 @@ struct StrokeToolProperties: public ToolPropertiesBase
 
         END                = 199,
     };
-
-    StrokeToolProperties() {
-        mToolProperties.setRanges({ { START, END } });
-
-        mToolProperties.insertIdentifiers({
-            { WIDTH_VALUE,           "Width" },
-            { FEATHER_VALUE,         "Feather" },
-            { FEATHER_ENABLED,       "FeatherEnabled" },
-            { SMOOTHING_MODE,        "SmoothingMode" },
-            { SMOOTHING_STRENGTH,    "SmoothingStrength" },
-            { PRESSURE_ENABLED,      "PressureEnabled" },
-            { INVISIBILITY_ENABLED,  "InvisibilityEnabled" },
-            { ANTI_ALIASING_ENABLED, "AntiAliasingEnabled"},
-            { FILLCONTOUR_ENABLED,   "FillContourEnabled" },
-            { SPACING_VALUE,         "Spacing" },
-            { TIP_SQUARE_ENABLED,    "TipSquare" },
-            { TIP_ASPECT_VALUE,      "TipAspect" },
-            { TIP_ANGLE_VALUE,       "TipAngle" },
-            { TIP_FOLLOW_DIRECTION_ENABLED, "TipFollowDirection" },
-            { FLOW_VALUE,            "Flow" },
-            { OPACITY_VALUE,         "Opacity" },
-            { WASH_ENABLED,          "WashEnabled" },
-            { SPEED_TO_SIZE_VALUE,   "SpeedToSize" },
-            { TILT_TO_SIZE_VALUE,    "TiltToSize" },
-            { TILT_TO_ANGLE_VALUE,   "TiltToAngle" },
-            { SIZE_JITTER_VALUE,     "SizeJitter" },
-            { SCATTER_VALUE,         "Scatter" },
-            { ANGLE_JITTER_VALUE,    "AngleJitter" },
-            { DAB_COUNT_VALUE,       "DabCount" },
-            { FLOW_PER_DAB_ENABLED,  "FlowPerDab" },
-            { TAPER_START_VALUE,     "TaperStart" },
-            { TAPER_END_VALUE,       "TaperEnd" },
-            { GRAIN_MODE_VALUE,      "GrainMode" },
-            { GRAIN_SCALE_VALUE,     "GrainScale" },
-            { GRAIN_CONTRAST_VALUE,  "GrainContrast" },
-            { GRAIN_BRIGHTNESS_VALUE, "GrainBrightness" },
-            { SMUDGE_LENGTH_VALUE,   "SmudgeLength" },
-            { SMUDGE_RADIUS_VALUE,   "SmudgeRadius" },
-            { SMUDGE_COLOR_RATE_VALUE, "SmudgeColorRate" },
-            { SMUDGE_MIX_VALUE,      "SmudgeMix" },
-            { GRAIN_TEXTURE_VALUE,   "GrainTexture" }
-        });
-    }
-
-    ToolProperties& toolProperties() override { return mToolProperties; }
-
-    void addRange(const QPair<int, int> range) {
-        mToolProperties.addRange(range);
-    }
-
-    PropertyInfo getInfo(int rawPropertyType) const override {
-        return mToolProperties.getInfo(rawPropertyType);
-    }
-
-    qreal width() const { return getInfo(WIDTH_VALUE).realValue(); }
-    qreal feather() const { return getInfo(FEATHER_VALUE).realValue(); }
-    SmoothingMode smoothingMode() const { return static_cast<SmoothingMode>(getInfo(SMOOTHING_MODE).intValue()); }
-    int smoothingStrength() const { return getInfo(SMOOTHING_STRENGTH).intValue(); }
-    qreal spacing() const { return getInfo(SPACING_VALUE).realValue(); }
-    bool tipSquare() const { return getInfo(TIP_SQUARE_ENABLED).boolValue(); }
-    qreal tipAspect() const { return getInfo(TIP_ASPECT_VALUE).realValue(); }
-    qreal tipAngle() const { return getInfo(TIP_ANGLE_VALUE).realValue(); }
-    bool tipFollowsDirection() const { return getInfo(TIP_FOLLOW_DIRECTION_ENABLED).boolValue(); }
-    qreal flow() const { return getInfo(FLOW_VALUE).realValue(); }
-    qreal opacity() const { return getInfo(OPACITY_VALUE).realValue(); }
-    bool washEnabled() const { return getInfo(WASH_ENABLED).boolValue(); }
-    int speedToSize() const { return getInfo(SPEED_TO_SIZE_VALUE).intValue(); } // percent
-    int tiltToSize() const { return getInfo(TILT_TO_SIZE_VALUE).intValue(); } // percent
-    int tiltToAngle() const { return getInfo(TILT_TO_ANGLE_VALUE).intValue(); } // percent
-    int sizeJitter() const { return getInfo(SIZE_JITTER_VALUE).intValue(); } // percent
-    int scatter() const { return getInfo(SCATTER_VALUE).intValue(); } // percent of dab width
-    int angleJitter() const { return getInfo(ANGLE_JITTER_VALUE).intValue(); } // degrees
-    int dabCount() const { return getInfo(DAB_COUNT_VALUE).intValue(); }
-    bool flowPerDab() const { return getInfo(FLOW_PER_DAB_ENABLED).boolValue(); }
-    int taperStart() const { return getInfo(TAPER_START_VALUE).intValue(); } // canvas px, 0 = off
-    int taperEnd() const { return getInfo(TAPER_END_VALUE).intValue(); } // canvas px, 0 = off
-    int grainMode() const { return getInfo(GRAIN_MODE_VALUE).intValue(); } // 0 off, 1 fixed to the canvas, 2 moves with each dab
-    int grainTexture() const { return getInfo(GRAIN_TEXTURE_VALUE).intValue(); } // 0 generated, 1.. bundled paper
-    int grainScale() const { return getInfo(GRAIN_SCALE_VALUE).intValue(); } // percent
-    int grainContrast() const { return getInfo(GRAIN_CONTRAST_VALUE).intValue(); } // percent
-    int grainBrightness() const { return getInfo(GRAIN_BRIGHTNESS_VALUE).intValue(); } // -100..100
-    int smudgeLength() const { return getInfo(SMUDGE_LENGTH_VALUE).intValue(); } // percent of the colour bucket kept per dab
-    int smudgeRadius() const { return getInfo(SMUDGE_RADIUS_VALUE).intValue(); } // sample radius, percent of the dab radius
-    int smudgeColorRate() const { return getInfo(SMUDGE_COLOR_RATE_VALUE).intValue(); } // percent of front colour in each smudge dab
-    int smudgeMix() const { return getInfo(SMUDGE_MIX_VALUE).intValue(); } // 0 mixes as light (linear), 1 as pigment (Kubelka-Munk)
-    bool pressureEnabled() const { return getInfo(PRESSURE_ENABLED).boolValue(); }
-    bool invisibilityEnabled() const { return getInfo(INVISIBILITY_ENABLED).boolValue(); }
-    bool featherEnabled() const { return getInfo(FEATHER_ENABLED).boolValue(); }
-    bool AntiAliasingEnabled() const { return getInfo(ANTI_ALIASING_ENABLED).boolValue(); }
-    bool fillContourEnabled() const { return getInfo(FILLCONTOUR_ENABLED).boolValue(); }
-
-private:
-    ToolProperties mToolProperties;
 };
 
-/// This struct is an example of how we can
-/// share properties among tools rather than duplicating logic, eg. polyline uses properties from StrokeToolProperties.
-/// The same could be done for PencilTool, BrushTool, Eraser etc...
-struct PolylineToolProperties: public ToolPropertiesBase
+struct PolylineToolProperties
 {
     enum Type {
         START               = 200,
@@ -546,30 +509,6 @@ struct PolylineToolProperties: public ToolPropertiesBase
 
         END                 = 299,
     };
-
-    PolylineToolProperties() {
-        toolProperties().addRange({START, END});
-
-        toolProperties().insertIdentifiers({
-            { CLOSEDPATH_ENABLED, "ClosedPathEnabled"},
-            { BEZIERPATH_ENABLED, "BezierPathEnabled" }
-        });
-    }
-
-    ToolProperties& toolProperties() override { return mStrokeToolProperties.toolProperties(); }
-    const StrokeToolProperties& strokeToolProperties() const { return mStrokeToolProperties; }
-
-    PropertyInfo getInfo(int rawPropertyType) const override {
-        return mStrokeToolProperties.getInfo(rawPropertyType);
-    }
-
-    qreal width() const { return getInfo(StrokeToolProperties::WIDTH_VALUE).realValue(); }
-    bool closedPathEnabled() const { return getInfo(CLOSEDPATH_ENABLED).boolValue(); }
-    bool bezierPathEnabled() const { return getInfo(BEZIERPATH_ENABLED).boolValue(); }
-    bool AntiAliasingEnabled() const { return getInfo(StrokeToolProperties::ANTI_ALIASING_ENABLED).boolValue(); }
-
-private:
-    StrokeToolProperties mStrokeToolProperties;
 };
 
 struct BucketToolProperties: public ToolPropertiesBase
@@ -692,7 +631,7 @@ private:
     ToolProperties mProperties;
 };
 
-// The shape tool keeps these in its StrokeToolProperties, next to the brush settings.
+// The shape tool keeps these in its StrokeTool properties, next to the brush settings.
 struct ShapeToolProperties
 {
     enum Type {
@@ -701,5 +640,50 @@ struct ShapeToolProperties
         END                 = 699,
     };
 };
+
+// Typed ids for ToolProperties::get and set.
+namespace ToolProperty
+{
+using S = StrokeToolProperties;
+inline constexpr ToolPropertyId<qreal> Width{ S::WIDTH_VALUE };
+inline constexpr ToolPropertyId<qreal> Feather{ S::FEATHER_VALUE };
+inline constexpr ToolPropertyId<int> SmoothingMode{ S::SMOOTHING_MODE };
+inline constexpr ToolPropertyId<bool> PressureEnabled{ S::PRESSURE_ENABLED };
+inline constexpr ToolPropertyId<bool> InvisibilityEnabled{ S::INVISIBILITY_ENABLED };
+inline constexpr ToolPropertyId<bool> FeatherEnabled{ S::FEATHER_ENABLED };
+inline constexpr ToolPropertyId<bool> AntiAliasingEnabled{ S::ANTI_ALIASING_ENABLED };
+inline constexpr ToolPropertyId<bool> FillContourEnabled{ S::FILLCONTOUR_ENABLED };
+inline constexpr ToolPropertyId<int> SmoothingStrength{ S::SMOOTHING_STRENGTH };
+inline constexpr ToolPropertyId<qreal> Spacing{ S::SPACING_VALUE };
+inline constexpr ToolPropertyId<bool> TipSquare{ S::TIP_SQUARE_ENABLED };
+inline constexpr ToolPropertyId<qreal> TipAspect{ S::TIP_ASPECT_VALUE };
+inline constexpr ToolPropertyId<qreal> TipAngle{ S::TIP_ANGLE_VALUE };
+inline constexpr ToolPropertyId<bool> TipFollowDirection{ S::TIP_FOLLOW_DIRECTION_ENABLED };
+inline constexpr ToolPropertyId<qreal> Flow{ S::FLOW_VALUE };
+inline constexpr ToolPropertyId<qreal> Opacity{ S::OPACITY_VALUE };
+inline constexpr ToolPropertyId<bool> WashEnabled{ S::WASH_ENABLED };
+inline constexpr ToolPropertyId<int> SpeedToSize{ S::SPEED_TO_SIZE_VALUE };
+inline constexpr ToolPropertyId<int> TiltToSize{ S::TILT_TO_SIZE_VALUE };
+inline constexpr ToolPropertyId<int> TiltToAngle{ S::TILT_TO_ANGLE_VALUE };
+inline constexpr ToolPropertyId<int> SizeJitter{ S::SIZE_JITTER_VALUE };
+inline constexpr ToolPropertyId<int> Scatter{ S::SCATTER_VALUE };
+inline constexpr ToolPropertyId<int> AngleJitter{ S::ANGLE_JITTER_VALUE };
+inline constexpr ToolPropertyId<int> DabCount{ S::DAB_COUNT_VALUE };
+inline constexpr ToolPropertyId<bool> FlowPerDab{ S::FLOW_PER_DAB_ENABLED };
+inline constexpr ToolPropertyId<int> TaperStart{ S::TAPER_START_VALUE };
+inline constexpr ToolPropertyId<int> TaperEnd{ S::TAPER_END_VALUE };
+inline constexpr ToolPropertyId<int> GrainMode{ S::GRAIN_MODE_VALUE };
+inline constexpr ToolPropertyId<int> GrainScale{ S::GRAIN_SCALE_VALUE };
+inline constexpr ToolPropertyId<int> GrainContrast{ S::GRAIN_CONTRAST_VALUE };
+inline constexpr ToolPropertyId<int> GrainBrightness{ S::GRAIN_BRIGHTNESS_VALUE };
+inline constexpr ToolPropertyId<int> SmudgeLength{ S::SMUDGE_LENGTH_VALUE };
+inline constexpr ToolPropertyId<int> SmudgeRadius{ S::SMUDGE_RADIUS_VALUE };
+inline constexpr ToolPropertyId<int> SmudgeColorRate{ S::SMUDGE_COLOR_RATE_VALUE };
+inline constexpr ToolPropertyId<int> SmudgeMix{ S::SMUDGE_MIX_VALUE };
+inline constexpr ToolPropertyId<int> GrainTexture{ S::GRAIN_TEXTURE_VALUE };
+inline constexpr ToolPropertyId<bool> ClosedPathEnabled{ PolylineToolProperties::CLOSEDPATH_ENABLED };
+inline constexpr ToolPropertyId<bool> BezierPathEnabled{ PolylineToolProperties::BEZIERPATH_ENABLED };
+inline constexpr ToolPropertyId<int> ShapeMode{ ShapeToolProperties::SHAPEMODE_VALUE };
+}
 
 #endif // TOOLPROPERTIES_H

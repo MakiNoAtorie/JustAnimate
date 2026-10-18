@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #ifndef TIMELINECELLS_H
 #define TIMELINECELLS_H
 
+#include "frameeditgesture.h"
 #include <QString>
 #include <QWidget>
 #include "layercamera.h"
@@ -162,7 +163,6 @@ private:
     int mFromLayer = 0;
     int mToLayer   = 1;
     int mStartLayerNumber = -1;
-    int mStartFrameNumber = 0;
     int mLastFrameNumber = -1;
 
     // is used to move layers, don't use this to get mousePos;
@@ -180,16 +180,8 @@ private:
     int mFlashLayerId = 0;
     int mFlashTicks = 0;
 
-    bool mCanMoveFrame   = false;
-    bool mMovingFrames   = false;
-
-    bool mCanBoxSelect   = false;
-    bool mBoxSelecting   = false;
-
-    bool mClickSelecting = false;
-    int mExposureEdge = 0; // the frame whose right edge is being dragged, or 0
+    FrameEditGesture mGesture;
     int mRangeDragStart = 0; // ruler frame where a Shift-drag loop range started, or 0
-    int mLinkFrom = 0; // the key being Alt-dragged to make a Linked Drawing, or 0
 
     int mFramePosMoveX = 0;
     int mLayerPosMoveY = 0;

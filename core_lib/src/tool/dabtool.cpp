@@ -15,11 +15,8 @@ GNU General Public License for more details.
 */
 #include "dabtool.h"
 
-#include <cmath>
-
 #include <QPainter>
 #include <QPainterPath>
-#include <QtMath>
 
 #include "colormanager.h"
 #include "editor.h"
@@ -34,10 +31,6 @@ namespace
 // One 60 Hz frame ahead, and never further than this many viewport px.
 constexpr qreal kPredictionHorizonMs = 16;
 constexpr qreal kPredictionMaxPx = 64;
-// Pen speed (viewport px/ms) at which speed to size has full effect.
-constexpr qreal kFullSpeedPxPerMs = 4;
-// Dynamics never shrink a dab below this part of its width; spacing stays sane.
-constexpr qreal kMinSizeFactor = 0.1;
 } // namespace
 
 void DabTool::pointerPressEvent(PointerEvent* event)
@@ -49,28 +42,23 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     }
 
     mMouseDownPoint = getCurrentPoint();
-    mLastBrushPoint = getCurrentPoint();
 
     startStroke(event->inputType());
-    mPressureCurve = PressureCurve::fromString(pressureCurve().isEmpty() ? mEditor->preference()->getString(SETTING::PRESSURE_CURVE)
+    mPressureCurve = PressureCurve::fromString(pressureCurve().isEmpty() ? mEditor->preference()->get<SETTING::PRESSURE_CURVE>()
                                                                          : pressureCurve());
-    mScribbleArea->setWashOpacity(strokeToolProperties().washEnabled() ? strokeToolProperties().opacity() / 100 : 1.0);
-    const StrokeToolProperties& p = strokeToolProperties();
-    mSpeedToSize = p.speedToSize() / 100.0;
-    mTiltToSize = p.tiltToSize() / 100.0;
-    mTiltToAngle = p.tiltToAngle() / 100.0;
-    mSizeJitter = p.sizeJitter() / 100.0;
-    mScatter = p.scatter() / 100.0;
-    mAngleJitter = p.angleJitter();
-    mDabCount = qMax(1, p.dabCount());
-    mLastBrushPressure = mCurrentPressure;
-    mTaperStart = p.taperStart();
-    mTaperEnd = p.taperEnd();
-    mStrokeLength = 0;
-    mBrushDistance = 0;
+    mBuffer.tiles().setWashOpacity(get(ToolProperty::WashEnabled) ? get(ToolProperty::Opacity) / 100 : 1.0);
+    mFeather = get(ToolProperty::Feather);
+    mTip = BrushTip();
+    mTip.square = get(ToolProperty::TipSquare);
+    mTip.aspect = get(ToolProperty::TipAspect) / 100.0;
+    mTip.image = mTipImage;
+    mTip.grainTexture = get(ToolProperty::GrainTexture);
+    mTip.grainMode = get(ToolProperty::GrainMode);
+    mTip.grainScale = get(ToolProperty::GrainScale) / 100.0f;
+    mTip.grainContrast = get(ToolProperty::GrainContrast) / 100.0f;
+    mTip.grainBrightness = get(ToolProperty::GrainBrightness) / 100.0f;
+    mPlacer.begin(properties(), mPressureCurve, { mMouseDownPoint, mCurrentPressure }, mRandom);
     mStrokeEnding = false;
-    mPendingPoints.clear();
-    mDistanceToNextDab = dabSpacing(dabWidth(mCurrentPressure) * taperAt(0));
     strokeStarted();
 
     StrokeTool::pointerPressEvent(event);
@@ -106,16 +94,17 @@ void DabTool::pointerReleaseEvent(PointerEvent* event)
 
     qreal distance = QLineF(getCurrentPoint(), mMouseDownPoint).length();
     mStrokeEnding = true;
-    if (distance < 1 && mPendingPoints.isEmpty())
+    Layer* layer = mEditor->layers()->currentLayer();
+    if (distance < 1 && !mPlacer.hasPending())
     {
-        paintAt(mMouseDownPoint);
+        if (layer->type() == Layer::BITMAP)
+            drawDabs({ mPlacer.tap({ mMouseDownPoint, mCurrentPressure, mInterpolator.speed(), mInterpolator.tilt() }) });
     }
     else
     {
         drawStroke();
     }
 
-    Layer* layer = mEditor->layers()->currentLayer();
     if (layer->type() == Layer::VECTOR) {
         finishVectorStroke(layer);
     }
@@ -142,7 +131,7 @@ void DabTool::updatePrediction()
         const QPointF ahead = mEditor->view()->mapScreenToCanvas(
             mInterpolator.predictedPixel(kPredictionHorizonMs, kPredictionMaxPx));
         mPrediction = QLineF(getCurrentPoint(), ahead);
-        mPredictionWidth = dabWidth(mCurrentPressure);
+        mPredictionWidth = mPlacer.width(mCurrentPressure);
     }
     mScribbleArea->update(before | predictionRect());
 }
@@ -153,7 +142,7 @@ void DabTool::paint(QPainter& painter, const QRect& blitRect)
     if (mPrediction.isNull()) return;
 
     QColor color = mEditor->color()->frontColor();
-    color.setAlphaF(color.alphaF() * dabOpacity(mCurrentPressure));
+    color.setAlphaF(color.alphaF() * mPlacer.opacity(mCurrentPressure));
     painter.save();
     painter.setTransform(mEditor->view()->getView());
     painter.setRenderHint(QPainter::Antialiasing);
@@ -162,158 +151,30 @@ void DabTool::paint(QPainter& painter, const QRect& blitRect)
     painter.restore();
 }
 
-qreal DabTool::dabSpacing(qreal brushWidth) const
-{
-    return qMax(0.25, brushWidth * (strokeToolProperties().spacing() / 100.0));
-}
-
-qreal DabTool::dabWidth(qreal pressure) const
-{
-    return strokeToolProperties().width() * (strokeToolProperties().pressureEnabled() ? mPressureCurve.value(pressure) : 1.0);
-}
-
-qreal DabTool::dabOpacity(qreal pressure) const
-{
-    const StrokeToolProperties& p = strokeToolProperties();
-    // Flow per dab with pressure off gives full flow, like the tools before v0.3.
-    const qreal flow = p.pressureEnabled() ? p.flow() / 100 * mPressureCurve.value(pressure)
-                                           : (p.flowPerDab() ? 1.0 : p.flow() / 100);
-    return p.washEnabled() ? flow : flow * p.opacity() / 100;
-}
-
-qreal DabTool::spacedDabOpacity(qreal pressure, qreal brushWidth) const
-{
-    if (strokeToolProperties().flowPerDab())
-        return dabOpacity(pressure);
-    // About width / spacing dabs cover each pixel; this alpha makes them add up to dabOpacity.
-    const qreal overlap = brushWidth > 0 ? qMin(1.0, dabSpacing(brushWidth) / brushWidth) : 1.0;
-    return 1 - std::pow(1 - dabOpacity(pressure), overlap);
-}
-
-qreal DabTool::taperAt(qreal distance) const
-{
-    qreal f = 1;
-    if (mTaperStart > 0) f = qMin(f, distance / mTaperStart);
-    if (mTaperEnd > 0 && mStrokeEnding) f = qMin(f, (mStrokeLength - distance) / mTaperEnd);
-    return qBound(0.0, f, 1.0);
-}
-
-BrushTip DabTool::dabTip(QPointF direction) const
-{
-    const StrokeToolProperties& p = strokeToolProperties();
-    BrushTip tip;
-    tip.square = p.tipSquare();
-    tip.aspect = p.tipAspect() / 100.0;
-    tip.angle = p.tipAngle();
-    tip.image = mTipImage;
-    tip.grainTexture = p.grainTexture();
-    tip.grainMode = p.grainMode();
-    tip.grainScale = p.grainScale() / 100.0f;
-    tip.grainContrast = p.grainContrast() / 100.0f;
-    tip.grainBrightness = p.grainBrightness() / 100.0f;
-    // Canvas y points down, so the angle counts counter-clockwise on screen.
-    if (p.tipFollowsDirection() && !direction.isNull())
-        tip.angle += qRadiansToDegrees(std::atan2(-direction.y(), direction.x()));
-    // Tablet y tilt points toward the user (down), like canvas y.
-    if (mTiltToAngle != 0 && !mDabTilt.isNull())
-        tip.angle += mTiltToAngle * qRadiansToDegrees(std::atan2(-mDabTilt.y(), mDabTilt.x()));
-    return tip;
-}
-
-qreal DabTool::sizeDynamics()
-{
-    // Speed reaches full effect at kFullSpeedPxPerMs; tilt at 60 degrees.
-    const qreal speed = qMin(mDabSpeed / kFullSpeedPxPerMs, 1.0);
-    const QPointF tiltDeg = mDabTilt;
-    const qreal tilt = qMin(std::sqrt(tiltDeg.x() * tiltDeg.x() + tiltDeg.y() * tiltDeg.y()) / 60.0, 1.0);
-    // mt19937 raw output only: std distributions differ between platforms.
-    const qreal random = (mRandom() % 10001) / 10000.0;
-    const qreal factor = (1 + mSpeedToSize * speed) * (1 + mTiltToSize * tilt) * (1 - mSizeJitter * random);
-    return qMax(factor, kMinSizeFactor);
-}
-
-void DabTool::logDab(qreal pressure, qreal taper, qreal sizeFactor, qreal width)
+void DabTool::logDab(const Dab& dab)
 {
     static bool on = qEnvironmentVariableIntValue("JUSTANIMATE_PRESSURE_LOG") == 1;
     if (!on) return;
     const char* input = mCurrentInputType == PointerEvent::Tablet ? "tablet" : mCurrentInputType == PointerEvent::Mouse ? "mouse" : "unknown";
-    qDebug("dab input=%s pressure=%.3f curve=%.3f taper=%.3f size=%.3f width=%.2f", input, pressure, mPressureCurve.value(pressure), taper, sizeFactor, width);
+    qDebug("dab input=%s pressure=%.3f curve=%.3f taper=%.3f size=%.3f width=%.2f", input, dab.pressure,
+           mPressureCurve.value(dab.pressure), dab.taper, dab.sizeFactor, dab.width);
 }
 
-qreal DabTool::randomSigned()
+void DabTool::drawDabs(const QList<Dab>& dabs)
 {
-    // mt19937 raw output only: std distributions differ between platforms.
-    return (mRandom() % 20001) / 10000.0 - 1.0;
-}
-
-void DabTool::paintAt(QPointF point)
-{
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer->type() == Layer::BITMAP)
+    for (const Dab& dab : dabs)
     {
-        mDabSpeed = mInterpolator.speed();
-        mDabTilt = mInterpolator.tilt();
-        const qreal factor = sizeDynamics();
-        mCurrentWidth = dabWidth(mCurrentPressure) * factor;
-        logDab(mCurrentPressure, 1, factor, mCurrentWidth);
-        drawDab(point, mCurrentWidth, dabOpacity(mCurrentPressure), dabTip(QPointF()));
+        mCurrentWidth = dab.width;
+        logDab(dab);
+        BrushTip tip = mTip;
+        tip.angle = dab.angle;
+        drawDab(dab.pos, dab.width, dab.opacity, tip);
     }
-}
-
-void DabTool::dabSegment(const PenPoint& b)
-{
-    const qreal startPressure = mLastBrushPressure;
-    const QPointF a = mLastBrushPoint;
-    const qreal length = QLineF(a, b.pos).length();
-    mDabSpeed = b.speed;
-    mDabTilt = b.tilt;
-
-    // Carry the leftover distance to the next event, so spacing does not depend on the event rate.
-    qreal t = mDistanceToNextDab;
-    const BrushTip tip = dabTip(b.pos - a);
-    while (t <= length)
-    {
-        const qreal f = (length > 0) ? t / length : 1.0;
-        const qreal pressure = startPressure + (b.pressure - startPressure) * f;
-        const qreal taper = taperAt(mBrushDistance + t);
-        const qreal baseWidth = dabWidth(pressure) * taper;
-        qreal brushWidth = baseWidth;
-        for (int i = 0; i < mDabCount; ++i)
-        {
-            const qreal factor = sizeDynamics();
-            brushWidth = baseWidth * factor;
-            mCurrentWidth = brushWidth;
-            logDab(pressure, taper, factor, brushWidth);
-            BrushTip scattered = tip;
-            QPointF offset;
-            // Draw random numbers only for scatter that is on, so 0 scatter keeps the jitter sequence.
-            if (mScatter > 0)
-                offset = QPointF(randomSigned(), randomSigned()) * mScatter * baseWidth;
-            if (mAngleJitter > 0)
-                scattered.angle += randomSigned() * mAngleJitter;
-            drawDab(a + (b.pos - a) * f + offset, brushWidth, spacedDabOpacity(pressure, brushWidth), scattered);
-        }
-        t += dabSpacing(brushWidth);
-    }
-    mDistanceToNextDab = t - length;
-    mBrushDistance += length;
-    mLastBrushPoint = b.pos;
-    mLastBrushPressure = b.pressure;
 }
 
 void DabTool::dabPath(const QPolygonF& points)
 {
-    if (points.isEmpty()) return;
-    mStrokeLength = 0;
-    for (int i = 1; i < points.size(); ++i)
-        mStrokeLength += QLineF(points[i - 1], points[i]).length();
-    mStrokeEnding = true;
-    mBrushDistance = 0;
-    mDistanceToNextDab = 0;
-    mLastBrushPoint = points.first();
-    mLastBrushPressure = 1;
-    for (int i = 1; i < points.size(); ++i)
-        dabSegment({ points[i], 1, 0, QPointF() });
+    drawDabs(mPlacer.path(points));
 }
 
 void DabTool::drawStroke()
@@ -325,30 +186,7 @@ void DabTool::drawStroke()
 
     if (layer->type() == Layer::BITMAP)
     {
-        const QPointF b = getCurrentPoint();
-        mStrokeLength += QLineF(mPendingPoints.isEmpty() ? mLastBrushPoint : mPendingPoints.last().pos, b).length();
-        mPendingPoints.append({ b, mCurrentPressure, mInterpolator.speed(), mInterpolator.tilt() });
-
-        // Dab up to the point where the end taper can start; all of it once the stroke ends.
-        const qreal limit = mStrokeEnding ? mStrokeLength : mStrokeLength - mTaperEnd;
-        while (!mPendingPoints.isEmpty())
-        {
-            const PenPoint point = mPendingPoints.first();
-            const qreal length = QLineF(mLastBrushPoint, point.pos).length();
-            if (mBrushDistance + length <= limit)
-            {
-                dabSegment(point);
-                mPendingPoints.removeFirst();
-                continue;
-            }
-            if (limit > mBrushDistance)
-            {
-                const qreal f = (limit - mBrushDistance) / length;
-                dabSegment({ mLastBrushPoint + (point.pos - mLastBrushPoint) * f,
-                             mLastBrushPressure + (point.pressure - mLastBrushPressure) * f, point.speed, point.tilt });
-            }
-            break;
-        }
+        drawDabs(mPlacer.add({ getCurrentPoint(), mCurrentPressure, mInterpolator.speed(), mInterpolator.tilt() }, mStrokeEnding));
     }
     else if (layer->type() == Layer::VECTOR)
     {
@@ -357,7 +195,7 @@ void DabTool::drawStroke()
         {
             QPainterPath path(p[0]);
             path.cubicTo(p[1], p[2], p[3]);
-            mScribbleArea->drawPath(path, pen, Qt::NoBrush, QPainter::CompositionMode_Source);
+            drawScreenPath(path, pen);
         }
     }
 }

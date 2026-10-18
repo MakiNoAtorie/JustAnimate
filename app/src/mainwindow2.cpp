@@ -65,6 +65,7 @@ GNU General Public License for more details.
 #include "overlaymanager.h"
 #include "selectionmanager.h"
 #include "undoredomanager.h"
+#include "projectsession.h"
 
 #include "actioncommands.h"
 #include "brushpresets.h"
@@ -101,7 +102,6 @@ GNU General Public License for more details.
 #include "welcomedialog.h"
 #include "welcomehelper.h"
 #include "pegbaralignmentdialog.h"
-#include "autosaverbytime.h"
 #include "papertemplatedialog.h"
 
 
@@ -207,6 +207,7 @@ MainWindow2::MainWindow2(QWidget* parent) :
     mEditor->setScribbleArea(ui->scribbleArea);
     mEditor->init();
     PlatformHandler::applyTabletApi(mEditor->preference());
+    setUpSession();
 
     newObject();
 
@@ -215,7 +216,7 @@ MainWindow2::MainWindow2(QWidget* parent) :
 
     ui->statusBar->setEditor(mEditor);
     ui->statusBar->updateZoomStatus();
-    ui->statusBar->setVisible(mEditor->preference()->isOn(SETTING::SHOW_STATUS_BAR));
+    ui->statusBar->setVisible(mEditor->preference()->get<SETTING::SHOW_STATUS_BAR>());
 
     mCommands = new ActionCommands(this);
     mCommands->setCore(mEditor);
@@ -232,21 +233,10 @@ MainWindow2::MainWindow2(QWidget* parent) :
     selectionChanged();
     currentLayerChanged();
 
-    connect(mEditor, &Editor::needSave, this, &MainWindow2::autoSave);
-
-    mAutoSaver = new AutosaverByTime(mEditor->preference(), this);
-    connect(mAutoSaver, &AutosaverByTime::timeout, this, &MainWindow2::autoSaveTimeout);
-
     mEditor->tools()->setDefaultTool();
     ui->background->init(mEditor->preference());
 
     setWindowTitle(getWindowTitle());
-}
-
-void MainWindow2::autoSaveTimeout()
-{
-    FileManager fm;
-    fm.writeToWorkingFolder(mEditor->object());
 }
 
 MainWindow2::~MainWindow2()
@@ -443,10 +433,10 @@ void MainWindow2::createMenus()
         visibilityGroup->addAction(action);
         connect(action, &QAction::triggered, [=] { mCommands->setLayerVisibilityIndex(i); });
     }
-    visibilityActions[mEditor->preference()->getInt(SETTING::LAYER_VISIBILITY)]->setChecked(true);
+    visibilityActions[mEditor->preference()->get<SETTING::LAYER_VISIBILITY>()]->setChecked(true);
     connect(mEditor->preference(), &PreferenceManager::optionChanged, [=](SETTING e) {
         if (e == SETTING::LAYER_VISIBILITY) {
-            visibilityActions[mEditor->preference()->getInt(SETTING::LAYER_VISIBILITY)]->setChecked(true);
+            visibilityActions[mEditor->preference()->get<SETTING::LAYER_VISIBILITY>()]->setChecked(true);
         }
     });
 
@@ -471,15 +461,15 @@ void MainWindow2::createMenus()
 
     PreferenceManager* prefs = mEditor->preference();
     connect(ui->actionStatusBar, &QAction::triggered, ui->statusBar, &QStatusBar::setVisible);
-    bindPreferenceSetting(ui->actionStatusBar, prefs, SETTING::SHOW_STATUS_BAR);
-    bindPreferenceSetting(ui->actionThreePointPerspective, prefs, SETTING::OVERLAY_PERSPECTIVE3);
-    bindPreferenceSetting(ui->actionTwoPointPerspective, prefs, SETTING::OVERLAY_PERSPECTIVE2);
-    bindPreferenceSetting(ui->actionOnePointPerspective, prefs, SETTING::OVERLAY_PERSPECTIVE1);
-    bindPreferenceSetting(ui->actionSafeAreas, prefs, SETTING::OVERLAY_SAFE);
-    bindPreferenceSetting(ui->actionGoldenRatio, prefs, SETTING::OVERLAY_GOLDEN);
-    bindPreferenceSetting(ui->actionThirds, prefs, SETTING::OVERLAY_THIRDS);
-    bindPreferenceSetting(ui->actionCenter, prefs, SETTING::OVERLAY_CENTER);
-    bindPreferenceSetting(ui->actionGrid, prefs, SETTING::GRID);
+    bindPreferenceSetting<SETTING::SHOW_STATUS_BAR>(ui->actionStatusBar, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_PERSPECTIVE3>(ui->actionThreePointPerspective, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_PERSPECTIVE2>(ui->actionTwoPointPerspective, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_PERSPECTIVE1>(ui->actionOnePointPerspective, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_SAFE>(ui->actionSafeAreas, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_GOLDEN>(ui->actionGoldenRatio, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_THIRDS>(ui->actionThirds, prefs);
+    bindPreferenceSetting<SETTING::OVERLAY_CENTER>(ui->actionCenter, prefs);
+    bindPreferenceSetting<SETTING::GRID>(ui->actionGrid, prefs);
 
     QAction* rulerAction = new QAction(tr("Ruler"), this);
     rulerAction->setCheckable(true);
@@ -497,13 +487,13 @@ void MainWindow2::createMenus()
     connect(perspectiveSnapAction, &QAction::toggled, this, [this](bool on) {
         mEditor->overlays()->setPerspectiveSnapEnabled(on);
     });
-    bindPreferenceSetting(ui->actionShowOutlinesOnly, prefs, SETTING::OUTLINES);
-    bindPreferenceSetting(ui->actionShowInvisibleLines, prefs, SETTING::INVISIBLE_LINES);
-    bindPreferenceSetting(ui->actionOnionPrev, prefs, SETTING::PREV_ONION);
-    bindPreferenceSetting(ui->actionOnionNext, prefs, SETTING::NEXT_ONION);
+    bindPreferenceSetting<SETTING::OUTLINES>(ui->actionShowOutlinesOnly, prefs);
+    bindPreferenceSetting<SETTING::INVISIBLE_LINES>(ui->actionShowInvisibleLines, prefs);
+    bindPreferenceSetting<SETTING::PREV_ONION>(ui->actionOnionPrev, prefs);
+    bindPreferenceSetting<SETTING::NEXT_ONION>(ui->actionOnionNext, prefs);
     const auto syncOnionSkin = [this, prefs] {
         QSignalBlocker block(ui->actionOnionSkin);
-        ui->actionOnionSkin->setChecked(prefs->isOn(SETTING::PREV_ONION) || prefs->isOn(SETTING::NEXT_ONION));
+        ui->actionOnionSkin->setChecked(prefs->get<SETTING::PREV_ONION>() || prefs->get<SETTING::NEXT_ONION>());
     };
     syncOnionSkin();
     connect(prefs, &PreferenceManager::optionChanged, this, [syncOnionSkin](SETTING s) {
@@ -517,7 +507,7 @@ void MainWindow2::createMenus()
     ui->menuOnion_Skin->addAction(mShiftAndTraceAction);
     connect(mShiftAndTraceAction, &QAction::toggled, ui->scribbleArea, &ScribbleArea::setShiftAndTrace);
 
-    bool enableSafeArea = (prefs->isOn(SETTING::ACTION_SAFE_ON) || prefs->isOn(SETTING::TITLE_SAFE_ON));
+    bool enableSafeArea = (prefs->get<SETTING::ACTION_SAFE_ON>() || prefs->get<SETTING::TITLE_SAFE_ON>());
     ui->actionSafeAreas->setEnabled(enableSafeArea);
 
     auto perspectiveLinesAngleGroup = new QActionGroup(this);
@@ -531,19 +521,19 @@ void MainWindow2::createMenus()
     perspectiveLinesAngleGroup->addAction(ui->action20Degrees);
     perspectiveLinesAngleGroup->addAction(ui->action30Degrees);
     connect(perspectiveLinesAngleGroup, &QActionGroup::triggered, this, [&](QAction* action) {
-        if (action == ui->action2Degrees)        mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 2);
-        else if (action == ui->action3Degrees)   mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 3);
-        else if (action == ui->action5Degrees)   mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 5);
-        else if (action == ui->action7_5Degrees) mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 7);
-        else if (action == ui->action10Degrees)  mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 10);
-        else if (action == ui->action15Degrees)  mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 15);
-        else if (action == ui->action20Degrees)  mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 20);
-        else if (action == ui->action30Degrees)  mEditor->preference()->set(SETTING::OVERLAY_ANGLE, 30);
+        if (action == ui->action2Degrees)        mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(2);
+        else if (action == ui->action3Degrees)   mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(3);
+        else if (action == ui->action5Degrees)   mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(5);
+        else if (action == ui->action7_5Degrees) mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(7);
+        else if (action == ui->action10Degrees)  mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(10);
+        else if (action == ui->action15Degrees)  mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(15);
+        else if (action == ui->action20Degrees)  mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(20);
+        else if (action == ui->action30Degrees)  mEditor->preference()->set<SETTING::OVERLAY_ANGLE>(30);
         else Q_UNREACHABLE();
         emit mEditor->view()->viewChanged();
     });
 
-    switch (prefs->getInt(SETTING::OVERLAY_ANGLE)) {
+    switch (prefs->get<SETTING::OVERLAY_ANGLE>()) {
     case 2: ui->action2Degrees->setChecked(true); break;
     case 3: ui->action3Degrees->setChecked(true); break;
     case 5: ui->action5Degrees->setChecked(true); break;
@@ -708,7 +698,7 @@ void MainWindow2::createMenus()
     winMenu->insertMenu(mCommandBar->toggleViewAction(), workspaceMenu);
     connect(ui->actionResetWindows, &QAction::triggered, this, &MainWindow2::resetAndDockAllSubWidgets);
     connect(ui->actionLockWindows, &QAction::toggled, this, &MainWindow2::lockWidgets);
-    bindPreferenceSetting(ui->actionLockWindows, prefs, SETTING::LAYOUT_LOCK);
+    bindPreferenceSetting<SETTING::LAYOUT_LOCK>(ui->actionLockWindows, prefs);
 
     //--- Help Menu ---
     connect(ui->actionHelp, &QAction::triggered, mCommands, &ActionCommands::help);
@@ -720,8 +710,11 @@ void MainWindow2::createMenus()
 
     //--- Menus ---
     mRecentFileMenu = new RecentFileMenu(tr("Open Recent"), this);
-    mRecentFileMenu->loadFromDisk();
+    mRecentFileMenu->setRecentFiles(mSession->recentFiles());
     ui->menuFile->insertMenu(ui->actionSave, mRecentFileMenu);
+
+    connect(mRecentFileMenu, &RecentFileMenu::clearRequested, mSession, &ProjectSession::clearRecentFiles);
+    connect(mSession, &ProjectSession::recentFilesChanged, mRecentFileMenu, &RecentFileMenu::setRecentFiles);
 
     connect(mRecentFileMenu, &RecentFileMenu::loadRecentFile, this, &MainWindow2::openFile);
 }
@@ -738,13 +731,13 @@ void MainWindow2::replaceUndoRedoActions()
 
 void MainWindow2::setOpacity(int opacity)
 {
-    mEditor->preference()->set(SETTING::WINDOW_OPACITY, 100 - opacity);
+    mEditor->preference()->set<SETTING::WINDOW_OPACITY>(100 - opacity);
     setWindowOpacity(opacity / 100.0);
 }
 
 void MainWindow2::updateSaveState()
 {
-    const bool hasUnsavedChanges = mEditor->undoRedo()->hasUnsavedChanges();
+    const bool hasUnsavedChanges = mSession->isDirty();
     setWindowModified(hasUnsavedChanges);
     ui->statusBar->updateModifiedStatus(hasUnsavedChanges);
 }
@@ -883,7 +876,7 @@ void MainWindow2::closeEvent(QCloseEvent* event)
         return;
     }
 
-    if (!maybeSave())
+    if (!mSession->close())
     {
         event->ignore();
         return;
@@ -900,7 +893,7 @@ void MainWindow2::tabletEvent(QTabletEvent* event)
 
 void MainWindow2::newDocument()
 {
-    if (maybeSave() && !tryLoadPreset())
+    if (mSession->maybeSave() && !tryLoadPreset())
     {
         newObject();
     }
@@ -908,7 +901,7 @@ void MainWindow2::newDocument()
 
 void MainWindow2::openDocument()
 {
-    if (!maybeSave())
+    if (!mSession->maybeSave())
     {
         return;
     }
@@ -921,17 +914,12 @@ void MainWindow2::openDocument()
 
 bool MainWindow2::saveAsNewDocument()
 {
-    QString fileName = FileDialog::getSaveFileName(this, FileType::ANIMATION);
-    if (fileName.isEmpty())
-    {
-        return false;
-    }
-    return saveObject(fileName);
+    return mSession->saveAs(FileDialog::getSaveFileName(this, FileType::ANIMATION)).ok();
 }
 
 void MainWindow2::openStartupFile(const QString& filename)
 {
-    if (checkForRecoverableProjects())
+    if (mSession->recover())
     {
         return;
     }
@@ -942,7 +930,7 @@ void MainWindow2::openStartupFile(const QString& filename)
     }
 
     PreferenceManager* prefs = mEditor->preference();
-    const int action = prefs->getInt(SETTING::STARTUP_ACTION);
+    const int action = prefs->get<SETTING::STARTUP_ACTION>();
     if (action == STARTUP_LAST_PROJECT && loadMostRecent())
     {
         return;
@@ -952,12 +940,12 @@ void MainWindow2::openStartupFile(const QString& filename)
         showWelcomeDialog();
         return;
     }
-    newObjectFromPresets(prefs->getInt(SETTING::DEFAULT_PRESET));
+    newObjectFromPresets(prefs->get<SETTING::DEFAULT_PRESET>());
 }
 
 void MainWindow2::openFile(const QString& filename)
 {
-    if (maybeSave())
+    if (mSession->maybeSave())
     {
         openObject(filename);
     }
@@ -965,20 +953,7 @@ void MainWindow2::openFile(const QString& filename)
 
 bool MainWindow2::openObject(const QString& strFilePath)
 {
-    QProgressDialog progress(tr("Opening document..."), tr("Abort"), 0, 100, this);
-    hideQuestionMark(progress);
-    progress.setWindowModality(Qt::WindowModal);
-    progress.show();
-
-    Status s = mEditor->openObject(strFilePath, [&progress](int p)
-    {
-        progress.setValue(p);
-        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-    }, [&progress](int max)
-    {
-        progress.setRange(0, max);
-    });
-
+    Status s = mSession->open(strFilePath);
     if (!s.ok())
     {
         ErrorDialog errorDialog(s.title(), s.description(), s.details().str());
@@ -987,23 +962,11 @@ bool MainWindow2::openObject(const QString& strFilePath)
         return false;
     }
 
-    QSettings& settings = pencilSettings();
-    settings.setValue(LAST_PCLX_PATH, mEditor->object()->filePath());
-
-    // Add to recent file list, but only if we are
-    if (!mEditor->object()->filePath().isEmpty())
-    {
-        mRecentFileMenu->addRecentFile(mEditor->object()->filePath());
-        mRecentFileMenu->saveToDisk();
-    }
-
     closeDialogs();
 
     setWindowTitle(mEditor->object()->filePath().prepend("[*]"));
     setWindowModified(false);
     ui->statusBar->updateModifiedStatus(false);
-
-    progress.setValue(progress.maximum());
 
     updateSaveState();
 
@@ -1019,127 +982,101 @@ bool MainWindow2::openObject(const QString& strFilePath)
     return true;
 }
 
-bool MainWindow2::saveObject(QString strSavedFileName)
+void MainWindow2::setUpSession()
 {
-    QProgressDialog progress(tr("Saving document..."), tr("Abort"), 0, 100, this);
-    hideQuestionMark(progress);
-    progress.setWindowModality(Qt::WindowModal);
-    progress.show();
-
-    mEditor->prepareSave();
-
-    FileManager fm(this);
-
-    connect(&fm, &FileManager::progressChanged, [&progress](int p)
+    mSession = new ProjectSession(mEditor, this);
+    mSession->askSaveChanges = [this]
     {
-        progress.setValue(p);
-        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        const int ret = QMessageBox::warning(this, tr("Warning"),
+                                             tr("This animation has been modified.\n Do you want to save your changes?"),
+                                             QMessageBox::Discard | QMessageBox::Save | QMessageBox::Cancel);
+        if (ret == QMessageBox::Save) { return ProjectSession::SaveChoice::Save; }
+        if (ret == QMessageBox::Discard) { return ProjectSession::SaveChoice::Discard; }
+        return ProjectSession::SaveChoice::Cancel;
+    };
+    mSession->askSavePath = [this] { return FileDialog::getSaveFileName(this, FileType::ANIMATION); };
+    mSession->askRecover = [this](const QString& folder) { return askRecoverProject(folder); };
+    connect(mSession, &ProjectSession::progress, this, [this](ProjectSession::Task task, int value, int maximum)
+    {
+        showProgress(task == ProjectSession::Task::Save, value, maximum);
     });
-    connect(&fm, &FileManager::progressRangeChanged, [&progress](int max)
+    connect(mSession, &ProjectSession::saved, this, &MainWindow2::onSaved);
+    connect(mSession, &ProjectSession::saveFailed, this, &MainWindow2::showSaveError);
+    connect(mSession, &ProjectSession::autoSaveSkipped, this, &MainWindow2::remindToSave);
+    connect(mSession, &ProjectSession::recovered, this, &MainWindow2::showRecoveryResult);
+}
+
+void MainWindow2::showProgress(bool saving, int value, int maximum)
+{
+    if (value >= maximum)
     {
-        progress.setRange(0, max + 3);
-    });
-
-    Status st = fm.save(mEditor->object(), strSavedFileName);
-
-
-    if (!st.ok())
-    {
-        QDir errorLogFolder(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
-        errorLogFolder.mkpath("./logs");
-        errorLogFolder.cd("logs");
-
-        QDateTime dt = QDateTime::currentDateTime();
-        dt.setTimeSpec(Qt::UTC);
-        QFile eLog(errorLogFolder.absoluteFilePath(QString("error-%1.txt").arg(dt.toString(Qt::ISODate))));
-        if (eLog.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            QTextStream out(&eLog);
-            out << st.details().str();
-        }
-        eLog.close();
-
-        ErrorDialog errorDialog(st.title(),
-                                st.description().append(tr("<br><br>An error has occurred and your file may not have saved successfully."
-                                                           "\nIf you believe that this error is an issue with JustAnimate, please create a new issue at:"
-                                                           "<br><a href='" APP_ISSUES_URL "'>" APP_ISSUES_URL "</a><br>"
-                                                           "Please be sure to include the following details in your issue:")), st.details().html());
-        errorDialog.exec();
-        return false;
+        mProgress.reset();
+        return;
     }
+    if (!mProgress)
+    {
+        mProgress.reset(new QProgressDialog(saving ? tr("Saving document...") : tr("Opening document..."), tr("Abort"), 0, 100, this));
+        hideQuestionMark(*mProgress);
+        mProgress->setWindowModality(Qt::WindowModal);
+        mProgress->show();
+    }
+    mProgress->setRange(0, maximum);
+    mProgress->setValue(value);
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+}
 
-    mEditor->undoRedo()->markSaved();
-    mEditor->object()->setFilePath(strSavedFileName);
-    mEditor->object()->setModified(false);
+void MainWindow2::showSaveError(const Status& st)
+{
+    QDir errorLogFolder(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+    errorLogFolder.mkpath("./logs");
+    errorLogFolder.cd("logs");
 
-    mEditor->clearTemporary();
+    QDateTime dt = QDateTime::currentDateTime();
+    dt.setTimeSpec(Qt::UTC);
+    QFile eLog(errorLogFolder.absoluteFilePath(QString("error-%1.txt").arg(dt.toString(Qt::ISODate))));
+    if (eLog.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        QTextStream out(&eLog);
+        out << st.details().str();
+    }
+    eLog.close();
 
-    QSettings& settings = pencilSettings();
-    settings.setValue(LAST_PCLX_PATH, strSavedFileName);
+    ErrorDialog errorDialog(st.title(),
+                            st.description().append(tr("<br><br>An error has occurred and your file may not have saved successfully."
+                                                       "\nIf you believe that this error is an issue with JustAnimate, please create a new issue at:"
+                                                       "<br><a href='" APP_ISSUES_URL "'>" APP_ISSUES_URL "</a><br>"
+                                                       "Please be sure to include the following details in your issue:")), st.details().html());
+    errorDialog.exec();
+}
 
-    Welcome::saveThumbnail(mEditor->object(), strSavedFileName, mEditor->currentFrame());
-    mRecentFileMenu->addRecentFile(strSavedFileName);
-    mRecentFileMenu->saveToDisk();
-
+void MainWindow2::onSaved(QString path)
+{
+    Welcome::saveThumbnail(mEditor->object(), path, mEditor->currentFrame());
     mTimeLine->updateContent();
 
-    setWindowTitle(strSavedFileName.prepend("[*]"));
+    setWindowTitle(path.prepend("[*]"));
     updateSaveState();
 
-    progress.setValue(progress.maximum());
-
-    if (!fm.skippedSoundClips().isEmpty())
+    if (!mSession->skippedSoundClips().isEmpty())
     {
         QMessageBox::warning(this, tr("Missing Sound Files"),
-                             tr("These sound clips were saved without audio because their files are missing:\n%1").arg(fm.skippedSoundClips().join('\n')));
+                             tr("These sound clips were saved without audio because their files are missing:\n%1").arg(mSession->skippedSoundClips().join('\n')));
     }
-
-    mEditor->resetAutoSaveCounter();
-
-    return true;
 }
 
 bool MainWindow2::saveDocument()
 {
-    // Legacy .pcl is open-only: its project goes to Save As .pclx.
-    const QString filePath = mEditor->object()->filePath();
-    if (QFileInfo(filePath).suffix().compare(PFF_BIG_LETTER_EXTENSION, Qt::CaseInsensitive) == 0)
-        return saveObject(filePath);
-    else
-        return saveAsNewDocument();
+    return mSession->save().ok();
 }
 
-bool MainWindow2::maybeSave()
+void MainWindow2::remindToSave()
 {
-    if (!mEditor->undoRedo()->hasUnsavedChanges())
-    {
-        return true;
-    }
-
-    int ret = QMessageBox::warning(this, tr("Warning"),
-                                   tr("This animation has been modified.\n Do you want to save your changes?"),
-                                   QMessageBox::Discard | QMessageBox::Save | QMessageBox::Cancel);
-    if (ret == QMessageBox::Save)
-        return saveDocument();
-    else
-        return ret == QMessageBox::Discard;
-}
-
-bool MainWindow2::autoSave()
-{
-    if (!mEditor->object()->filePath().isEmpty())
-    {
-        return saveDocument();
-    }
-
-    if (!mSuppressAutoSaveDialog && mEditor->preference()->isOn(SETTING::AUTO_SAVE_REMINDER))
+    if (!mSuppressAutoSaveDialog && mEditor->preference()->get<SETTING::AUTO_SAVE_REMINDER>())
     {
         const QKeySequence key = ui->actionSave->shortcut();
         mEditor->notice(key.isEmpty() ? tr("Unsaved project: save it to keep autosaving")
                                       : tr("Unsaved project: press %1").arg(key.toString(QKeySequence::NativeText)));
     }
-
-    return false;
 }
 
 void MainWindow2::emptyDocumentWhenErrorOccurred()
@@ -1383,8 +1320,7 @@ bool MainWindow2::newObjectFromPresets(int presetIndex)
 
 bool MainWindow2::loadMostRecent()
 {
-    QSettings& settings = pencilSettings();
-    QString myPath = settings.value(LAST_PCLX_PATH, QVariant("")).toString();
+    const QString myPath = mSession->lastPath();
     if (myPath.isEmpty() || !QFile::exists(myPath))
     {
         return false;
@@ -1394,9 +1330,9 @@ bool MainWindow2::loadMostRecent()
 
 bool MainWindow2::tryLoadPreset()
 {
-    if (mEditor->preference()->getInt(SETTING::STARTUP_ACTION) != STARTUP_WELCOME)
+    if (mEditor->preference()->get<SETTING::STARTUP_ACTION>() != STARTUP_WELCOME)
     {
-        return newObjectFromPresets(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET));
+        return newObjectFromPresets(mEditor->preference()->get<SETTING::DEFAULT_PRESET>());
     }
     showWelcomeDialog();
     return true;
@@ -1404,9 +1340,9 @@ bool MainWindow2::tryLoadPreset()
 
 void MainWindow2::showWelcomeDialog()
 {
-    auto* presetDialog = new WelcomeDialog(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET),
-                                           mRecentFileMenu->getRecentFiles(),
-                                           mEditor->preference()->getString(SETTING::LAST_TEMPLATE), this);
+    auto* presetDialog = new WelcomeDialog(mEditor->preference()->get<SETTING::DEFAULT_PRESET>(),
+                                           mSession->recentFiles(),
+                                           mEditor->preference()->get<SETTING::LAST_TEMPLATE>(), this);
     presetDialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(presetDialog, &WelcomeDialog::finished, [=](int result)
     {
@@ -1417,10 +1353,10 @@ void MainWindow2::showWelcomeDialog()
 
         if (presetDialog->shouldHide())
         {
-            mEditor->preference()->set(SETTING::STARTUP_ACTION, Welcome::hiddenStartupAction(!mRecentFileMenu->getRecentFiles().isEmpty()));
+            mEditor->preference()->set<SETTING::STARTUP_ACTION>(Welcome::hiddenStartupAction(!mSession->recentFiles().isEmpty()));
             if (presetDialog->templateIndex() < 0)
             {
-                mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetDialog->presetIndex());
+                mEditor->preference()->set<SETTING::DEFAULT_PRESET>(presetDialog->presetIndex());
             }
         }
 
@@ -1439,7 +1375,7 @@ void MainWindow2::showWelcomeDialog()
         {
             if (Object* object = Welcome::newObjectFromTemplate(presetDialog->templateIndex()))
             {
-                mEditor->preference()->set(SETTING::LAST_TEMPLATE, Welcome::templates().at(presetDialog->templateIndex()).name);
+                mEditor->preference()->set<SETTING::LAST_TEMPLATE>(Welcome::templates().at(presetDialog->templateIndex()).name);
                 mEditor->setObject(object);
                 mEditor->setFps(mEditor->playback()->fps());
                 closeDialogs();
@@ -1474,10 +1410,10 @@ void MainWindow2::readSettings()
     dropOutdatedLayouts(settings);
     restoreState(settings.value(SETTING_WINDOW_STATE).toByteArray());
 
-    int opacity = mEditor->preference()->getInt(SETTING::WINDOW_OPACITY);
+    int opacity = mEditor->preference()->get<SETTING::WINDOW_OPACITY>();
     setOpacity(100 - opacity);
 
-    bool isWindowsLocked = mEditor->preference()->isOn(SETTING::LAYOUT_LOCK);
+    bool isWindowsLocked = mEditor->preference()->get<SETTING::LAYOUT_LOCK>();
     lockWidgets(isWindowsLocked);
 }
 
@@ -1918,23 +1854,7 @@ void MainWindow2::displayMessageBoxNoTitle(const QString& body)
     QMessageBox::information(this, nullptr, tr(qPrintable(body)), QMessageBox::Ok);
 }
 
-bool MainWindow2::checkForRecoverableProjects()
-{
-    FileManager fm;
-    QStringList recoverables = fm.searchForUnsavedProjects();
-
-    foreach (const QString path, recoverables)
-    {
-        if (tryRecoverProject(path))
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool MainWindow2::tryRecoverProject(const QString recoverPath)
+ProjectSession::RecoverChoice MainWindow2::askRecoverProject(const QString& recoverPath)
 {
     QString caption = tr("Restore Project?");
     QString text = tr("JustAnimate didn't close correctly. Would you like to restore the project?");
@@ -1949,46 +1869,29 @@ bool MainWindow2::tryRecoverProject(const QString recoverPath)
     msgBox.setStandardButtons(QMessageBox::Open | QMessageBox::Discard | QMessageBox::Cancel);
     msgBox.setDefaultButton(QMessageBox::Cancel);
 
-    int result = msgBox.exec();
-
-    switch (result)
+    switch (msgBox.exec())
     {
-    case QMessageBox::Discard:
-        QDir(recoverPath).removeRecursively();
-        return false;
-    case QMessageBox::Cancel:
-        return false;
-    case QMessageBox::Open:
-        return startProjectRecovery(recoverPath);
-    default:
-        Q_ASSERT(false);
+    case QMessageBox::Open: return ProjectSession::RecoverChoice::Open;
+    case QMessageBox::Discard: return ProjectSession::RecoverChoice::Discard;
+    default: return ProjectSession::RecoverChoice::Cancel;
     }
-
-    return false;
 }
 
-bool MainWindow2::startProjectRecovery(const QString recoverPath)
+void MainWindow2::showRecoveryResult(bool ok)
 {
-    FileManager fm;
-    Object* o = fm.recoverUnsavedProject(recoverPath);
-    if (!fm.error().ok())
+    if (!ok)
     {
-        Q_ASSERT(o == nullptr);
         const QString title = tr("Recovery Failed.");
         const QString text = tr("Sorry! JustAnimate is unable to restore your project");
         QMessageBox::information(this, title, QString("<h4>%1</h4>%2").arg(title, text));
-        return false;
+        return;
     }
 
-    Q_ASSERT(o);
-    mEditor->setObject(o);
     updateSaveState();
 
     const QString title = tr("Recovery Succeeded!");
     const QString text = tr("Please save your work immediately to prevent loss of data");
     QMessageBox::information(this, title, QString("<h4>%1</h4>%2").arg(title, text));
-
-    return true;
 }
 
 void MainWindow2::createToolbars()

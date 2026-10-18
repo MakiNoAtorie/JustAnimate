@@ -142,10 +142,10 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     connect(ui->backgroundButtons, buttonClicked, this, &GeneralPage::backgroundChanged);
     connect(ui->shadowsBox, &QCheckBox::stateChanged, this, &GeneralPage::shadowsCheckboxStateChanged);
     connect(ui->cursorStyleBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, [this](int index) {
-        mManager->set(SETTING::CURSOR_STYLE, index);
+        mManager->set<SETTING::CURSOR_STYLE>(index);
     });
     connect(ui->antialiasingBox, &QCheckBox::stateChanged, this, &GeneralPage::antiAliasCheckboxStateChanged);
-    connect(ui->fastRenderBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set(SETTING::FAST_RENDER_LAYERS_ABOVE, on); });
+    connect(ui->fastRenderBox, &QCheckBox::toggled, this, [this](bool on) { mManager->set<SETTING::FAST_RENDER_LAYERS_ABOVE>(on); });
     connect(ui->curveSmoothingLevel, &QSlider::valueChanged, this, &GeneralPage::curveSmoothingChanged);
     connect(ui->highResBox, &QCheckBox::stateChanged, this, &GeneralPage::highResCheckboxStateChanged);
     connect(ui->tabletApiBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &GeneralPage::tabletApiChanged);
@@ -164,7 +164,7 @@ GeneralPage::GeneralPage() : ui(new Ui::GeneralPage)
     connect(ui->framePoolSizeSpin, spinValueChanged, this, &GeneralPage::frameCacheNumberChanged);
     connect(ui->invertScrollDirectionBox, &QCheckBox::stateChanged, this, &GeneralPage::invertScrollDirectionBoxStateChanged);
     connect(ui->invertZoomDirectionBox, &QCheckBox::stateChanged, this, [this](int b) {
-        mManager->set(SETTING::INVERT_DRAG_ZOOM_DIRECTION, b != Qt::Unchecked);
+        mManager->set<SETTING::INVERT_DRAG_ZOOM_DIRECTION>(b != Qt::Unchecked);
     });
     confirmUndoStepsChange = [this] {
         QMessageBox messageBox(this);
@@ -184,7 +184,7 @@ GeneralPage::~GeneralPage()
 
 void GeneralPage::updateValues()
 {
-    int index = ui->languageCombo->findData(mManager->getString(SETTING::LANGUAGE));
+    int index = ui->languageCombo->findData(mManager->get<SETTING::LANGUAGE>());
 
     if (index >= 0)
     {
@@ -193,52 +193,52 @@ void GeneralPage::updateValues()
     }
 
     QSignalBlocker b1(ui->curveSmoothingLevel);
-    ui->curveSmoothingLevel->setValue(mManager->getInt(SETTING::CURVE_SMOOTHING));
+    ui->curveSmoothingLevel->setValue(mManager->get<SETTING::CURVE_SMOOTHING>());
     QSignalBlocker b2(ui->windowOpacityLevel);
-    ui->windowOpacityLevel->setValue(100 - mManager->getInt(SETTING::WINDOW_OPACITY));
+    ui->windowOpacityLevel->setValue(100 - mManager->get<SETTING::WINDOW_OPACITY>());
     QSignalBlocker b3(ui->shadowsBox);
-    ui->shadowsBox->setChecked(mManager->isOn(SETTING::SHADOW));
+    ui->shadowsBox->setChecked(mManager->get<SETTING::SHADOW>());
     QSignalBlocker b4(ui->cursorStyleBox);
-    ui->cursorStyleBox->setCurrentIndex(mManager->getInt(SETTING::CURSOR_STYLE) == CURSOR_CROSS_ONLY ? 1 : 0);
+    ui->cursorStyleBox->setCurrentIndex(mManager->get<SETTING::CURSOR_STYLE>() == CURSOR_CROSS_ONLY ? 1 : 0);
     QSignalBlocker b5(ui->antialiasingBox);
-    ui->antialiasingBox->setChecked(mManager->isOn(SETTING::ANTIALIAS));
+    ui->antialiasingBox->setChecked(mManager->get<SETTING::ANTIALIAS>());
     QSignalBlocker bFast(ui->fastRenderBox);
-    ui->fastRenderBox->setChecked(mManager->isOn(SETTING::FAST_RENDER_LAYERS_ABOVE));
+    ui->fastRenderBox->setChecked(mManager->get<SETTING::FAST_RENDER_LAYERS_ABOVE>());
     QSignalBlocker b7(ui->gridSizeInputW);
-    ui->gridSizeInputW->setValue(mManager->getInt(SETTING::GRID_SIZE_W));
+    ui->gridSizeInputW->setValue(mManager->get<SETTING::GRID_SIZE_W>());
     QSignalBlocker b11(ui->gridSizeInputH);
-    ui->gridSizeInputH->setValue(mManager->getInt(SETTING::GRID_SIZE_H));
+    ui->gridSizeInputH->setValue(mManager->get<SETTING::GRID_SIZE_H>());
     QSignalBlocker b8(ui->gridCheckBox);
-    ui->gridCheckBox->setChecked(mManager->isOn(SETTING::GRID));
+    ui->gridCheckBox->setChecked(mManager->get<SETTING::GRID>());
     QSignalBlocker b16(ui->actionSafeCheckBox);
 
-    bool actionSafeOn = mManager->isOn(SETTING::ACTION_SAFE_ON);
+    bool actionSafeOn = mManager->get<SETTING::ACTION_SAFE_ON>();
     ui->actionSafeCheckBox->setChecked(actionSafeOn);
     QSignalBlocker b14(ui->actionSafeInput);
-    ui->actionSafeInput->setValue(mManager->getInt(SETTING::ACTION_SAFE));
+    ui->actionSafeInput->setValue(mManager->get<SETTING::ACTION_SAFE>());
     QSignalBlocker b17(ui->titleSafeCheckBox);
-    bool titleSafeOn = mManager->isOn(SETTING::TITLE_SAFE_ON);
+    bool titleSafeOn = mManager->get<SETTING::TITLE_SAFE_ON>();
     ui->titleSafeCheckBox->setChecked(titleSafeOn);
     QSignalBlocker b15(ui->titleSafeInput);
-    ui->titleSafeInput->setValue(mManager->getInt(SETTING::TITLE_SAFE));
+    ui->titleSafeInput->setValue(mManager->get<SETTING::TITLE_SAFE>());
 
     QSignalBlocker b18(ui->safeHelperTextCheckbox);
-    ui->safeHelperTextCheckbox->setChecked(mManager->isOn(SETTING::OVERLAY_SAFE_HELPER_TEXT_ON));
+    ui->safeHelperTextCheckbox->setChecked(mManager->get<SETTING::OVERLAY_SAFE_HELPER_TEXT_ON>());
 
     QSignalBlocker b9(ui->highResBox);
-    ui->highResBox->setChecked(mManager->isOn(SETTING::HIGH_RESOLUTION));
+    ui->highResBox->setChecked(mManager->get<SETTING::HIGH_RESOLUTION>());
 
     QSignalBlocker b19(ui->tabletApiBox);
     ui->tabletApiBox->setCurrentIndex(PlatformHandler::applyTabletApi(mManager) ? 0 : 1);
 
     QSignalBlocker b10(ui->backgroundButtons);
-    QString bgName = mManager->getString(SETTING::BACKGROUND_STYLE);
+    QString bgName = mManager->get<SETTING::BACKGROUND_STYLE>();
 
     QSignalBlocker b12(ui->framePoolSizeSpin);
-    ui->framePoolSizeSpin->setValue(mManager->getInt(SETTING::FRAME_POOL_SIZE));
+    ui->framePoolSizeSpin->setValue(mManager->get<SETTING::FRAME_POOL_SIZE>());
 
     QSignalBlocker bUndoRedoLimitSpinBox(ui->undoStepsBox);
-    ui->undoStepsBox->setValue(mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS));
+    ui->undoStepsBox->setValue(mManager->get<SETTING::UNDO_REDO_MAX_STEPS>());
 
     int buttonIdx = 1;
     if (bgName == "checkerboard") buttonIdx = 1;
@@ -250,14 +250,14 @@ void GeneralPage::updateValues()
 
     ui->backgroundButtons->button(buttonIdx)->setChecked(true);
 
-    ui->invertScrollDirectionBox->setChecked(mManager->isOn(SETTING::INVERT_SCROLL_ZOOM_DIRECTION));
-    ui->invertZoomDirectionBox->setChecked(mManager->isOn(SETTING::INVERT_DRAG_ZOOM_DIRECTION));
+    ui->invertScrollDirectionBox->setChecked(mManager->get<SETTING::INVERT_SCROLL_ZOOM_DIRECTION>());
+    ui->invertZoomDirectionBox->setChecked(mManager->get<SETTING::INVERT_DRAG_ZOOM_DIRECTION>());
 }
 
 void GeneralPage::languageChanged(int i)
 {
     QString strLocale = ui->languageCombo->itemData(i).toString();
-    mManager->set(SETTING::LANGUAGE, strLocale);
+    mManager->set<SETTING::LANGUAGE>(strLocale);
 
     QLocale locale = strLocale.isEmpty() ? QLocale::system() : QLocale(strLocale);
     std::unique_ptr<QTranslator> newlangTr(new QTranslator(this));
@@ -283,22 +283,22 @@ void GeneralPage::backgroundChanged(QAbstractButton* button)
     else if (button == ui->dotsBackgroundButton)  brushName = "dots";
     else if (button == ui->weaveBackgroundButton) brushName = "weave";
     else Q_UNREACHABLE();
-    mManager->set(SETTING::BACKGROUND_STYLE, brushName);
+    mManager->set<SETTING::BACKGROUND_STYLE>(brushName);
 }
 
 void GeneralPage::curveSmoothingChanged(int value)
 {
-    mManager->set(SETTING::CURVE_SMOOTHING, value);
+    mManager->set<SETTING::CURVE_SMOOTHING>(value);
 }
 
 void GeneralPage::highResCheckboxStateChanged(int b)
 {
-    mManager->set(SETTING::HIGH_RESOLUTION, b != Qt::Unchecked);
+    mManager->set<SETTING::HIGH_RESOLUTION>(b != Qt::Unchecked);
 }
 
 void GeneralPage::tabletApiChanged(int index)
 {
-    mManager->set(SETTING::TABLET_WINTAB, index == 0);
+    mManager->set<SETTING::TABLET_WINTAB>(index == 0);
     // Show the API in use: WinTab is not available without a WinTab driver.
     QSignalBlocker b(ui->tabletApiBox);
     ui->tabletApiBox->setCurrentIndex(PlatformHandler::applyTabletApi(mManager) ? 0 : 1);
@@ -306,38 +306,38 @@ void GeneralPage::tabletApiChanged(int index)
 
 void GeneralPage::shadowsCheckboxStateChanged(int b)
 {
-    mManager->set(SETTING::SHADOW, b != Qt::Unchecked);
+    mManager->set<SETTING::SHADOW>(b != Qt::Unchecked);
 }
 
 void GeneralPage::antiAliasCheckboxStateChanged(int b)
 {
-    mManager->set(SETTING::ANTIALIAS, b != Qt::Unchecked);
+    mManager->set<SETTING::ANTIALIAS>(b != Qt::Unchecked);
 }
 
 void GeneralPage::gridWidthChanged(int value)
 {
-    mManager->set(SETTING::GRID_SIZE_W, value);
+    mManager->set<SETTING::GRID_SIZE_W>(value);
 }
 
 void GeneralPage::gridHeightChanged(int value)
 {
-    mManager->set(SETTING::GRID_SIZE_H, value);
+    mManager->set<SETTING::GRID_SIZE_H>(value);
 }
 
 void GeneralPage::actionSafeCheckBoxStateChanged(int b)
 {
-    mManager->set(SETTING::ACTION_SAFE_ON, b != Qt::Unchecked);
+    mManager->set<SETTING::ACTION_SAFE_ON>(b != Qt::Unchecked);
     updateSafeHelperTextEnabledState();
 }
 
 void GeneralPage::actionSafeAreaChanged(int value)
 {
-    mManager->set(SETTING::ACTION_SAFE, value);
+    mManager->set<SETTING::ACTION_SAFE>(value);
 }
 
 void GeneralPage::titleSafeCheckBoxStateChanged(int b)
 {
-    mManager->set(SETTING::TITLE_SAFE_ON, b != Qt::Unchecked);
+    mManager->set<SETTING::TITLE_SAFE_ON>(b != Qt::Unchecked);
     updateSafeHelperTextEnabledState();
 }
 
@@ -354,36 +354,36 @@ void GeneralPage::updateSafeHelperTextEnabledState()
 
 void GeneralPage::SafeAreaHelperTextCheckBoxStateChanged(int b)
 {
-    mManager->set(SETTING::OVERLAY_SAFE_HELPER_TEXT_ON, b != Qt::Unchecked);
+    mManager->set<SETTING::OVERLAY_SAFE_HELPER_TEXT_ON>(b != Qt::Unchecked);
 }
 
 void GeneralPage::titleSafeAreaChanged(int value)
 {
-    mManager->set(SETTING::TITLE_SAFE, value);
+    mManager->set<SETTING::TITLE_SAFE>(value);
 }
 
 void GeneralPage::gridCheckBoxStateChanged(int b)
 {
-    mManager->set(SETTING::GRID, b != Qt::Unchecked);
+    mManager->set<SETTING::GRID>(b != Qt::Unchecked);
 }
 
 void GeneralPage::frameCacheNumberChanged(int value)
 {
-    mManager->set(SETTING::FRAME_POOL_SIZE, value);
+    mManager->set<SETTING::FRAME_POOL_SIZE>(value);
 }
 
 void GeneralPage::invertScrollDirectionBoxStateChanged(int b)
 {
-    mManager->set(SETTING::INVERT_SCROLL_ZOOM_DIRECTION, b != Qt::Unchecked);
+    mManager->set<SETTING::INVERT_SCROLL_ZOOM_DIRECTION>(b != Qt::Unchecked);
 }
 
 void GeneralPage::undoRedoMaxStepsFinished()
 {
-    if (ui->undoStepsBox->value() != mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS)) {
+    if (ui->undoStepsBox->value() != mManager->get<SETTING::UNDO_REDO_MAX_STEPS>()) {
         if (confirmUndoStepsChange()) {
-            mManager->set(SETTING::UNDO_REDO_MAX_STEPS, ui->undoStepsBox->value());
+            mManager->set<SETTING::UNDO_REDO_MAX_STEPS>(ui->undoStepsBox->value());
         } else {
-            ui->undoStepsBox->setValue(mManager->getInt(SETTING::UNDO_REDO_MAX_STEPS));
+            ui->undoStepsBox->setValue(mManager->get<SETTING::UNDO_REDO_MAX_STEPS>());
         }
     }
 }

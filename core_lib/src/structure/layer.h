@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #define LAYER_H
 
 #include <map>
+#include <memory>
+#include <vector>
 #include <functional>
 #include <QObject>
 #include <QList>
@@ -168,42 +170,8 @@ public:
 
     void setModified(int position, bool isModified) const;
 
-    // Handle selection
     bool isFrameSelected(int position) const;
-    void setFrameSelected(int position, bool isSelected);
-    void toggleFrameSelected(int position, bool allowMultiple = false);
-    void extendSelectionTo(int position);
-    void selectAllFramesAfter(int position);
 
-    /** Make a selection from specified position until a blank spot appears
-     *  The search is only looking forward, e.g.
-     *  @code
-     *  |123| 4 5
-     *   ^
-     *   pos/search from
-     *  @endcode
-     *  @param position the current position
-     */
-    bool newSelectionOfConnectedFrames(int position);
-
-    /** Changes the hold of each selected keyframe (the frames up to the next keyframe) and moves the later keyframes.
-     * @param value Frames to add (above 0) or subtract (below 0); with `hold`, the new hold length. A hold is at least 1.
-     */
-    void setExposureForSelectedFrames(int value, bool hold = false);
-
-    /** Reverse order of selected frames
-     * @return true if all frames were successfully reversed, otherwise will return false.
-     */
-    bool reverseOrderOfSelection();
-
-    void deselectAll();
-
-    bool moveSelectedFrames(int offset);
-
-    /** Moves the keyframe at the first position of each pair to the second position, then deselects all frames.
-     *  @return false, with no frame moved, if a keyframe is missing or a target position is occupied
-     */
-    bool moveKeyFrames(const QList<QPair<int, int>>& fromTo);
     QList<int> getSelectedFramesByPos() const { return mSelectedFrames_byPosition; }
 
     /** Predetermines whether the frames can be moved to a new position depending on the offset
@@ -230,15 +198,44 @@ public:
 
 protected:
     virtual KeyFrame* createKeyFrame(int position) = 0;
-    /** Optional tween and mark attributes of an <image> key element. */
-    static void writeKeyTween(QDomElement& image, const KeyFrame* key);
-    static void readKeyTween(const QDomElement& image, KeyFrame* key);
     /** ADR 0001: each linked copy stays a full image; `linkedTo` on its <image> names the src of the first copy. */
     void writeLinks(QDomElement& layerElem) const;
     void readLinks(const QDomElement& layerElem);
     bool loadKey(KeyFrame*);
 
 private:
+    // Frame selection and selected-frame moves change only through LayerManager.
+    friend class LayerManager;
+    /** Changes the hold of each selected keyframe (the frames up to the next keyframe) and moves the later keyframes.
+     * @param value Frames to add (above 0) or subtract (below 0); with `hold`, the new hold length. A hold is at least 1.
+     */
+    void setExposureForSelectedFrames(int value, bool hold = false);
+
+    /** Reverse order of selected frames
+     * @return true if all frames were successfully reversed, otherwise will return false.
+     */
+    bool reverseOrderOfSelection();
+
+    bool moveSelectedFrames(int offset);
+
+    /** Moves the keyframe at the first position of each pair to the second position, then deselects all frames.
+     *  @return false, with no frame moved, if a keyframe is missing or a target position is occupied
+     */
+    bool moveKeyFrames(const QList<QPair<int, int>>& fromTo);
+
+    // The removed-key sink is set only while an Edit is open.
+    friend class UndoRedoManager;
+    /** While set, removeKeyFrame moves removed keys here instead of deleting them. */
+    void setRemovedKeySink(std::vector<std::unique_ptr<KeyFrame>>* sink) { mRemovedKeySink = sink; }
+    std::vector<std::unique_ptr<KeyFrame>>* removedKeySink() const { return mRemovedKeySink; }
+    void setFrameSelected(int position, bool isSelected);
+    void toggleFrameSelected(int position, bool allowMultiple = false);
+    void extendSelectionTo(int position);
+    void selectAllFramesAfter(int position);
+    /** Selects from `position` forward until the first empty frame. */
+    bool newSelectionOfConnectedFrames(int position);
+    void deselectAll();
+
     void removeFromSelectionList(int position);
 
     LAYER_TYPE meType = UNDEFINED;
@@ -254,6 +251,7 @@ private:
     QString    mName;
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;
+    std::vector<std::unique_ptr<KeyFrame>>* mRemovedKeySink = nullptr;
 
     // We need to keep track of selected frames ordered by last selected
     // and by position.

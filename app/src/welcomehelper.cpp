@@ -20,9 +20,10 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QFileInfo>
 #include <QImage>
-#include <QPainter>
+#include <QTransform>
 #include <QStandardPaths>
 
+#include "framerenderer.h"
 #include "layercamera.h"
 #include "object.h"
 #include "preferencesdef.h"
@@ -144,18 +145,11 @@ bool saveThumbnail(const Object* object, const QString& projectPath, int frame)
         return false;
     }
 
-    QImage image(THUMBNAIL_SIZE, QImage::Format_ARGB32_Premultiplied);
-    image.fill(Qt::white);
-    {
-        QPainter painter(&image);
-        const qreal s = qMin(qreal(THUMBNAIL_SIZE.width()) / camSize.width(),
-                             qreal(THUMBNAIL_SIZE.height()) / camSize.height());
-        QTransform fit;
-        fit.translate(THUMBNAIL_SIZE.width() / 2.0, THUMBNAIL_SIZE.height() / 2.0);
-        fit.scale(s, s);
-        painter.setWorldTransform(camera->getViewAtFrame(frame) * fit);
-        object->paintImage(painter, frame, false, true);
-    }
+    // The camera frame scaled to fit, centred.
+    const qreal s = qMin(qreal(THUMBNAIL_SIZE.width()) / camSize.width(),
+                         qreal(THUMBNAIL_SIZE.height()) / camSize.height());
+    const QImage image = FrameRenderer::renderForExport(*object, frame, camera->getViewAtFrame(frame) * QTransform::fromScale(s, s),
+                                                        THUMBNAIL_SIZE, { THUMBNAIL_SIZE, false, true });
 
     const QString file = thumbnailPath(projectPath);
     QDir().mkpath(QFileInfo(file).absolutePath());

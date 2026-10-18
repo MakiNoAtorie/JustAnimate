@@ -279,100 +279,23 @@ private:
     Layer* detachedLayer = nullptr;
 };
 
-class LayerBlendModeCommand : public UndoRedoCommand
+/// One attribute table edit: the row, where it applies, and the value before and after.
+class AttributeCommand : public UndoRedoCommand
 {
 public:
-    LayerBlendModeCommand(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description, Editor* editor);
+    AttributeCommand(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after, Editor* editor);
 
     void undo() override;
     void redo() override;
 
 private:
-    void apply(BlendMode mode);
+    void apply(const QVariant& value);
 
-    int layerId = 0;
-    BlendMode oldMode = BlendMode::Normal;
-    BlendMode newMode = BlendMode::Normal;
-};
-
-class LayerRoughCommand : public UndoRedoCommand
-{
-public:
-    LayerRoughCommand(int layerId, bool rough, const QString& description, Editor* editor);
-
-    void undo() override;
-    void redo() override;
-
-private:
-    void apply(bool value);
-
-    int layerId = 0;
-    bool rough = false;
-};
-
-class SceneLengthCommand : public UndoRedoCommand
-{
-public:
-    SceneLengthCommand(int oldLength, int newLength, const QString& description, Editor* editor);
-
-    void undo() override;
-    void redo() override;
-
-private:
-    void apply(int length);
-
-    int oldLength = 0;
-    int newLength = 0;
-};
-
-class LayerTimesheetCommand : public UndoRedoCommand
-{
-public:
-    LayerTimesheetCommand(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description, Editor* editor);
-
-    void undo() override;
-    void redo() override;
-
-private:
-    void apply(TimesheetColumn column);
-
-    int layerId = 0;
-    TimesheetColumn oldColumn = TimesheetColumn::Default;
-    TimesheetColumn newColumn = TimesheetColumn::Default;
-};
-
-class LayerStoryboardCommand : public UndoRedoCommand
-{
-public:
-    LayerStoryboardCommand(int layerId, bool storyboard, const QString& description, Editor* editor);
-
-    void undo() override;
-    void redo() override;
-
-private:
-    void apply(bool value);
-
-    int layerId = 0;
-    bool storyboard = false;
-};
-
-/// Undo and redo of the Panel fields of the key at `frame` on a layer.
-class PanelFieldsCommand : public UndoRedoCommand
-{
-public:
-    PanelFieldsCommand(int layerId, int frame, const PanelFields& before, const PanelFields& after,
-                       const QString& description, Editor* editor);
-
-    void undo() override;
-    void redo() override;
-
-private:
-    void apply(const PanelFields& fields);
-
+    AttributeId id;
     int layerId = 0;
     int frame = 0;
-    PanelFields before;
-    PanelFields after;
+    QVariant before;
+    QVariant after;
 };
 
 /// Undo and redo of a layer reorder or a layer group edit.
@@ -389,22 +312,6 @@ private:
 
     LayerArrangement before;
     LayerArrangement after;
-};
-
-/// Undo and redo of a Paper template edit.
-class PaperTemplateCommand : public UndoRedoCommand
-{
-public:
-    PaperTemplateCommand(const PaperTemplate& before, const PaperTemplate& after, const QString& description, Editor* editor);
-
-    void undo() override;
-    void redo() override;
-
-private:
-    void apply(const PaperTemplate& paper);
-
-    PaperTemplate before;
-    PaperTemplate after;
 };
 
 /// Undo and redo of a change to the markers of one layer id (0: the global markers).

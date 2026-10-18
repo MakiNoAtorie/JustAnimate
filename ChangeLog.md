@@ -5,6 +5,30 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Single-image export asks once before it replaces a file; brush scatter places the same dabs on macOS as on Windows and Linux (#217).
+- Every preference is read and written through its typed table row; the untyped accessors and the runtime type check are gone (#272).
+- Pen, Pencil, Brush, Shape and Polyline vector curves commit through the stroke buffer, mapped into the key's space in one place (#269).
+- Dab spacing, taper, pressure, size dynamics and scatter move into a pure dab placer that tests replay from pen samples; brush settings are read once per press (#270).
+- Undo records only through Edit: the raw snapshot, record and macro calls are private to it (#258).
+- Bitmap strokes commit through the Stroke tool's own stroke buffer, which holds the eraser and smudge composition; the canvas no longer crashes painting a vector layer without a buffer (#268).
+- Tools, canvas edits and menu commands record undo through one scoped Edit; an Edit left open by a lost pointer release ends cleanly after a project load (#257).
+- The X-sheet's Exposure edge and link drags run through the timeline's frame-edit gesture; Move Frame Forward and Backward can be undone (#265).
+- Timeline click select, box select and frame move run through one frame-edit gesture, driven by layer and frame instead of pixels (#264).
+- Movie and GIF export, from the menu or the command line, run through the same core exporter (#274).
+- The canvas paints its layers through the frame renderer rules, pinned to the export pixels by a parity test (#261).
+- Image and image sequence export run through one core exporter; a cancelled or failed export leaves no partial files, and replacing an existing image asks first (#273).
+- Editor and LayerManager edits record through one scoped Edit that picks the undo record; undoing a new layer, attribute or marker edit back to the save point leaves the project clean (#256).
+- Movie, GIF, paper page export and the Welcome thumbnail render through the frame renderer export adapter (#260).
+- The Tool settings Panel and the brush preset editor build their rows from the tool property registry; the editor picks grain and smudge mixing from a list (#267).
+- Project length and Paper template edits are project rows of the attribute table; the per-value undo commands are gone (#255).
+- Preferences load and save from one table with typed access; the Onion skin panel now shows a saved "while playback" choice (#271).
+- Autosave, crash recovery, closing and the recent files move to the project session; command line export opens through it (#263).
+- Setting a Mark, tween, Panel field or unlinking a Drawing no longer moves the playhead, and its undo keeps the Drawing; these are rows of the attribute table (#254).
+- Rename and lock-all are undoable, Duplicate Layer keeps the copy in its group, and every layer attribute is a row of the attribute table (#253).
+- Open, save and the unsaved-changes prompt move to a project session; undoing back to the last save clears the unsaved mark (#262).
+- Lock Transparency is undoable; it is the first row of the layer attribute table that save, load and duplicate read (#252).
+- Image and image sequence export render through one frame renderer that holds the layer rules once (#259).
+- Stroke tool settings load and migrate from one descriptor table per property; keys and values are unchanged (#266).
 - Deleted the unused upstream name and URL macros (#251).
 - The pressure log checkbox is gone; set JUSTANIMATE_PRESSURE_LOG=1 to print each dab (#242).
 - The pen double-click uses the system double-click interval and distance instead of 500 ms and 5 px (#250).

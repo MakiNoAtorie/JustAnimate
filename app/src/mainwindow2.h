@@ -18,14 +18,19 @@ GNU General Public License for more details.
 #ifndef MAINWINDOW2_H
 #define MAINWINDOW2_H
 
+#include <memory>
+
 #include <QMainWindow>
 #include "defaultlayout.h"
+#include "projectsession.h"
 
 template<typename T> class QList;
 class QActionGroup;
+class QProgressDialog;
 class QToolBar;
 class Object;
 class Editor;
+class Status;
 class ScribbleArea;
 class BaseDockWidget;
 class ColorPaletteWidget;
@@ -49,7 +54,6 @@ class PegBarAlignmentDialog;
 class AddTransparencyToPaperDialog;
 class RepositionFramesDialog;
 class StatusBar;
-class AutosaverByTime;
 enum class SETTING;
 
 
@@ -84,8 +88,6 @@ public:
     void openDocument();
     bool saveDocument();
     bool saveAsNewDocument();
-    bool maybeSave();
-    bool autoSave();
     void emptyDocumentWhenErrorOccurred();
 
     // import
@@ -122,12 +124,15 @@ protected:
 private slots:
     void updateCopyCutPasteEnabled();
     void updateLayerMenu();
-    void autoSaveTimeout();
 private:
     void newObject();
     bool newObjectFromPresets(int presetIndex);
     bool openObject(const QString& strFilename);
-    bool saveObject(QString strFileName);
+    void setUpSession();
+    void showProgress(bool saving, int value, int maximum);
+    void showSaveError(const Status& st);
+    void onSaved(QString path);
+    void remindToSave();
     void closeDialogs();
 
     void createDockWidgets();
@@ -165,9 +170,8 @@ private:
     void makeConnections(Editor*, OnionSkinWidget*);
     void makeConnections(Editor*, StatusBar*);
 
-    bool checkForRecoverableProjects();
-    bool tryRecoverProject(const QString recoverPath);
-    bool startProjectRecovery(const QString recoverPath);
+    ProjectSession::RecoverChoice askRecoverProject(const QString& recoverPath);
+    void showRecoveryResult(bool ok);
 
     // UI: Dock widgets
     ColorBox*             mColorBox = nullptr;
@@ -175,6 +179,8 @@ private:
     ToolOptionWidget*     mToolOptions = nullptr;
     ToolBoxDockWidget*        mToolBox = nullptr;
     RecentFileMenu*       mRecentFileMenu = nullptr;
+    ProjectSession*       mSession = nullptr;
+    std::unique_ptr<QProgressDialog> mProgress;
     PreferencesDialog*    mPrefDialog = nullptr;
     //PreviewWidget*      mPreview = nullptr;
     TimeLine*             mTimeLine = nullptr;
@@ -192,9 +198,6 @@ private:
     RepositionFramesDialog* mReposDialog = nullptr;
     LayerOpacityDialog* mLayerOpacityDialog = nullptr;
     AddTransparencyToPaperDialog* mAddTranspToPaper = nullptr;
-
-    // Autosave handler
-    AutosaverByTime* mAutoSaver = nullptr;
 
     void createToolbars();
 private:

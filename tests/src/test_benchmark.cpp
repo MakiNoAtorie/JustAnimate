@@ -34,6 +34,7 @@ GNU General Public License for more details.
 #include <QTemporaryDir>
 #include <QWindow>
 
+#include "framerenderer.h"
 #include "bitmapimage.h"
 #include "brushpresets.h"
 #include "colormanager.h"
@@ -279,8 +280,10 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         {
             // Scrub again with tinted onion skin on both sides (default 5 frames each).
             const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
-            for (SETTING o : { SETTING::PREV_ONION, SETTING::NEXT_ONION, SETTING::ONION_RED, SETTING::ONION_BLUE })
-                s.editor->preference()->set(o, true);
+            s.editor->preference()->set<SETTING::PREV_ONION>(true);
+            s.editor->preference()->set<SETTING::NEXT_ONION>(true);
+            s.editor->preference()->set<SETTING::ONION_RED>(true);
+            s.editor->preference()->set<SETTING::ONION_BLUE>(true);
             s.area->onObjectLoaded();
             counter.paints = 0;
             t.start();
@@ -406,7 +409,7 @@ QByteArray frameHash(const Object* object)
     frame.fill(Qt::transparent);
     QPainter painter(&frame);
     painter.translate(640, 360);
-    object->paintImage(painter, 1, true, true);
+    FrameRenderer::paint(*object, 1, painter, { true, true });
     painter.end();
     return QCryptographicHash::hash(QByteArrayView(frame.constBits(), frame.sizeInBytes()),
                                     QCryptographicHash::Sha1).toHex();
@@ -444,7 +447,7 @@ ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes, con
     tool->resetSettings();
     if (!presetFolder.isEmpty())
         REQUIRE(BrushPresets(presetFolder).apply("Classic", *static_cast<StrokeTool*>(tool)));
-    static_cast<StrokeTool*>(tool)->setWidth(c.size);
+    static_cast<StrokeTool*>(tool)->set(ToolProperty::Width, c.size);
 
     const QPointingDevice pen("replay pen", 1, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
                               QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
@@ -661,7 +664,7 @@ PredictionRun predictionRun(ToolType toolType, bool predict)
     const ToolSettingsGuard guard(tool);
     tool->resetSettings();
     auto* dabTool = static_cast<DabTool*>(tool);
-    dabTool->setWidth(24);
+    dabTool->set(ToolProperty::Width, 24);
     dabTool->setPredictionEnabled(predict);
 
     PredictionRun r;
@@ -716,7 +719,7 @@ TEST_CASE("Pen prediction: input-to-pixel latency of a 256 px brush on a 4K canv
     const ToolSettingsGuard guard(tool);
     tool->resetSettings();
     // Width tops out at 200 canvas px: zoom 128 % so the dab covers 256 screen px.
-    static_cast<StrokeTool*>(tool)->setWidth(200);
+    static_cast<StrokeTool*>(tool)->set(ToolProperty::Width, 200);
     s.editor->view()->scale(1.28);
     REQUIRE(s.area->size() == QSize(3840, 2160));
 
@@ -797,8 +800,8 @@ TEST_CASE("Brush replay: dabs per second at 256 and 4 screen px", "[.dabrate]")
             const ToolSettingsGuard guard(tool);
             tool->resetSettings();
             auto* strokeTool = static_cast<StrokeTool*>(tool);
-            strokeTool->setWidth(screenPx / 1.28);
-            strokeTool->setPressureEnabled(false);
+            strokeTool->set(ToolProperty::Width, screenPx / 1.28);
+            strokeTool->set(ToolProperty::PressureEnabled, false);
             s.editor->view()->scale(1.28);
             StageProfiler::reset();
             QElapsedTimer t;

@@ -24,14 +24,11 @@ GNU General Public License for more details.
 #include <QHash>
 #include <QFile>
 #include <QSet>
-#include <iterator>
+#include "attributes.h"
 #include "keyframe.h"
 #include "util.h"
 
 // The <layer timesheet> code of each TimesheetColumn; Default and Dialogue are never saved.
-static const char* const kTimesheetCodes[] = { "", "KA", "KB", "KC", "KD", "KE", "KF", "",
-                                               "IA", "IB", "IC", "ID", "IE", "IF", "CAM" };
-
 // Used to sort the selected frames list
 bool sortAsc(int left, int right)
 {
@@ -332,7 +329,8 @@ bool Layer::removeKeyFrame(int position)
         removeFromSelectionList(frame->pos());
         mKeyFrames.erase(frame->pos());
         markFrameAsDirty(frame->pos());
-        delete frame;
+        if (mRemovedKeySink) { mRemovedKeySink->emplace_back(frame); }
+        else { delete frame; }
     }
     return true;
 }
@@ -800,18 +798,8 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
 {
     QDomElement layerTag = doc.createElement("layer");
     layerTag.setAttribute("id", id());
-    layerTag.setAttribute("name", name());
-    layerTag.setAttribute("visibility", visible());
     layerTag.setAttribute("type", type());
-    // Optional: only written when off, so older versions still read the file.
-    if (!onionSkin()) { layerTag.setAttribute("onion", 0); }
-    if (blendMode() != BlendMode::Normal) { layerTag.setAttribute("blend", static_cast<int>(blendMode())); }
-    if (groupId() != 0) { layerTag.setAttribute("group", groupId()); }
-    if (isRough()) { layerTag.setAttribute("rough", 1); }
-    if (lockAll()) { layerTag.setAttribute("lockAll", 1); }
-    const char* timesheet = kTimesheetCodes[static_cast<int>(timesheetColumn())];
-    if (*timesheet != '\0') { layerTag.setAttribute("timesheet", QLatin1String(timesheet)); }
-    if (isStoryboard()) { layerTag.setAttribute("storyboard", 1); }
+    writeLayerAttributes(*this, layerTag);
     return layerTag;
 }
 
@@ -822,22 +810,7 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
         int id = elem.attribute("id").toInt();
         setId(id);
     }
-    setName(elem.attribute("name", "untitled"));
-    setVisible(elem.attribute("visibility", "1").toInt());
-    setOnionSkin(elem.attribute("onion", "1").toInt());
-    const int blend = elem.attribute("blend", "0").toInt();
-    setBlendMode(blend >= 0 && blend < kBlendModeCount ? static_cast<BlendMode>(blend) : BlendMode::Normal);
-    setGroupId(elem.attribute("group", "0").toInt());
-    setRough(elem.attribute("rough", "0").toInt() == 1);
-    setLockAll(elem.attribute("lockAll") == "1");
-    const QString timesheet = elem.attribute("timesheet");
-    // An empty or unknown code loads as Default.
-    setTimesheetColumn(TimesheetColumn::Default);
-    for (int i = 1; i < static_cast<int>(std::size(kTimesheetCodes)); ++i)
-    {
-        if (!timesheet.isEmpty() && timesheet == QLatin1String(kTimesheetCodes[i])) { setTimesheetColumn(static_cast<TimesheetColumn>(i)); }
-    }
-    setStoryboard(elem.attribute("storyboard") == "1");
+    readLayerAttributes(*this, elem);
 }
 
 TweenState Layer::tweenStateAt(int frame) const
@@ -852,52 +825,4 @@ TweenState Layer::tweenStateAt(int frame) const
     const qreal t = easedProgress(key->tweenEasing(), qreal(frame - key->pos()) / (next - key->pos()));
     auto lerp = [t](qreal from, qreal to) { return from + (to - from) * t; };
     return TweenState{ lerp(a.tx, b.tx), lerp(a.ty, b.ty), lerp(a.rot, b.rot), lerp(a.scale, b.scale), lerp(a.opacity, b.opacity) };
-}
-
-// XML values of the mark attribute, indexed by Mark.
-static const char* const kMarkNames[] = { "", "key", "breakdown", "inbetween" };
-
-void Layer::writeKeyTween(QDomElement& image, const KeyFrame* key)
-{
-    // Optional: only written when set, so older versions still read the file.
-    if (key->mark() != Mark::None) { image.setAttribute("mark", kMarkNames[static_cast<int>(key->mark())]); }
-    if (key->tween())
-    {
-        image.setAttribute("tween", 1);
-        image.setAttribute("easing", static_cast<int>(key->tweenEasing()));
-    }
-    const TweenState s = key->tweenState();
-    if (s.tx != 0) { image.setAttribute("tx", s.tx); }
-    if (s.ty != 0) { image.setAttribute("ty", s.ty); }
-    if (s.rot != 0) { image.setAttribute("rot", s.rot); }
-    if (s.scale != 1) { image.setAttribute("scale", s.scale); }
-    const PanelFields p = key->panelFields();
-    if (!p.scene.isEmpty()) { image.setAttribute("scene", p.scene); }
-    if (!p.cut.isEmpty()) { image.setAttribute("cut", p.cut); }
-    if (!p.notes.isEmpty()) { image.setAttribute("notes", p.notes); }
-    if (!p.audio.isEmpty()) { image.setAttribute("audio", p.audio); }
-}
-
-void Layer::readKeyTween(const QDomElement& image, KeyFrame* key)
-{
-    if (key == nullptr) { return; }
-    // Untrusted file: an out-of-range or non-finite value loads as the default.
-    auto number = [&image](const char* name, qreal fallback) {
-        bool ok = false;
-        const qreal v = image.attribute(name).toDouble(&ok);
-        return ok && qIsFinite(v) ? v : fallback;
-    };
-    const QString mark = image.attribute("mark");
-    for (int m = 1; m <= static_cast<int>(Mark::Inbetween); ++m)
-    {
-        if (mark == QLatin1String(kMarkNames[m])) { key->setMark(static_cast<Mark>(m)); }
-    }
-    key->setTween(image.attribute("tween", "0").toInt() == 1);
-    const int easing = image.attribute("easing", "0").toInt();
-    const bool validEasing = easing >= 0 && easing <= static_cast<int>(CameraEasingType::OUTINBOUNCE);
-    key->setTweenEasing(validEasing ? static_cast<CameraEasingType>(easing) : CameraEasingType::LINEAR);
-    const qreal scale = number("scale", 1);
-    key->setTweenState(TweenState{ number("tx", 0), number("ty", 0), number("rot", 0), scale > 0 ? scale : 1,
-                                   qBound(0.0, number("opacity", 1), 1.0) });
-    key->setPanelFields({ image.attribute("scene"), image.attribute("cut"), image.attribute("notes"), image.attribute("audio") });
 }

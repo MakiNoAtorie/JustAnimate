@@ -19,14 +19,15 @@ GNU General Public License for more details.
 #include <QTextStream>
 
 #include "editor.h"
+#include "exporter.h"
 #include "fileformat.h"
 #include "layercamera.h"
 #include "layermanager.h"
-#include "movieexporter.h"
 #include "object.h"
 #include "pagewriter.h"
 #include "paperpainter.h"
 #include "playbackmanager.h"
+#include "projectsession.h"
 
 #include "commandlineexporter.h"
 
@@ -58,26 +59,22 @@ Status CommandLineExporter::process(const QString &inputPath,
         return Status::FAIL;
     }
 
-    Status s = mEditor->openObject(inputPath, [](int){}, [](int){});
+    Status s = ProjectSession(mEditor, nullptr).load(inputPath);
     if (!s.ok())
     {
         printError(s);
         return s;
     }
 
-    LayerCamera *cameraLayer = nullptr;
-    if (!camera.isEmpty())
+    const LayerCamera* cameraLayer = Exporter::camera(*mEditor->object(), camera);
+    if (!camera.isEmpty() && cameraLayer && cameraLayer->name() != camera)
     {
-        cameraLayer = dynamic_cast<LayerCamera*>(layerManager->findLayerByName(camera, Layer::CAMERA));
-        if (cameraLayer == nullptr)
-        {
-            mErr << tr("Warning: the specified camera layer %1 was not found, ignoring.").arg(camera) << qEndl;
-        }
+        mErr << tr("Warning: the specified camera layer %1 was not found, ignoring.").arg(camera) << qEndl;
     }
     if (cameraLayer == nullptr)
     {
-        cameraLayer = dynamic_cast<LayerCamera*>(layerManager->getLastCameraLayer());
-        Q_ASSERT(cameraLayer);
+        mErr << tr("Error: the project has no camera layer.", "Command line error") << qEndl;
+        return Status::FAIL;
     }
 
     if (width < 0)
@@ -129,9 +126,36 @@ Status CommandLineExporter::process(const QString &inputPath,
             format = "PNG";
         }
 
-        Status st = isMovieFormat(format)
-            ? exportMovie(outputPath, cameraLayer, exportSize, startFrame, endFrame, transparency)
-            : exportImageSequence(outputPath, format, cameraLayer, exportSize, startFrame, endFrame, transparency);
+        ExportRequest request;
+        request.cameraName = cameraLayer->name();
+        request.startFrame = startFrame;
+        request.endFrame = endFrame;
+        request.size = exportSize;
+        request.path = outputPath;
+        if (isMovieFormat(format))
+        {
+            if (transparency)
+            {
+                mErr << tr("Warning: Transparency is not currently supported in movie files", "Command line warning") << qEndl;
+            }
+            mOut << tr("Exporting movie...", "Command line task progress") << qEndl;
+            request.kind = ExportRequest::Kind::Movie;
+            request.fps = mEditor->playback()->fps();
+            request.skippedClips = [this](const QStringList& clips) {
+                for (const QString& clip : clips)
+                {
+                    mErr << tr("Warning: sound clip left out, file is missing: %1", "Command line warning").arg(clip) << qEndl;
+                }
+            };
+        }
+        else
+        {
+            mOut << tr("Exporting image sequence...", "Command line task progress") << qEndl;
+            request.kind = ExportRequest::Kind::Sequence;
+            request.format = format;
+            request.transparency = transparency;
+        }
+        const Status st = Exporter::run(*mEditor->object(), request);
         if (!st.ok())
         {
             printError(st);
@@ -141,60 +165,6 @@ Status CommandLineExporter::process(const QString &inputPath,
     }
 
     return Status::OK;
-}
-
-Status CommandLineExporter::exportMovie(const QString &outputPath,
-                                        const LayerCamera *cameraLayer,
-                                        const QSize &exportSize,
-                                        int startFrame,
-                                        int endFrame,
-                                        bool transparency)
-{
-    if (transparency)
-    {
-        mErr << tr("Warning: Transparency is not currently supported in movie files", "Command line warning") << qEndl;
-    }
-
-    mOut << tr("Exporting movie...", "Command line task progress") << qEndl;
-
-    ExportMovieDesc desc;
-    desc.strFileName = outputPath;
-    desc.startFrame = startFrame;
-    desc.endFrame = endFrame;
-    desc.fps = mEditor->playback()->fps();
-    desc.exportSize = exportSize;
-    desc.strCameraName = cameraLayer->name();
-
-    MovieExporter ex;
-    const Status st = ex.run(mEditor->object(), desc, [](float, float){}, [](float){}, [](const QString &){});
-    for (const QString& clip : ex.skippedClips())
-    {
-        mErr << tr("Warning: sound clip left out, file is missing: %1", "Command line warning").arg(clip) << qEndl;
-    }
-    return st;
-}
-
-Status CommandLineExporter::exportImageSequence(const QString &outputPath,
-                                                const QString &format,
-                                                const LayerCamera *cameraLayer,
-                                                const QSize &exportSize,
-                                                int startFrame,
-                                                int endFrame,
-                                                bool transparency)
-{
-    mOut << tr("Exporting image sequence...", "Command line task progress") << qEndl;
-    return mEditor->object()->exportFrames(startFrame,
-                                           endFrame,
-                                           cameraLayer,
-                                           exportSize,
-                                           outputPath,
-                                           format,
-                                           transparency,
-                                           false,
-                                           "",
-                                           true,
-                                           nullptr,
-                                           0);
 }
 
 void CommandLineExporter::printError(const Status &st)

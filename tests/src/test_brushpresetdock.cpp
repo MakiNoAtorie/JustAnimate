@@ -85,24 +85,24 @@ struct DockSession
 TEST_CASE("Selecting a preset row applies it and refreshes tool options", "[BrushPresetDock]")
 {
     DockSession d;
-    d.brush->setWidth(7);
+    d.brush->set(ToolProperty::Width, 7);
     REQUIRE(BrushPresets(d.dir.path()).save("Fine", *d.brush));
-    d.brush->setWidth(60);
+    d.brush->set(ToolProperty::Width, 60);
     REQUIRE(BrushPresets(d.dir.path()).save("Wide", *d.brush));
-    d.brush->setWidth(20);
+    d.brush->set(ToolProperty::Width, 20);
 
     d.openDock();
     int resets = 0;
     QObject::connect(d.s.editor->tools(), &ToolManager::toolsReset, [&resets] { ++resets; });
     REQUIRE(d.list()->count() == 2);
-    CHECK(d.brush->strokeToolProperties().width() == 20); // listing does not apply
+    CHECK(d.brush->get(ToolProperty::Width) == 20); // listing does not apply
 
     d.list()->setCurrentRow(1);
-    CHECK(d.brush->strokeToolProperties().width() == 60);
+    CHECK(d.brush->get(ToolProperty::Width) == 60);
     CHECK(resets == 1);
 
     d.list()->setCurrentRow(0);
-    CHECK(d.brush->strokeToolProperties().width() == 7);
+    CHECK(d.brush->get(ToolProperty::Width) == 7);
 }
 
 TEST_CASE("Importing a preset file lists it in the dock", "[BrushPresetDock]")
@@ -122,7 +122,7 @@ TEST_CASE("Importing a preset file lists it in the dock", "[BrushPresetDock]")
 TEST_CASE("Preset rows show a rendered sample stroke and the description", "[BrushPresetDock]")
 {
     DockSession d;
-    d.brush->setWidth(4);
+    d.brush->set(ToolProperty::Width, 4);
     REQUIRE(BrushPresets(d.dir.path()).save("Fine", *d.brush));
     QFile f(d.dir.filePath("Fine.json"));
     REQUIRE(f.open(QIODevice::ReadOnly));
@@ -143,7 +143,7 @@ TEST_CASE("Preset rows show a rendered sample stroke and the description", "[Bru
 TEST_CASE("Sample strokes update when the dock's editor saves", "[BrushPresetDock]")
 {
     DockSession d;
-    d.brush->setWidth(3);
+    d.brush->set(ToolProperty::Width, 3);
     REQUIRE(BrushPresets(d.dir.path()).save("Pen", *d.brush));
     d.openDock();
     const int before = inkPixels(d.list()->item(0)->icon());
@@ -166,7 +166,7 @@ TEST_CASE("Sample strokes update when the dock's editor saves", "[BrushPresetDoc
 TEST_CASE("The preset editor previews edits live and saves every part of the preset", "[BrushPresetDock]")
 {
     DockSession d;
-    d.brush->setWidth(4);
+    d.brush->set(ToolProperty::Width, 4);
     const BrushPresets presets(d.dir.path());
     REQUIRE(presets.save("Fine", *d.brush));
     QImage tip(8, 8, QImage::Format_RGB32);
@@ -191,7 +191,7 @@ TEST_CASE("The preset editor previews edits live and saves every part of the pre
     REQUIRE(editor.save());
 
     REQUIRE(presets.apply("Fine", *d.brush));
-    CHECK(d.brush->strokeToolProperties().width() == 40);
+    CHECK(d.brush->get(ToolProperty::Width) == 40);
     CHECK(d.brush->tipImagePath() == d.dir.filePath("tip.png"));
     CHECK(d.brush->pressureCurve() == PressureCurve::fromString("0,0.9 1,1").toString());
     CHECK(presets.description("Fine") == "Wide lines");
@@ -207,22 +207,17 @@ TEST_CASE("The preset editor labels every setting in words", "[BrushPresetDock]"
     auto form = editor.findChild<QFormLayout*>();
     REQUIRE(form);
     int rows = 0;
-    const ToolProperties& props = d.brush->toolProperties();
-    for (const auto& range : props.typeRanges())
+    for (const ToolPropertyDescriptor& p : ToolProperties::descriptors())
     {
-        for (int key = range.first; key < range.second; ++key)
-        {
-            if (props.getInfo(key).type() == PropertyInfo::INVALID)
-                continue;
-            const QString id = props.identifier(key);
-            CAPTURE(id.toStdString());
-            QWidget* control = editor.findChild<QWidget*>(id);
-            REQUIRE(control);
-            auto label = qobject_cast<QLabel*>(form->labelForField(control));
-            REQUIRE(label);
-            CHECK_FALSE(label->text().contains(QRegularExpression("[a-z][A-Z]"))); // not an identifier
-            ++rows;
-        }
+        if (!d.brush->properties().has(p.id))
+            continue;
+        CAPTURE(p.key);
+        QWidget* control = editor.findChild<QWidget*>(p.key);
+        REQUIRE(control);
+        auto label = qobject_cast<QLabel*>(form->labelForField(control));
+        REQUIRE(label);
+        CHECK_FALSE(label->text().contains(QRegularExpression("[a-z][A-Z]"))); // not an identifier
+        ++rows;
     }
     CHECK(rows > 20);
 }
@@ -230,7 +225,7 @@ TEST_CASE("The preset editor labels every setting in words", "[BrushPresetDock]"
 TEST_CASE("The preset editor never overwrites another preset", "[BrushPresetDock]")
 {
     DockSession d;
-    d.brush->setWidth(4);
+    d.brush->set(ToolProperty::Width, 4);
     const BrushPresets presets(d.dir.path());
     REQUIRE(presets.save("Fine", *d.brush));
 
@@ -248,7 +243,7 @@ TEST_CASE("The preset editor never overwrites another preset", "[BrushPresetDock
     REQUIRE(rename.save());
     CHECK(presets.names() == QStringList{ "Fine copy", "Thin" });
     REQUIRE(presets.apply("Fine copy", *d.brush));
-    CHECK(d.brush->strokeToolProperties().width() == 30);
+    CHECK(d.brush->get(ToolProperty::Width) == 30);
 }
 
 TEST_CASE("The dock lists only the active tool's presets", "[BrushPresetDock]")
@@ -257,11 +252,11 @@ TEST_CASE("The dock lists only the active tool's presets", "[BrushPresetDock]")
     StrokeTool* eraser = static_cast<StrokeTool*>(d.s.editor->tools()->getTool(ERASER));
     ToolSettingsGuard eraserGuard(eraser);
     const BrushPresets presets(d.dir.path());
-    d.brush->setWidth(9);
+    d.brush->set(ToolProperty::Width, 9);
     REQUIRE(presets.save("Ink", *d.brush));
-    eraser->setWidth(70);
+    eraser->set(ToolProperty::Width, 70);
     REQUIRE(presets.save("Rub", *eraser));
-    eraser->setWidth(20);
+    eraser->set(ToolProperty::Width, 20);
 
     d.openDock();
     REQUIRE(d.list()->count() == 1);
@@ -271,10 +266,10 @@ TEST_CASE("The dock lists only the active tool's presets", "[BrushPresetDock]")
     REQUIRE(d.list()->count() == 1);
     CHECK(d.list()->item(0)->data(Qt::UserRole).toString() == "Rub");
 
-    d.brush->setWidth(30);
+    d.brush->set(ToolProperty::Width, 30);
     d.list()->setCurrentRow(0);
-    CHECK(eraser->strokeToolProperties().width() == 70);
-    CHECK(d.brush->strokeToolProperties().width() == 30); // the brush is untouched
+    CHECK(eraser->get(ToolProperty::Width) == 70);
+    CHECK(d.brush->get(ToolProperty::Width) == 30); // the brush is untouched
 
     // A new preset made while the eraser is active is an eraser preset.
     BrushPresetEditor editor(presets, QString(), "Wipe", QString(), "eraser");

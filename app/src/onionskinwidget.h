@@ -59,7 +59,7 @@ private slots:
 
 private:
     void makeConnections();
-    QToolButton* addColorButton(QLayout* layout, SETTING setting, const QString& toolTip);
+    template<SETTING S> QToolButton* addColorButton(QLayout* layout, const QString& toolTip);
     std::array<std::pair<QCheckBox*, Mark>, 3> markBoxes() const;
     Ui::OnionSkin* ui = nullptr;
     QComboBox* mFalloffBox = nullptr;

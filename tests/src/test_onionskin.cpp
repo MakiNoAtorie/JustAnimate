@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
+#include <QCheckBox>
 #include <QDomDocument>
 #include <QImage>
 #include <QKeySequence>
@@ -24,6 +25,7 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layermanager.h"
 #include "onionskinpainteroptions.h"
+#include "onionskinwidget.h"
 #include "onionskinsubpainter.h"
 #include "preferencemanager.h"
 #include "testfixture.h"
@@ -140,18 +142,18 @@ TEST_CASE("Onion skin colours falloff and mode are remembered across restarts", 
         session.object->addNewBitmapLayer(); // a mode change repaints the current layer
         REQUIRE(session.start());
         PreferenceManager* prefs = session.editor->preference();
-        prefs->set(SETTING::ONION_PREV_COLOR, QString("#00ff00"));
-        prefs->set(SETTING::ONION_NEXT_COLOR, QString("#ff00ff"));
-        prefs->set(SETTING::ONION_FALLOFF, static_cast<int>(OnionSkinFalloff::Steep));
-        prefs->set(SETTING::ONION_TYPE, QString("marked"));
-        prefs->set(SETTING::ONION_MARKS, MarkFilter({ Mark::Inbetween }).toInt());
+        prefs->set<SETTING::ONION_PREV_COLOR>(QString("#00ff00"));
+        prefs->set<SETTING::ONION_NEXT_COLOR>(QString("#ff00ff"));
+        prefs->set<SETTING::ONION_FALLOFF>(static_cast<int>(OnionSkinFalloff::Steep));
+        prefs->set<SETTING::ONION_TYPE>(QString("marked"));
+        prefs->set<SETTING::ONION_MARKS>(MarkFilter({ Mark::Inbetween }).toInt());
     }
     TestSession session;
     REQUIRE(session.start());
     PreferenceManager* prefs = session.editor->preference();
-    REQUIRE(prefs->getString(SETTING::ONION_PREV_COLOR) == "#00ff00");
-    REQUIRE(prefs->getString(SETTING::ONION_NEXT_COLOR) == "#ff00ff");
-    REQUIRE(prefs->getInt(SETTING::ONION_FALLOFF) == static_cast<int>(OnionSkinFalloff::Steep));
+    REQUIRE(prefs->get<SETTING::ONION_PREV_COLOR>() == "#00ff00");
+    REQUIRE(prefs->get<SETTING::ONION_NEXT_COLOR>() == "#ff00ff");
+    REQUIRE(prefs->get<SETTING::ONION_FALLOFF>() == static_cast<int>(OnionSkinFalloff::Steep));
     CHECK(prefs->markFilter().contains(Mark::Inbetween));
     CHECK_FALSE(prefs->markFilter().contains(Mark::Key));
 }
@@ -167,9 +169,9 @@ TEST_CASE("Onion skin colours default to red and blue", "[OnionSkin]")
     TestSession session;
     REQUIRE(session.start());
     PreferenceManager* prefs = session.editor->preference();
-    REQUIRE(QColor(prefs->getString(SETTING::ONION_PREV_COLOR)) == QColor(Qt::red));
-    REQUIRE(QColor(prefs->getString(SETTING::ONION_NEXT_COLOR)) == QColor(Qt::blue));
-    REQUIRE(prefs->getInt(SETTING::ONION_FALLOFF) == static_cast<int>(OnionSkinFalloff::Linear));
+    REQUIRE(QColor(prefs->get<SETTING::ONION_PREV_COLOR>()) == QColor(Qt::red));
+    REQUIRE(QColor(prefs->get<SETTING::ONION_NEXT_COLOR>()) == QColor(Qt::blue));
+    REQUIRE(prefs->get<SETTING::ONION_FALLOFF>() == static_cast<int>(OnionSkinFalloff::Linear));
 }
 
 TEST_CASE("Marked drawings onion skin shows only Drawings that pass the Mark filter", "[OnionSkin]")
@@ -188,15 +190,15 @@ TEST_CASE("Marked drawings onion skin shows only Drawings that pass the Mark fil
     editor->tools()->setCurrentTool(HAND);
 
     PreferenceManager* prefs = editor->preference();
-    prefs->set(SETTING::PREV_ONION, true);
-    prefs->set(SETTING::NEXT_ONION, false);
-    prefs->set(SETTING::ONION_RED, false);
-    prefs->set(SETTING::ONION_PREV_FRAMES_NUM, 2);
-    prefs->set(SETTING::ONION_MAX_OPACITY, 100);
+    prefs->set<SETTING::PREV_ONION>(true);
+    prefs->set<SETTING::NEXT_ONION>(false);
+    prefs->set<SETTING::ONION_RED>(false);
+    prefs->set<SETTING::ONION_PREV_FRAMES_NUM>(2);
+    prefs->set<SETTING::ONION_MAX_OPACITY>(100);
     MarkFilter keysOnly;
     keysOnly.set(Mark::Key, true);
-    prefs->set(SETTING::ONION_MARKS, keysOnly.toInt());
-    prefs->set(SETTING::ONION_TYPE, QString("marked"));
+    prefs->set<SETTING::ONION_MARKS>(keysOnly.toInt());
+    prefs->set<SETTING::ONION_TYPE>(QString("marked"));
     REQUIRE(prefs->markFilter().contains(Mark::Key));
     REQUIRE_FALSE(prefs->markFilter().contains(Mark::Inbetween));
 
@@ -215,7 +217,7 @@ TEST_CASE("Marked drawings onion skin shows only Drawings that pass the Mark fil
     CHECK(image.pixelColor(50, 100) != empty);  // the Key
     CHECK(image.pixelColor(150, 100) == empty); // the Inbetween
 
-    prefs->set(SETTING::ONION_TYPE, QString("absolute"));
+    prefs->set<SETTING::ONION_TYPE>(QString("absolute"));
     REQUIRE(prefs->markFilter().passesAll());
     image = area->grab().toImage();
     CHECK(image.pixelColor(50, 100) != empty);
@@ -229,14 +231,14 @@ TEST_CASE("O toggles onion skin in both directions", "[OnionSkin]")
     REQUIRE(session.start());
     PreferenceManager* prefs = session.editor->preference();
 
-    prefs->set(SETTING::PREV_ONION, true);
-    prefs->set(SETTING::NEXT_ONION, false);
+    prefs->set<SETTING::PREV_ONION>(true);
+    prefs->set<SETTING::NEXT_ONION>(false);
     session.editor->toggleOnionSkin();
-    CHECK_FALSE(prefs->isOn(SETTING::PREV_ONION));
-    CHECK_FALSE(prefs->isOn(SETTING::NEXT_ONION));
+    CHECK_FALSE(prefs->get<SETTING::PREV_ONION>());
+    CHECK_FALSE(prefs->get<SETTING::NEXT_ONION>());
     session.editor->toggleOnionSkin();
-    CHECK(prefs->isOn(SETTING::PREV_ONION));
-    CHECK(prefs->isOn(SETTING::NEXT_ONION));
+    CHECK(prefs->get<SETTING::PREV_ONION>());
+    CHECK(prefs->get<SETTING::NEXT_ONION>());
 
     QSettings preset(":resources/kb.ini", QSettings::IniFormat);
     preset.beginGroup("shortcuts");
@@ -256,4 +258,20 @@ TEST_CASE("A saved O on previous-only onion skin moves to the onion skin toggle"
     CHECK(settings.value("shortcuts/CmdOnionSkin").toString() == "O");
     CHECK(settings.value("shortcuts/CmdOnionSkinPrevious").toString().isEmpty());
     CHECK(settings.value("shortcuts/CmdOnionSkinNext").toString().isEmpty());
+}
+
+TEST_CASE("The onion skin panel shows a saved while-playback choice", "[OnionSkin]")
+{
+    const SettingsGuard guard({ SETTING_ONION_WHILE_PLAYBACK });
+    TestSession session;
+    REQUIRE(session.start());
+    session.editor->preference()->set<SETTING::ONION_WHILE_PLAYBACK>(int(Qt::Checked));
+
+    OnionSkinWidget panel(nullptr);
+    panel.setEditor(session.editor.get());
+    panel.initUI();
+    panel.updateUI();
+    QCheckBox* whilePlayback = panel.findChild<QCheckBox*>("onionWhilePlayback");
+    REQUIRE(whilePlayback);
+    CHECK(whilePlayback->isChecked());
 }

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
@@ -159,58 +160,53 @@ BrushPresetEditor::BrushPresetEditor(const BrushPresets& presets, const QString&
     form->addRow(tr("Description"), mDescription);
     form->addRow(tr("Tip image"), tipRow);
 
-    // One control per engine setting, from the tool's own property ranges.
-    ToolProperties& props = brush->toolProperties();
-    for (const auto& range : props.typeRanges())
+    // One control per engine setting the Brush stores, from its descriptor.
+    for (const ToolPropertyDescriptor& d : ToolProperties::descriptors())
     {
-        for (int key = range.first; key < range.second; ++key)
+        if (!brush->properties().has(d.id))
+            continue;
+        const QVariant value = brush->properties().value(d.id);
+        const int id = d.id;
+        const auto set = [this, id](const QVariant& v) {
+            mSampler->brush->setValue(id, v);
+            updatePreview();
+        };
+        QWidget* control = nullptr;
+        if (const QStringList items = d.itemTexts(); !items.isEmpty())
         {
-            const PropertyInfo info = props.getInfo(key);
-            QWidget* control = nullptr;
-            switch (info.type())
-            {
-            case PropertyInfo::INTEGER:
-            {
-                auto box = new QSpinBox(this);
-                box->setRange(info.minInt(), info.maxInt());
-                box->setValue(info.intValue());
-                connect(box, &QSpinBox::valueChanged, this, [this, key](int v) {
-                    mSampler->brush->toolProperties().setBaseValue(key, PropertyInfo(v));
-                    updatePreview();
-                });
-                control = box;
-                break;
-            }
-            case PropertyInfo::REAL:
-            {
-                auto box = new QDoubleSpinBox(this);
-                box->setDecimals(1);
-                box->setRange(info.minReal(), info.maxReal());
-                box->setValue(info.realValue());
-                connect(box, &QDoubleSpinBox::valueChanged, this, [this, key](double v) {
-                    mSampler->brush->toolProperties().setBaseValue(key, PropertyInfo(qreal(v)));
-                    updatePreview();
-                });
-                control = box;
-                break;
-            }
-            case PropertyInfo::BOOL:
-            {
-                auto box = new QCheckBox(this);
-                box->setChecked(info.boolValue());
-                connect(box, &QCheckBox::toggled, this, [this, key](bool v) {
-                    mSampler->brush->toolProperties().setBaseValue(key, PropertyInfo(v));
-                    updatePreview();
-                });
-                control = box;
-                break;
-            }
-            case PropertyInfo::INVALID:
-                continue;
-            }
-            control->setObjectName(props.identifier(key));
-            form->addRow(settingLabel(key, props.identifier(key)), control);
+            auto box = new QComboBox(this);
+            box->addItems(items);
+            box->setCurrentIndex(value.toInt() - int(d.min));
+            const int min = int(d.min);
+            connect(box, &QComboBox::currentIndexChanged, this, [set, min](int index) { set(index + min); });
+            control = box;
         }
+        else if (d.type == PropertyInfo::INTEGER)
+        {
+            auto box = new QSpinBox(this);
+            box->setRange(int(d.min), int(d.max));
+            box->setValue(value.toInt());
+            connect(box, &QSpinBox::valueChanged, this, [set](int v) { set(v); });
+            control = box;
+        }
+        else if (d.type == PropertyInfo::REAL)
+        {
+            auto box = new QDoubleSpinBox(this);
+            box->setDecimals(1);
+            box->setRange(d.min, d.max);
+            box->setValue(value.toDouble());
+            connect(box, &QDoubleSpinBox::valueChanged, this, [set](double v) { set(v); });
+            control = box;
+        }
+        else
+        {
+            auto box = new QCheckBox(this);
+            box->setChecked(value.toBool());
+            connect(box, &QCheckBox::toggled, this, [set](bool v) { set(v); });
+            control = box;
+        }
+        control->setObjectName(d.key);
+        form->addRow(d.text(), control);
     }
 
     mGlobalCurve = new QCheckBox(tr("Use the global pressure curve"), this);
@@ -218,7 +214,7 @@ BrushPresetEditor::BrushPresetEditor(const BrushPresets& presets, const QString&
     mGlobalCurve->setChecked(brush->pressureCurve().isEmpty());
     mCurve = new PressureCurveWidget(this);
     mCurve->setCurve(PressureCurve::fromString(brush->pressureCurve().isEmpty()
-                                                   ? mSampler->editor->preference()->getString(SETTING::PRESSURE_CURVE)
+                                                   ? mSampler->editor->preference()->get<SETTING::PRESSURE_CURVE>()
                                                    : brush->pressureCurve()));
     mCurve->setEnabled(!mGlobalCurve->isChecked());
     connect(mGlobalCurve, &QCheckBox::toggled, this, [this](bool global) {
@@ -252,51 +248,6 @@ BrushPresetEditor::BrushPresetEditor(const BrushPresets& presets, const QString&
 }
 
 BrushPresetEditor::~BrushPresetEditor() = default;
-
-QString BrushPresetEditor::settingLabel(int key, const QString& identifier)
-{
-    // The stroke options labels, so their translations apply here too.
-    switch (key)
-    {
-    case StrokeToolProperties::WIDTH_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Width");
-    case StrokeToolProperties::FEATHER_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Feather");
-    case StrokeToolProperties::FEATHER_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Use Feather");
-    case StrokeToolProperties::SMOOTHING_MODE: return QCoreApplication::translate("StrokeOptionsWidget", "Smoothing");
-    case StrokeToolProperties::SMOOTHING_STRENGTH: return QCoreApplication::translate("StrokeOptionsWidget", "Smoothing strength");
-    case StrokeToolProperties::PRESSURE_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Pressure", "Tool options");
-    case StrokeToolProperties::INVISIBILITY_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Invisible", "Tool options");
-    case StrokeToolProperties::ANTI_ALIASING_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Anti-Aliasing", "Brush AA");
-    case StrokeToolProperties::FILLCONTOUR_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Fill Contour");
-    case StrokeToolProperties::SPACING_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Spacing %");
-    case StrokeToolProperties::TIP_SQUARE_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Square Tip", "Tool options");
-    case StrokeToolProperties::TIP_ASPECT_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Tip Aspect %");
-    case StrokeToolProperties::TIP_ANGLE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Tip Angle");
-    case StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Follow Direction", "Tool options");
-    case StrokeToolProperties::FLOW_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Flow %");
-    case StrokeToolProperties::OPACITY_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Opacity %");
-    case StrokeToolProperties::WASH_ENABLED: return QCoreApplication::translate("StrokeOptionsWidget", "Wash");
-    case StrokeToolProperties::SPEED_TO_SIZE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Speed to size");
-    case StrokeToolProperties::TILT_TO_SIZE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Tilt to size");
-    case StrokeToolProperties::TILT_TO_ANGLE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Tilt to tip angle");
-    case StrokeToolProperties::SIZE_JITTER_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Size jitter");
-    case StrokeToolProperties::SCATTER_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Scatter");
-    case StrokeToolProperties::ANGLE_JITTER_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Angle jitter");
-    case StrokeToolProperties::DAB_COUNT_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Dabs per step");
-    case StrokeToolProperties::TAPER_START_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Start taper");
-    case StrokeToolProperties::TAPER_END_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "End taper");
-    case StrokeToolProperties::GRAIN_MODE_VALUE: return tr("Grain (0 off, 1 paper, 2 moving)");
-    case StrokeToolProperties::GRAIN_TEXTURE_VALUE: return tr("Grain texture (0 generated, 1-5 paper)");
-    case StrokeToolProperties::GRAIN_SCALE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain scale");
-    case StrokeToolProperties::GRAIN_CONTRAST_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain contrast");
-    case StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Grain brightness");
-    case StrokeToolProperties::SMUDGE_LENGTH_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge length");
-    case StrokeToolProperties::SMUDGE_RADIUS_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge sample radius");
-    case StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE: return QCoreApplication::translate("StrokeOptionsWidget", "Smudge colour rate");
-    case StrokeToolProperties::SMUDGE_MIX_VALUE: return tr("Smudge mixing (0 light, 1 pigment)");
-    case StrokeToolProperties::FLOW_PER_DAB_ENABLED: return tr("Flow per dab (Classic)");
-    default: return identifier;
-    }
-}
 
 QString BrushPresetEditor::name() const
 {

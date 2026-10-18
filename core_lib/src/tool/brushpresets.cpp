@@ -132,16 +132,11 @@ bool BrushPresets::save(const QString& name, StrokeTool& tool, const QString& de
     if (!isValidName(name) || !QDir().mkpath(mFolder))
         return false;
 
-    const ToolProperties& properties = tool.toolProperties();
     QJsonObject settings;
-    for (const auto& range : properties.typeRanges())
+    for (const ToolPropertyDescriptor& d : ToolProperties::descriptors())
     {
-        for (int key = range.first; key < range.second; ++key)
-        {
-            const PropertyInfo info = properties.getInfo(key);
-            if (info.type() != PropertyInfo::INVALID)
-                settings.insert(properties.identifier(key), QJsonValue::fromVariant(info.toVariant()));
-        }
+        if (tool.properties().has(d.id))
+            settings.insert(d.key, QJsonValue::fromVariant(tool.properties().value(d.id)));
     }
 
     QJsonObject preset{ { "settings", settings }, { "tipImage", tool.tipImagePath() },
@@ -167,32 +162,15 @@ void BrushPresets::apply(const QJsonObject& preset, StrokeTool& tool, const QStr
     const QJsonObject settings = preset.value("settings").toObject();
     ToolProperties& properties = tool.toolProperties();
     properties.restoreProperties();
-    for (const auto& range : properties.typeRanges())
+    for (const ToolPropertyDescriptor& d : ToolProperties::descriptors())
     {
-        for (int key = range.first; key < range.second; ++key)
-        {
-            const PropertyInfo info = properties.getInfo(key);
-            if (info.type() == PropertyInfo::INVALID)
-                continue;
-            const QJsonValue value = settings.value(properties.identifier(key));
-            switch (info.type())
-            {
-            case PropertyInfo::INTEGER:
-                if (value.isDouble())
-                    properties.setBaseValue(key, PropertyInfo(static_cast<int>(qBound<double>(info.minInt(), value.toDouble(), info.maxInt()))));
-                break;
-            case PropertyInfo::REAL:
-                if (value.isDouble())
-                    properties.setBaseValue(key, PropertyInfo(qBound<qreal>(info.minReal(), value.toDouble(), info.maxReal())));
-                break;
-            case PropertyInfo::BOOL:
-                if (value.isBool())
-                    properties.setBaseValue(key, PropertyInfo(value.toBool()));
-                break;
-            case PropertyInfo::INVALID:
-                break;
-            }
-        }
+        const QJsonValue value = settings.value(d.key);
+        // A value of the wrong JSON type keeps the default.
+        if (d.type == PropertyInfo::BOOL ? !value.isBool() : !value.isDouble())
+            continue;
+        const double clamped = qBound(d.min, value.toDouble(), d.max);
+        properties.setValue(d.id, d.type == PropertyInfo::BOOL ? QVariant(value.toBool())
+                                  : d.type == PropertyInfo::INTEGER ? QVariant(static_cast<int>(clamped)) : QVariant(clamped));
     }
 
     const QString tipImage = preset.value("tipImage").toString();

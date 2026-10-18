@@ -8,6 +8,9 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/camerapainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/canvascursorpainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/canvaspainter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/framerenderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/exporter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/projectsession.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/corelib-pch.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/external/platformhandler.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapbucket.h
@@ -22,8 +25,10 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/vectorselection.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/vertexref.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/backgroundwidget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/edit.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/editor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/flowlayout.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/frameeditgesture.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/recentfilemenu.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/scribblearea.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/toolboxlayout.h
@@ -50,6 +55,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/qminiz.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/selectionpainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/soundplayer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/attributes.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/camera.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/filemanager.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/keyframe.h
@@ -64,6 +70,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/soundclip.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/basetool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushtool.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabplacer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabtool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/buckettool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/cameratool.h
@@ -85,6 +92,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokesnapper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokebuffer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.h
@@ -121,6 +129,9 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/camerapainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/canvascursorpainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/canvaspainter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/framerenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/exporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/projectsession.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapbucket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tile.cpp
@@ -133,8 +144,10 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/vectorselection.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/vector/vertexref.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/backgroundwidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/edit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/editor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/flowlayout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/frameeditgesture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/recentfilemenu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/scribblearea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/toolboxlayout.cpp
@@ -161,6 +174,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/qminiz.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/selectionpainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/soundplayer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/attributes.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/camera.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/filemanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/keyframe.cpp
@@ -175,6 +189,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/structure/soundclip.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/basetool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushtool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabplacer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/dabtool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/buckettool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/cameratool.cpp
@@ -196,7 +211,9 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokesnapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokebuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blitrect.cpp

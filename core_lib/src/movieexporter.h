@@ -58,6 +58,8 @@ public:
                std::function<void(float)> minorProgress,
                std::function<void(QString)> progressMessage);
     QString error();
+    // The frame as the export adapter renders it through desc's camera; GIF frames are opaque.
+    static QImage frameImage(const Object& obj, const ExportMovieDesc& desc, int frame);
     // "<layer> frame <n>" of each sound clip the last run left out because its file is missing.
     QStringList skippedClips() const { return mSkippedClips; }
 
@@ -73,8 +75,6 @@ public:
     // Calls write with a temporary path next to target (same extension) and renames it over
     // target only if write succeeds; otherwise removes it and leaves target unchanged.
     static Status writeThenReplace(const QString& target, const std::function<Status(const QString&)>& write);
-    // True if path is free or confirm() accepts overwriting it.
-    static bool mayOverwrite(const QString& path, const std::function<bool()>& confirm);
 
     // Extra ffmpeg output args for the quality preset of an MP4 or WebM file; empty for other types.
     static QStringList qualityArgs(const QString& path, MovieQuality quality);

@@ -42,7 +42,6 @@ GNU General Public License for more details.
 #include "playbackmanager.h"
 #include "colormanager.h"
 #include "selectionmanager.h"
-#include "undoredomanager.h"
 #include "util.h"
 #include "app_util.h"
 
@@ -60,15 +59,39 @@ GNU General Public License for more details.
 #include "importpositiondialog.h"
 #include "movieimporter.h"
 #include "movieexporter.h"
+#include "exporter.h"
 #include "filedialog.h"
 #include "exportmoviedialog.h"
 #include "exportimagedialog.h"
 #include "aboutdialog.h"
 #include "camerapropertiesdialog.h"
-#include "doubleprogressdialog.h"
 #include "checkupdatesdialog.h"
 #include "errordialog.h"
 
+namespace
+{
+std::function<bool(const QString&)> confirmOverwrite(QWidget* parent)
+{
+    return [parent](const QString& path) {
+        return QMessageBox::question(parent, APP_NAME,
+                   ActionCommands::tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(path))) == QMessageBox::Yes;
+    };
+}
+
+// Each camera's name and view size; the current layer first when it is a camera.
+std::vector<std::pair<QString, QSize>> camerasInfo(Editor* editor)
+{
+    std::vector<std::pair<QString, QSize>> info;
+    for (const LayerCamera* camera : editor->object()->getLayersByType<LayerCamera>())
+    {
+        info.emplace_back(camera->name(), camera->getViewSize());
+    }
+    const Layer* current = editor->layers()->currentLayer();
+    auto it = std::find_if(info.begin(), info.end(), [current](const std::pair<QString, QSize>& p) { return p.first == current->name(); });
+    if (current->type() == Layer::CAMERA && it != info.end()) { std::swap(info.front(), *it); }
+    return info;
+}
+} // namespace
 
 ActionCommands::ActionCommands(QWidget* parent) : QObject(parent)
 {
@@ -176,7 +199,7 @@ Status ActionCommands::importMovieVideo()
 
 Status ActionCommands::importSound(FileType type)
 {
-    const UndoMacro macro(mEditor->undoRedo(), tr("Import Sound"));
+    Edit step = mEditor->edit(tr("Import Sound"));
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer == nullptr)
     {
@@ -229,6 +252,7 @@ Status ActionCommands::importSound(FileType type)
     {
         showSoundClipWarningIfNeeded();
     }
+    step.commit();
     return st;
 }
 
@@ -285,29 +309,7 @@ Status ActionCommands::exportMovie(bool isGif)
 
     dialog->init();
 
-    std::vector< std::pair<QString, QSize> > camerasInfo;
-    auto cameraLayers = mEditor->object()->getLayersByType< LayerCamera >();
-    for (LayerCamera* i : cameraLayers)
-    {
-        camerasInfo.push_back(std::make_pair(i->name(), i->getViewSize()));
-    }
-
-    auto currLayer = mEditor->layers()->currentLayer();
-    if (currLayer->type() == Layer::CAMERA)
-    {
-        QString strName = currLayer->name();
-        auto it = std::find_if(camerasInfo.begin(), camerasInfo.end(),
-            [strName](std::pair<QString, QSize> p)
-        {
-            return p.first == strName;
-        });
-
-        Q_ASSERT(it != camerasInfo.end());
-
-        std::swap(camerasInfo[0], *it);
-    }
-
-    dialog->setCamerasInfo(camerasInfo);
+    dialog->setCamerasInfo(camerasInfo(mEditor));
 
     int lengthWithSounds = mEditor->layers()->animationLength(true);
     int length = mEditor->layers()->animationLength(false);
@@ -319,74 +321,43 @@ Status ActionCommands::exportMovie(bool isGif)
     {
         return Status::SAFE;
     }
-    QString strMoviePath = dialog->getFilePath();
-    if (!MovieExporter::mayOverwrite(strMoviePath, [this, &strMoviePath] {
-            return QMessageBox::question(mParent, APP_NAME,
-                       tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(strMoviePath))) == QMessageBox::Yes;
-        }))
-    {
-        return Status::SAFE;
-    }
+    const QString strMoviePath = dialog->getFilePath();
+    ExportRequest request;
+    request.kind = ExportRequest::Kind::Movie;
+    request.cameraName = dialog->getSelectedCameraName();
+    request.startFrame = dialog->getStartFrame();
+    request.endFrame = dialog->getEndFrame();
+    request.size = dialog->getExportSize();
+    request.path = strMoviePath;
+    request.transparency = dialog->getTransparency();
+    request.fps = mEditor->playback()->fps();
+    request.loop = dialog->getLoop();
+    request.quality = dialog->getQuality();
+    request.gifColors = dialog->getGifColors();
+    request.gifDither = dialog->getGifDither();
+    request.confirmOverwrite = confirmOverwrite(mParent);
+    QStringList skippedClips;
+    request.skippedClips = [&skippedClips](const QStringList& clips) { skippedClips = clips; };
 
-    ExportMovieDesc desc;
-    desc.strFileName = strMoviePath;
-    desc.startFrame = dialog->getStartFrame();
-    desc.endFrame = dialog->getEndFrame();
-    desc.fps = mEditor->playback()->fps();
-    desc.exportSize = dialog->getExportSize();
-    desc.strCameraName = dialog->getSelectedCameraName();
-    desc.loop = dialog->getLoop();
-    desc.alpha = dialog->getTransparency();
-    desc.quality = dialog->getQuality();
-    desc.gifColors = dialog->getGifColors();
-    desc.gifDither = dialog->getGifDither();
+    QProgressDialog progress(tr("Exporting movie..."), tr("Abort"), 0, 1000, mParent);
+    hideQuestionMark(progress);
+    progress.setWindowModality(Qt::WindowModal);
+    progress.show();
 
-    DoubleProgressDialog progressDlg(mParent);
-    progressDlg.setWindowModality(Qt::WindowModal);
-    progressDlg.setWindowTitle(tr("Exporting movie"));
-    Qt::WindowFlags eFlags = Qt::Dialog | Qt::WindowTitleHint;
-    progressDlg.setWindowFlags(eFlags);
-    progressDlg.show();
-
-    MovieExporter ex;
-
-    connect(&progressDlg, &DoubleProgressDialog::canceled, [&ex]
-    {
-        ex.cancel();
+    const Status st = Exporter::run(*mEditor->object(), request, [&progress](int done, int total) {
+        progress.setValue(done * 1000 / total);
+        QApplication::processEvents();
+        return !progress.wasCanceled();
     });
-
-    // The start points and length for the current minor operation segment on the major progress bar
-    float minorStart, minorLength;
-
-    Status st = ex.run(mEditor->object(), desc,
-        [&progressDlg, &minorStart, &minorLength](float f, float final)
-        {
-            progressDlg.major->setValue(f);
-
-            minorStart = f;
-            minorLength = qMax(0.f, final - minorStart);
-
-            QApplication::processEvents();
-        },
-        [&progressDlg, &minorStart, &minorLength](float f) {
-            progressDlg.minor->setValue(f);
-
-            progressDlg.major->setValue(minorStart + f * minorLength);
-
-            QApplication::processEvents();
-        },
-        [&progressDlg](QString s) {
-            progressDlg.setStatus(s);
-            QApplication::processEvents();
-        }
-    );
+    progress.close();
+    if (st == Status::CANCELED) { return Status::SAFE; }
 
     if (st.ok())
     {
-        if (!ex.skippedClips().isEmpty())
+        if (!skippedClips.isEmpty())
         {
             QMessageBox::warning(mParent, tr("Missing Sound Files"),
-                                 tr("These sound clips were left out of the movie because their files are missing:\n%1").arg(ex.skippedClips().join('\n')));
+                                 tr("These sound clips were left out of the movie because their files are missing:\n%1").arg(skippedClips.join('\n')));
         }
         if (QFile::exists(strMoviePath))
         {
@@ -430,27 +401,7 @@ Status ActionCommands::exportImageSequence()
 
     dialog->init();
 
-    std::vector< std::pair<QString, QSize> > camerasInfo;
-    auto cameraLayers = mEditor->object()->getLayersByType< LayerCamera >();
-    for (LayerCamera* i : cameraLayers)
-    {
-        camerasInfo.push_back(std::make_pair(i->name(), i->getViewSize()));
-    }
-
-    auto currLayer = mEditor->layers()->currentLayer();
-    if (currLayer->type() == Layer::CAMERA)
-    {
-        QString strName = currLayer->name();
-        auto it = std::find_if(camerasInfo.begin(), camerasInfo.end(),
-            [strName](std::pair<QString, QSize> p)
-        {
-            return p.first == strName;
-        });
-
-        Q_ASSERT(it != camerasInfo.end());
-        std::swap(camerasInfo[0], *it);
-    }
-    dialog->setCamerasInfo(camerasInfo);
+    dialog->setCamerasInfo(camerasInfo(mEditor));
 
     int lengthWithSounds = mEditor->layers()->animationLength(true);
     int length = mEditor->layers()->animationLength(false);
@@ -464,24 +415,19 @@ Status ActionCommands::exportImageSequence()
         return Status::SAFE;
     }
 
-    QString strFilePath = dialog->getFilePath();
-    QSize exportSize = dialog->getExportSize();
-    QString exportFormat = dialog->getExportFormat();
-    bool exportKeyframesOnly = dialog->getExportKeyframesOnly();
-    bool useTransparency = dialog->getTransparency();
-    int startFrame = dialog->getStartFrame();
-    int endFrame  = dialog->getEndFrame();
-
-    if (dialog->getSpriteSheet() && !MovieExporter::mayOverwrite(strFilePath, [this, &strFilePath] {
-            return QMessageBox::question(mParent, APP_NAME,
-                       tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(strFilePath))) == QMessageBox::Yes;
-        }))
-    {
-        return Status::SAFE;
-    }
-
-    QString sCameraLayerName = dialog->getCameraLayerName();
-    LayerCamera* cameraLayer = static_cast<LayerCamera*>(mEditor->layers()->findLayerByName(sCameraLayerName, Layer::CAMERA));
+    ExportRequest request;
+    request.kind = dialog->getSpriteSheet() ? ExportRequest::Kind::SpriteSheet : ExportRequest::Kind::Sequence;
+    request.cameraName = dialog->getCameraLayerName();
+    request.startFrame = dialog->getStartFrame();
+    request.endFrame = dialog->getEndFrame();
+    request.size = dialog->getExportSize();
+    request.format = dialog->getExportFormat();
+    request.path = dialog->getFilePath();
+    request.transparency = dialog->getTransparency();
+    request.keyframesOnly = dialog->getExportKeyframesOnly();
+    request.keyLayerName = mEditor->layers()->currentLayer()->name();
+    request.columns = dialog->getSpriteSheetColumns();
+    request.confirmOverwrite = confirmOverwrite(mParent);
 
     // Show a progress dialog, as this can take a while if you have lots of frames.
     QProgressDialog progress(tr("Exporting image sequence..."), tr("Abort"), 0, 100, mParent);
@@ -489,26 +435,11 @@ Status ActionCommands::exportImageSequence()
     progress.setWindowModality(Qt::WindowModal);
     progress.show();
 
-    Status st = Status::OK;
-    if (dialog->getSpriteSheet())
-    {
-        st = mEditor->object()->exportSpriteSheet(startFrame, endFrame, cameraLayer, exportSize, strFilePath,
-                                                  dialog->getSpriteSheetColumns(), useTransparency, true, &progress, 100);
-    }
-    else
-    {
-        st = mEditor->object()->exportFrames(startFrame, endFrame,
-                                    cameraLayer,
-                                    exportSize,
-                                    strFilePath,
-                                    exportFormat,
-                                    useTransparency,
-                                    exportKeyframesOnly,
-                                    mEditor->layers()->currentLayer()->name(),
-                                    true,
-                                    &progress,
-                                    100);
-    }
+    const Status st = Exporter::run(*mEditor->object(), request, [&progress](int done, int total) {
+        progress.setValue(done * 100 / total);
+        QApplication::processEvents(); // Required to make progress bar update on-screen.
+        return !progress.wasCanceled();
+    });
     if (st == Status::CANCELED) { return Status::SAFE; }
 
     if (!st.ok())
@@ -531,27 +462,7 @@ Status ActionCommands::exportImage()
 
     dialog->init();
 
-    std::vector< std::pair<QString, QSize> > camerasInfo;
-    auto cameraLayers = mEditor->object()->getLayersByType< LayerCamera >();
-    for (LayerCamera* i : cameraLayers)
-    {
-        camerasInfo.push_back(std::make_pair(i->name(), i->getViewSize()));
-    }
-
-    auto currLayer = mEditor->layers()->currentLayer();
-    if (currLayer->type() == Layer::CAMERA)
-    {
-        QString strName = currLayer->name();
-        auto it = std::find_if(camerasInfo.begin(), camerasInfo.end(),
-            [strName](std::pair<QString, QSize> p)
-        {
-            return p.first == strName;
-        });
-
-        Q_ASSERT(it != camerasInfo.end());
-        std::swap(camerasInfo[0], *it);
-    }
-    dialog->setCamerasInfo(camerasInfo);
+    dialog->setCamerasInfo(camerasInfo(mEditor));
 
     dialog->exec();
 
@@ -560,58 +471,18 @@ Status ActionCommands::exportImage()
         return Status::SAFE;
     }
 
-    QString filePath = dialog->getFilePath();
-    QSize exportSize = dialog->getExportSize();
-    QString exportFormat = dialog->getExportFormat();
-    bool useTransparency = dialog->getTransparency();
+    ExportRequest request;
+    request.kind = ExportRequest::Kind::Image;
+    request.cameraName = dialog->getCameraLayerName();
+    request.startFrame = mEditor->currentFrame();
+    request.size = dialog->getExportSize();
+    request.format = dialog->getExportFormat();
+    request.path = dialog->getFilePath();
+    request.transparency = dialog->getTransparency();
+    // The save dialog already asked to replace the file.
 
-    QString extension = "";
-    QString formatStr = exportFormat;
-    if (formatStr == "PNG" || formatStr == "png")
-    {
-        exportFormat = "PNG";
-        extension = ".png";
-    }
-    if (formatStr == "JPG" || formatStr == "jpg" || formatStr == "JPEG" || formatStr == "jpeg")
-    {
-        exportFormat = "JPG";
-        extension = ".jpg";
-        useTransparency = false; // JPG doesn't support transparency, so we have to include the background
-    }
-    if (formatStr == "TIFF" || formatStr == "tiff" || formatStr == "TIF" || formatStr == "tif")
-    {
-        exportFormat = "TIFF";
-        extension = ".tiff";
-    }
-    if (formatStr == "BMP" || formatStr == "bmp")
-    {
-        exportFormat = "BMP";
-        extension = ".bmp";
-        useTransparency = false;
-    }
-    if (formatStr == "WEBP" || formatStr == "webp") {
-        exportFormat = "WEBP";
-        extension = ".webp";
-    }
-    if (!filePath.endsWith(extension, Qt::CaseInsensitive))
-    {
-        filePath += extension;
-    }
-
-    // Export
-    QString sCameraLayerName = dialog->getCameraLayerName();
-    LayerCamera* cameraLayer = static_cast<LayerCamera*>(mEditor->layers()->findLayerByName(sCameraLayerName, Layer::CAMERA));
-
-    QTransform view = cameraLayer->getViewAtFrame(mEditor->currentFrame());
-
-    Status st = mEditor->object()->exportIm(mEditor->currentFrame(),
-                                           view,
-                                           cameraLayer->getViewSize(),
-                                           exportSize,
-                                           filePath,
-                                           exportFormat,
-                                           true,
-                                           useTransparency);
+    const Status st = Exporter::run(*mEditor->object(), request);
+    if (st == Status::CANCELED) { return Status::SAFE; }
 
     if (!st.ok())
     {
@@ -652,7 +523,7 @@ Status savePages(QWidget* parent, const QString& title, const PageSpec& spec, in
 
 Status ActionCommands::exportOnPaper()
 {
-    const std::vector<LayerCamera*> cameras = mEditor->object()->getLayersByType<LayerCamera>();
+    const auto cameras = camerasInfo(mEditor);
     if (cameras.empty())
     {
         QMessageBox::information(mParent, tr("Export on Paper"), tr("Add a camera layer first: the pages show its frame."));
@@ -664,11 +535,7 @@ Status ActionCommands::exportOnPaper()
     auto size = new QComboBox(&dialog);
     size->addItems({ tr("A4 landscape"), tr("B4 landscape") });
     auto camera = new QComboBox(&dialog);
-    for (const LayerCamera* layer : cameras)
-    {
-        camera->addItem(layer->name());
-        if (layer == mEditor->layers()->currentLayer()) { camera->setCurrentIndex(camera->count() - 1); }
-    }
+    for (const auto& info : cameras) { camera->addItem(info.first); } // the current camera comes first
     const int length = std::max(1, mEditor->layers()->animationLength());
     auto from = new QSpinBox(&dialog);
     auto to = new QSpinBox(&dialog);
@@ -690,7 +557,7 @@ Status ActionCommands::exportOnPaper()
     spec.size = size->currentIndex() == 1 ? PageSpec::B4 : PageSpec::A4;
     const int first = std::min(from->value(), to->value());
     return savePages(mParent, tr("Export on Paper"), spec, std::abs(to->value() - from->value()) + 1,
-                     paperFramePages(*mEditor->object(), *cameras[camera->currentIndex()], first));
+                     paperFramePages(*mEditor->object(), *Exporter::camera(*mEditor->object(), camera->currentText()), first));
 }
 
 Status ActionCommands::exportStoryboard()
@@ -701,8 +568,8 @@ Status ActionCommands::exportStoryboard()
     {
         if (object->getLayer(i)->isStoryboard()) { board = object->getLayer(i); }
     }
-    const std::vector<LayerCamera*> cameras = object->getLayersByType<LayerCamera>();
-    if (board == nullptr || cameras.empty())
+    const LayerCamera* camera = Exporter::camera(*object, QString());
+    if (board == nullptr || camera == nullptr)
     {
         QMessageBox::information(mParent, tr("Export Storyboard"),
                                  board == nullptr ? tr("Make a layer a Storyboard layer first (layer menu).")
@@ -714,7 +581,7 @@ Status ActionCommands::exportStoryboard()
     PageSpec spec;
     spec.orientation = QPageLayout::Portrait;
     return savePages(mParent, tr("Export Storyboard"), spec, storyboardPageCount(panels.size()),
-                     storyboardPages(*object, *board, *cameras.front(), panels, mEditor->playback()->fps()));
+                     storyboardPages(*object, *board, *camera, panels, mEditor->playback()->fps()));
 }
 
 Status ActionCommands::exportTimesheet()
@@ -908,14 +775,14 @@ void ActionCommands::exposeSelectedFrames(int value, bool hold)
     KeyFrame* key = currentLayer->getLastKeyFrameAtPosition(mEditor->currentFrame());
     if (!hasSelectedFrames) {
         if (key == nullptr) { return; }
-        currentLayer->setFrameSelected(key->pos(), true);
+        LayerManager::setFrameSelected(currentLayer, key->pos(), true);
     }
 
     mEditor->layers()->setExposureForSelectedFrames(value, hold);
     emit mEditor->updateTimeLine();
 
     if (!hasSelectedFrames) {
-        currentLayer->setFrameSelected(key->pos(), false);
+        LayerManager::setFrameSelected(currentLayer, key->pos(), false);
     }
 }
 
@@ -950,11 +817,13 @@ Status ActionCommands::insertKeyFrameAtCurrentPosition()
     int currentPosition = mEditor->currentFrame();
     if (mEditor->refusesEdit(currentLayer)) { return Status::SAFE; }
 
-    const UndoMacro macro(mEditor->undoRedo(), tr("New drawing"));
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
+    Edit step = mEditor->edit(tr("New drawing"));
+    Edit exposure = mEditor->edit(currentLayer, tr("Add exposure"));
     currentLayer->insertExposureAt(currentPosition);
-    mEditor->undoRedo()->record(saveStateId, tr("Add exposure"));
-    return addNewKey();
+    exposure.commit();
+    const Status st = addNewKey();
+    step.commit();
+    return st;
 }
 
 void ActionCommands::removeSelectedFrames()
@@ -971,9 +840,9 @@ void ActionCommands::reverseSelectedFrames()
     Layer* currentLayer = mEditor->layers()->currentLayer();
     if (mEditor->refusesEdit(currentLayer)) { return; }
 
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
-    const bool reversed = currentLayer->reverseOrderOfSelection();
-    mEditor->undoRedo()->record(saveStateId, tr("Reverse frames"));
+    Edit edit = mEditor->edit(currentLayer, tr("Reverse frames"));
+    const bool reversed = LayerManager::reverseOrderOfSelection(currentLayer);
+    edit.commit();
     if (!reversed) {
         return;
     }
@@ -1035,29 +904,12 @@ void ActionCommands::duplicateKey()
 
 void ActionCommands::moveFrameForward()
 {
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer)
-    {
-        if (layer->moveKeyFrame(mEditor->currentFrame(), 1))
-        {
-            mEditor->scrubForward();
-        }
-    }
-    mEditor->layers()->notifyAnimationLengthChanged();
-    emit mEditor->framesModified();
+    if (mEditor->layers()->moveKeyFrame(mEditor->currentFrame(), 1)) { mEditor->scrubForward(); }
 }
 
 void ActionCommands::moveFrameBackward()
 {
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer)
-    {
-        if (layer->moveKeyFrame(mEditor->currentFrame(), -1))
-        {
-            mEditor->scrubBackward();
-        }
-    }
-    emit mEditor->framesModified();
+    if (mEditor->layers()->moveKeyFrame(mEditor->currentFrame(), -1)) { mEditor->scrubBackward(); }
 }
 
 Status ActionCommands::addNewBitmapLayer()
@@ -1082,9 +934,10 @@ Status ActionCommands::addNewCameraLayer()
 
 Status ActionCommands::addNewCameraLayer(const QString& name, QSize size)
 {
-    const UndoMacro macro(mEditor->undoRedo(), tr("New Camera Layer"));
+    Edit edit = mEditor->edit(tr("New Camera Layer"));
     LayerCamera* layer = mEditor->layers()->createCameraLayer(name);
     mEditor->layers()->setCameraSize(layer, size);
+    edit.commit();
     return Status::OK;
 }
 
@@ -1097,9 +950,10 @@ Status ActionCommands::addNewSoundLayer()
 
 Status ActionCommands::addNewStoryboardLayer()
 {
-    const UndoMacro macro(mEditor->undoRedo(), tr("New Storyboard Layer"));
+    Edit edit = mEditor->edit(tr("New Storyboard Layer"));
     Layer* layer = mEditor->layers()->createBitmapLayer(mEditor->layers()->nameSuggestLayer(tr("Storyboard Layer")));
     mEditor->layers()->setStoryboard(layer, true);
+    edit.commit();
     return Status::OK;
 }
 
@@ -1118,13 +972,13 @@ void ActionCommands::setLayerVisibilityIndex(int index)
     mEditor->setLayerVisibility(static_cast<LayerVisibility>(index));
 }
 
-// Recolours the Drawing at frame as one KEYFRAME_MODIFY record. The state captures the Drawing at the playhead, so visit the key first.
+// Recolours the Drawing at frame as one undo step. The record reads the Drawing at the playhead, so visit the key first.
 static void recolourDrawing(Editor* editor, LayerBitmap* layer, int frame, QRgb color, const QString& description)
 {
     if (editor->currentFrame() != frame) { editor->scrubTo(frame); }
-    const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY, layer);
+    Edit edit = editor->edit(layer, frame, description);
     layer->getBitmapImageAtFrame(frame)->fillNonAlphaPixels(color);
-    editor->undoRedo()->record(saveStateId, description);
+    edit.commit();
 }
 
 void ActionCommands::changeKeyframeLineColor()
@@ -1144,10 +998,11 @@ void ActionCommands::changeallKeyframeLineColor()
     const QString description = tr("Change Line Color");
     const int playhead = mEditor->currentFrame();
     {
-        const UndoMacro macro(mEditor->undoRedo(), description);
+        Edit edit = mEditor->edit(description);
         QList<int> positions;
         layer->foreachKeyFrame([&](KeyFrame* key) { positions.append(key->pos()); });
         for (int pos : positions) { recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), pos, color, description); }
+        edit.commit();
     }
     mEditor->scrubTo(playhead);
     mEditor->updateFrame();

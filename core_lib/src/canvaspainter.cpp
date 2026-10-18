@@ -16,6 +16,8 @@ GNU General Public License for more details.
 
 #include "canvaspainter.h"
 
+#include "framerenderer.h"
+
 #include <QtMath>
 
 #include "object.h"
@@ -99,7 +101,7 @@ void CanvasPainter::ignoreTransformedSelection()
 
 void CanvasPainter::paintCached(const QRect& blitRect)
 {
-    mPaintOrder = paintOrder();
+    mPaintOrder = FrameRenderer::paintOrder(*mObject, true);
     const QPair<int, int> range = currentRange();
     updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, range.first - 1), blitRect, &CanvasPainter::renderPreLayers);
 
@@ -112,14 +114,8 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 
     paintCurrentFrame(mainPainter, blitRect, range.first, range.second);
 
-    // A blend layer needs every layer below it as backdrop, so the layers above paint straight onto the canvas.
-    bool blendAbove = false;
-    for (int i = range.second + 1; i < mObject->getLayerCount(); ++i)
-    {
-        blendAbove |= mObject->getLayer(mPaintOrder[i])->blendMode() != BlendMode::Normal;
-    }
-
-    if (blendAbove)
+    // The layers above paint straight onto the canvas when one of them blends.
+    if (FrameRenderer::blendsAbove(*mObject, mPaintOrder, range.second))
     {
         renderPostLayers(mainPainter, blitRect);
         return;
@@ -176,27 +172,7 @@ QVector<qint64> CanvasPainter::layersKey(int startPos, int endPos) const
         key << it.key() << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6)
             << qRound64(t.m22() * 1e6) << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6);
     }
-    for (int i = startPos; i <= endPos; ++i)
-    {
-        Layer* layer = mObject->getLayer(mPaintOrder[i]);
-        KeyFrame* frame = layer->getLastKeyFrameAtPosition(mFrameNumber);
-        const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
-        const bool visible = mObject->isLayerVisible(layer);
-        key << qint64(quintptr(layer)) << visible << int(layer->blendMode()) << layer->isRough() << qint64(quintptr(frame))
-            << qRound64((group ? group->opacity : 1.0) * 1e6);
-        if (!visible || frame == nullptr) { continue; }
-        if (layer->type() == Layer::BITMAP)
-        {
-            auto* image = static_cast<BitmapImage*>(frame);
-            const QPoint topLeft = image->topLeft();
-            // QImage::cacheKey changes on every write to the image.
-            key << topLeft.x() << topLeft.y() << image->image()->cacheKey();
-        }
-        const TweenState tween = layer->tweenStateAt(mFrameNumber);
-        key << qRound64(tween.tx * 1e6) << qRound64(tween.ty * 1e6) << qRound64(tween.rot * 1e6) << qRound64(tween.scale * 1e6)
-            << qRound64(tween.opacity * 1e6);
-    }
-    return key;
+    return key + FrameRenderer::layersKey(*mObject, mFrameNumber, mPaintOrder, startPos, endPos);
 }
 
 // Renders into the stale 64 px cells of pixmap that blitRect touches.
@@ -458,9 +434,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
 
     painter.setWorldMatrixEnabled(false);
 
-    const TweenState tween = layer->tweenStateAt(mFrameNumber);
-    currentBitmapPainter.setOpacity(tween.opacity - (1.0-painter.opacity()));
-    currentBitmapPainter.setWorldTransform(tween.transform() * mViewTransform);
+    const TweenState tween = FrameRenderer::applyTween(currentBitmapPainter, layer, mFrameNumber, 1.0 - painter.opacity());
     currentBitmapPainter.drawImage(paintedImage->topLeft(), *paintedImage->image());
     currentBitmapPainter.setWorldTransform(mViewTransform);
 
@@ -495,7 +469,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     QPainter currentVectorPainter;
     initializePainter(currentVectorPainter, mCurrentLayerPixmap, blitRect);
 
-    const bool isDrawing = mTiledBuffer->isValid();
+    const bool isDrawing = mTiledBuffer && mTiledBuffer->isValid();
 
     if (mRenderTransform) {
         vectorImage->setSelectionTransformation(mSelectionTransform);
@@ -503,9 +477,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
 
     // Paint existing vector image to the painter
     // Remember to adjust opacity based on additional opacity value from the keyframe
-    const TweenState tween = layer->tweenStateAt(mFrameNumber);
-    currentVectorPainter.setOpacity(tween.opacity - (1.0-painter.opacity()));
-    currentVectorPainter.setWorldTransform(tween.transform() * mViewTransform);
+    FrameRenderer::applyTween(currentVectorPainter, layer, mFrameNumber, 1.0 - painter.opacity());
     vectorImage->paintImage(currentVectorPainter, *mObject, mOptions.bOutlines, mOptions.bThinLines, mOptions.bAntiAlias);
     currentVectorPainter.setWorldTransform(mViewTransform);
 
@@ -572,44 +544,16 @@ void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bi
     painter.restore();
 }
 
-/** Paints layers within the specified range for the current frame.
- *
- *  @param painter The painter to paint to
- *  @param startLayer The first layer to paint (inclusive)
- *  @param endLayer The last layer to paint (inclusive)
- */
 void CanvasPainter::paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startPos, int endPos)
 {
     painter.setOpacity(1.0);
-
-    for (int p = startPos; p <= endPos; ++p)
-    {
-        const Layer* layer = mObject->getLayer(mPaintOrder[p]);
-        const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
-        if (group == nullptr || group->opacity >= 1.0)
-        {
-            paintLayer(painter, blitRect, mPaintOrder[p]);
-            continue;
-        }
-        if (layer->isRough())
-        {
-            // A Rough layer paints apart from its group, so it fades on its own.
-            if (group->visible) { painter.setOpacity(group->opacity); paintLayer(painter, blitRect, mPaintOrder[p]); }
-            painter.setOpacity(1.0);
-            continue;
-        }
-        // The group's non-Rough layers are next to each other in paint order.
-        const int first = p;
-        while (p < endPos && mObject->getLayer(mPaintOrder[p + 1])->groupId() == group->id) { ++p; }
-        if (group->visible && group->opacity > 0.0) { paintGroup(painter, blitRect, first, p, group->opacity); }
-    }
+    FrameRenderer::paintLayers(*mObject, mPaintOrder, startPos, endPos, painter,
+                               [&](QPainter& target, int index) { paintLayer(target, blitRect, index); });
 }
 
 void CanvasPainter::paintLayer(QPainter& painter, const QRect& blitRect, int index)
 {
     Layer* layer = mObject->getLayer(index);
-    if (!mObject->isLayerVisible(layer)) { return; }
-
     if (mOptions.eLayerVisibility == LayerVisibility::RELATED && mObject->getLayer(mCurrentLayerIndex)->type() != Layer::CAMERA)
     {
         painter.setOpacity(calculateRelativeOpacityForLayer(mCurrentLayerIndex, index, mOptions.fLayerVisibilityThreshold));
@@ -625,41 +569,11 @@ void CanvasPainter::paintLayer(QPainter& painter, const QRect& blitRect, int ind
     }
 }
 
-void CanvasPainter::paintGroup(QPainter& painter, const QRect& blitRect, int first, int last, qreal opacity)
-{
-    drawWithOpacity(painter, opacity, [&](QPainter& groupPainter) {
-        for (int p = first; p <= last; ++p)
-        {
-            groupPainter.setOpacity(1.0);
-            paintLayer(groupPainter, blitRect, mPaintOrder[p]);
-        }
-    });
-}
-
 QPair<int, int> CanvasPainter::currentRange() const
 {
-    const Layer* layer = mObject->getLayer(mCurrentLayerIndex);
-    const LayerGroup* group = mObject->findLayerGroup(layer->groupId());
-    const bool currentOnly = mOptions.eLayerVisibility == LayerVisibility::CURRENTONLY && layer->type() != Layer::CAMERA;
-    int first = mPaintOrder.indexOf(mCurrentLayerIndex);
-    int last = first;
-    if (group == nullptr || group->opacity >= 1.0 || currentOnly || layer->isRough()) { return { first, last }; }
-    auto inGroup = [&](int p) {
-        const Layer* l = mObject->getLayer(mPaintOrder[p]);
-        return l->groupId() == group->id && !l->isRough();
-    };
-    while (first > 0 && inGroup(first - 1)) { --first; }
-    while (last < mPaintOrder.size() - 1 && inGroup(last + 1)) { ++last; }
-    return { first, last };
-}
-
-QVector<int> CanvasPainter::paintOrder() const
-{
-    QVector<int> rough;
-    QVector<int> others;
-    for (int i = 0; i < mObject->getLayerCount(); ++i)
-    {
-        (mObject->getLayer(i)->isRough() ? rough : others).append(i);
-    }
-    return rough + others;
+    const int pos = mPaintOrder.indexOf(mCurrentLayerIndex);
+    const bool currentOnly = mOptions.eLayerVisibility == LayerVisibility::CURRENTONLY
+                             && mObject->getLayer(mCurrentLayerIndex)->type() != Layer::CAMERA;
+    if (currentOnly) { return { pos, pos }; }
+    return FrameRenderer::groupRange(*mObject, mPaintOrder, pos);
 }

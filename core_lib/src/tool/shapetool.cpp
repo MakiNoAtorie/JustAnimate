@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
-#include <QSettings>
 
 #include "beziercurve.h"
 #include "colormanager.h"
@@ -31,12 +30,13 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "vectorimage.h"
 #include "viewmanager.h"
-#include "pencilsettings.h"
 
 ShapeTool::ShapeTool(QObject* parent) : BrushTool(parent)
 {
-    mSettings.addRange({ ShapeToolProperties::START, ShapeToolProperties::END });
-    mSettings.toolProperties().insertIdentifiers({ { ShapeToolProperties::SHAPEMODE_VALUE, "ShapeMode" } });
+    // A new mode drops the polygon being drawn.
+    connect(this, &StrokeTool::propertyChanged, this, [this](int id) {
+        if (id == ShapeToolProperties::SHAPEMODE_VALUE) { clearToolData(); }
+    });
 }
 
 ToolType ShapeTool::type() const
@@ -47,17 +47,6 @@ ToolType ShapeTool::type() const
 void ShapeTool::loadSettings()
 {
     BrushTool::loadSettings();
-
-    // A shape has no pen motion, so pen dynamics do not apply.
-    for (int p : { StrokeToolProperties::PRESSURE_ENABLED, StrokeToolProperties::SMOOTHING_MODE,
-                   StrokeToolProperties::SPEED_TO_SIZE_VALUE, StrokeToolProperties::TILT_TO_SIZE_VALUE,
-                   StrokeToolProperties::TILT_TO_ANGLE_VALUE })
-        mPropertyUsed.remove(p);
-    mPropertyUsed[ShapeToolProperties::SHAPEMODE_VALUE] = { Layer::BITMAP, Layer::VECTOR };
-
-    QSettings& settings = pencilSettings();
-    toolProperties().insertProperties({ { ShapeToolProperties::SHAPEMODE_VALUE, PropertyInfo(LINE, POLYGON, RECTANGLE) } });
-    toolProperties().loadFrom(typeName(), settings);
 
     // Shift and Alt shape the outline; quick sizing would take them.
     mQuickSizingProperties.clear();
@@ -70,15 +59,7 @@ QCursor ShapeTool::cursor()
 
 ShapeTool::Mode ShapeTool::shapeMode() const
 {
-    const PropertyInfo info = mSettings.getInfo(ShapeToolProperties::SHAPEMODE_VALUE);
-    return info.type() == PropertyInfo::INTEGER ? static_cast<Mode>(info.intValue()) : RECTANGLE;
-}
-
-void ShapeTool::setShapeMode(Mode mode)
-{
-    clearToolData();
-    toolProperties().setBaseValue(ShapeToolProperties::SHAPEMODE_VALUE, static_cast<int>(mode));
-    emit shapeModeChanged(shapeMode());
+    return static_cast<Mode>(get(ToolProperty::ShapeMode));
 }
 
 QPolygonF ShapeTool::outline(Mode mode, QPointF from, QPointF to, Qt::KeyboardModifiers modifiers)
@@ -113,7 +94,7 @@ QPolygonF ShapeTool::outline(Mode mode, QPointF from, QPointF to, Qt::KeyboardMo
 
 QRect ShapeTool::outlineScreenRect() const
 {
-    const qreal r = mSettings.width() / 2 + 2;
+    const qreal r = get(ToolProperty::Width) / 2 + 2;
     return mEditor->view()->mapCanvasToScreen(mOutline.boundingRect().adjusted(-r, -r, r, r)).toAlignedRect();
 }
 
@@ -208,20 +189,19 @@ void ShapeTool::finishShape(const QPolygonF& points, PointerEvent* event)
     }
     else if (layer->type() == Layer::VECTOR)
     {
-        VectorImage* image = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
-        if (image != nullptr) // null if the frame was deleted while drawing
+        // Null if the frame was deleted while drawing.
+        if (VectorImage* image = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame()))
         {
-            BezierCurve curve(shape, shapeMode() == ELLIPSE);
-            curve.setWidth(mSettings.invisibilityEnabled() ? 0 : mSettings.width());
-            curve.setFeather(mSettings.feather());
-            curve.setFilled(false);
-            curve.setInvisibility(mSettings.invisibilityEnabled());
-            curve.setVariableWidth(false);
-            curve.setColorNumber(mEditor->color()->frontColorNumber());
             image->deselectAll();
-            mapCurveToKey(curve);
-            image->addCurve(curve, mEditor->view()->scaling(), false);
         }
+        BezierCurve curve(shape, shapeMode() == ELLIPSE);
+        curve.setWidth(get(ToolProperty::InvisibilityEnabled) ? 0 : get(ToolProperty::Width));
+        curve.setFeather(get(ToolProperty::Feather));
+        curve.setFilled(false);
+        curve.setInvisibility(get(ToolProperty::InvisibilityEnabled));
+        curve.setVariableWidth(false);
+        curve.setColorNumber(mEditor->color()->frontColorNumber());
+        mBuffer.commit(curve, mEditor->view()->scaling(), false);
     }
     endStroke();
 }
@@ -269,7 +249,7 @@ void ShapeTool::paint(QPainter& painter, const QRect& blitRect)
     painter.save();
     painter.setTransform(mEditor->view()->getView());
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(QPen(mEditor->color()->frontColor(), mSettings.width(), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(mEditor->color()->frontColor(), get(ToolProperty::Width), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.setBrush(Qt::NoBrush);
     painter.drawPolyline(mOutline);
     painter.restore();

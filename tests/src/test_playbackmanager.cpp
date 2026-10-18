@@ -196,7 +196,7 @@ TEST_CASE("Pen-drag Flip steps through Drawings and returns on release", "[Playb
     editor->layers()->setCurrentLayer(layer);
     editor->tools()->setCurrentTool(PENCIL);
     for (int f : { 3, 5, 7 }) { REQUIRE(layer->addNewKeyFrameAt(f)); }
-    editor->preference()->set(SETTING::ONION_TYPE, QString("absolute"));
+    editor->preference()->set<SETTING::ONION_TYPE>(QString("absolute"));
     editor->scrubTo(3);
     const int px = PlaybackManager::kPenFlipPixels;
 
@@ -230,8 +230,8 @@ TEST_CASE("Pen-drag Flip steps through Drawings and returns on release", "[Playb
     {
         layer->getKeyFrameAt(1)->setMark(Mark::Key);
         layer->getKeyFrameAt(7)->setMark(Mark::Key);
-        editor->preference()->set(SETTING::ONION_TYPE, QString("marked"));
-        editor->preference()->set(SETTING::ONION_MARKS, MarkFilter({ Mark::Key }).toInt());
+        editor->preference()->set<SETTING::ONION_TYPE>(QString("marked"));
+        editor->preference()->set<SETTING::ONION_MARKS>(MarkFilter({ Mark::Key }).toInt());
         flipKey(area, QEvent::KeyPress, 2000);
         flipPen(area, QEvent::TabletPress, 400, 2010);
         flipPen(area, QEvent::TabletMove, 400 + px, 2020);

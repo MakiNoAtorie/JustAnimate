@@ -30,7 +30,6 @@ GNU General Public License for more details.
 #include "strokeinterpolator.h"
 #include "selectionmanager.h"
 #include "overlaymanager.h"
-#include "undoredomanager.h"
 #include "scribblearea.h"
 #include "layervector.h"
 #include "layermanager.h"
@@ -50,7 +49,7 @@ ToolType MoveTool::type() const
 
 void MoveTool::loadSettings()
 {
-    mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
+    mRotationIncrement = mEditor->preference()->get<SETTING::ROTATION_INCREMENT>();
     QSettings& settings = pencilSettings();
 
     mPropertyUsed[TransformToolProperties::SHOWSELECTIONINFO_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
@@ -66,8 +65,8 @@ void MoveTool::loadSettings()
     toolProperties().loadFrom(typeName(), settings);
 
     if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
-        toolProperties().setBaseValue(TransformToolProperties::ANTI_ALIASING_ENABLED, settings.value("moveAA", true).toBool());
+        toolProperties().setValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
+        toolProperties().setValue(TransformToolProperties::ANTI_ALIASING_ENABLED, settings.value("moveAA", true).toBool());
     }
 
     connect(mEditor->preference(), &PreferenceManager::optionChanged, this, &MoveTool::updateSettings);
@@ -98,16 +97,16 @@ void MoveTool::updateSettings(const SETTING setting)
     switch (setting)
     {
     case SETTING::ROTATION_INCREMENT:
-        mRotationIncrement = mEditor->preference()->getInt(SETTING::ROTATION_INCREMENT);
+        mRotationIncrement = mEditor->preference()->get<SETTING::ROTATION_INCREMENT>();
         break;
     case SETTING::OVERLAY_PERSPECTIVE1:
-        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->isOn(setting));
+        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->get<SETTING::OVERLAY_PERSPECTIVE1>());
         break;
     case SETTING::OVERLAY_PERSPECTIVE2:
-        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->isOn(setting));
+        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->get<SETTING::OVERLAY_PERSPECTIVE2>());
         break;
     case SETTING::OVERLAY_PERSPECTIVE3:
-        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->isOn(setting));
+        mEditor->overlays()->settingsUpdated(setting, mEditor->preference()->get<SETTING::OVERLAY_PERSPECTIVE3>());
         break;
     default:
         break;
@@ -224,7 +223,7 @@ void MoveTool::pointerReleaseEvent(PointerEvent* event)
         return;
     }
 
-    mEditor->undoRedo()->record(mUndoSaveStateId, typeName());
+    if (mEdit) { mEdit->commit(); mEdit.reset(); }
 
     if (mEditor->overlays()->anyOverlayEnabled())
     {
@@ -274,7 +273,7 @@ void MoveTool::beginInteraction(const QPointF& pos, Qt::KeyboardModifiers keyMod
     QRectF selectionRect = selectMan->mySelectionRect();
     if (!selectionRect.isNull())
     {
-        mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        mEdit.emplace(mEditor->edit(layer, mEditor->currentFrame(), typeName()));
     }
 
     if (keyMod != Qt::ShiftModifier)

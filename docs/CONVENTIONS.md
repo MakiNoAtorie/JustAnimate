@@ -50,6 +50,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
   on Windows.
 - Golden values change only in a commit that means to change output.
+- Saved XML: compare attributes sorted (Qt 6.4/6.5 QDom writes them in
+  hash order). Render golden hashes keep a macOS column.
 - A test that needs the app's connections builds `TestSession`, never
   its own session struct; event filters go on after `start()`.
 
@@ -64,3 +66,4 @@ Read `docs/conventions-code.md` before you edit code.
   (`tools/check-changelog.sh` guards it). Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
+

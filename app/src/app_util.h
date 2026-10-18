@@ -17,17 +17,34 @@ GNU General Public License for more details.
 #ifndef APP_UTIL_H
 #define APP_UTIL_H
 
-class QAction;
+#include <QAction>
+#include <QSignalBlocker>
+#include "preferencemanager.h"
+
 class QDialog;
 class QKeySequence;
 class QSettings;
 class QString;
-class PreferenceManager;
-enum class SETTING;
 
 void hideQuestionMark(QDialog& dlg);
 void setMenuActionChecked(QAction* action, bool checked);
-void bindPreferenceSetting(QAction* action, PreferenceManager*, const SETTING&);
+
+/** Two-way binds a checkable action to the bool preference S. */
+template<SETTING S>
+void bindPreferenceSetting(QAction* action, PreferenceManager* prefs)
+{
+    Q_ASSERT(action->isCheckable());
+    Q_ASSERT(prefs);
+
+    QSignalBlocker b(action);
+    action->setChecked(prefs->get<S>()); // set initial state
+
+    QObject::connect(action, &QAction::triggered, [=](bool on) { prefs->set<S>(on); });
+    QObject::connect(prefs, &PreferenceManager::optionChanged, [=](SETTING s)
+    {
+        if (s == S) { action->setChecked(prefs->get<S>()); }
+    });
+}
 
 /** True when a frame step must be dropped: a held key repeats faster than the playback fps, so a repeat
  *  that comes less than one frame after the last step is skipped. A single tap always steps.

@@ -67,13 +67,13 @@ void BucketTool::loadSettings()
     toolProperties().loadFrom(typeName(), settings);
 
     if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(BucketToolProperties::FILLTHICKNESS_VALUE, settings.value("fillThickness", 4.0).toReal());
-        toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_VALUE, settings.value("Tolerance", 32).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_ENABLED, settings.value("BucketToleranceEnabled", false).toBool());
-        toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_VALUE, settings.value("BucketFillExpand", 2).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_ENABLED, settings.value("BucketFillExpandEnabled", true).toBool());
-        toolProperties().setBaseValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, settings.value("BucketFillReferenceMode", 0).toInt());
-        toolProperties().setBaseValue(BucketToolProperties::FILLMODE_VALUE, settings.value("FillMode", 0).toInt());
+        toolProperties().setValue(BucketToolProperties::FILLTHICKNESS_VALUE, settings.value("fillThickness", 4.0).toReal());
+        toolProperties().setValue(BucketToolProperties::COLORTOLERANCE_VALUE, settings.value("Tolerance", 32).toInt());
+        toolProperties().setValue(BucketToolProperties::COLORTOLERANCE_ENABLED, settings.value("BucketToleranceEnabled", false).toBool());
+        toolProperties().setValue(BucketToolProperties::FILLEXPAND_VALUE, settings.value("BucketFillExpand", 2).toInt());
+        toolProperties().setValue(BucketToolProperties::FILLEXPAND_ENABLED, settings.value("BucketFillExpandEnabled", true).toBool());
+        toolProperties().setValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, settings.value("BucketFillReferenceMode", 0).toInt());
+        toolProperties().setValue(BucketToolProperties::FILLMODE_VALUE, settings.value("FillMode", 0).toInt());
 
         settings.remove("fillThickness");
         settings.remove("Tolerance");
@@ -100,7 +100,7 @@ void BucketTool::pointerPressEvent(PointerEvent* event)
 
     LayerCamera* layerCam = mEditor->layers()->getCameraLayerBelow(mEditor->currentLayerIndex());
 
-    mUndoSaveState = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    mFillEdit.emplace(mEditor->edit(targetLayer, mEditor->currentFrame(), typeName()));
     mBitmapBucket = BitmapBucket(mEditor,
                                  mEditor->color()->frontColor(),
                                  layerCam ? canvasToKey().mapRect(layerCam->getViewAtFrame(mEditor->currentFrame()).inverted().mapRect(layerCam->getViewRect())) : QRect(),
@@ -137,9 +137,9 @@ void BucketTool::pointerReleaseEvent(PointerEvent* event)
     if (event->button() == Qt::LeftButton)
     {
         if (layer->type() == Layer::VECTOR) {
-            const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+            Edit edit = mEditor->edit(layer, mEditor->currentFrame(), typeName());
             paintVector(layer);
-            mEditor->undoRedo()->record(saveStateId, typeName());
+            edit.commit();
         }
         else if (layer->type() == Layer::BITMAP && !mFilledOnMove)
         {
@@ -147,10 +147,8 @@ void BucketTool::pointerReleaseEvent(PointerEvent* event)
         }
     }
     // A drag can fill many times: record once, after the last fill.
-    if (mDidFill)
-        mEditor->undoRedo()->record(mUndoSaveState, typeName());
-    else
-        mEditor->undoRedo()->discardState(mUndoSaveState);
+    if (mDidFill && mFillEdit) { mFillEdit->commit(); }
+    mFillEdit.reset();
     mFilledOnMove = false;
     mDidFill = false;
 }
@@ -169,8 +167,6 @@ void BucketTool::paintBitmap()
 
 void BucketTool::paintVector(Layer* layer)
 {
-    mScribbleArea->clearDrawingBuffer();
-
     VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
     if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
 
@@ -195,49 +191,49 @@ void BucketTool::applyChanges()
 
 void BucketTool::setStrokeThickness(qreal width)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLTHICKNESS_VALUE, width);
+    toolProperties().setValue(BucketToolProperties::FILLTHICKNESS_VALUE, width);
     emit strokeThicknessChanged(width);
 }
 
 void BucketTool::setColorTolerance(int tolerance)
 {
-    toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_VALUE, tolerance);
+    toolProperties().setValue(BucketToolProperties::COLORTOLERANCE_VALUE, tolerance);
     emit toleranceChanged(tolerance);
 }
 
 void BucketTool::setColorToleranceEnabled(bool enabled)
 {
-    toolProperties().setBaseValue(BucketToolProperties::COLORTOLERANCE_ENABLED, enabled);
+    toolProperties().setValue(BucketToolProperties::COLORTOLERANCE_ENABLED, enabled);
     emit toleranceEnabledChanged(enabled);
 }
 
 void BucketTool::setFillExpand(int fillExpandValue)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_VALUE, fillExpandValue);
+    toolProperties().setValue(BucketToolProperties::FILLEXPAND_VALUE, fillExpandValue);
     emit fillExpandChanged(fillExpandValue);
 }
 
 void BucketTool::setFillExpandEnabled(bool enabled)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLEXPAND_ENABLED, enabled);
+    toolProperties().setValue(BucketToolProperties::FILLEXPAND_ENABLED, enabled);
     emit fillExpandEnabledChanged(enabled);
 }
 
 void BucketTool::setFillReferenceMode(int referenceMode)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, referenceMode);
+    toolProperties().setValue(BucketToolProperties::FILLLAYERREFERENCEMODE_VALUE, referenceMode);
     emit fillReferenceModeChanged(referenceMode);
 }
 
 void BucketTool::setFillCloseGaps(int pixels)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLCLOSEGAPS_VALUE, pixels);
+    toolProperties().setValue(BucketToolProperties::FILLCLOSEGAPS_VALUE, pixels);
     emit fillCloseGapsChanged(pixels);
 }
 
 void BucketTool::setFillMode(int mode)
 {
-    toolProperties().setBaseValue(BucketToolProperties::FILLMODE_VALUE, mode);
+    toolProperties().setValue(BucketToolProperties::FILLMODE_VALUE, mode);
     emit fillModeChanged(mode);
 }
 

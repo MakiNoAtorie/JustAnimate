@@ -39,11 +39,11 @@ ToolsPage::ToolsPage() : ui(new Ui::ToolsPage)
     ui->verticalLayout_2->addWidget(mPressureCurve);
     ui->verticalLayout_2->addWidget(resetCurve, 0, Qt::AlignLeft);
     connect(mPressureCurve, &PressureCurveWidget::curveChanged, this, [this](const PressureCurve& curve) {
-        mManager->set(SETTING::PRESSURE_CURVE, curve.toString());
+        mManager->set<SETTING::PRESSURE_CURVE>(curve.toString());
     });
     connect(resetCurve, &QPushButton::clicked, this, [this] {
         mPressureCurve->setCurve(PressureCurve());
-        mManager->set(SETTING::PRESSURE_CURVE, QString());
+        mManager->set<SETTING::PRESSURE_CURVE>(QString());
     });
 
     auto* resetTools = new QPushButton(tr("Reset all tools to default"), this);
@@ -68,14 +68,14 @@ ToolsPage::~ToolsPage()
 
 void ToolsPage::updateValues()
 {
-    ui->useQuickSizingBox->setChecked(mManager->isOn(SETTING::QUICK_SIZING));
-    setRotationIncrement(mManager->getInt(SETTING::ROTATION_INCREMENT));
-    mPressureCurve->setCurve(PressureCurve::fromString(mManager->getString(SETTING::PRESSURE_CURVE)));
+    ui->useQuickSizingBox->setChecked(mManager->get<SETTING::QUICK_SIZING>());
+    setRotationIncrement(mManager->get<SETTING::ROTATION_INCREMENT>());
+    mPressureCurve->setCurve(PressureCurve::fromString(mManager->get<SETTING::PRESSURE_CURVE>()));
 }
 
 void ToolsPage::quickSizingChange(int b)
 {
-    mManager->set(SETTING::QUICK_SIZING, b != Qt::Unchecked);
+    mManager->set<SETTING::QUICK_SIZING>(b != Qt::Unchecked);
 }
 
 void ToolsPage::setRotationIncrement(int angle)
@@ -93,5 +93,5 @@ void ToolsPage::rotationIncrementChange(int value)
         angle++;
     }
     ui->rotationIncrementDisplay->setText(tr("%1 degrees").arg(angle)); // don't use tr()'s plural settings, it breaks Transifex.
-    mManager->set(SETTING::ROTATION_INCREMENT, angle);
+    mManager->set<SETTING::ROTATION_INCREMENT>(angle);
 }

@@ -17,10 +17,7 @@ GNU General Public License for more details.
 
 #include "recentfilemenu.h"
 
-#include <QSettings>
 #include <QVariant>
-#include <QDebug>
-#include "pencilsettings.h"
 
 
 RecentFileMenu::RecentFileMenu(const QString& title, QWidget *parent) :
@@ -32,6 +29,7 @@ RecentFileMenu::RecentFileMenu(const QString& title, QWidget *parent) :
     mClearAction = new QAction(tr("Clear", "Clear Recent File menu"), this); // share the same translation
     mEmptyAction = new QAction(tr("Empty", "Showing when Recent File Menu is empty"), this);
     mEmptyAction->setEnabled(false);
+    connect(mClearAction, &QAction::triggered, this, &RecentFileMenu::clearRequested);
 }
 
 RecentFileMenu::~RecentFileMenu()
@@ -68,37 +66,11 @@ void RecentFileMenu::setRecentFiles(const QStringList& filenames)
     }
 }
 
-bool RecentFileMenu::loadFromDisk()
-{
-    QSettings& settings = pencilSettings();
-    QVariant recent = settings.value("RecentFiles");
-    if (recent.isNull())
-    {
-        clearRecentFiles();
-        return false;
-    }
-    QStringList recentFileList = recent.toStringList();
-    setRecentFiles(recentFileList);
-    return true;
-}
-
-bool RecentFileMenu::saveToDisk()
-{
-    QSettings& settings = pencilSettings();
-    settings.setValue("RecentFiles", QVariant(mRecentFiles));
-    return true;
-}
-
 void RecentFileMenu::addRecentFile(const QString& filename)
 {
     if (mRecentFiles.contains(filename))
     {
         removeRecentFile(filename);
-    }
-
-    while (mRecentFiles.size() >= MAX_RECENT_FILES)
-    {
-        removeRecentFile(mRecentFiles.last());
     }
 
     mRecentFiles.prepend(filename);
@@ -115,11 +87,6 @@ void RecentFileMenu::addRecentFile(const QString& filename)
         addAction(action);
         addAction(mClearSeparator);
         addAction(mClearAction);
-        QObject::connect(mClearAction, &QAction::triggered, [this]
-        {
-            clearRecentFiles();
-            saveToDisk();
-        });
     }
     else
     {

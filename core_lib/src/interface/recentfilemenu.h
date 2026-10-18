@@ -26,6 +26,7 @@ GNU General Public License for more details.
 
 class QAction;
 
+/// Shows the project session's recent files.
 class RecentFileMenu : public QMenu
 {
     Q_OBJECT
@@ -34,27 +35,20 @@ public:
     explicit RecentFileMenu(const QString& title = tr("Open Recent"), QWidget* parent = nullptr);
     ~RecentFileMenu() override;
 
-    static const int MAX_RECENT_FILES = 10;
-
-    QStringList getRecentFiles() { return mRecentFiles; }
     void setRecentFiles(const QStringList& filenames);
-
-    void addRecentFile(const QString& filename);
-    void removeRecentFile(const QString& filename);
-
-    bool loadFromDisk();
-    bool saveToDisk();
 
 signals:
     void loadRecentFile(QString filename);
-
-public slots:
-    void clearRecentFiles();
+    void clearRequested();
 
 protected slots:
     void onRecentFileTriggered();
 
 private:
+    void addRecentFile(const QString& filename);
+    void removeRecentFile(const QString& filename);
+    void clearRecentFiles();
+
     QStringList mRecentFiles;
     std::map<QString, QAction*> mRecentActions;
     QAction* mClearAction = nullptr;

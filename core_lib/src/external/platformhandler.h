@@ -34,7 +34,7 @@ bool setWinTabEnabled(bool enabled);
 /// Applies the stored tablet API setting. Returns true if WinTab is in use, false if Windows Ink is.
 inline bool applyTabletApi(PreferenceManager* prefs, const std::function<bool(bool)>& switchWinTab = setWinTabEnabled)
 {
-    return switchWinTab(prefs->isOn(SETTING::TABLET_WINTAB));
+    return switchWinTab(prefs->get<SETTING::TABLET_WINTAB>());
 }
 
 }

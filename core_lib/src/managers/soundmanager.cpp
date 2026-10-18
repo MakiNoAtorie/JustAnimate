@@ -25,7 +25,6 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "soundplayer.h"
 #include "layermanager.h"
-#include "undoredomanager.h"
 
 SoundManager::SoundManager(Editor* editor) : BaseManager(editor, __FUNCTION__)
 {
@@ -116,8 +115,8 @@ Status SoundManager::importSoundClip(const QString& soundFile, const QString& cl
         layer->removeKeyFrame(frame);
     }
 
-    // After the removal: the state compares keyframe addresses, and the new clip can reuse a freed one.
-    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAMES_PASTE, layer);
+    // After the removal: the Edit compares keyframe addresses, and the new clip can reuse a freed one.
+    Edit edit = editor()->edit(layer, tr("Import Sound"));
     SoundClip* clip = new SoundClip;
     layer->addKeyFrame(frame, clip);
     clip->setSoundClipName(clipName);
@@ -125,10 +124,9 @@ Status SoundManager::importSoundClip(const QString& soundFile, const QString& cl
     if (!st.ok())
     {
         layer->removeKeyFrame(frame);
-        editor()->undoRedo()->discardState(saveStateId);
         return st;
     }
-    editor()->undoRedo()->record(saveStateId, tr("Import Sound"));
+    edit.commit();
     return Status::OK;
 }
 

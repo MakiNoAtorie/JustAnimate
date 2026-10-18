@@ -70,6 +70,16 @@ bool ToolManager::init()
     mToolSetHash.insert(SHAPE, new ShapeTool(this));
     mToolSetHash.insert(LASSOFILL, new LassoFillTool(this));
 
+    StrokeTool* firstStrokeTool = nullptr;
+    for (BaseTool* tool : std::as_const(mToolSetHash))
+    {
+        if (auto* strokeTool = qobject_cast<StrokeTool*>(tool))
+        {
+            if (firstStrokeTool) strokeTool->buffer().shareTiles(firstStrokeTool->buffer());
+            else firstStrokeTool = strokeTool;
+        }
+    }
+
     foreach(BaseTool* pTool, mToolSetHash.values())
     {
         pTool->initialize(editor());

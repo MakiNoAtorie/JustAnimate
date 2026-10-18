@@ -6,13 +6,14 @@ Rules for every code change, read before you edit code. Same limits as
 - Follow the ground rules and lean rules in `ROADMAP.md`.
 - File format: new XML attributes are optional; old files must still load.
   Homes for new project data: `docs/file-format.md`.
-- Undo: every edit records through `UndoRedoManager` (`createState` after
-  `handleDrawingOnEmptyFrame()`, `record` on every path; layers through
-  `recordLayerAdd/Remove`). A gesture records once, at its end; a state it
-  never records goes to `discardState()`. A gesture that may add a Drawing
-  wraps both in `beginMacro`/`endMacroWith(state)`. Commands address frames by
-  position and keep removed layers alive. Camera key edits record as
-  `CAMERA_MODIFY`. Undo tests assert content, never selection state.
+- Undo: open an Edit (`Editor::edit(...)`) before the change and `commit()`
+  it on every success path. A gesture that may add a Drawing opens an outer
+  `edit(description)`, calls `handleDrawingOnEmptyFrame()`, then the inner
+  `edit(layer, frame, ...)`. A held gesture keeps `std::optional<Edit>`.
+  Pass a frame only for a Drawing pixel edit. A record the Edit cannot
+  infer (layers, attributes, markers) goes through the Edit's own
+  `record*` methods. Commands address frames by position and keep removed
+  layers alive. Undo tests assert content, never selection state.
 - An unrecorded edit still emits `frameModified`, `framesModified` or
   `layerCountChanged`, or calls `object()->modification()`.
 - Do not tell the user an action cannot be undone unless no record exists.
@@ -36,9 +37,9 @@ Rules for every code change, read before you edit code. Same limits as
   pipe writes only through `executeFFMpegPipe`, bounded by `bytesToWrite()`.
 - Zip and unzip run through `FileManager::runArchiveJob` (worker thread,
   caller emits progress). One `FileManager::save` at a time.
-- New preference: enum in `preferencesdef.h`, key in `pencildef.h`,
-  `loadPrefs` and `set()` in `preferencemanager.cpp`. A renamed setting
-  migrates the old key once, only while the new key is absent.
+- New preference: enum value plus one `kPrefRows` row in
+  `preferencesdef.h` (key in `pencildef.h`). A renamed key is the row's
+  `migratedFrom`. New code reads and writes through `get<S>()`/`set<S>()`.
 - Read `docs/brush-engine.md` before editing dab, stroke, tiled-buffer,
   tool-property or preset code.
 - Bitmap shape and path strokes go through `DabTool::dabPath`. A tool
@@ -60,16 +61,18 @@ Rules for every code change, read before you edit code. Same limits as
 - Frame pool: frames over 50 from the playhead unload unless modified;
   viewing never marks modified. Playback preloads through
   `Object::preloadFrames`.
-- Frame selections span layers. Multi-layer edits: one `createState` per
-  layer in one `UndoMacro`; a re-time ends in one `moveKeyFrames`.
+- Frame selections span layers. Multi-layer edits: one outer Edit
+  with one Edit per layer.
 - Snapping: viewport-px guides added in `StrokeTool::prepareInput`; ruler
   state in `OverlayManager`, unsaved.
 - Selection transforms change only through `SelectionManager` setters; a
   new field joins `SelectionSaveState` and `TransformCommand`. A pending
   transform is applied in `ScribbleArea::pointerPressEvent` before any
   drawing tool paints.
-- Stroke buffer composition: only `ScribbleArea::bufferCompositionMode()`.
-  `duplicateLayer` copies every saved layer attribute.
+- Stroke pixels and vector curves go through the Stroke tool's `StrokeBuffer`
+  (`begin`, `dab`, `commit`); its composition only in
+  `StrokeBuffer::compositionMode()`.
+- `duplicateLayer` copies every saved layer attribute.
 - Sound: timing via `SoundClip::msAtFrame`/`waveformPeaks`; preview via
   `PlaybackManager::startSound`; tests use `setSamples`. A clip put back in
   a layer gets a player from `SoundManager::processSound`; taking a layer
@@ -82,7 +85,8 @@ Rules for every code change, read before you edit code. Same limits as
 - Colours come from the palette (Accent = `Highlight`), never hex (drawing
   data: `// palette-exempt:`, checked by `tools/check-new-colours.sh`); icons
   from `Theme::icon`.
-- Copy new `KeyFrame` fields in its copy constructor and `operator=`. Mark filter only from `PreferenceManager::markFilter()`.
+- Copy new `KeyFrame` fields that are not attribute rows in its copy
+  constructor and `operator=`; key copy copies the rows. Mark filter only from `PreferenceManager::markFilter()`.
 - An edit starts with `editor->refuses(layer)` (View tools exempt).
   Refusals and notices go only through `Editor::notice`.
 - Cell, layer and easing menus: only `app/src/cellmenus.*`.
@@ -99,3 +103,13 @@ Rules for every code change, read before you edit code. Same limits as
 - A dropped file attribute: stop writing and reading it, no load shim
   (QDom ignores unknown attributes); `docs/file-format.md` says the old
   attribute is ignored.
+- A layer, Drawing or project value is one row in `attributes.cpp`, set
+  through `LayerManager::setAttribute`, `setKeyAttribute` or
+  `setProjectAttribute`; never a per-value command.
+- Layer rules live only in `FrameRenderer`; exports render through
+  `renderForExport` and run as an `ExportRequest` through `Exporter::run`.
+- Open, save, autosave, recovery, recent files and dirty state go only
+  through `ProjectSession`.
+- A timeline or X-sheet mouse edit maps pixels to (layer, frame,
+  `FrameHit`) and calls `FrameEditGesture`; frame selection and key moves
+  only through `LayerManager`.

@@ -89,10 +89,10 @@ TEST_CASE("Brush presets survive a restart", "[BrushPresets]")
     tip.fill(Qt::black);
     REQUIRE(tip.save(dir.filePath("tip.png")));
     BrushSession b;
-    b.brush->setWidth(50);
-    b.brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
-    b.brush->setWashEnabled(true);
-    b.brush->setFlow(30);
+    b.brush->set(ToolProperty::Width, 50);
+    b.brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+    b.brush->set(ToolProperty::WashEnabled, true);
+    b.brush->set(ToolProperty::Flow, 30);
     REQUIRE(b.brush->setTipImage(dir.filePath("tip.png")).ok());
     REQUIRE(BrushPresets(dir.path()).save("Ink", *b.brush));
 
@@ -101,38 +101,38 @@ TEST_CASE("Brush presets survive a restart", "[BrushPresets]")
     BrushPresets presets(dir.path()); // a new store reads the folder as after a restart
     REQUIRE(presets.names() == QStringList{ "Ink" });
     REQUIRE(presets.apply("Ink", *b.brush));
-    const StrokeToolProperties& p = b.brush->strokeToolProperties();
-    CHECK(p.width() == 50.0);
-    CHECK(p.smoothingMode() == SmoothingMode::None);
-    CHECK(p.washEnabled());
-    CHECK(p.flow() == 30.0);
+    const StrokeTool& p = *b.brush;
+    CHECK(p.get(ToolProperty::Width) == 50.0);
+    CHECK(static_cast<SmoothingMode>(p.get(ToolProperty::SmoothingMode)) == SmoothingMode::None);
+    CHECK(p.get(ToolProperty::WashEnabled));
+    CHECK(p.get(ToolProperty::Flow) == 30.0);
     CHECK(b.brush->tipImagePath() == dir.filePath("tip.png"));
 
     // A tip file that is gone gives the generated tip.
     REQUIRE(QFile::remove(dir.filePath("tip.png")));
     REQUIRE(presets.apply("Ink", *b.brush));
     CHECK(b.brush->tipImagePath().isEmpty());
-    CHECK(p.width() == 50.0);
+    CHECK(p.get(ToolProperty::Width) == 50.0);
 }
 
 TEST_CASE("Brush presets keep dynamics and scatter", "[BrushPresets]")
 {
     QTemporaryDir dir;
     BrushSession b;
-    b.brush->setDynamic(StrokeToolProperties::SCATTER_VALUE, 250);
-    b.brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 40);
-    b.brush->setDynamic(StrokeToolProperties::TAPER_START_VALUE, 80);
-    b.brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 120);
+    b.brush->setValue(StrokeToolProperties::SCATTER_VALUE, 250);
+    b.brush->setValue(StrokeToolProperties::SIZE_JITTER_VALUE, 40);
+    b.brush->setValue(StrokeToolProperties::TAPER_START_VALUE, 80);
+    b.brush->setValue(StrokeToolProperties::TAPER_END_VALUE, 120);
     REQUIRE(BrushPresets(dir.path()).save("Chalk", *b.brush));
 
     b.brush->resetSettings();
-    REQUIRE(b.brush->strokeToolProperties().scatter() == 0);
-    REQUIRE(b.brush->strokeToolProperties().taperStart() == 0);
+    REQUIRE(b.brush->get(ToolProperty::Scatter) == 0);
+    REQUIRE(b.brush->get(ToolProperty::TaperStart) == 0);
     REQUIRE(BrushPresets(dir.path()).apply("Chalk", *b.brush));
-    CHECK(b.brush->strokeToolProperties().scatter() == 250);
-    CHECK(b.brush->strokeToolProperties().sizeJitter() == 40);
-    CHECK(b.brush->strokeToolProperties().taperStart() == 80);
-    CHECK(b.brush->strokeToolProperties().taperEnd() == 120);
+    CHECK(b.brush->get(ToolProperty::Scatter) == 250);
+    CHECK(b.brush->get(ToolProperty::SizeJitter) == 40);
+    CHECK(b.brush->get(ToolProperty::TaperStart) == 80);
+    CHECK(b.brush->get(ToolProperty::TaperEnd) == 120);
 }
 
 TEST_CASE("Brush presets can be renamed and deleted", "[BrushPresets]")
@@ -211,10 +211,10 @@ TEST_CASE("Corrupt brush preset files are skipped", "[BrushPresets]")
     REQUIRE(presets.names() == QStringList{ "Good" });
 
     BrushSession b;
-    b.brush->setWidth(70);
+    b.brush->set(ToolProperty::Width, 70);
     REQUIRE_FALSE(presets.apply("Broken", *b.brush));
     REQUIRE_FALSE(presets.apply("Missing", *b.brush));
-    CHECK(b.brush->strokeToolProperties().width() == 70.0); // a failed apply changes nothing
+    CHECK(b.brush->get(ToolProperty::Width) == 70.0); // a failed apply changes nothing
 }
 
 TEST_CASE("Bad brush preset values fall back to defaults", "[BrushPresets]")
@@ -225,15 +225,15 @@ TEST_CASE("Bad brush preset values fall back to defaults", "[BrushPresets]")
                                  "WashEnabled": 1, "NoSuchSetting": true },
                    "tipImage": 7 })");
     BrushSession b;
-    b.brush->setWidth(70);
-    b.brush->setWashEnabled(true);
+    b.brush->set(ToolProperty::Width, 70);
+    b.brush->set(ToolProperty::WashEnabled, true);
 
     REQUIRE(BrushPresets(dir.path()).apply("Odd", *b.brush));
-    const StrokeToolProperties& p = b.brush->strokeToolProperties();
-    CHECK(p.width() == 24.0);    // Brush default
-    CHECK(p.opacity() == 100.0); // clamped to the maximum
-    CHECK(p.smoothingMode() == SmoothingMode::Stabilizer); // clamped to the last mode
-    CHECK_FALSE(p.washEnabled());
+    const StrokeTool& p = *b.brush;
+    CHECK(p.get(ToolProperty::Width) == 24.0);    // Brush default
+    CHECK(p.get(ToolProperty::Opacity) == 100.0); // clamped to the maximum
+    CHECK(static_cast<SmoothingMode>(p.get(ToolProperty::SmoothingMode)) == SmoothingMode::Stabilizer); // clamped to the last mode
+    CHECK_FALSE(p.get(ToolProperty::WashEnabled));
     CHECK(b.brush->tipImagePath().isEmpty());
 }
 
@@ -241,14 +241,14 @@ TEST_CASE("A parsed preset applies without its file", "[BrushPresets]")
 {
     QTemporaryDir dir; // no preset files
     BrushSession b;
-    b.brush->setWidth(70);
+    b.brush->set(ToolProperty::Width, 70);
     b.brush->setPressureCurve("0,0.9 1,1");
     const QJsonObject preset{ { "settings", QJsonObject{ { "Width", 9 }, { "Opacity", 5000 } } } };
 
     BrushPresets(dir.path()).apply(preset, *b.brush);
-    const StrokeToolProperties& p = b.brush->strokeToolProperties();
-    CHECK(p.width() == 9.0);
-    CHECK(p.opacity() == 100.0); // clamped as from a file
+    const StrokeTool& p = *b.brush;
+    CHECK(p.get(ToolProperty::Width) == 9.0);
+    CHECK(p.get(ToolProperty::Opacity) == 100.0); // clamped as from a file
     CHECK(b.brush->pressureCurve().isEmpty());
     CHECK(b.brush->tipImagePath().isEmpty());
 }
@@ -351,7 +351,7 @@ TEST_CASE("Every default brush preset paints a stroke", "[BrushPresets]")
         {
             // Ink to erase.
             s.editor->tools()->setCurrentTool(PENCIL);
-            static_cast<StrokeTool*>(s.editor->tools()->getTool(PENCIL))->setWidth(60);
+            static_cast<StrokeTool*>(s.editor->tools()->getTool(PENCIL))->set(ToolProperty::Width, 60);
             tabletStroke(s.area.get(), 300);
         }
         const long long before = inkedPixels(layer->getBitmapImageAtFrame(frame));
@@ -374,8 +374,8 @@ TEST_CASE("Brush presets export and import as jabrush files", "[BrushPresets]")
     tip.fill(Qt::black);
     REQUIRE(tip.save(tips.filePath("tip.png")));
     BrushSession b;
-    b.brush->setWidth(50);
-    b.brush->setFlow(30);
+    b.brush->set(ToolProperty::Width, 50);
+    b.brush->set(ToolProperty::Flow, 30);
     REQUIRE(b.brush->setTipImage(tips.filePath("tip.png")).ok());
     REQUIRE(BrushPresets(from.path()).save("Ink", *b.brush));
     REQUIRE(BrushPresets(from.path()).exportPreset("Ink", to.filePath("Ink.jabrush")).ok());
@@ -390,8 +390,8 @@ TEST_CASE("Brush presets export and import as jabrush files", "[BrushPresets]")
     b.brush->resetSettings();
     b.brush->setTipImage(QString());
     REQUIRE(other.apply("Ink", *b.brush));
-    CHECK(b.brush->strokeToolProperties().width() == 50.0);
-    CHECK(b.brush->strokeToolProperties().flow() == 30.0);
+    CHECK(b.brush->get(ToolProperty::Width) == 50.0);
+    CHECK(b.brush->get(ToolProperty::Flow) == 30.0);
     CHECK(b.brush->tipImagePath().startsWith(other.folder()));
     QImage mask;
     REQUIRE(loadBrushTipImage(b.brush->tipImagePath(), mask).ok());

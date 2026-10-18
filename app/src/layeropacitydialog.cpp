@@ -250,7 +250,9 @@ void LayerOpacityDialog::endOpacityEdit(const QString& description)
     const QMap<int, qreal> after = keyFrameOpacities(layer);
     if (after != mOpacitiesBefore)
     {
-        mEditor->undoRedo()->recordKeyFrameOpacities(mEditLayerId, mOpacitiesBefore, after, description);
+        Edit edit = mEditor->edit(description);
+        edit.recordKeyFrameOpacities(mEditLayerId, mOpacitiesBefore, after);
+        edit.commit();
     }
     mEditLayerId = 0;
 }

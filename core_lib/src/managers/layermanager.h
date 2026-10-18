@@ -21,12 +21,14 @@ GNU General Public License for more details.
 #include "basemanager.h"
 #include <QHash>
 #include <QSize>
+#include <QVariant>
 #include "layer.h"
 
 class LayerBitmap;
 class LayerVector;
 class LayerCamera;
 class LayerSound;
+enum class AttributeId;
 struct TweenState;
 struct LayerArrangement;
 struct FrameMarker;
@@ -66,6 +68,15 @@ public:
     void insertLayer(int index, Layer* layer);
     Status renameLayer(Layer*, const QString& newName);
     void notifyLayerChanged(Layer*);
+    /** Sets a layer-level row of the attribute table. One undo step; nothing when the value is unchanged or the row does not apply. */
+    void setAttribute(Layer* layer, AttributeId id, const QVariant& value);
+    /** Sets a Drawing-level row on the Drawing shown at `frame`. One undo step.
+     *  Returns false when nothing changes: no Drawing at `frame`, the same value, or a refused edit. */
+    bool setKeyAttribute(Layer* layer, int frame, AttributeId id, const QVariant& value);
+    /** Sets a project row of the attribute table. One undo step; nothing when the value is unchanged. */
+    void setProjectAttribute(AttributeId id, const QVariant& value);
+    /** Tells the views that a project row changed. */
+    void notifyProjectChanged();
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
     void setRough(Layer* layer, bool rough);
@@ -139,6 +150,20 @@ public:
      *  Deselects the frames of every other layer. The bounds can be in any order. */
     void selectFrames(int fromLayer, int toLayer, int fromFrame, int toFrame);
     void deselectAllFrames();
+    // The only way into a layer's frame selection. Selection is not an edit: these record nothing.
+    static void setFrameSelected(Layer* layer, int frame, bool selected) { layer->setFrameSelected(frame, selected); }
+    static void toggleFrameSelected(Layer* layer, int frame, bool allowMultiple = false) { layer->toggleFrameSelected(frame, allowMultiple); }
+    static void extendSelectionTo(Layer* layer, int frame) { layer->extendSelectionTo(frame); }
+    static void selectAllFramesAfter(Layer* layer, int frame) { layer->selectAllFramesAfter(frame); }
+    static bool selectConnectedFrames(Layer* layer, int frame) { return layer->newSelectionOfConnectedFrames(frame); }
+    static void deselectFrames(Layer* layer) { layer->deselectAll(); }
+    // One layer's selected-frame moves, unrecorded: the caller opens the Edit.
+    static bool moveSelectedFrames(Layer* layer, int offset) { return layer->moveSelectedFrames(offset); }
+    static bool moveKeyFrames(Layer* layer, const QList<QPair<int, int>>& fromTo) { return layer->moveKeyFrames(fromTo); }
+    static bool reverseOrderOfSelection(Layer* layer) { return layer->reverseOrderOfSelection(); }
+    static void setExposureForSelectedFrames(Layer* layer, int value, bool hold = false) { layer->setExposureForSelectedFrames(value, hold); }
+    /** Moves the current layer's keyframe at `frame` by `offset`, swapping with a keyframe there. One undo step. */
+    bool moveKeyFrame(int frame, int offset);
     /** Moves the selected frames of every layer by `offset` as one undo step.
      *  Stops at frame 1. Moves nothing and returns false when a frame is in the way on any layer. */
     bool moveSelectedFrames(int offset);
@@ -185,7 +210,6 @@ signals:
 
 private:
     int getIndex(Layer*) const;
-    void recordLayerAdd(const Layer* layer);
     /// True, with a status message, when a layer with selected frames is lock-all.
     bool selectionRefusesEdit();
     /// Records a Marker edit, marks the project modified and repaints the timeline.

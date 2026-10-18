@@ -17,20 +17,17 @@ GNU General Public License for more details.
 #include "pentool.h"
 
 #include <QPixmap>
-#include <QSettings>
 
 #include "vectorimage.h"
 #include "layervector.h"
 #include "colormanager.h"
 #include "layermanager.h"
 #include "viewmanager.h"
-#include "undoredomanager.h"
 #include "selectionmanager.h"
 #include "editor.h"
 #include "scribblearea.h"
 #include "blitrect.h"
 #include "pointerevent.h"
-#include "pencilsettings.h"
 
 
 PenTool::PenTool(QObject* parent) : StrokeTool(parent)
@@ -40,36 +37,6 @@ PenTool::PenTool(QObject* parent) : StrokeTool(parent)
 void PenTool::loadSettings()
 {
     StrokeTool::loadSettings();
-
-    QSettings& settings = pencilSettings();
-
-    mPropertyUsed[StrokeToolProperties::WIDTH_VALUE] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::ANTI_ALIASING_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
-
-    QHash<int, PropertyInfo> info;
-
-    info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 12.0 };
-    info[StrokeToolProperties::PRESSURE_ENABLED] = true;
-    info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = true;
-    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
-
-    toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), settings);
-    migrateLineStabilization(settings);
-
-    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("penWidth", 12.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, settings.value("penPressure", true).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::ANTI_ALIASING_ENABLED, settings.value("penAA", true).toBool());
-        setLegacySmoothing(settings.value("penLineStablization", StabilizationLevel::STRONG).toInt());
-
-        settings.remove("penWidth");
-        settings.remove("penPressure");
-        settings.remove("penAA");
-        settings.remove("penLineStablization");
-    }
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
 }
@@ -129,11 +96,19 @@ void PenTool::pointerReleaseEvent(PointerEvent *event)
     }
 
     if (layer->type() == Layer::VECTOR) {
-        paintVectorStroke(layer);
+        commitVectorStroke(get(ToolProperty::Width), get(ToolProperty::Feather),
+                           get(ToolProperty::InvisibilityEnabled), get(ToolProperty::PressureEnabled));
     }
     endStroke();
 
     StrokeTool::pointerReleaseEvent(event);
+}
+
+void PenTool::drawPen(QPointF point, qreal width)
+{
+    // Source, not SourceOver, so overlapping dabs do not add up.
+    mBuffer.tiles().drawBrush(point, width, Qt::NoPen, QBrush(mEditor->color()->frontColor(), Qt::SolidPattern),
+                              QPainter::CompositionMode_Source, get(ToolProperty::AntiAliasingEnabled));
 }
 
 // draw a single paint dab at the given location
@@ -142,14 +117,11 @@ void PenTool::paintAt(QPointF point)
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer->type() == Layer::BITMAP)
     {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
+        qreal pressure = (get(ToolProperty::PressureEnabled)) ? mCurrentPressure : 1.0;
+        qreal brushWidth = get(ToolProperty::Width) * pressure;
         mCurrentWidth = brushWidth;
 
-        mScribbleArea->drawPen(point,
-                               brushWidth,
-                               mEditor->color()->frontColor(),
-                               mSettings.AntiAliasingEnabled());
+        drawPen(point, brushWidth);
     }
 }
 
@@ -162,8 +134,8 @@ void PenTool::drawStroke()
 
     if (layer->type() == Layer::BITMAP)
     {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
+        qreal pressure = (get(ToolProperty::PressureEnabled)) ? mCurrentPressure : 1.0;
+        qreal brushWidth = get(ToolProperty::Width) * pressure;
         mCurrentWidth = brushWidth;
 
         // TODO: Make popup widget for less important properties,
@@ -180,10 +152,7 @@ void PenTool::drawStroke()
         for (int i = 0; i < steps; i++)
         {
             QPointF point = mLastBrushPoint + (i + 1) * brushStep * (getCurrentPoint() - mLastBrushPoint) / distance;
-            mScribbleArea->drawPen(point,
-                                   brushWidth,
-                                   mEditor->color()->frontColor(),
-                                   mSettings.AntiAliasingEnabled());
+            drawPen(point, brushWidth);
 
             if (i == (steps - 1))
             {
@@ -193,8 +162,8 @@ void PenTool::drawStroke()
     }
     else if (layer->type() == Layer::VECTOR)
     {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
+        qreal pressure = (get(ToolProperty::PressureEnabled)) ? mCurrentPressure : 1.0;
+        qreal brushWidth = get(ToolProperty::Width) * pressure;
 
         QPen pen(mEditor->color()->frontColor(),
                  brushWidth,
@@ -206,40 +175,7 @@ void PenTool::drawStroke()
         {
             QPainterPath path(p[0]);
             path.cubicTo(p[1], p[2], p[3]);
-            mScribbleArea->drawPath(path, pen, Qt::NoBrush, QPainter::CompositionMode_Source);
+            drawScreenPath(path, pen);
         }
     }
-}
-
-void PenTool::paintVectorStroke(Layer* layer)
-{
-    if (mStrokePoints.empty())
-        return;
-
-    // Clear the temporary pixel path
-    mScribbleArea->clearDrawingBuffer();
-    qreal tol = mScribbleArea->getCurveSmoothing() / mEditor->view()->scaling();
-
-    BezierCurve curve(mStrokePoints, mStrokePressures, tol);
-    curve.setWidth(mSettings.width());
-    curve.setFeather(mSettings.feather());
-    curve.setFilled(false);
-    curve.setInvisibility(mSettings.invisibilityEnabled());
-    curve.setVariableWidth(mSettings.pressureEnabled());
-    curve.setColorNumber(mEditor->color()->frontColorNumber());
-
-    auto pLayerVector = static_cast<LayerVector*>(layer);
-    VectorImage* vectorImage = pLayerVector->getLastVectorImageAtFrame(mEditor->currentFrame());
-    if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
-    mapCurveToKey(curve);
-    vectorImage->addCurve(curve, mEditor->view()->scaling(), false);
-
-    if (vectorImage->isAnyCurveSelected() || mEditor->select()->somethingSelected())
-    {
-        mEditor->deselectAll();
-    }
-
-    vectorImage->setSelected(vectorImage->getLastCurveNumber(), true);
-
-    mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
 }

@@ -159,8 +159,8 @@ TEST_CASE("InputSmoother - an existing user's stabilizer setting maps to mode an
 
     TestSession s;
     s.start();
-    const StrokeToolProperties& p = static_cast<BrushTool*>(s.editor->tools()->getTool(BRUSH))->strokeToolProperties();
+    const StrokeTool& p = *static_cast<BrushTool*>(s.editor->tools()->getTool(BRUSH));
     const SmoothingPreset simple = InputSmoother::presetForLegacyLevel(1);
-    CHECK(p.smoothingMode() == simple.mode);
-    CHECK(p.smoothingStrength() == simple.strength);
+    CHECK(static_cast<SmoothingMode>(p.get(ToolProperty::SmoothingMode)) == simple.mode);
+    CHECK(p.get(ToolProperty::SmoothingStrength) == simple.strength);
 }

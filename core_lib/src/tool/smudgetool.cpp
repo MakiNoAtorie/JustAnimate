@@ -16,7 +16,6 @@ GNU General Public License for more details.
 */
 #include "smudgetool.h"
 #include <QPixmap>
-#include <QSettings>
 
 #include "pointerevent.h"
 #include "vectorimage.h"
@@ -27,11 +26,9 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "viewmanager.h"
 #include "selectionmanager.h"
-#include "undoredomanager.h"
 
 #include "layervector.h"
 #include "blitrect.h"
-#include "pencilsettings.h"
 
 SmudgeTool::SmudgeTool(QObject* parent) : DabTool(parent)
 {
@@ -46,42 +43,6 @@ void SmudgeTool::loadSettings()
 {
     StrokeTool::loadSettings();
 
-    for (int property : { StrokeToolProperties::WIDTH_VALUE, StrokeToolProperties::FEATHER_VALUE,
-                          StrokeToolProperties::PRESSURE_ENABLED, StrokeToolProperties::SMOOTHING_MODE,
-                          StrokeToolProperties::SPACING_VALUE, StrokeToolProperties::FLOW_VALUE,
-                          StrokeToolProperties::TIP_SQUARE_ENABLED, StrokeToolProperties::TIP_ASPECT_VALUE,
-                          StrokeToolProperties::TIP_ANGLE_VALUE, StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED,
-                          StrokeToolProperties::SPEED_TO_SIZE_VALUE, StrokeToolProperties::TILT_TO_SIZE_VALUE,
-                          StrokeToolProperties::TILT_TO_ANGLE_VALUE, StrokeToolProperties::SIZE_JITTER_VALUE,
-                          StrokeToolProperties::SCATTER_VALUE, StrokeToolProperties::ANGLE_JITTER_VALUE,
-                          StrokeToolProperties::DAB_COUNT_VALUE, StrokeToolProperties::TAPER_START_VALUE,
-                          StrokeToolProperties::TAPER_END_VALUE, StrokeToolProperties::GRAIN_MODE_VALUE,
-                          StrokeToolProperties::GRAIN_TEXTURE_VALUE, StrokeToolProperties::GRAIN_SCALE_VALUE,
-                          StrokeToolProperties::GRAIN_CONTRAST_VALUE,
-                          StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, StrokeToolProperties::SMUDGE_LENGTH_VALUE,
-                          StrokeToolProperties::SMUDGE_RADIUS_VALUE, StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE,
-                          StrokeToolProperties::SMUDGE_MIX_VALUE })
-        mPropertyUsed[property] = { Layer::BITMAP };
-
-    QHash<int, PropertyInfo> info;
-    QSettings& settings = pencilSettings();
-    info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
-    info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
-    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
-    // About the 2 px step of the smudge loop before v0.5 at the default width.
-    info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 10.0 };
-
-    toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), settings);
-
-    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("smudgeWidth", 24.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, settings.value("smudgeFeather", 48.0).toReal());
-
-        settings.remove("smudgeWidth");
-        settings.remove("smudgeFeather");
-    }
-
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
     mQuickSizingProperties.insert(Qt::ControlModifier, StrokeToolProperties::FEATHER_VALUE);
 }
@@ -95,11 +56,11 @@ bool SmudgeTool::emptyFrameActionEnabled()
 void SmudgeTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
     SmudgeSettings smudge;
-    smudge.length = mSettings.smudgeLength() / 100.0f;
-    smudge.radius = mSettings.smudgeRadius() / 100.0f;
-    smudge.colorRate = mSettings.smudgeColorRate() / 100.0f;
-    smudge.wet = mSettings.smudgeMix() == 1;
-    mScribbleArea->smudgeDab(point, width, mSettings.feather(), mEditor->color()->frontColor(), opacity, tip, smudge);
+    smudge.length = get(ToolProperty::SmudgeLength) / 100.0f;
+    smudge.radius = get(ToolProperty::SmudgeRadius) / 100.0f;
+    smudge.colorRate = get(ToolProperty::SmudgeColorRate) / 100.0f;
+    smudge.wet = get(ToolProperty::SmudgeMix) == 1;
+    mBuffer.dab(point, width, mFeather, mEditor->color()->frontColor(), opacity, false, tip, smudge);
 }
 
 void SmudgeTool::pointerPressEvent(PointerEvent* event)
@@ -228,7 +189,7 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
         VectorImage *vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
         if (vectorImage == nullptr)
         {
-            mEditor->undoRedo()->discardState(mUndoSaveStateId);
+            endStrokeEdit(false);
             return;
         }
         vectorImage->applySelectionTransformation();
@@ -241,7 +202,7 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
             vectorImage->curve(curveNumber).smoothCurve();
         }
         mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
-        mEditor->undoRedo()->record(mUndoSaveStateId, typeName());
+        endStrokeEdit(true);
     }
 
     StrokeTool::pointerReleaseEvent(event);

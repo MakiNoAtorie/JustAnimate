@@ -157,8 +157,8 @@ TEST_CASE("Layer::setCurrentLayer(index)") {
         currentLayer->addNewKeyFrameAt(1);
         currentLayer->addNewKeyFrameAt(2);
 
-        currentLayer->setFrameSelected(1, true);
-        currentLayer->setFrameSelected(2, true);
+        LayerManager::setFrameSelected(currentLayer, 1, true);
+        LayerManager::setFrameSelected(currentLayer, 2, true);
 
         REQUIRE(currentLayer->selectedKeyFrameCount() == 2);
 

@@ -24,7 +24,6 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "toolmanager.h"
 #include "selectionmanager.h"
-#include "undoredomanager.h"
 #include "pencilsettings.h"
 
 SelectTool::SelectTool(QObject* parent) : TransformTool(parent)
@@ -44,7 +43,7 @@ void SelectTool::loadSettings()
     toolProperties().loadFrom(typeName(), settings);
 
     if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
+        toolProperties().setValue(TransformToolProperties::SHOWSELECTIONINFO_ENABLED, settings.value("ShowSelectionInfo", false).toBool());
     }
 }
 
@@ -122,7 +121,7 @@ void SelectTool::pointerPressEvent(PointerEvent* event)
     if (event->button() != Qt::LeftButton) { return; }
     auto selectMan = mEditor->select();
 
-    mUndoStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    mEdit.emplace(mEditor->edit(currentLayer, mEditor->currentFrame(), typeName()));
 
     mPressPoint = canvasToKey().map(event->canvasPos());
 
@@ -198,7 +197,7 @@ void SelectTool::pointerReleaseEvent(PointerEvent* event)
         keepSelection(currentLayer);
     }
 
-    mEditor->undoRedo()->record(mUndoStateId, typeName());
+    if (mEdit) { mEdit->commit(); mEdit.reset(); }
 
     mStartMoveMode = MoveMode::NONE;
     mMoveMode = MoveMode::NONE;

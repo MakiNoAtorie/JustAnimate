@@ -119,7 +119,7 @@ TEST_CASE("ShapeTool - draws each shape on bitmap and vector layers")
     editor->tools()->setCurrentTool(SHAPE);
     ShapeTool* tool = static_cast<ShapeTool*>(editor->tools()->getTool(SHAPE));
     const ToolSettingsGuard guard(tool);
-    tool->setWidth(4);
+    tool->set(ToolProperty::Width, 4);
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -135,7 +135,7 @@ TEST_CASE("ShapeTool - draws each shape on bitmap and vector layers")
         for (ShapeTool::Mode mode : { ShapeTool::LINE, ShapeTool::RECTANGLE, ShapeTool::ELLIPSE })
         {
             CAPTURE(mode);
-            tool->setShapeMode(mode);
+            tool->set(ToolProperty::ShapeMode, mode);
             drag(area, QPointF(200, 200), QPointF(400, 300));
             if (mode == ShapeTool::LINE)
                 CHECK(inkAt(QPointF(300, 250)));
@@ -163,7 +163,7 @@ TEST_CASE("ShapeTool - draws each shape on bitmap and vector layers")
         for (ShapeTool::Mode mode : { ShapeTool::LINE, ShapeTool::RECTANGLE, ShapeTool::ELLIPSE })
         {
             CAPTURE(mode);
-            tool->setShapeMode(mode);
+            tool->set(ToolProperty::ShapeMode, mode);
             const int before = vector->getVectorImageAtFrame(1)->getLastCurveNumber();
             drag(area, QPointF(200, 200), QPointF(400, 300));
             VectorImage* image = vector->getVectorImageAtFrame(1);
@@ -194,8 +194,8 @@ TEST_CASE("ShapeTool - polygon closes on the first point or a double click")
     editor->tools()->setCurrentTool(SHAPE);
     ShapeTool* tool = static_cast<ShapeTool*>(editor->tools()->getTool(SHAPE));
     const ToolSettingsGuard guard(tool);
-    tool->setWidth(4);
-    tool->setShapeMode(ShapeTool::POLYGON);
+    tool->set(ToolProperty::Width, 4);
+    tool->set(ToolProperty::ShapeMode, ShapeTool::POLYGON);
     REQUIRE(tool->shapeMode() == ShapeTool::POLYGON);
 
     QObject parent;
@@ -263,7 +263,7 @@ TEST_CASE("ShapeTool - a tablet double click follows the system interval and dis
     s.editor->tools()->setCurrentTool(SHAPE);
     ShapeTool* tool = static_cast<ShapeTool*>(s.editor->tools()->getTool(SHAPE));
     const ToolSettingsGuard guard(tool);
-    tool->setShapeMode(ShapeTool::POLYGON);
+    tool->set(ToolProperty::ShapeMode, ShapeTool::POLYGON);
     s.editor->layers()->setCurrentLayer(vector);
     BezierCurve first({ QPointF(0, 0), QPointF(5, 0) });
     first.setColorNumber(1);
@@ -309,8 +309,8 @@ TEST_CASE("ShapeTool - an open polygon ends on layer change or Esc")
     editor->tools()->setCurrentTool(SHAPE);
     ShapeTool* tool = static_cast<ShapeTool*>(editor->tools()->getTool(SHAPE));
     const ToolSettingsGuard guard(tool);
-    tool->setWidth(4);
-    tool->setShapeMode(ShapeTool::POLYGON);
+    tool->set(ToolProperty::Width, 4);
+    tool->set(ToolProperty::ShapeMode, ShapeTool::POLYGON);
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());

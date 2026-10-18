@@ -33,7 +33,7 @@ HandTool::HandTool(QObject* parent) : BaseTool(parent)
 
 void HandTool::loadSettings()
 {
-    mDeltaFactor = mEditor->preference()->isOn(SETTING::INVERT_DRAG_ZOOM_DIRECTION) ? -1 : 1;
+    mDeltaFactor = mEditor->preference()->get<SETTING::INVERT_DRAG_ZOOM_DIRECTION>() ? -1 : 1;
     connect(mEditor->preference(), &PreferenceManager::optionChanged, this, &HandTool::updateSettings);
 }
 
@@ -43,7 +43,7 @@ void HandTool::updateSettings(const SETTING setting)
     {
     case SETTING::INVERT_DRAG_ZOOM_DIRECTION:
     {
-        mDeltaFactor = mEditor->preference()->isOn(SETTING::INVERT_DRAG_ZOOM_DIRECTION) ? -1 : 1;
+        mDeltaFactor = mEditor->preference()->get<SETTING::INVERT_DRAG_ZOOM_DIRECTION>() ? -1 : 1;
         break;
     }
     default:

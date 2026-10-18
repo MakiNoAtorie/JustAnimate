@@ -109,7 +109,7 @@ void ImportLayersDialog::importLayersById(const QList<int>& layerIds)
     int currentFrame = mEditor->currentFrame();
 
     QMap<int, int> importedColors;
-    const UndoMacro macro(mEditor->undoRedo(), tr("Import Layers"));
+    Edit edit = mEditor->edit(tr("Import Layers"));
 
     for (int layerId : layerIds)
     {
@@ -119,7 +119,7 @@ void ImportLayersDialog::importLayersById(const QList<int>& layerIds)
         loadKeyFrames(mImportLayer); // all keyframes of this layer must be in memory
 
         object->addLayer(mImportLayer);
-        mEditor->undoRedo()->recordLayerAdd(mImportLayer->id(), tr("Import Layers"));
+        edit.recordLayerAdd(mImportLayer->id());
 
         if (mImportLayer->type() == Layer::VECTOR)
         {
@@ -142,6 +142,7 @@ void ImportLayersDialog::importLayersById(const QList<int>& layerIds)
     mImportObject.reset();
     getLayers();
     mEditor->scrubTo(currentFrame);
+    edit.commit();
 }
 
 void ImportLayersDialog::cancel()
