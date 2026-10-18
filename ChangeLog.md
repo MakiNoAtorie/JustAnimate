@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Rename and lock-all are undoable, Duplicate Layer keeps the copy in its group, and every layer attribute is a row of the attribute table (#253).
 - Lock Transparency is undoable; it is the first row of the layer attribute table that save, load and duplicate read (#252).
 - Image and image sequence export render through one frame renderer that holds the layer rules once (#259).
 - Deleted the unused upstream name and URL macros (#251).

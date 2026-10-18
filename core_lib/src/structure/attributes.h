@@ -24,8 +24,18 @@ GNU General Public License for more details.
 class QDomElement;
 class KeyFrame;
 
+/// Table order; the values index the table.
 enum class AttributeId
 {
+    Name,
+    Visibility,
+    OnionSkin,
+    BlendMode,
+    GroupId, // set through LayerManager::commitLayerArrangement: a group is a run of adjacent layers
+    Rough,
+    LockAll,
+    Timesheet, // a TimesheetColumn as int
+    Storyboard,
     LockAlpha,
 };
 
@@ -42,6 +52,9 @@ struct AttributeDescriptor
     bool (*appliesToType)(Layer::LAYER_TYPE type);
     QVariant (*getValue)(const Layer* layer, const KeyFrame* key);
     void (*setValue)(Layer* layer, KeyFrame* key, const QVariant& value);
+    bool alwaysWritten = false; // else written only when not the default
+    QString (*toXmlText)(const QVariant& value) = nullptr; // nullptr: by the value type
+    QVariant (*fromXmlText)(const QString& text) = nullptr; // nullptr: by the value type; invalid loads the default
 
     bool appliesTo(Layer::LAYER_TYPE type) const { return appliesToType(type); }
     QString undoText() const;
@@ -52,7 +65,7 @@ struct AttributeDescriptor
 const std::vector<AttributeDescriptor>& attributeTable();
 const AttributeDescriptor& attribute(AttributeId id);
 
-/// Writes the layer's non-default layer-level attributes, in table order.
+/// Writes the layer's layer-level attributes. QDom sorts them by name.
 void writeLayerAttributes(const Layer& layer, QDomElement& elem);
 /// A missing or bad value loads as the default.
 void readLayerAttributes(Layer& layer, const QDomElement& elem);

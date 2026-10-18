@@ -231,14 +231,16 @@ Layer* LayerManager::duplicateLayer(Layer* from, const QString& name)
 {
     Layer* to = createLayer(from->type(), name);
     if (to == nullptr) { return nullptr; }
-    to->setBlendMode(from->blendMode());
-    to->setVisible(from->visible());
-    to->setOnionSkin(from->onionSkin());
-    to->setRough(from->isRough());
-    to->setStoryboard(from->isStoryboard());
-    to->setLockAll(from->lockAll());
-    to->setTimesheetColumn(from->timesheetColumn());
     copyLayerAttributes(*from, *to);
+    to->setName(name);
+    if (from->groupId() != 0)
+    {
+        // A group is a run of adjacent layers: the copy goes right above the original. Add Layer's undo keeps this place.
+        LayerArrangement a = object()->layerArrangement();
+        for (QList<int>* list : { &a.layerIds, &a.groupIds }) { list->insert(getIndex(from) + 1, list->takeAt(getIndex(to))); }
+        object()->setLayerArrangement(a);
+        setCurrentLayer(to);
+    }
     from->foreachKeyFrame([&](KeyFrame* key) {
         key = key->clone();
         to->addOrReplaceKeyFrame(key->pos(), key);
@@ -424,9 +426,7 @@ Status LayerManager::renameLayer(Layer* layer, const QString& newName)
 {
     if (newName.isEmpty()) return Status::FAIL;
 
-    layer->setName(newName);
-    editor()->object()->modification();
-    emit currentLayerChanged(getIndex(layer));
+    setAttribute(layer, AttributeId::Name, newName);
     return Status::OK;
 }
 
@@ -494,28 +494,17 @@ bool LayerManager::setKeyAttribute(Layer* layer, int frame, AttributeId id, cons
 
 void LayerManager::setBlendMode(Layer* layer, BlendMode mode)
 {
-    if (layer == nullptr || layer->blendMode() == mode) { return; }
-    const BlendMode oldMode = layer->blendMode();
-    layer->setBlendMode(mode);
-    editor()->undoRedo()->recordLayerBlendMode(layer->id(), oldMode, mode, tr("Blend Mode"));
-    notifyLayerChanged(layer);
+    setAttribute(layer, AttributeId::BlendMode, static_cast<int>(mode));
 }
 
 void LayerManager::setRough(Layer* layer, bool rough)
 {
-    if (layer == nullptr || layer->isRough() == rough) { return; }
-    layer->setRough(rough);
-    editor()->undoRedo()->recordLayerRough(layer->id(), rough, tr("Rough Layer"));
-    notifyLayerChanged(layer);
+    setAttribute(layer, AttributeId::Rough, rough);
 }
 
 void LayerManager::setTimesheetColumn(Layer* layer, TimesheetColumn column)
 {
-    if (layer == nullptr || layer->timesheetColumn() == column) { return; }
-    const TimesheetColumn old = layer->timesheetColumn();
-    layer->setTimesheetColumn(column);
-    editor()->undoRedo()->recordLayerTimesheet(layer->id(), old, column, tr("Timesheet Column"));
-    notifyLayerChanged(layer);
+    setAttribute(layer, AttributeId::Timesheet, static_cast<int>(column));
 }
 
 bool LayerManager::setSceneLength(int length)
@@ -543,10 +532,7 @@ void LayerManager::setCameraSize(LayerCamera* layer, QSize size)
 
 void LayerManager::setStoryboard(Layer* layer, bool storyboard)
 {
-    if (layer == nullptr || layer->isStoryboard() == storyboard) { return; }
-    layer->setStoryboard(storyboard);
-    editor()->undoRedo()->recordLayerStoryboard(layer->id(), storyboard, tr("Storyboard Layer"));
-    notifyLayerChanged(layer);
+    setAttribute(layer, AttributeId::Storyboard, storyboard);
 }
 
 bool LayerManager::setPanelFields(Layer* layer, int frame, const PanelFields& fields)

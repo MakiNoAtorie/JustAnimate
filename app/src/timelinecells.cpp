@@ -1092,9 +1092,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             else if (event->button() == Qt::LeftButton && event->pos().x() >= kLockAllLeft && event->pos().x() < kLayerNameLeft)
             {
                 Layer* layer = mEditor->object()->getLayer(layerNumber);
-                layer->setLockAll(!layer->lockAll());
-                mEditor->object()->modification();
-                emit mEditor->updateTimeLine();
+                mEditor->layers()->setAttribute(layer, AttributeId::LockAll, !layer->lockAll());
             }
             else if (event->button() == Qt::LeftButton && event->pos().x() >= kOnionToggleLeft && event->pos().x() < kOnionToggleRight &&
                      clicked->type() != Layer::SOUND)

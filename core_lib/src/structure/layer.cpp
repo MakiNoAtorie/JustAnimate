@@ -24,15 +24,11 @@ GNU General Public License for more details.
 #include <QHash>
 #include <QFile>
 #include <QSet>
-#include <iterator>
 #include "attributes.h"
 #include "keyframe.h"
 #include "util.h"
 
 // The <layer timesheet> code of each TimesheetColumn; Default and Dialogue are never saved.
-static const char* const kTimesheetCodes[] = { "", "KA", "KB", "KC", "KD", "KE", "KF", "",
-                                               "IA", "IB", "IC", "ID", "IE", "IF", "CAM" };
-
 // Used to sort the selected frames list
 bool sortAsc(int left, int right)
 {
@@ -801,18 +797,7 @@ QDomElement Layer::createBaseDomElement(QDomDocument& doc) const
 {
     QDomElement layerTag = doc.createElement("layer");
     layerTag.setAttribute("id", id());
-    layerTag.setAttribute("name", name());
-    layerTag.setAttribute("visibility", visible());
     layerTag.setAttribute("type", type());
-    // Optional: only written when off, so older versions still read the file.
-    if (!onionSkin()) { layerTag.setAttribute("onion", 0); }
-    if (blendMode() != BlendMode::Normal) { layerTag.setAttribute("blend", static_cast<int>(blendMode())); }
-    if (groupId() != 0) { layerTag.setAttribute("group", groupId()); }
-    if (isRough()) { layerTag.setAttribute("rough", 1); }
-    if (lockAll()) { layerTag.setAttribute("lockAll", 1); }
-    const char* timesheet = kTimesheetCodes[static_cast<int>(timesheetColumn())];
-    if (*timesheet != '\0') { layerTag.setAttribute("timesheet", QLatin1String(timesheet)); }
-    if (isStoryboard()) { layerTag.setAttribute("storyboard", 1); }
     writeLayerAttributes(*this, layerTag);
     return layerTag;
 }
@@ -824,22 +809,6 @@ void Layer::loadBaseDomElement(const QDomElement& elem)
         int id = elem.attribute("id").toInt();
         setId(id);
     }
-    setName(elem.attribute("name", "untitled"));
-    setVisible(elem.attribute("visibility", "1").toInt());
-    setOnionSkin(elem.attribute("onion", "1").toInt());
-    const int blend = elem.attribute("blend", "0").toInt();
-    setBlendMode(blend >= 0 && blend < kBlendModeCount ? static_cast<BlendMode>(blend) : BlendMode::Normal);
-    setGroupId(elem.attribute("group", "0").toInt());
-    setRough(elem.attribute("rough", "0").toInt() == 1);
-    setLockAll(elem.attribute("lockAll") == "1");
-    const QString timesheet = elem.attribute("timesheet");
-    // An empty or unknown code loads as Default.
-    setTimesheetColumn(TimesheetColumn::Default);
-    for (int i = 1; i < static_cast<int>(std::size(kTimesheetCodes)); ++i)
-    {
-        if (!timesheet.isEmpty() && timesheet == QLatin1String(kTimesheetCodes[i])) { setTimesheetColumn(static_cast<TimesheetColumn>(i)); }
-    }
-    setStoryboard(elem.attribute("storyboard") == "1");
     readLayerAttributes(*this, elem);
 }
 
