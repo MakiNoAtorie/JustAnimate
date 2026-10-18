@@ -48,10 +48,8 @@ extern "C" {
 }
 #endif
 
-const qreal StrokeTool::FEATHER_MIN = 1.;
-const qreal StrokeTool::FEATHER_MAX = 99.;
-const qreal StrokeTool::WIDTH_MIN = 1.;
-const qreal StrokeTool::WIDTH_MAX = 200.;
+const qreal StrokeTool::FEATHER_MIN = ToolProperties::descriptor(StrokeToolProperties::FEATHER_VALUE)->min;
+const qreal StrokeTool::FEATHER_MAX = ToolProperties::descriptor(StrokeToolProperties::FEATHER_VALUE)->max;
 
 // ---- shared static variables ---- ( only one instance for all the tools )
 bool StrokeTool::mQuickSizingEnabled = false;
@@ -71,46 +69,23 @@ void StrokeTool::loadSettings()
     mOutlineStyle = mEditor->preference()->getInt(SETTING::CURSOR_STYLE) != CURSOR_CROSS_ONLY;
 
     QSettings& settings = pencilSettings();
-    QHash<int, PropertyInfo> info;
-    info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
-    info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
-    info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
-    info[StrokeToolProperties::TIP_SQUARE_ENABLED] = false;
-    info[StrokeToolProperties::TIP_ASPECT_VALUE] = { TIP_ASPECT_MIN, 100.0, 100.0 };
-    info[StrokeToolProperties::TIP_ANGLE_VALUE] = { -180.0, 180.0, 0.0 };
-    info[StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED] = false;
-    info[StrokeToolProperties::FLOW_VALUE] = { 1.0, 100.0, 100.0 };
-    info[StrokeToolProperties::OPACITY_VALUE] = { 1.0, 100.0, 100.0 };
-    info[StrokeToolProperties::WASH_ENABLED] = false;
-    info[StrokeToolProperties::SPEED_TO_SIZE_VALUE] = { -100, 100, 0 };
-    info[StrokeToolProperties::TILT_TO_SIZE_VALUE] = { -100, 100, 0 };
-    info[StrokeToolProperties::TILT_TO_ANGLE_VALUE] = { -100, 100, 0 };
-    info[StrokeToolProperties::SIZE_JITTER_VALUE] = { 0, 100, 0 };
-    info[StrokeToolProperties::SCATTER_VALUE] = { 0, 500, 0 };
-    info[StrokeToolProperties::ANGLE_JITTER_VALUE] = { 0, 180, 0 };
-    info[StrokeToolProperties::DAB_COUNT_VALUE] = { 1, 16, 1 };
-    info[StrokeToolProperties::FLOW_PER_DAB_ENABLED] = false;
-    info[StrokeToolProperties::TAPER_START_VALUE] = { 0, 1000, 0 };
-    info[StrokeToolProperties::TAPER_END_VALUE] = { 0, 1000, 0 };
-    info[StrokeToolProperties::GRAIN_MODE_VALUE] = { 0, 2, 0 };
-    info[StrokeToolProperties::GRAIN_TEXTURE_VALUE] = { 0, TiledBuffer::grainTextureCount - 1, 0 };
-    info[StrokeToolProperties::GRAIN_SCALE_VALUE] = { 25, 800, 100 };
-    info[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { 0, 400, 100 };
-    info[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { -100, 100, 0 };
-    info[StrokeToolProperties::SMUDGE_LENGTH_VALUE] = { 0, 100, 50 };
-    info[StrokeToolProperties::SMUDGE_RADIUS_VALUE] = { 1, 100, 50 };
-    info[StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE] = { 0, 100, 0 };
-    info[StrokeToolProperties::SMUDGE_MIX_VALUE] = { 0, 1, 0 };
-    info[StrokeToolProperties::FEATHER_ENABLED] = false;
-    info[StrokeToolProperties::PRESSURE_ENABLED] = false;
-    info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;
-    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
-    info[StrokeToolProperties::SMOOTHING_STRENGTH] = { 0, 100, 50 };
-    info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = false;
-    info[StrokeToolProperties::FILLCONTOUR_ENABLED] = false;
+    toolProperties().loadTool(type(), typeName(), settings);
+    // Older versions kept a stabilizer level in these tools' groups.
+    if (type() == PENCIL || type() == BRUSH || type() == ERASER || type() == PEN || type() == SHAPE)
+    {
+        migrateLineStabilization(settings);
+    }
+    toolProperties().migrateLegacyKeys(type(), settings);
 
-    toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), settings);
+    mPropertyUsed.clear();
+    for (const ToolPropertyDescriptor& d : ToolProperties::descriptors())
+    {
+        const ToolPropertyUse* use = d.use(type());
+        if (!use || use->layers == NO_ROW) { continue; }
+        QSet<Layer::LAYER_TYPE>& layers = mPropertyUsed[d.id];
+        if (use->layers & BITMAP_ROW) { layers.insert(Layer::BITMAP); }
+        if (use->layers & VECTOR_ROW) { layers.insert(Layer::VECTOR); }
+    }
 
     /// Given the way that we update preferences currently, this connection should not be removed
     /// when the tool is not active.
@@ -448,11 +423,6 @@ void StrokeTool::paint(QPainter& painter, const QRect& blitRect)
     mWidthCursorPainter.paint(painter, blitRect);
 
     painter.restore();
-}
-
-PropertyInfo StrokeTool::smoothingModeInfo(SmoothingMode defaultMode)
-{
-    return { static_cast<int>(SmoothingMode::None), static_cast<int>(InputSmoother::LAST_MODE), static_cast<int>(defaultMode) };
 }
 
 void StrokeTool::setLegacySmoothing(int level)

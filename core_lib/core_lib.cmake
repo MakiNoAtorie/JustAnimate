@@ -203,6 +203,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokesnapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/autosaverbytime.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/util/blitrect.cpp

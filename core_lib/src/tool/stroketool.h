@@ -131,7 +131,6 @@ protected:
     /// The outline of one dab of the base width and tip at a canvas point.
     QPainterPath brushOutline(const QPointF& point) const;
 
-    static PropertyInfo smoothingModeInfo(SmoothingMode defaultMode);
     /// Sets smoothing from an old None/Simple/Strong stabilizer level.
     void setLegacySmoothing(int level);
     /// Maps the old LineStabilization setting once, while the tool has no SmoothingMode yet.
@@ -170,11 +169,6 @@ protected:
 
     static const qreal FEATHER_MIN;
     static const qreal FEATHER_MAX;
-    static constexpr qreal SPACING_MIN = 1.0;
-    static constexpr qreal SPACING_MAX = 400.0;
-    static constexpr qreal TIP_ASPECT_MIN = 5.0;
-    static const qreal WIDTH_MIN;
-    static const qreal WIDTH_MAX;
 
     SAVESTATE_ID mUndoSaveStateId = 0;
 

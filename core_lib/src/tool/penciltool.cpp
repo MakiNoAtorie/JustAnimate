@@ -16,7 +16,6 @@ GNU General Public License for more details.
 */
 #include "penciltool.h"
 
-#include <QSettings>
 #include <QPixmap>
 #include "pointerevent.h"
 
@@ -31,7 +30,6 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "layervector.h"
 #include "vectorimage.h"
-#include "pencilsettings.h"
 
 
 PencilTool::PencilTool(QObject* parent) : DabTool(parent)
@@ -41,63 +39,8 @@ PencilTool::PencilTool(QObject* parent) : DabTool(parent)
 void PencilTool::loadSettings()
 {
     StrokeTool::loadSettings();
-
-    mPropertyUsed[StrokeToolProperties::WIDTH_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::FILLCONTOUR_ENABLED] = { Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::SPACING_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TIP_SQUARE_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TIP_ASPECT_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TIP_ANGLE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::SPEED_TO_SIZE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TILT_TO_SIZE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TILT_TO_ANGLE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::SIZE_JITTER_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::SCATTER_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::ANGLE_JITTER_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::DAB_COUNT_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_MODE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_TEXTURE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_SCALE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::FLOW_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::OPACITY_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::WASH_ENABLED] = { Layer::BITMAP };
-
-    QSettings& settings = pencilSettings();
-
-    QHash<int, PropertyInfo> info;
-
-    info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 4.0 };
-    info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 50.0 };
-    info[StrokeToolProperties::PRESSURE_ENABLED] = true;
-    info[StrokeToolProperties::FEATHER_ENABLED] = false;
-    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
-    info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
-    info[StrokeToolProperties::FILLCONTOUR_ENABLED] = false;
-
-    toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), settings);
-    migrateLineStabilization(settings);
-
-    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("pencilWidth", 4.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, settings.value("pencilPressure", true).toBool());
-        setLegacySmoothing(settings.value("pencilLineStabilization", StabilizationLevel::STRONG).toInt());
-        toolProperties().setBaseValue(StrokeToolProperties::FILLCONTOUR_ENABLED, settings.value("FillContour", false).toBool());
-
-        settings.remove("pencilWidth");
-        settings.remove("pencilPressure");
-        settings.remove("pencilLineStabilization");
-        settings.remove("FillContour");
-    }
-
-    toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, info[StrokeToolProperties::FEATHER_VALUE].defaultReal());
+    // The pencil keeps its feather fixed.
+    toolProperties().set(ToolProperty::Feather, ToolProperties::descriptor(StrokeToolProperties::FEATHER_VALUE)->toolDefault(PENCIL));
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
 }

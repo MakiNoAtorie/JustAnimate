@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
-#include <QSettings>
 
 #include "beziercurve.h"
 #include "colormanager.h"
@@ -31,12 +30,10 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "vectorimage.h"
 #include "viewmanager.h"
-#include "pencilsettings.h"
 
 ShapeTool::ShapeTool(QObject* parent) : BrushTool(parent)
 {
     mSettings.addRange({ ShapeToolProperties::START, ShapeToolProperties::END });
-    mSettings.toolProperties().insertIdentifiers({ { ShapeToolProperties::SHAPEMODE_VALUE, "ShapeMode" } });
 }
 
 ToolType ShapeTool::type() const
@@ -47,17 +44,6 @@ ToolType ShapeTool::type() const
 void ShapeTool::loadSettings()
 {
     BrushTool::loadSettings();
-
-    // A shape has no pen motion, so pen dynamics do not apply.
-    for (int p : { StrokeToolProperties::PRESSURE_ENABLED, StrokeToolProperties::SMOOTHING_MODE,
-                   StrokeToolProperties::SPEED_TO_SIZE_VALUE, StrokeToolProperties::TILT_TO_SIZE_VALUE,
-                   StrokeToolProperties::TILT_TO_ANGLE_VALUE })
-        mPropertyUsed.remove(p);
-    mPropertyUsed[ShapeToolProperties::SHAPEMODE_VALUE] = { Layer::BITMAP, Layer::VECTOR };
-
-    QSettings& settings = pencilSettings();
-    toolProperties().insertProperties({ { ShapeToolProperties::SHAPEMODE_VALUE, PropertyInfo(LINE, POLYGON, RECTANGLE) } });
-    toolProperties().loadFrom(typeName(), settings);
 
     // Shift and Alt shape the outline; quick sizing would take them.
     mQuickSizingProperties.clear();

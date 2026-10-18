@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "pentool.h"
 
 #include <QPixmap>
-#include <QSettings>
 
 #include "vectorimage.h"
 #include "layervector.h"
@@ -30,7 +29,6 @@ GNU General Public License for more details.
 #include "scribblearea.h"
 #include "blitrect.h"
 #include "pointerevent.h"
-#include "pencilsettings.h"
 
 
 PenTool::PenTool(QObject* parent) : StrokeTool(parent)
@@ -40,36 +38,6 @@ PenTool::PenTool(QObject* parent) : StrokeTool(parent)
 void PenTool::loadSettings()
 {
     StrokeTool::loadSettings();
-
-    QSettings& settings = pencilSettings();
-
-    mPropertyUsed[StrokeToolProperties::WIDTH_VALUE] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::ANTI_ALIASING_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
-
-    QHash<int, PropertyInfo> info;
-
-    info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 12.0 };
-    info[StrokeToolProperties::PRESSURE_ENABLED] = true;
-    info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = true;
-    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
-
-    toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), settings);
-    migrateLineStabilization(settings);
-
-    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("penWidth", 12.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, settings.value("penPressure", true).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::ANTI_ALIASING_ENABLED, settings.value("penAA", true).toBool());
-        setLegacySmoothing(settings.value("penLineStablization", StabilizationLevel::STRONG).toInt());
-
-        settings.remove("penWidth");
-        settings.remove("penPressure");
-        settings.remove("penAA");
-        settings.remove("penLineStablization");
-    }
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
 }

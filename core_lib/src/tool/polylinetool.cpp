@@ -17,7 +17,6 @@ GNU General Public License for more details.
 
 #include "polylinetool.h"
 
-#include <QSettings>
 #include "editor.h"
 #include "scribblearea.h"
 
@@ -29,7 +28,6 @@ GNU General Public License for more details.
 #include "layervector.h"
 #include "layerbitmap.h"
 #include "vectorimage.h"
-#include "pencilsettings.h"
 
 
 PolylineTool::PolylineTool(QObject* parent) : StrokeTool(parent)
@@ -44,33 +42,6 @@ ToolType PolylineTool::type() const
 void PolylineTool::loadSettings()
 {
     StrokeTool::loadSettings();
-
-    mPropertyUsed[StrokeToolProperties::WIDTH_VALUE] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[PolylineToolProperties::CLOSEDPATH_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[PolylineToolProperties::BEZIERPATH_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::ANTI_ALIASING_ENABLED] = { Layer::BITMAP };
-
-    QSettings& settings = pencilSettings();
-
-    QHash<int, PropertyInfo> info;
-
-    info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 8.0 };
-    info[PolylineToolProperties::CLOSEDPATH_ENABLED] = false;
-    info[PolylineToolProperties::BEZIERPATH_ENABLED] = false;
-    info[StrokeToolProperties::ANTI_ALIASING_ENABLED] = true;
-
-    toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), settings);
-
-    if (toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("polylineWidth", 8.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::ANTI_ALIASING_ENABLED, settings.value("brushAA", true).toBool());
-        toolProperties().setBaseValue(PolylineToolProperties::CLOSEDPATH_ENABLED, settings.value("closedPolylinePath", false).toBool());
-
-        settings.remove("polylineWidth");
-        settings.remove("brushAA");
-        settings.remove("closedPolylinePath");
-    }
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
 }

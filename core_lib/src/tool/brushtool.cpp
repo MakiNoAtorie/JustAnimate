@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "brushtool.h"
 
 #include <cmath>
-#include <QSettings>
 #include <QPixmap>
 #include <QPainter>
 #include <QColor>
@@ -33,7 +32,6 @@ GNU General Public License for more details.
 #include "undoredomanager.h"
 #include "scribblearea.h"
 #include "pointerevent.h"
-#include "pencilsettings.h"
 
 
 BrushTool::BrushTool(QObject* parent) : DabTool(parent)
@@ -48,64 +46,6 @@ ToolType BrushTool::type() const
 void BrushTool::loadSettings()
 {
     StrokeTool::loadSettings();
-
-    mPropertyUsed[StrokeToolProperties::WIDTH_VALUE] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::FEATHER_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::PRESSURE_ENABLED] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::INVISIBILITY_ENABLED] = { Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::SMOOTHING_MODE] = { Layer::BITMAP, Layer::VECTOR };
-    mPropertyUsed[StrokeToolProperties::SPACING_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TIP_SQUARE_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TIP_ASPECT_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TIP_ANGLE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::SPEED_TO_SIZE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TILT_TO_SIZE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TILT_TO_ANGLE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::SIZE_JITTER_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::SCATTER_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::ANGLE_JITTER_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::DAB_COUNT_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TAPER_START_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::TAPER_END_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_MODE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_TEXTURE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_SCALE_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_CONTRAST_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::FLOW_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::OPACITY_VALUE] = { Layer::BITMAP };
-    mPropertyUsed[StrokeToolProperties::WASH_ENABLED] = { Layer::BITMAP };
-
-    QSettings& settings = pencilSettings();
-
-    QHash<int, PropertyInfo> info;
-    info[StrokeToolProperties::WIDTH_VALUE] = { WIDTH_MIN, WIDTH_MAX, 24.0 };
-    info[StrokeToolProperties::FEATHER_VALUE] = { FEATHER_MIN, FEATHER_MAX, 48.0 };
-    info[StrokeToolProperties::FEATHER_ENABLED] = true;
-    info[StrokeToolProperties::PRESSURE_ENABLED] = true;
-    info[StrokeToolProperties::INVISIBILITY_ENABLED] = false;
-    info[StrokeToolProperties::SMOOTHING_MODE] = smoothingModeInfo(SmoothingMode::OneEuro);
-    info[StrokeToolProperties::SPACING_VALUE] = { SPACING_MIN, SPACING_MAX, 12.5 };
-
-    toolProperties().insertProperties(info);
-    toolProperties().loadFrom(typeName(), settings);
-    migrateLineStabilization(settings);
-
-    // Subclasses (the shape tool) must not consume the old brush keys.
-    if (type() == BRUSH && toolProperties().requireMigration(settings, ToolProperties::VERSION_1)) {
-        toolProperties().setBaseValue(StrokeToolProperties::WIDTH_VALUE, settings.value("brushWidth", 24.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::FEATHER_VALUE, settings.value("brushFeather", 48.0).toReal());
-        toolProperties().setBaseValue(StrokeToolProperties::PRESSURE_ENABLED, settings.value("brushPressure", true).toBool());
-        toolProperties().setBaseValue(StrokeToolProperties::INVISIBILITY_ENABLED, settings.value("brushInvisibility", false).toBool());
-        setLegacySmoothing(settings.value("brushLineStabilization", StabilizationLevel::STRONG).toInt());
-
-        settings.remove("brushWidth");
-        settings.remove("brushFeather");
-        settings.remove("brushPressure");
-        settings.remove("brushInvisibility");
-        settings.remove("brushLineStabilization");
-    }
 
     mQuickSizingProperties.insert(Qt::ShiftModifier, StrokeToolProperties::WIDTH_VALUE);
     mQuickSizingProperties.insert(Qt::ControlModifier, StrokeToolProperties::FEATHER_VALUE);

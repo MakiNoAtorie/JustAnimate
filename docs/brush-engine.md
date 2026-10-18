@@ -60,8 +60,8 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
 - New `StrokeToolProperties` ids take the next free number on the
   integration branch tip. A setting that changes how dab alpha adds up is a
   bool, off by default, so a preset can bring back older output.
-- Stroke settings shared by Pencil, Brush and Eraser get defaults in
-  `StrokeTool::loadSettings`; each tool only adds `mPropertyUsed`.
+- A Stroke tool property's key, range, defaults, legacy key and Tool
+  settings rows live only in its descriptor in `toolproperties.cpp`.
 - A structured preference is a string read through a parser (such as
   `PressureCurve::fromString`); an empty or invalid value gives the neutral
   default.

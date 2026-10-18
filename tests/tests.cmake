@@ -75,6 +75,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_stroketool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tabletapi.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolsettings.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_toolpropertyregistry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_undoredomanager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_vectorimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_viewmanager.cpp

@@ -9,6 +9,7 @@ the original Pencil2D history is kept below for reference.
 - Open, save and the unsaved-changes prompt move to a project session; undoing back to the last save clears the unsaved mark (#262).
 - Lock Transparency is undoable; it is the first row of the layer attribute table that save, load and duplicate read (#252).
 - Image and image sequence export render through one frame renderer that holds the layer rules once (#259).
+- Stroke tool settings load and migrate from one descriptor table per property; keys and values are unchanged (#266).
 - Deleted the unused upstream name and URL macros (#251).
 - The pressure log checkbox is gone; set JUSTANIMATE_PRESSURE_LOG=1 to print each dab (#242).
 - The pen double-click uses the system double-click interval and distance instead of 500 ms and 5 px (#250).
