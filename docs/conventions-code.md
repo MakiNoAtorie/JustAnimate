@@ -103,3 +103,13 @@ Rules for every code change, read before you edit code. Same limits as
 - A dropped file attribute: stop writing and reading it, no load shim
   (QDom ignores unknown attributes); `docs/file-format.md` says the old
   attribute is ignored.
+- A layer, Drawing or project value is one row in `attributes.cpp`, set
+  through `LayerManager::setAttribute`, `setKeyAttribute` or
+  `setProjectAttribute`; never a per-value command.
+- Layer rules live only in `FrameRenderer`; exports render through
+  `renderForExport` and run as an `ExportRequest` through `Exporter::run`.
+- Open, save, autosave, recovery, recent files and dirty state go only
+  through `ProjectSession`.
+- A timeline or X-sheet mouse edit maps pixels to (layer, frame,
+  `FrameHit`) and calls `FrameEditGesture`; frame selection and key moves
+  only through `LayerManager`.
