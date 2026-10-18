@@ -363,9 +363,9 @@ TEST_CASE("Onion skin: vector onion frames render as before", "[CanvasPainter]")
     }
     const std::string hash = all.result().toHex().toStdString();
     CAPTURE(hash);
-#ifdef Q_OS_MACOS
-    // shortcut: placeholder macOS hash (macOS rasterises antialiased paths differently); copy the captured value from CI.
-    CHECK(hash == "macOS hash not recorded yet");
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0) && QT_VERSION < QT_VERSION_CHECK(6, 6, 0)
+    // Qt 6.5 rasterises antialiased vector paths differently (CI Windows and macOS).
+    CHECK(hash == "bfdfc1197d10d9e427c5df12a09b160f8b40e791");
 #else
     CHECK(hash == "1a82d3eb51e9e80f57d4f840b393c1fd11a94b21");
 #endif
