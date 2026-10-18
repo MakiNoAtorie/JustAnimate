@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Timeline click select, box select and frame move run through one frame-edit gesture, driven by layer and frame instead of pixels (#264).
+- Movie and GIF export, from the menu or the command line, run through the same core exporter (#274).
 - The canvas paints its layers through the frame renderer rules, pinned to the export pixels by a parity test (#261).
 - Image and image sequence export run through one core exporter; a cancelled or failed export leaves no partial files, and replacing an existing image asks first (#273).
 - Editor and LayerManager edits record through one scoped Edit that picks the undo record; undoing a new layer, attribute or marker edit back to the save point leaves the project clean (#256).

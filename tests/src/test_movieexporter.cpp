@@ -142,31 +142,6 @@ TEST_CASE("MovieExporter::audioMix skips clips whose file is missing")
     }
 }
 
-TEST_CASE("MovieExporter::mayOverwrite")
-{
-    QTemporaryDir dir;
-    REQUIRE(dir.isValid());
-    int asked = 0;
-    auto no = [&asked] { asked++; return false; };
-    auto yes = [&asked] { asked++; return true; };
-
-    SECTION("A new file does not ask")
-    {
-        REQUIRE(MovieExporter::mayOverwrite(dir.filePath("new.mp4"), no));
-        REQUIRE(asked == 0);
-    }
-    SECTION("An existing file asks and honours a refusal")
-    {
-        REQUIRE_FALSE(MovieExporter::mayOverwrite(makeFile(dir), no));
-        REQUIRE(asked == 1);
-    }
-    SECTION("An existing file asks and honours a confirmation")
-    {
-        REQUIRE(MovieExporter::mayOverwrite(makeFile(dir), yes));
-        REQUIRE(asked == 1);
-    }
-}
-
 TEST_CASE("MovieExporter export presets")
 {
     SECTION("quality presets map to ffmpeg args")

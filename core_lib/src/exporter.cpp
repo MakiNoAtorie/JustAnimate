@@ -62,6 +62,35 @@ Status failure(const QString& what, const QString& path, const QString& error)
     dd << QString("&nbsp;&nbsp;Error: ").append(error);
     return Status(Status::FAIL, dd);
 }
+
+// MovieExporter writes to a temporary file and renames it over the target only on success.
+Status runMovie(const Object& object, const ExportRequest& r, const std::function<bool(int, int)>& progress)
+{
+    ExportMovieDesc desc;
+    desc.strFileName = r.path;
+    desc.startFrame = r.startFrame;
+    desc.endFrame = r.endFrame;
+    desc.fps = r.fps;
+    desc.exportSize = r.size;
+    desc.strCameraName = r.cameraName;
+    desc.loop = r.loop;
+    desc.alpha = r.transparency;
+    desc.quality = r.quality;
+    desc.gifColors = r.gifColors;
+    desc.gifDither = r.gifDither;
+
+    MovieExporter ex;
+    // The overall fraction is the sub-task's start plus its share of the sub-task's length.
+    float start = 0.f;
+    float length = 0.f;
+    auto report = [&](float f) { if (progress && !progress(int(f * 1000), 1000)) { ex.cancel(); } };
+    const Status st = ex.run(&object, desc,
+        [&](float f, float next) { start = f; length = qMax(0.f, next - f); report(f); },
+        [&](float f) { report(start + f * length); },
+        [](const QString&) {});
+    if (st.ok() && r.skippedClips && !ex.skippedClips().isEmpty()) { r.skippedClips(ex.skippedClips()); }
+    return st;
+}
 }
 
 const LayerCamera* Exporter::camera(const Object& object, const QString& name)
@@ -96,7 +125,7 @@ Status Exporter::run(const Object& object, const ExportRequest& r, const std::fu
     }
     else
     {
-        targets << withExtension(r.path, format.extension);
+        targets << (r.kind == Kind::Movie ? r.path : withExtension(r.path, format.extension));
     }
 
     if (r.confirmOverwrite)
@@ -110,6 +139,7 @@ Status Exporter::run(const Object& object, const ExportRequest& r, const std::fu
             }
         }
     }
+    if (r.kind == Kind::Movie) { return runMovie(object, r, progress); }
 
     // Each file is written to "<name>.tmp.<ext>" and renamed over its target only when the whole run succeeds.
     std::vector<std::pair<QString, QString>> written; // temporary, target

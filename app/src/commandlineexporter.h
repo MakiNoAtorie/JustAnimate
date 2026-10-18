@@ -70,19 +70,6 @@ private:
     Editor *mEditor;
     QTextStream mOut;
     QTextStream mErr;
-    Status exportMovie(const QString &outputPath,
-                       const LayerCamera *cameraLayer,
-                       const QSize &exportSize,
-                       int startFrame,
-                       int endFrame,
-                       bool transparency);
-    Status exportImageSequence(const QString &outputPath,
-                               const QString &format,
-                               const LayerCamera *cameraLayer,
-                               const QSize &exportSize,
-                               int startFrame,
-                               int endFrame,
-                               bool transparency);
     void printError(const Status &st);
 };
 

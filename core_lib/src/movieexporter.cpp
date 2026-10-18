@@ -175,11 +175,6 @@ Status MovieExporter::writeThenReplace(const QString& target, const std::functio
     return st;
 }
 
-bool MovieExporter::mayOverwrite(const QString& path, const std::function<bool()>& confirm)
-{
-    return !QFile::exists(path) || confirm();
-}
-
 QImage MovieExporter::frameImage(const Object& obj, const ExportMovieDesc& desc, int frame)
 {
     const LayerCamera* camera = Exporter::camera(obj, desc.strCameraName);

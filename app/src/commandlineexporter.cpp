@@ -23,7 +23,6 @@ GNU General Public License for more details.
 #include "fileformat.h"
 #include "layercamera.h"
 #include "layermanager.h"
-#include "movieexporter.h"
 #include "object.h"
 #include "pagewriter.h"
 #include "paperpainter.h"
@@ -131,9 +130,36 @@ Status CommandLineExporter::process(const QString &inputPath,
             format = "PNG";
         }
 
-        Status st = isMovieFormat(format)
-            ? exportMovie(outputPath, cameraLayer, exportSize, startFrame, endFrame, transparency)
-            : exportImageSequence(outputPath, format, cameraLayer, exportSize, startFrame, endFrame, transparency);
+        ExportRequest request;
+        request.cameraName = cameraLayer->name();
+        request.startFrame = startFrame;
+        request.endFrame = endFrame;
+        request.size = exportSize;
+        request.path = outputPath;
+        if (isMovieFormat(format))
+        {
+            if (transparency)
+            {
+                mErr << tr("Warning: Transparency is not currently supported in movie files", "Command line warning") << qEndl;
+            }
+            mOut << tr("Exporting movie...", "Command line task progress") << qEndl;
+            request.kind = ExportRequest::Kind::Movie;
+            request.fps = mEditor->playback()->fps();
+            request.skippedClips = [this](const QStringList& clips) {
+                for (const QString& clip : clips)
+                {
+                    mErr << tr("Warning: sound clip left out, file is missing: %1", "Command line warning").arg(clip) << qEndl;
+                }
+            };
+        }
+        else
+        {
+            mOut << tr("Exporting image sequence...", "Command line task progress") << qEndl;
+            request.kind = ExportRequest::Kind::Sequence;
+            request.format = format;
+            request.transparency = transparency;
+        }
+        const Status st = Exporter::run(*mEditor->object(), request);
         if (!st.ok())
         {
             printError(st);
@@ -143,58 +169,6 @@ Status CommandLineExporter::process(const QString &inputPath,
     }
 
     return Status::OK;
-}
-
-Status CommandLineExporter::exportMovie(const QString &outputPath,
-                                        const LayerCamera *cameraLayer,
-                                        const QSize &exportSize,
-                                        int startFrame,
-                                        int endFrame,
-                                        bool transparency)
-{
-    if (transparency)
-    {
-        mErr << tr("Warning: Transparency is not currently supported in movie files", "Command line warning") << qEndl;
-    }
-
-    mOut << tr("Exporting movie...", "Command line task progress") << qEndl;
-
-    ExportMovieDesc desc;
-    desc.strFileName = outputPath;
-    desc.startFrame = startFrame;
-    desc.endFrame = endFrame;
-    desc.fps = mEditor->playback()->fps();
-    desc.exportSize = exportSize;
-    desc.strCameraName = cameraLayer->name();
-
-    MovieExporter ex;
-    const Status st = ex.run(mEditor->object(), desc, [](float, float){}, [](float){}, [](const QString &){});
-    for (const QString& clip : ex.skippedClips())
-    {
-        mErr << tr("Warning: sound clip left out, file is missing: %1", "Command line warning").arg(clip) << qEndl;
-    }
-    return st;
-}
-
-Status CommandLineExporter::exportImageSequence(const QString &outputPath,
-                                                const QString &format,
-                                                const LayerCamera *cameraLayer,
-                                                const QSize &exportSize,
-                                                int startFrame,
-                                                int endFrame,
-                                                bool transparency)
-{
-    mOut << tr("Exporting image sequence...", "Command line task progress") << qEndl;
-    ExportRequest request;
-    request.kind = ExportRequest::Kind::Sequence;
-    request.cameraName = cameraLayer->name();
-    request.startFrame = startFrame;
-    request.endFrame = endFrame;
-    request.size = exportSize;
-    request.format = format;
-    request.path = outputPath;
-    request.transparency = transparency;
-    return Exporter::run(*mEditor->object(), request);
 }
 
 void CommandLineExporter::printError(const Status &st)

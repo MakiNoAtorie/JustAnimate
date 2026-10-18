@@ -22,10 +22,15 @@ GNU General Public License for more details.
 #include <QTemporaryDir>
 
 #include "bitmapimage.h"
+#include "commandlineexporter.h"
+#include "editor.h"
 #include "exporter.h"
+#include "filemanager.h"
 #include "layerbitmap.h"
 #include "layercamera.h"
 #include "object.h"
+#include "playbackmanager.h"
+#include "scribblearea.h"
 
 namespace
 {
@@ -196,4 +201,63 @@ TEST_CASE("Exporter asks once before it overwrites", "[Exporter]")
     r.confirmOverwrite = [&](const QString&) { ++asked; return false; };
     REQUIRE(Exporter::run(*object, r).ok());
     CHECK(asked == 2);
+}
+
+TEST_CASE("Command line and dialog requests for the same range produce the same files", "[Exporter]")
+{
+    QTemporaryDir dir;
+    const QString project = dir.filePath("p.pclx");
+    {
+        auto object = ::project();
+        FileManager fm;
+        REQUIRE(fm.save(object.get(), project).ok());
+    }
+    Editor editor;
+    ScribbleArea scribbleArea(nullptr);
+    editor.setScribbleArea(&scribbleArea);
+    editor.setObject(new Object);
+    editor.init();
+    QDir(dir.path()).mkdir("cli");
+    QDir(dir.path()).mkdir("dialog");
+
+    for (const QString name : { "out.png", "out.gif" })
+    {
+        CAPTURE(name);
+        const Status cli = CommandLineExporter(&editor).process(project, { dir.filePath("cli/" + name) }, "Cam", kSize.width(), kSize.height(), 1, 3, false);
+
+        // As ActionCommands fills it from the dialog's defaults.
+        ExportRequest r;
+        r.kind = name.endsWith(".gif") ? ExportRequest::Kind::Movie : ExportRequest::Kind::Sequence;
+        r.cameraName = "Cam";
+        r.startFrame = 1;
+        r.endFrame = 3;
+        r.size = kSize;
+        r.format = "PNG";
+        r.path = dir.filePath("dialog/" + name);
+        r.fps = editor.playback()->fps();
+        const Status dialog = Exporter::run(*editor.object(), r);
+
+        REQUIRE(cli.code() == dialog.code());
+        if (cli == Status::ERROR_FFMPEG_NOT_FOUND) { WARN("ffmpeg not installed: skipping GIF compare"); continue; }
+        REQUIRE(cli.ok());
+    }
+    const QStringList names = QDir(dir.filePath("cli")).entryList(QDir::Files);
+    REQUIRE(names == QDir(dir.filePath("dialog")).entryList(QDir::Files));
+    CHECK(names.contains("out0003.png"));
+    for (const QString& n : names) { CHECK(readFile(dir.filePath("cli/" + n)) == readFile(dir.filePath("dialog/" + n))); }
+}
+
+TEST_CASE("Exporter asks before a movie overwrites its file", "[Exporter]")
+{
+    auto object = project();
+    QTemporaryDir dir;
+    ExportRequest r;
+    r.kind = ExportRequest::Kind::Movie;
+    r.cameraName = "Cam";
+    r.size = kSize;
+    r.path = dir.filePath("out.mp4");
+    writeFile(r.path, "old");
+    r.confirmOverwrite = [](const QString&) { return false; };
+    CHECK(Exporter::run(*object, r) == Status::CANCELED);
+    CHECK(readFile(r.path) == "old");
 }

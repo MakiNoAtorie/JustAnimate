@@ -66,7 +66,6 @@ GNU General Public License for more details.
 #include "exportimagedialog.h"
 #include "aboutdialog.h"
 #include "camerapropertiesdialog.h"
-#include "doubleprogressdialog.h"
 #include "checkupdatesdialog.h"
 #include "errordialog.h"
 
@@ -78,6 +77,20 @@ std::function<bool(const QString&)> confirmOverwrite(QWidget* parent)
         return QMessageBox::question(parent, APP_NAME,
                    ActionCommands::tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(path))) == QMessageBox::Yes;
     };
+}
+
+// Each camera's name and view size; the current layer first when it is a camera.
+std::vector<std::pair<QString, QSize>> camerasInfo(Editor* editor)
+{
+    std::vector<std::pair<QString, QSize>> info;
+    for (const LayerCamera* camera : editor->object()->getLayersByType<LayerCamera>())
+    {
+        info.emplace_back(camera->name(), camera->getViewSize());
+    }
+    const Layer* current = editor->layers()->currentLayer();
+    auto it = std::find_if(info.begin(), info.end(), [current](const std::pair<QString, QSize>& p) { return p.first == current->name(); });
+    if (current->type() == Layer::CAMERA && it != info.end()) { std::swap(info.front(), *it); }
+    return info;
 }
 } // namespace
 
@@ -296,29 +309,7 @@ Status ActionCommands::exportMovie(bool isGif)
 
     dialog->init();
 
-    std::vector< std::pair<QString, QSize> > camerasInfo;
-    auto cameraLayers = mEditor->object()->getLayersByType< LayerCamera >();
-    for (LayerCamera* i : cameraLayers)
-    {
-        camerasInfo.push_back(std::make_pair(i->name(), i->getViewSize()));
-    }
-
-    auto currLayer = mEditor->layers()->currentLayer();
-    if (currLayer->type() == Layer::CAMERA)
-    {
-        QString strName = currLayer->name();
-        auto it = std::find_if(camerasInfo.begin(), camerasInfo.end(),
-            [strName](std::pair<QString, QSize> p)
-        {
-            return p.first == strName;
-        });
-
-        Q_ASSERT(it != camerasInfo.end());
-
-        std::swap(camerasInfo[0], *it);
-    }
-
-    dialog->setCamerasInfo(camerasInfo);
+    dialog->setCamerasInfo(camerasInfo(mEditor));
 
     int lengthWithSounds = mEditor->layers()->animationLength(true);
     int length = mEditor->layers()->animationLength(false);
@@ -330,71 +321,43 @@ Status ActionCommands::exportMovie(bool isGif)
     {
         return Status::SAFE;
     }
-    QString strMoviePath = dialog->getFilePath();
-    if (!MovieExporter::mayOverwrite(strMoviePath, [this, &strMoviePath] { return confirmOverwrite(mParent)(strMoviePath); }))
-    {
-        return Status::SAFE;
-    }
+    const QString strMoviePath = dialog->getFilePath();
+    ExportRequest request;
+    request.kind = ExportRequest::Kind::Movie;
+    request.cameraName = dialog->getSelectedCameraName();
+    request.startFrame = dialog->getStartFrame();
+    request.endFrame = dialog->getEndFrame();
+    request.size = dialog->getExportSize();
+    request.path = strMoviePath;
+    request.transparency = dialog->getTransparency();
+    request.fps = mEditor->playback()->fps();
+    request.loop = dialog->getLoop();
+    request.quality = dialog->getQuality();
+    request.gifColors = dialog->getGifColors();
+    request.gifDither = dialog->getGifDither();
+    request.confirmOverwrite = confirmOverwrite(mParent);
+    QStringList skippedClips;
+    request.skippedClips = [&skippedClips](const QStringList& clips) { skippedClips = clips; };
 
-    ExportMovieDesc desc;
-    desc.strFileName = strMoviePath;
-    desc.startFrame = dialog->getStartFrame();
-    desc.endFrame = dialog->getEndFrame();
-    desc.fps = mEditor->playback()->fps();
-    desc.exportSize = dialog->getExportSize();
-    desc.strCameraName = dialog->getSelectedCameraName();
-    desc.loop = dialog->getLoop();
-    desc.alpha = dialog->getTransparency();
-    desc.quality = dialog->getQuality();
-    desc.gifColors = dialog->getGifColors();
-    desc.gifDither = dialog->getGifDither();
+    QProgressDialog progress(tr("Exporting movie..."), tr("Abort"), 0, 1000, mParent);
+    hideQuestionMark(progress);
+    progress.setWindowModality(Qt::WindowModal);
+    progress.show();
 
-    DoubleProgressDialog progressDlg(mParent);
-    progressDlg.setWindowModality(Qt::WindowModal);
-    progressDlg.setWindowTitle(tr("Exporting movie"));
-    Qt::WindowFlags eFlags = Qt::Dialog | Qt::WindowTitleHint;
-    progressDlg.setWindowFlags(eFlags);
-    progressDlg.show();
-
-    MovieExporter ex;
-
-    connect(&progressDlg, &DoubleProgressDialog::canceled, [&ex]
-    {
-        ex.cancel();
+    const Status st = Exporter::run(*mEditor->object(), request, [&progress](int done, int total) {
+        progress.setValue(done * 1000 / total);
+        QApplication::processEvents();
+        return !progress.wasCanceled();
     });
-
-    // The start points and length for the current minor operation segment on the major progress bar
-    float minorStart, minorLength;
-
-    Status st = ex.run(mEditor->object(), desc,
-        [&progressDlg, &minorStart, &minorLength](float f, float final)
-        {
-            progressDlg.major->setValue(f);
-
-            minorStart = f;
-            minorLength = qMax(0.f, final - minorStart);
-
-            QApplication::processEvents();
-        },
-        [&progressDlg, &minorStart, &minorLength](float f) {
-            progressDlg.minor->setValue(f);
-
-            progressDlg.major->setValue(minorStart + f * minorLength);
-
-            QApplication::processEvents();
-        },
-        [&progressDlg](QString s) {
-            progressDlg.setStatus(s);
-            QApplication::processEvents();
-        }
-    );
+    progress.close();
+    if (st == Status::CANCELED) { return Status::SAFE; }
 
     if (st.ok())
     {
-        if (!ex.skippedClips().isEmpty())
+        if (!skippedClips.isEmpty())
         {
             QMessageBox::warning(mParent, tr("Missing Sound Files"),
-                                 tr("These sound clips were left out of the movie because their files are missing:\n%1").arg(ex.skippedClips().join('\n')));
+                                 tr("These sound clips were left out of the movie because their files are missing:\n%1").arg(skippedClips.join('\n')));
         }
         if (QFile::exists(strMoviePath))
         {
@@ -438,27 +401,7 @@ Status ActionCommands::exportImageSequence()
 
     dialog->init();
 
-    std::vector< std::pair<QString, QSize> > camerasInfo;
-    auto cameraLayers = mEditor->object()->getLayersByType< LayerCamera >();
-    for (LayerCamera* i : cameraLayers)
-    {
-        camerasInfo.push_back(std::make_pair(i->name(), i->getViewSize()));
-    }
-
-    auto currLayer = mEditor->layers()->currentLayer();
-    if (currLayer->type() == Layer::CAMERA)
-    {
-        QString strName = currLayer->name();
-        auto it = std::find_if(camerasInfo.begin(), camerasInfo.end(),
-            [strName](std::pair<QString, QSize> p)
-        {
-            return p.first == strName;
-        });
-
-        Q_ASSERT(it != camerasInfo.end());
-        std::swap(camerasInfo[0], *it);
-    }
-    dialog->setCamerasInfo(camerasInfo);
+    dialog->setCamerasInfo(camerasInfo(mEditor));
 
     int lengthWithSounds = mEditor->layers()->animationLength(true);
     int length = mEditor->layers()->animationLength(false);
@@ -519,27 +462,7 @@ Status ActionCommands::exportImage()
 
     dialog->init();
 
-    std::vector< std::pair<QString, QSize> > camerasInfo;
-    auto cameraLayers = mEditor->object()->getLayersByType< LayerCamera >();
-    for (LayerCamera* i : cameraLayers)
-    {
-        camerasInfo.push_back(std::make_pair(i->name(), i->getViewSize()));
-    }
-
-    auto currLayer = mEditor->layers()->currentLayer();
-    if (currLayer->type() == Layer::CAMERA)
-    {
-        QString strName = currLayer->name();
-        auto it = std::find_if(camerasInfo.begin(), camerasInfo.end(),
-            [strName](std::pair<QString, QSize> p)
-        {
-            return p.first == strName;
-        });
-
-        Q_ASSERT(it != camerasInfo.end());
-        std::swap(camerasInfo[0], *it);
-    }
-    dialog->setCamerasInfo(camerasInfo);
+    dialog->setCamerasInfo(camerasInfo(mEditor));
 
     dialog->exec();
 

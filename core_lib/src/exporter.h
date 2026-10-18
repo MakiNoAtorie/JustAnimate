@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include <functional>
 #include <QSize>
 #include <QString>
+#include <QStringList>
+#include "movieexporter.h"
 #include "pencilerror.h"
 
 class LayerCamera;
@@ -25,7 +27,8 @@ class Object;
 
 struct ExportRequest
 {
-    enum class Kind { Image, Sequence, SpriteSheet };
+    // Movie writes path as given; its extension picks the container, ".gif" a GIF.
+    enum class Kind { Image, Sequence, SpriteSheet, Movie };
     Kind kind = Kind::Image;
     QString cameraName;        // empty or unknown: the first camera
     int startFrame = 1;        // Image exports startFrame only
@@ -37,8 +40,15 @@ struct ExportRequest
     bool keyframesOnly = false; // Sequence: only frames where keyLayerName has a key
     QString keyLayerName;
     int columns = 0;           // SpriteSheet; 0 means ceil(sqrt(n))
+    int fps = 12;              // Movie
+    bool loop = false;         // Movie
+    MovieQuality quality = MovieQuality::Medium; // Movie: MP4 and WebM
+    int gifColors = 256;       // Movie: GIF, 3..256
+    bool gifDither = true;     // Movie: GIF
     // Asked once when a target file exists; empty means overwrite.
     std::function<bool(const QString& path)> confirmOverwrite;
+    // Movie: called after a successful run with the sound clips left out because their files are missing.
+    std::function<void(const QStringList& clips)> skippedClips;
 };
 
 namespace Exporter
