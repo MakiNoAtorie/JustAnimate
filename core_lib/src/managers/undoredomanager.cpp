@@ -100,6 +100,7 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
     UndoSaveState* saveState = mSaveStates.take(saveStateId);
     if (!saveState) { return; }
 
+    const int pushCount = mPushCount;
     switch (saveState->recordType)
     {
         case UndoRedoRecordType::KEYFRAME_MODIFY: {
@@ -142,6 +143,9 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
         }
     }
 
+    // The edit's frame signals flagged the object; the undo stack now holds the edit.
+    if (mPushCount != pushCount) { editor()->object()->setModified(saveState->unrecordedChange); }
+
     if (saveState->endsMacro) { endMacro(); }
     // The save state has now been used and should be invalidated so we can't use it again.
     clearState(saveState);
@@ -183,6 +187,7 @@ bool UndoRedoManager::hasUnsavedChanges() const
 
 void UndoRedoManager::pushCommand(QUndoCommand* command)
 {
+    mPushCount++;
     if (mMacroDepth > 0)
     {
         if (!mMacroOpen)
@@ -385,6 +390,7 @@ SAVESTATE_ID UndoRedoManager::createState(UndoRedoRecordType recordType, const L
     int saveStateId = mSaveStateId;
     UndoSaveState* state = new UndoSaveState();
     state->recordType = recordType;
+    state->unrecordedChange = editor()->object()->isModified();
     initCommonKeyFrameState(state, layer ? layer : editor()->layers()->currentLayer());
 
     mSaveStates[saveStateId] = state;
@@ -526,6 +532,8 @@ QAction* UndoRedoManager::createUndoAction(QObject* parent, const QIcon& icon)
 {
     QAction* undoAction = mUndoStack.createUndoAction(parent);
     undoAction->setIcon(icon);
+    QObject::disconnect(undoAction, &QAction::triggered, &mUndoStack, &QUndoStack::undo);
+    connect(undoAction, &QAction::triggered, this, [this] { replay(&QUndoStack::undo); });
     return undoAction;
 }
 
@@ -533,7 +541,18 @@ QAction* UndoRedoManager::createRedoAction(QObject* parent, const QIcon& icon)
 {
     QAction* redoAction = mUndoStack.createRedoAction(parent);
     redoAction->setIcon(icon);
+    QObject::disconnect(redoAction, &QAction::triggered, &mUndoStack, &QUndoStack::redo);
+    connect(redoAction, &QAction::triggered, this, [this] { replay(&QUndoStack::redo); });
     return redoAction;
+}
+
+void UndoRedoManager::replay(void (QUndoStack::*step)())
+{
+    // A replayed edit is on the stack: its frame signals must not flag an unrecorded change.
+    const bool unrecordedChange = editor()->object()->isModified();
+    (mUndoStack.*step)();
+    editor()->object()->setModified(unrecordedChange);
+    emit didUpdateUndoStack();
 }
 
 void UndoRedoManager::clearStack()

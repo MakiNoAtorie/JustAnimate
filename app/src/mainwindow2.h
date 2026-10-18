@@ -18,14 +18,19 @@ GNU General Public License for more details.
 #ifndef MAINWINDOW2_H
 #define MAINWINDOW2_H
 
+#include <memory>
+
 #include <QMainWindow>
 #include "defaultlayout.h"
 
 template<typename T> class QList;
 class QActionGroup;
+class QProgressDialog;
 class QToolBar;
 class Object;
 class Editor;
+class ProjectSession;
+class Status;
 class ScribbleArea;
 class BaseDockWidget;
 class ColorPaletteWidget;
@@ -127,7 +132,10 @@ private:
     void newObject();
     bool newObjectFromPresets(int presetIndex);
     bool openObject(const QString& strFilename);
-    bool saveObject(QString strFileName);
+    void setUpSession();
+    void showProgress(bool saving, int value, int maximum);
+    void showSaveError(const Status& st);
+    void onSaved(QString path);
     void closeDialogs();
 
     void createDockWidgets();
@@ -175,6 +183,8 @@ private:
     ToolOptionWidget*     mToolOptions = nullptr;
     ToolBoxDockWidget*        mToolBox = nullptr;
     RecentFileMenu*       mRecentFileMenu = nullptr;
+    ProjectSession*       mSession = nullptr;
+    std::unique_ptr<QProgressDialog> mProgress;
     PreferencesDialog*    mPrefDialog = nullptr;
     //PreviewWidget*      mPreview = nullptr;
     TimeLine*             mTimeLine = nullptr;

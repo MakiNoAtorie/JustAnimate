@@ -133,6 +133,8 @@ struct UndoSaveState {
 
     // Set by endMacroWith: recording or discarding this state ends the open macro.
     bool endsMacro = false;
+    // The object's unrecorded-change flag when the state was taken.
+    bool unrecordedChange = false;
 };
 
 class UndoRedoManager : public BaseManager
@@ -247,6 +249,7 @@ private:
     void initCommonKeyFrameState(UndoSaveState* undoSaveState, const Layer* layer) const;
 
     void pushCommand(QUndoCommand* command);
+    void replay(void (QUndoStack::*step)());
 
     void clearState(UndoSaveState*& state);
     void clearSaveStates();
@@ -255,6 +258,7 @@ private:
     int mMacroDepth = 0;
     bool mMacroOpen = false; // the stack macro starts at the first record
     QString mMacroDescription;
+    int mPushCount = 0;
 
     QMap<SAVESTATE_ID, UndoSaveState*> mSaveStates;
 

@@ -65,6 +65,7 @@ GNU General Public License for more details.
 #include "overlaymanager.h"
 #include "selectionmanager.h"
 #include "undoredomanager.h"
+#include "projectsession.h"
 
 #include "actioncommands.h"
 #include "brushpresets.h"
@@ -207,6 +208,7 @@ MainWindow2::MainWindow2(QWidget* parent) :
     mEditor->setScribbleArea(ui->scribbleArea);
     mEditor->init();
     PlatformHandler::applyTabletApi(mEditor->preference());
+    setUpSession();
 
     newObject();
 
@@ -744,7 +746,7 @@ void MainWindow2::setOpacity(int opacity)
 
 void MainWindow2::updateSaveState()
 {
-    const bool hasUnsavedChanges = mEditor->undoRedo()->hasUnsavedChanges();
+    const bool hasUnsavedChanges = mSession->isDirty();
     setWindowModified(hasUnsavedChanges);
     ui->statusBar->updateModifiedStatus(hasUnsavedChanges);
 }
@@ -921,12 +923,7 @@ void MainWindow2::openDocument()
 
 bool MainWindow2::saveAsNewDocument()
 {
-    QString fileName = FileDialog::getSaveFileName(this, FileType::ANIMATION);
-    if (fileName.isEmpty())
-    {
-        return false;
-    }
-    return saveObject(fileName);
+    return mSession->saveAs(FileDialog::getSaveFileName(this, FileType::ANIMATION)).ok();
 }
 
 void MainWindow2::openStartupFile(const QString& filename)
@@ -965,20 +962,7 @@ void MainWindow2::openFile(const QString& filename)
 
 bool MainWindow2::openObject(const QString& strFilePath)
 {
-    QProgressDialog progress(tr("Opening document..."), tr("Abort"), 0, 100, this);
-    hideQuestionMark(progress);
-    progress.setWindowModality(Qt::WindowModal);
-    progress.show();
-
-    Status s = mEditor->openObject(strFilePath, [&progress](int p)
-    {
-        progress.setValue(p);
-        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-    }, [&progress](int max)
-    {
-        progress.setRange(0, max);
-    });
-
+    Status s = mSession->open(strFilePath);
     if (!s.ok())
     {
         ErrorDialog errorDialog(s.title(), s.description(), s.details().str());
@@ -986,9 +970,6 @@ bool MainWindow2::openObject(const QString& strFilePath)
         emptyDocumentWhenErrorOccurred();
         return false;
     }
-
-    QSettings& settings = pencilSettings();
-    settings.setValue(LAST_PCLX_PATH, mEditor->object()->filePath());
 
     // Add to recent file list, but only if we are
     if (!mEditor->object()->filePath().isEmpty())
@@ -1002,8 +983,6 @@ bool MainWindow2::openObject(const QString& strFilePath)
     setWindowTitle(mEditor->object()->filePath().prepend("[*]"));
     setWindowModified(false);
     ui->statusBar->updateModifiedStatus(false);
-
-    progress.setValue(progress.maximum());
 
     updateSaveState();
 
@@ -1019,110 +998,96 @@ bool MainWindow2::openObject(const QString& strFilePath)
     return true;
 }
 
-bool MainWindow2::saveObject(QString strSavedFileName)
+void MainWindow2::setUpSession()
 {
-    QProgressDialog progress(tr("Saving document..."), tr("Abort"), 0, 100, this);
-    hideQuestionMark(progress);
-    progress.setWindowModality(Qt::WindowModal);
-    progress.show();
-
-    mEditor->prepareSave();
-
-    FileManager fm(this);
-
-    connect(&fm, &FileManager::progressChanged, [&progress](int p)
+    mSession = new ProjectSession(mEditor, this);
+    mSession->askSaveChanges = [this]
     {
-        progress.setValue(p);
-        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        const int ret = QMessageBox::warning(this, tr("Warning"),
+                                             tr("This animation has been modified.\n Do you want to save your changes?"),
+                                             QMessageBox::Discard | QMessageBox::Save | QMessageBox::Cancel);
+        if (ret == QMessageBox::Save) { return ProjectSession::SaveChoice::Save; }
+        if (ret == QMessageBox::Discard) { return ProjectSession::SaveChoice::Discard; }
+        return ProjectSession::SaveChoice::Cancel;
+    };
+    mSession->askSavePath = [this] { return FileDialog::getSaveFileName(this, FileType::ANIMATION); };
+    connect(mSession, &ProjectSession::progress, this, [this](ProjectSession::Task task, int value, int maximum)
+    {
+        showProgress(task == ProjectSession::Task::Save, value, maximum);
     });
-    connect(&fm, &FileManager::progressRangeChanged, [&progress](int max)
+    connect(mSession, &ProjectSession::saved, this, &MainWindow2::onSaved);
+    connect(mSession, &ProjectSession::saveFailed, this, &MainWindow2::showSaveError);
+}
+
+void MainWindow2::showProgress(bool saving, int value, int maximum)
+{
+    if (value >= maximum)
     {
-        progress.setRange(0, max + 3);
-    });
-
-    Status st = fm.save(mEditor->object(), strSavedFileName);
-
-
-    if (!st.ok())
-    {
-        QDir errorLogFolder(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
-        errorLogFolder.mkpath("./logs");
-        errorLogFolder.cd("logs");
-
-        QDateTime dt = QDateTime::currentDateTime();
-        dt.setTimeSpec(Qt::UTC);
-        QFile eLog(errorLogFolder.absoluteFilePath(QString("error-%1.txt").arg(dt.toString(Qt::ISODate))));
-        if (eLog.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            QTextStream out(&eLog);
-            out << st.details().str();
-        }
-        eLog.close();
-
-        ErrorDialog errorDialog(st.title(),
-                                st.description().append(tr("<br><br>An error has occurred and your file may not have saved successfully."
-                                                           "\nIf you believe that this error is an issue with JustAnimate, please create a new issue at:"
-                                                           "<br><a href='" APP_ISSUES_URL "'>" APP_ISSUES_URL "</a><br>"
-                                                           "Please be sure to include the following details in your issue:")), st.details().html());
-        errorDialog.exec();
-        return false;
+        mProgress.reset();
+        return;
     }
+    if (!mProgress)
+    {
+        mProgress.reset(new QProgressDialog(saving ? tr("Saving document...") : tr("Opening document..."), tr("Abort"), 0, 100, this));
+        hideQuestionMark(*mProgress);
+        mProgress->setWindowModality(Qt::WindowModal);
+        mProgress->show();
+    }
+    mProgress->setRange(0, maximum);
+    mProgress->setValue(value);
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+}
 
-    mEditor->undoRedo()->markSaved();
-    mEditor->object()->setFilePath(strSavedFileName);
-    mEditor->object()->setModified(false);
+void MainWindow2::showSaveError(const Status& st)
+{
+    QDir errorLogFolder(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+    errorLogFolder.mkpath("./logs");
+    errorLogFolder.cd("logs");
 
-    mEditor->clearTemporary();
+    QDateTime dt = QDateTime::currentDateTime();
+    dt.setTimeSpec(Qt::UTC);
+    QFile eLog(errorLogFolder.absoluteFilePath(QString("error-%1.txt").arg(dt.toString(Qt::ISODate))));
+    if (eLog.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        QTextStream out(&eLog);
+        out << st.details().str();
+    }
+    eLog.close();
 
-    QSettings& settings = pencilSettings();
-    settings.setValue(LAST_PCLX_PATH, strSavedFileName);
+    ErrorDialog errorDialog(st.title(),
+                            st.description().append(tr("<br><br>An error has occurred and your file may not have saved successfully."
+                                                       "\nIf you believe that this error is an issue with JustAnimate, please create a new issue at:"
+                                                       "<br><a href='" APP_ISSUES_URL "'>" APP_ISSUES_URL "</a><br>"
+                                                       "Please be sure to include the following details in your issue:")), st.details().html());
+    errorDialog.exec();
+}
 
-    Welcome::saveThumbnail(mEditor->object(), strSavedFileName, mEditor->currentFrame());
-    mRecentFileMenu->addRecentFile(strSavedFileName);
+void MainWindow2::onSaved(QString path)
+{
+    Welcome::saveThumbnail(mEditor->object(), path, mEditor->currentFrame());
+    mRecentFileMenu->addRecentFile(path);
     mRecentFileMenu->saveToDisk();
 
     mTimeLine->updateContent();
 
-    setWindowTitle(strSavedFileName.prepend("[*]"));
+    setWindowTitle(path.prepend("[*]"));
     updateSaveState();
 
-    progress.setValue(progress.maximum());
-
-    if (!fm.skippedSoundClips().isEmpty())
+    if (!mSession->skippedSoundClips().isEmpty())
     {
         QMessageBox::warning(this, tr("Missing Sound Files"),
-                             tr("These sound clips were saved without audio because their files are missing:\n%1").arg(fm.skippedSoundClips().join('\n')));
+                             tr("These sound clips were saved without audio because their files are missing:\n%1").arg(mSession->skippedSoundClips().join('\n')));
     }
-
-    mEditor->resetAutoSaveCounter();
-
-    return true;
 }
 
 bool MainWindow2::saveDocument()
 {
-    // Legacy .pcl is open-only: its project goes to Save As .pclx.
-    const QString filePath = mEditor->object()->filePath();
-    if (QFileInfo(filePath).suffix().compare(PFF_BIG_LETTER_EXTENSION, Qt::CaseInsensitive) == 0)
-        return saveObject(filePath);
-    else
-        return saveAsNewDocument();
+    return mSession->save().ok();
 }
 
 bool MainWindow2::maybeSave()
 {
-    if (!mEditor->undoRedo()->hasUnsavedChanges())
-    {
-        return true;
-    }
-
-    int ret = QMessageBox::warning(this, tr("Warning"),
-                                   tr("This animation has been modified.\n Do you want to save your changes?"),
-                                   QMessageBox::Discard | QMessageBox::Save | QMessageBox::Cancel);
-    if (ret == QMessageBox::Save)
-        return saveDocument();
-    else
-        return ret == QMessageBox::Discard;
+    return mSession->maybeSave();
 }
 
 bool MainWindow2::autoSave()

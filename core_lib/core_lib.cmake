@@ -9,6 +9,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/canvascursorpainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/canvaspainter.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/framerenderer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/projectsession.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/corelib-pch.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/external/platformhandler.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapbucket.h
@@ -124,6 +125,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/canvascursorpainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/canvaspainter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/framerenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/projectsession.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapbucket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/bitmapimage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/graphics/bitmap/tile.cpp
