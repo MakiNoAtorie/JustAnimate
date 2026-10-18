@@ -186,8 +186,9 @@ public:
      */
     bool canMoveSelectedFramesToOffset(int offset) const;
 
-    Status save(const QString& sDataFolder, QStringList& attachedFiles, ProgressCallback progressStep);
-    virtual Status presave(const QString& sDataFolder) { Q_UNUSED(sDataFolder); return Status::SAFE; }
+    // writtenFiles gets the files this save wrote; presave's movedFiles the files it moved.
+    Status save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles, ProgressCallback progressStep);
+    virtual Status presave(const QString& sDataFolder, QStringList& movedFiles) { Q_UNUSED(sDataFolder); Q_UNUSED(movedFiles); return Status::SAFE; }
 
     bool isPaintable() const;
 

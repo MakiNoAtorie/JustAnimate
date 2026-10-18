@@ -32,7 +32,7 @@ public:
 
     QDomElement createDomElement(QDomDocument& doc) const override;
     void loadDomElement(const QDomElement& element, QString dataDirPath, ProgressCallback progressStep) override;
-    Status presave(const QString& sDataFolder) override;
+    Status presave(const QString& sDataFolder, QStringList& movedFiles) override;
 
     BitmapImage* getBitmapImageAtFrame(int frameNumber);
     BitmapImage* getLastBitmapImageAtFrame(int frameNumber);

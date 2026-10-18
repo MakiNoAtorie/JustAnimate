@@ -1266,6 +1266,27 @@ TEST_CASE("FileManager copies unchanged entries from the previous archive", "[Fi
         }
     }
 
+    SECTION("A rewritten frame with the same size and time is zipped again")
+    {
+        const QString file2 = layer->getBitmapImageAtFrame(2)->fileName();
+        const QFileInfo before(file2);
+        const QDateTime time2 = before.lastModified();
+        // Acts as a clock too coarse to tell the rewrite from the saved file.
+        QObject::connect(&fm, &FileManager::progressChanged, [&] {
+            QFile f(file2);
+            if (f.open(QFile::Append)) f.setFileTime(time2, QFileDevice::FileModificationTime);
+        });
+        BitmapImage red(QRect(0, 0, 8, 8), QColor(Qt::red));
+        layer->getBitmapImageAtFrame(2)->paste(&red);
+        REQUIRE(fm.save(obj.get(), path).ok());
+
+        REQUIRE(QFileInfo(file2).size() == before.size());
+        REQUIRE(QFileInfo(file2).lastModified() == time2);
+        QFile f(file2);
+        REQUIRE(f.open(QFile::ReadOnly));
+        REQUIRE(readZipEntry(path, zipName(obj.get(), file2)).data == f.readAll());
+    }
+
     SECTION("Swapped frames with the same size and time are not copied")
     {
         const QString file1 = layer->getBitmapImageAtFrame(1)->fileName();

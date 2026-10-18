@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QDirIterator>
 #include <QHash>
+#include <QMutex>
 #include <QThreadPool>
 #include <QVersionNumber>
 #include "qminiz.h"
@@ -49,20 +50,52 @@ struct FileStamp
 
 FileStamp stampOf(const QFileInfo& info) { return { info.size(), info.lastModified() }; }
 
-// What an archive was written from: the PNG frames of its working folder, as they were then.
+// What an archive was written from: the PNG frames of its working folder, as they were then,
+// and the number of the save that wrote it.
 struct ArchiveBaseline
 {
     QString workingDir;
     FileStamp archive;
     QHash<QString, FileStamp> frames;
+    quint64 save = 0;
 };
 
-// Read and written only inside FileManager::save, which runs one at a time.
+// Saves counted per working folder, and the save that last wrote or moved each file there.
+// File times cannot tell a rewrite apart: a fast rewrite can keep the size and time.
+struct FolderWrites
+{
+    quint64 saves = 0;
+    QHash<QString, quint64> writtenBy;
+};
+
+// Both tables are used only under saveRecordsMutex().
 // shortcut: entries of closed projects stay until exit; drop them on close if memory matters.
+QMutex& saveRecordsMutex()
+{
+    static QMutex mutex;
+    return mutex;
+}
+
 QHash<QString, ArchiveBaseline>& archiveBaselines()
 {
     static QHash<QString, ArchiveBaseline> baselines;
     return baselines;
+}
+
+QHash<QString, FolderWrites>& folderWrites()
+{
+    static QHash<QString, FolderWrites> writes;
+    return writes;
+}
+
+// Recovery puts other files into a working folder: nothing in it may be copied from an archive.
+void forgetWorkingFolder(const QString& workingDir)
+{
+    const QMutexLocker locker(&saveRecordsMutex());
+    const QString clean = QDir::cleanPath(workingDir);
+    folderWrites().remove(clean);
+    for (auto it = archiveBaselines().begin(); it != archiveBaselines().end();)
+        it = (QDir::cleanPath(it->workingDir) == clean) ? archiveBaselines().erase(it) : std::next(it);
 }
 
 // Keyed by path relative to the working folder, the entry names of the archive.
@@ -307,6 +340,7 @@ struct FileManager::PendingArchive
     QString dataFolder;
     QStringList files;
     QHash<QString, FileStamp> stamps;
+    quint64 save = 0;
 
     Status zip(const MiniZ::Progress& progress);
     Status publish();
@@ -442,7 +476,18 @@ Status FileManager::writeProjectFiles(const Object* object, const QString& sFile
     }
 
     QStringList filesToZip; // A files list in the working folder needs to be zipped
-    Status stKeyFrames = writeKeyFrameFiles(object, sDataFolder, filesToZip);
+    QStringList framesWritten;
+    Status stKeyFrames = writeKeyFrameFiles(object, sDataFolder, filesToZip, framesWritten);
+    quint64 save = 0;
+    {
+        // Recorded on failure too: a file written by a failed save is not the archived one.
+        const QMutexLocker locker(&saveRecordsMutex());
+        FolderWrites& writes = folderWrites()[QDir::cleanPath(sTempWorkingFolder)];
+        save = ++writes.saves;
+        const QDir base(sTempWorkingFolder);
+        for (const QString& file : framesWritten)
+            writes.writtenBy.insert(base.relativeFilePath(file), save);
+    }
     dd.collect(stKeyFrames.details());
 
     // Don't write a main.xml that points at frame files which weren't written.
@@ -469,7 +514,7 @@ Status FileManager::writeProjectFiles(const Object* object, const QString& sFile
     }
 
     archive = std::make_shared<PendingArchive>();
-    *archive = { dd, saveLock, sFileName, sTempWorkingFolder, sDataFolder, filesToZip, {} };
+    *archive = { dd, saveLock, sFileName, sTempWorkingFolder, sDataFolder, filesToZip, {}, save };
     return Status::OK;
 }
 
@@ -480,10 +525,12 @@ Status FileManager::PendingArchive::zip(const MiniZ::Progress& progress)
     const QString sTmpFile = target + ".tmp";
     QFile::remove(sTmpFile);
 
-    // A frame whose file has the size and time it had when the target archive was written is
-    // still that entry: copy it from there instead of reading the file again.
+    // A frame that no save wrote or moved since the target archive was written, and whose file
+    // still has the size and time it had then, is still that entry: copy it from there.
     stamps = frameStamps(workingDir, dataFolder);
     QSet<QString> unchanged;
+    const QMutexLocker locker(&saveRecordsMutex());
+    const FolderWrites writes = folderWrites().value(QDir::cleanPath(workingDir));
     const auto baseline = archiveBaselines().constFind(QFileInfo(target).absoluteFilePath());
     if (baseline != archiveBaselines().cend() && baseline->workingDir == workingDir &&
         baseline->archive == stampOf(QFileInfo(target)))
@@ -491,7 +538,9 @@ Status FileManager::PendingArchive::zip(const MiniZ::Progress& progress)
         for (auto it = stamps.cbegin(); it != stamps.cend(); ++it)
         {
             const auto was = baseline->frames.constFind(it.key());
-            if (was != baseline->frames.cend() && *was == it.value()) unchanged.insert(it.key());
+            if (was != baseline->frames.cend() && *was == it.value() &&
+                writes.writtenBy.value(it.key(), 0) <= baseline->save)
+                unchanged.insert(it.key());
         }
     }
 
@@ -526,7 +575,10 @@ Status FileManager::PendingArchive::publish()
                       tr("Internal Error"),
                       tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(target));
     }
-    archiveBaselines().insert(QFileInfo(target).absoluteFilePath(), { workingDir, stampOf(QFileInfo(target)), stamps });
+    {
+        const QMutexLocker locker(&saveRecordsMutex());
+        archiveBaselines().insert(QFileInfo(target).absoluteFilePath(), { workingDir, stampOf(QFileInfo(target)), stamps, save });
+    }
 
     // A manual save is newer than any autosave: recovery must not go back to one.
     const QString autosave = QDir(workingDir).filePath(PFF_AUTOSAVE_FILE_NAME);
@@ -835,7 +887,8 @@ bool FileManager::loadPalette(Object* obj)
     return true;
 }
 
-Status FileManager::writeKeyFrameFiles(const Object* object, const QString& dataFolder, QStringList& filesFlushed)
+Status FileManager::writeKeyFrameFiles(const Object* object, const QString& dataFolder, QStringList& filesFlushed,
+                                       QStringList& framesWritten)
 {
     DebugDetails dd;
     dd << "\n[Keyframes WRITE diagnostics]\n";
@@ -846,7 +899,7 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
     for (int i = 0; i < numLayers; ++i)
     {
         Layer* layer = object->getLayer(i);
-        Status st = layer->presave(dataFolder);
+        Status st = layer->presave(dataFolder, framesWritten);
         if (!st.ok())
         {
             dd.collect(st.details());
@@ -871,7 +924,7 @@ Status FileManager::writeKeyFrameFiles(const Object* object, const QString& data
 
         dd << QString("Layer[%1] = [id=%2, type=%3, name=%4]").arg(i).arg(layer->id()).arg(layer->type()).arg(layer->name());
 
-        Status st = layer->save(dataFolder, filesFlushed, [this] { progressForward(); });
+        Status st = layer->save(dataFolder, filesFlushed, framesWritten, [this] { progressForward(); });
         if (!st.ok())
         {
             saveLayersOK = false;
@@ -1128,6 +1181,7 @@ bool FileManager::isProjectRecoverable(const QString& projectFolder)
 Object* FileManager::recoverUnsavedProject(QString intermeidatePath)
 {
     qDebug() << "TODO: recover project" << intermeidatePath;
+    forgetWorkingFolder(intermeidatePath);
 
     QDir projectDir(intermeidatePath);
     const QString mainXMLPath = projectDir.filePath(PFF_XML_FILE_NAME);

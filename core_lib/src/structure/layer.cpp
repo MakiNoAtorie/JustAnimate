@@ -462,7 +462,7 @@ bool Layer::loadKey(KeyFrame* pKey)
     return true;
 }
 
-Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, ProgressCallback progressStep)
+Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, QStringList& writtenFiles, ProgressCallback progressStep)
 {
     DebugDetails dd;
     dd << "\n[Layer SAVE diagnostics]\n";
@@ -490,6 +490,9 @@ Status Layer::save(const QString& sDataFolder, QStringList& attachedFiles, Progr
                 // A sound clip whose file is missing saves without it.
                 if (!keyFrame->fileName().isEmpty() && QFile::exists(keyFrame->fileName()))
                     attachedFiles.append(keyFrame->fileName());
+                // SAFE: the file was already up to date and was not written.
+                if (results[i] != Status::SAFE && !keyFrame->fileName().isEmpty())
+                    writtenFiles.append(keyFrame->fileName());
             }
             else
             {
