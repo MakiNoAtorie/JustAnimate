@@ -81,7 +81,7 @@ private:
 
     BucketToolProperties mSettings;
     StrokeInterpolator mInterpolator;
-    SAVESTATE_ID mUndoSaveState = -1;
+    std::optional<Edit> mFillEdit; // a drag can fill many times: one step from press to release
 };
 
 #endif // BUCKETTOOL_H

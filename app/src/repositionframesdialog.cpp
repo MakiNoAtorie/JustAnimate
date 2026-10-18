@@ -13,7 +13,6 @@
 #include "layermanager.h"
 #include "layerbitmap.h"
 #include "scribblearea.h"
-#include "undoredomanager.h"
 
 
 RepositionFramesDialog::RepositionFramesDialog(QWidget* parent) :
@@ -97,7 +96,7 @@ void RepositionFramesDialog::repositionFrames()
 
     // The moved selection only previews the offset: recorded with the frames, undo would apply it again.
     mEditor->select()->resetSelectionProperties();
-    const UndoMacro macro(mEditor->undoRedo(), tr("Reposition frames"));
+    Edit edit = mEditor->edit(tr("Reposition frames"));
     QList<int> frames = mEditor->layers()->currentLayer()->getSelectedFramesByPos();
     for (int i = 0; i < frames.size(); i++)
     {
@@ -152,7 +151,8 @@ void RepositionFramesDialog::repositionFrames()
     }
     mEditor->select()->resetSelectionProperties();
     mEditor->scrubTo(mRepositionFrame);
-    
+    edit.commit();
+
     accept();
 }
 

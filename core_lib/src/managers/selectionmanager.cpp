@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "selectionmanager.h"
 #include "editor.h"
 #include "layermanager.h"
-#include "undoredomanager.h"
 
 #include "vectorimage.h"
 
@@ -293,8 +292,8 @@ void SelectionManager::setNumericTransform(const QPointF& centre, qreal rotation
 {
     if (!somethingSelected() || editor()->refusesEdit(editor()->layers()->currentLayer())) { return; }
 
-    UndoRedoManager* undoRedo = editor()->undoRedo();
-    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    Edit edit = editor()->edit(editor()->layers()->currentLayer(), editor()->currentFrame(),
+                               tr("Transform", "Undo step: typed move, rotate or scale values"));
 
     // With the anchor at the centre, the translation is the canvas position of the centre.
     setTransformAnchor(mOriginalRect.center());
@@ -303,7 +302,7 @@ void SelectionManager::setNumericTransform(const QPointF& centre, qreal rotation
     scale(scaleX, scaleY);
     calculateSelectionTransformation();
 
-    undoRedo->record(saveStateId, tr("Transform", "Undo step: typed move, rotate or scale values"));
+    edit.commit();
     emit selectionChanged();
     emit editor()->frameModified(editor()->currentFrame());
 }

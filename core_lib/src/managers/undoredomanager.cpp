@@ -75,6 +75,10 @@ void UndoRedoManager::onSettingChanged(SETTING setting)
 
 Status UndoRedoManager::load(Object* /*o*/)
 {
+    // A gesture's open Edit points at the old object's layers: drop it with them.
+    clearSaveStates();
+    mMacroDepth = 0;
+    mMacroOpen = false;
     clearStack();
     return Status::OK;
 }
@@ -117,10 +121,6 @@ void UndoRedoManager::record(SAVESTATE_ID saveStateId, const QString& descriptio
         }
         case UndoRedoRecordType::KEYFRAME_MOVE: {
             moveKeyFrames(*saveState, description);
-            break;
-        }
-        case UndoRedoRecordType::BITMAPS_MOVE: {
-            moveBitmaps(*saveState, description);
             break;
         }
         case UndoRedoRecordType::KEYFRAMES_REMOVE: {
@@ -291,9 +291,9 @@ void UndoRedoManager::moveKeyFrames(const UndoSaveState& undoState, const QStrin
     pushCommand(new MoveKeyFramesCommand(moves, undoState.layerId, description, editor()));
 }
 
-void UndoRedoManager::moveBitmaps(const UndoSaveState& undoState, const QString& description)
+void UndoRedoManager::recordBitmapMoves(const QList<BitmapOffset>& offsets, const QString& description)
 {
-    pushCommand(new MoveBitmapsCommand(undoState.userState.bitmapOffsets, description, editor()));
+    pushCommand(new MoveBitmapsCommand(offsets, description, editor()));
 }
 
 void UndoRedoManager::removeKeyFrames(const UndoSaveState& undoState, const QString& description)
@@ -413,12 +413,6 @@ SAVESTATE_ID UndoRedoManager::createState(UndoRedoRecordType recordType, const L
     mSaveStateId += 1;
 
     return saveStateId;
-}
-
-void UndoRedoManager::addUserState(SAVESTATE_ID saveStateId, const UserSaveState& userState)
-{
-    if (!mSaveStates.contains(saveStateId)) { return; }
-    mSaveStates[saveStateId]->userState = userState;
 }
 
 void UndoRedoManager::recordLayerAdd(int layerId, const QString& description)

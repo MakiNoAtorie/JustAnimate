@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #include "pointerevent.h"
 #include "preferencesdef.h"
 #include "strokeinterpolator.h"
-#include "undoredomanager.h"
+#include "edit.h"
 
 #include "canvascursorpainter.h"
 #include "radialoffsettool.h"
@@ -31,6 +31,8 @@ GNU General Public License for more details.
 #include <QImage>
 #include <QList>
 #include <QPointF>
+
+#include <optional>
 
 
 class StrokeTool : public BaseTool
@@ -53,6 +55,8 @@ public:
     void startStroke(PointerEvent::InputType inputType);
     void drawStroke();
     void endStroke();
+    /** Ends the stroke's undo step; without commit it records only the Drawing added for the stroke. */
+    void endStrokeEdit(bool commit);
 
     bool leavingThisTool() override;
     bool enteringThisTool() override;
@@ -145,7 +149,9 @@ protected:
     static const qreal FEATHER_MIN;
     static const qreal FEATHER_MAX;
 
-    SAVESTATE_ID mUndoSaveStateId = 0;
+    // The step joins a Drawing added for the stroke; the inner Edit records the stroke itself.
+    std::optional<Edit> mStrokeStep;
+    std::optional<Edit> mStrokeEdit;
     ToolProperties mProperties;
 
 private:

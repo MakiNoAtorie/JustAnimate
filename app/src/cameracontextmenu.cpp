@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #include "layercamera.h"
 #include "camera.h"
 #include "editor.h"
-#include "undoredomanager.h"
+#include "layermanager.h"
 
 CameraContextMenu::CameraContextMenu(Editor* editor, int frameNumber, const LayerCamera* layer) :
     mFrameNumber(frameNumber), mCurrentLayer(layer)
@@ -33,9 +33,9 @@ CameraContextMenu::CameraContextMenu(Editor* editor, int frameNumber, const Laye
     auto undoable = [editor, layer](const QString& description, std::function<void()> change) {
         return [=] {
             if (editor->refusesEdit(layer)) { return; }
-            const SAVESTATE_ID state = editor->undoRedo()->createState(UndoRedoRecordType::CAMERA_MODIFY, layer);
+            Edit edit = editor->edit(editor->layers()->findLayerById(layer->id()), description);
             change();
-            editor->undoRedo()->record(state, description);
+            edit.commit();
         };
     };
     const QString easingText = tr("Camera Easing");

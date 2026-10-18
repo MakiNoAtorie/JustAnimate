@@ -51,7 +51,7 @@ Status PegBarAligner::align(const QStringList& layers)
     const QPoint peg = result.point;
 
     // Find every offset first so a missing peg leaves the drawing untouched
-    UserSaveState userState;
+    QList<BitmapOffset> offsets;
     for (int i = 0; i < layers.count(); i++)
     {
         layerBitmap = static_cast<LayerBitmap*>(mEditor->layers()->findLayerByName(layers.at(i)));
@@ -69,14 +69,13 @@ Status PegBarAligner::align(const QStringList& layers)
             }
             if (result.point != peg)
             {
-                userState.bitmapOffsets.append({ layerBitmap->id(), k, peg - result.point });
+                offsets.append({ layerBitmap->id(), k, peg - result.point });
             }
         }
     }
 
-    UndoRedoManager* undoRedo = mEditor->undoRedo();
-    const SAVESTATE_ID saveStateId = undoRedo->createState(UndoRedoRecordType::BITMAPS_MOVE);
-    for (const BitmapOffset& move : qAsConst(userState.bitmapOffsets))
+    Edit edit = mEditor->edit(tr("Peg bar alignment"));
+    for (const BitmapOffset& move : qAsConst(offsets))
     {
         layerBitmap = static_cast<LayerBitmap*>(mEditor->layers()->findLayerById(move.layerId));
         img = layerBitmap->getBitmapImageAtFrame(move.frame);
@@ -84,8 +83,8 @@ Status PegBarAligner::align(const QStringList& layers)
         img->moveTopLeft(img->topLeft() + move.offset);
         emit mEditor->frameModified(move.frame);
     }
-    undoRedo->addUserState(saveStateId, userState);
-    undoRedo->record(saveStateId, tr("Peg bar alignment"));
+    mEditor->undoRedo()->recordBitmapMoves(offsets, tr("Peg bar alignment"));
+    edit.commit();
 
     mEditor->deselectAll();
 

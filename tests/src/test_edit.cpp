@@ -147,3 +147,22 @@ TEST_CASE("Edit: a removed key comes back on undo")
     f.undo->trigger();
     CHECK(keys(f.ink) == QList<int>{ 1, 5 });
 }
+
+TEST_CASE("Edit: an Edit left open across a project load records nothing")
+{
+    EditFixture f;
+    Edit stale = f.editor->edit(f.ink, 1, "Brush");
+    Object* next = new Object;
+    next->init();
+    Layer* layer = next->addNewBitmapLayer();
+    REQUIRE(f.editor->setObject(next).ok());
+    {
+        Edit edit = f.editor->edit(layer, "Move Frames");
+        REQUIRE(layer->moveKeyFrame(1, 2));
+        edit.commit();
+    }
+    CHECK(f.steps == 1);
+    stale.commit();
+    CHECK(f.steps == 1);
+    CHECK(f.editor->undoRedo()->pendingStateCount() == 0);
+}

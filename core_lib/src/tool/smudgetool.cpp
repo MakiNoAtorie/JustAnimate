@@ -26,7 +26,6 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "viewmanager.h"
 #include "selectionmanager.h"
-#include "undoredomanager.h"
 
 #include "layervector.h"
 #include "blitrect.h"
@@ -190,7 +189,7 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
         VectorImage *vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
         if (vectorImage == nullptr)
         {
-            mEditor->undoRedo()->discardState(mUndoSaveStateId);
+            endStrokeEdit(false);
             return;
         }
         vectorImage->applySelectionTransformation();
@@ -203,7 +202,7 @@ void SmudgeTool::pointerReleaseEvent(PointerEvent* event)
             vectorImage->curve(curveNumber).smoothCurve();
         }
         mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
-        mEditor->undoRedo()->record(mUndoSaveStateId, typeName());
+        endStrokeEdit(true);
     }
 
     StrokeTool::pointerReleaseEvent(event);

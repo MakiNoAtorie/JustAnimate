@@ -100,7 +100,7 @@ void BucketTool::pointerPressEvent(PointerEvent* event)
 
     LayerCamera* layerCam = mEditor->layers()->getCameraLayerBelow(mEditor->currentLayerIndex());
 
-    mUndoSaveState = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    mFillEdit.emplace(mEditor->edit(targetLayer, mEditor->currentFrame(), typeName()));
     mBitmapBucket = BitmapBucket(mEditor,
                                  mEditor->color()->frontColor(),
                                  layerCam ? canvasToKey().mapRect(layerCam->getViewAtFrame(mEditor->currentFrame()).inverted().mapRect(layerCam->getViewRect())) : QRect(),
@@ -137,9 +137,9 @@ void BucketTool::pointerReleaseEvent(PointerEvent* event)
     if (event->button() == Qt::LeftButton)
     {
         if (layer->type() == Layer::VECTOR) {
-            const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+            Edit edit = mEditor->edit(layer, mEditor->currentFrame(), typeName());
             paintVector(layer);
-            mEditor->undoRedo()->record(saveStateId, typeName());
+            edit.commit();
         }
         else if (layer->type() == Layer::BITMAP && !mFilledOnMove)
         {
@@ -147,10 +147,8 @@ void BucketTool::pointerReleaseEvent(PointerEvent* event)
         }
     }
     // A drag can fill many times: record once, after the last fill.
-    if (mDidFill)
-        mEditor->undoRedo()->record(mUndoSaveState, typeName());
-    else
-        mEditor->undoRedo()->discardState(mUndoSaveState);
+    if (mDidFill && mFillEdit) { mFillEdit->commit(); }
+    mFillEdit.reset();
     mFilledOnMove = false;
     mDidFill = false;
 }

@@ -42,7 +42,6 @@ GNU General Public License for more details.
 #include "playbackmanager.h"
 #include "colormanager.h"
 #include "selectionmanager.h"
-#include "undoredomanager.h"
 #include "util.h"
 #include "app_util.h"
 
@@ -200,7 +199,7 @@ Status ActionCommands::importMovieVideo()
 
 Status ActionCommands::importSound(FileType type)
 {
-    const UndoMacro macro(mEditor->undoRedo(), tr("Import Sound"));
+    Edit step = mEditor->edit(tr("Import Sound"));
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer == nullptr)
     {
@@ -253,6 +252,7 @@ Status ActionCommands::importSound(FileType type)
     {
         showSoundClipWarningIfNeeded();
     }
+    step.commit();
     return st;
 }
 
@@ -821,11 +821,13 @@ Status ActionCommands::insertKeyFrameAtCurrentPosition()
     int currentPosition = mEditor->currentFrame();
     if (mEditor->refusesEdit(currentLayer)) { return Status::SAFE; }
 
-    const UndoMacro macro(mEditor->undoRedo(), tr("New drawing"));
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
+    Edit step = mEditor->edit(tr("New drawing"));
+    Edit exposure = mEditor->edit(currentLayer, tr("Add exposure"));
     currentLayer->insertExposureAt(currentPosition);
-    mEditor->undoRedo()->record(saveStateId, tr("Add exposure"));
-    return addNewKey();
+    exposure.commit();
+    const Status st = addNewKey();
+    step.commit();
+    return st;
 }
 
 void ActionCommands::removeSelectedFrames()
@@ -842,9 +844,9 @@ void ActionCommands::reverseSelectedFrames()
     Layer* currentLayer = mEditor->layers()->currentLayer();
     if (mEditor->refusesEdit(currentLayer)) { return; }
 
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MOVE);
+    Edit edit = mEditor->edit(currentLayer, tr("Reverse frames"));
     const bool reversed = currentLayer->reverseOrderOfSelection();
-    mEditor->undoRedo()->record(saveStateId, tr("Reverse frames"));
+    edit.commit();
     if (!reversed) {
         return;
     }
@@ -953,9 +955,10 @@ Status ActionCommands::addNewCameraLayer()
 
 Status ActionCommands::addNewCameraLayer(const QString& name, QSize size)
 {
-    const UndoMacro macro(mEditor->undoRedo(), tr("New Camera Layer"));
+    Edit edit = mEditor->edit(tr("New Camera Layer"));
     LayerCamera* layer = mEditor->layers()->createCameraLayer(name);
     mEditor->layers()->setCameraSize(layer, size);
+    edit.commit();
     return Status::OK;
 }
 
@@ -968,9 +971,10 @@ Status ActionCommands::addNewSoundLayer()
 
 Status ActionCommands::addNewStoryboardLayer()
 {
-    const UndoMacro macro(mEditor->undoRedo(), tr("New Storyboard Layer"));
+    Edit edit = mEditor->edit(tr("New Storyboard Layer"));
     Layer* layer = mEditor->layers()->createBitmapLayer(mEditor->layers()->nameSuggestLayer(tr("Storyboard Layer")));
     mEditor->layers()->setStoryboard(layer, true);
+    edit.commit();
     return Status::OK;
 }
 
@@ -989,13 +993,13 @@ void ActionCommands::setLayerVisibilityIndex(int index)
     mEditor->setLayerVisibility(static_cast<LayerVisibility>(index));
 }
 
-// Recolours the Drawing at frame as one KEYFRAME_MODIFY record. The state captures the Drawing at the playhead, so visit the key first.
+// Recolours the Drawing at frame as one undo step. The record reads the Drawing at the playhead, so visit the key first.
 static void recolourDrawing(Editor* editor, LayerBitmap* layer, int frame, QRgb color, const QString& description)
 {
     if (editor->currentFrame() != frame) { editor->scrubTo(frame); }
-    const SAVESTATE_ID saveStateId = editor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY, layer);
+    Edit edit = editor->edit(layer, frame, description);
     layer->getBitmapImageAtFrame(frame)->fillNonAlphaPixels(color);
-    editor->undoRedo()->record(saveStateId, description);
+    edit.commit();
 }
 
 void ActionCommands::changeKeyframeLineColor()
@@ -1015,10 +1019,11 @@ void ActionCommands::changeallKeyframeLineColor()
     const QString description = tr("Change Line Color");
     const int playhead = mEditor->currentFrame();
     {
-        const UndoMacro macro(mEditor->undoRedo(), description);
+        Edit edit = mEditor->edit(description);
         QList<int> positions;
         layer->foreachKeyFrame([&](KeyFrame* key) { positions.append(key->pos()); });
         for (int pos : positions) { recolourDrawing(mEditor, static_cast<LayerBitmap*>(layer), pos, color, description); }
+        edit.commit();
     }
     mEditor->scrubTo(playhead);
     mEditor->updateFrame();

@@ -167,9 +167,9 @@ QPointF StrokeTool::getLastPoint() const
 void StrokeTool::startStroke(PointerEvent::InputType inputType)
 {
     // A stroke whose release went unhandled (other device) never recorded its state.
-    mEditor->undoRedo()->discardState(mUndoSaveStateId);
+    endStrokeEdit(false);
     // A Drawing added for this stroke undoes with the stroke in one step.
-    mEditor->undoRedo()->beginMacro(typeName());
+    mStrokeStep.emplace(mEditor->edit(typeName()));
     if (emptyFrameActionEnabled())
     {
         mScribbleArea->handleDrawingOnEmptyFrame();
@@ -189,8 +189,7 @@ void StrokeTool::startStroke(PointerEvent::InputType inputType)
     mStrokePressures << mCurrentPressure;
 
     mCurrentInputType = inputType;
-    mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
-    mEditor->undoRedo()->endMacroWith(mUndoSaveStateId);
+    mStrokeEdit.emplace(mEditor->edit(mEditor->layers()->currentLayer(), mEditor->currentFrame(), typeName()));
 
     disableCoalescing();
 }
@@ -229,7 +228,14 @@ void StrokeTool::endStroke()
     mEditor->setModified(mEditor->currentLayerIndex(), mEditor->currentFrame());
     mScribbleArea->endStroke();
 
-    mEditor->undoRedo()->record(mUndoSaveStateId, typeName());
+    endStrokeEdit(true);
+}
+
+void StrokeTool::endStrokeEdit(bool commit)
+{
+    if (commit && mStrokeEdit) { mStrokeEdit->commit(); }
+    mStrokeEdit.reset();
+    mStrokeStep.reset();
 }
 
 void StrokeTool::drawStroke()

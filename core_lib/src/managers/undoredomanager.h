@@ -54,7 +54,6 @@ enum class UndoRedoRecordType {
     KEYFRAME_REMOVE, // Removing a keyframe
     KEYFRAME_ADD, // Adding a keyframe
     KEYFRAME_MOVE, // Any change of keyframe positions on the current layer: move, reverse, exposure
-    BITMAPS_MOVE, // Moving bitmap keyframes on the canvas, e.g. peg bar alignment
     KEYFRAMES_REMOVE, // Removing the selected keyframes
     KEYFRAMES_PASTE, // Pasting keyframes, which can push later keyframes back
     CAMERA_MODIFY, // Changing the camera keys of a camera layer: transform, path, reset
@@ -102,15 +101,6 @@ struct BitmapOffset {
     QPoint offset;
 };
 
-/// Use this struct to store user related data that will later be added to the backup
-/// This struct is meant to be safely shared and stored temporarily,
-/// as such don't store ptrs here...
-/// All data stored in here should be based on ZII (zero is initialization) principle
-/// Only store what you need.
-struct UserSaveState {
-    QList<BitmapOffset> bitmapOffsets;
-};
-
 /// This is the main undo/redo state structure which is meant to populate
 /// whatever states that needs to be stored temporarily.
 struct UndoSaveState {
@@ -127,8 +117,6 @@ struct UndoSaveState {
     QHash<const KeyFrame*, int> keyframePositions;
     // KEYFRAMES_REMOVE: copies of the selected keyframes. CAMERA_MODIFY: copies of every camera key
     std::vector<std::unique_ptr<KeyFrame>> selectedKeyframes;
-
-    UserSaveState userState = {};
 
     // Set by endMacroWith: recording or discarding this state ends the open macro.
     bool endsMacro = false;
@@ -177,12 +165,6 @@ public:
      * @return A UndoSaveState struct with common keyframe data */
     SAVESTATE_ID createState(UndoRedoRecordType recordType, const Layer* layer = nullptr);
 
-    /** Adds userState to the saveState found at SaveStateId
-     *  If no record is found matching the id, nothing happens.
-     *  @param SaveStateId The id used to fetch the saveState
-     *  @param userState The data to be inserted onto on the saveState
-     */
-    void addUserState(SAVESTATE_ID SaveStateId, const UserSaveState& userState);
 
     /** Frees the save state without recording it. Unknown ids do nothing. */
     void discardState(SAVESTATE_ID saveStateId);
@@ -197,6 +179,8 @@ public:
      *  Takes ownership of the layer, so that undo can put the same layer back. */
     void recordLayerRemove(Layer* layer, int index, const QString& description);
 
+    /** Records that each bitmap key in `offsets` moved by its offset on the canvas. */
+    void recordBitmapMoves(const QList<BitmapOffset>& offsets, const QString& description);
     /** Records one attribute table edit. `frame` is the key position for a Drawing row, else 0. */
     void recordAttribute(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after);
     /** Records that the markers of `layerId` (0: global) changed from `before` to the current set */
@@ -243,7 +227,6 @@ private:
     void addKeyFrame(const UndoSaveState& undoState, const QString& description);
     void removeKeyFrame(const UndoSaveState& undoState, const QString& description);
     void moveKeyFrames(const UndoSaveState& undoState, const QString& description);
-    void moveBitmaps(const UndoSaveState& undoState, const QString& description);
     void removeKeyFrames(const UndoSaveState& undoState, const QString& description);
     void pasteKeyFrames(const UndoSaveState& undoState, const QString& description);
     void modifyCameras(const UndoSaveState& undoState, const QString& description);

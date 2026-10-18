@@ -29,7 +29,6 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "viewmanager.h"
 #include "selectionmanager.h"
-#include "undoredomanager.h"
 #include "scribblearea.h"
 #include "pointerevent.h"
 

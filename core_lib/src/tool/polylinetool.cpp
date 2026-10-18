@@ -23,7 +23,6 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "colormanager.h"
 #include "viewmanager.h"
-#include "undoredomanager.h"
 #include "pointerevent.h"
 #include "layervector.h"
 #include "layerbitmap.h"
@@ -282,9 +281,9 @@ void PolylineTool::endPolyline(QList<QPointF> points)
 {
     Layer* layer = mEditor->layers()->currentLayer();
     // A Drawing added for this line undoes with the line in one step.
-    const UndoMacro macro(mEditor->undoRedo(), typeName());
+    Edit step = mEditor->edit(typeName());
     mScribbleArea->handleDrawingOnEmptyFrame();
-    const SAVESTATE_ID saveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+    Edit drawing = mEditor->edit(layer, mEditor->currentFrame(), typeName());
 
     if (layer->type() == Layer::VECTOR)
     {
@@ -303,7 +302,7 @@ void PolylineTool::endPolyline(QList<QPointF> points)
 
         VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
         // Can happen if the first frame is deleted while drawing
-        if (vectorImage == nullptr) { mEditor->undoRedo()->discardState(saveStateId); clearToolData(); return; }
+        if (vectorImage == nullptr) { clearToolData(); return; }
         mapCurveToKey(curve);
         vectorImage->addCurve(curve, mEditor->view()->scaling());
     }
@@ -314,7 +313,8 @@ void PolylineTool::endPolyline(QList<QPointF> points)
 
     mScribbleArea->endStroke();
     mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
-    mEditor->undoRedo()->record(saveStateId, typeName());
+    drawing.commit();
+    step.commit();
 
     clearToolData();
 }

@@ -30,7 +30,6 @@ GNU General Public License for more details.
 #include "strokeinterpolator.h"
 #include "selectionmanager.h"
 #include "overlaymanager.h"
-#include "undoredomanager.h"
 #include "scribblearea.h"
 #include "layervector.h"
 #include "layermanager.h"
@@ -224,7 +223,7 @@ void MoveTool::pointerReleaseEvent(PointerEvent* event)
         return;
     }
 
-    mEditor->undoRedo()->record(mUndoSaveStateId, typeName());
+    if (mEdit) { mEdit->commit(); mEdit.reset(); }
 
     if (mEditor->overlays()->anyOverlayEnabled())
     {
@@ -274,7 +273,7 @@ void MoveTool::beginInteraction(const QPointF& pos, Qt::KeyboardModifiers keyMod
     QRectF selectionRect = selectMan->mySelectionRect();
     if (!selectionRect.isNull())
     {
-        mUndoSaveStateId = mEditor->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
+        mEdit.emplace(mEditor->edit(layer, mEditor->currentFrame(), typeName()));
     }
 
     if (keyMod != Qt::ShiftModifier)
