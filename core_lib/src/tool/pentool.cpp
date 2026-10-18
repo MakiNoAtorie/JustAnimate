@@ -122,6 +122,7 @@ void PenTool::paintAt(QPointF point)
         mCurrentWidth = brushWidth;
 
         drawPen(point, brushWidth);
+        mBuffer.tiles().emitUpdated();
     }
 }
 
@@ -159,6 +160,7 @@ void PenTool::drawStroke()
                 mLastBrushPoint = getCurrentPoint();
             }
         }
+        mBuffer.tiles().emitUpdated();
     }
     else if (layer->type() == Layer::VECTOR)
     {

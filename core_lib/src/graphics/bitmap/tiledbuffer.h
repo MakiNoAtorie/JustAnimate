@@ -137,9 +137,12 @@ public:
     /** Smudge dabs with at least this many pixels in their box composite in row bands on all cores. */
     void setParallelSmudgeMinPixels(int pixels) { mParallelSmudgeMinPixels = pixels; }
 
+    /** Emits updated once for the tiles touched since the last call; drawPath and drawImage call it themselves. */
+    void emitUpdated();
+
 signals:
-    void tileUpdated(TiledBuffer* tiledBuffer, Tile* tile);
-    void tileCreated(TiledBuffer* tiledBuffer, Tile* tile);
+    /** The tiles in canvasRect changed. */
+    void updated(const QRect& canvasRect);
 
 private:
 
@@ -150,6 +153,7 @@ private:
     const int UNIFORM_TILE_SIZE = 64;
 
     BlitRect mTileBounds;
+    QRect mDirty; // tiles touched since the last emitUpdated
 
     QHash<TileIndex, Tile*> mTiles;
 

@@ -85,13 +85,17 @@ Tile* TiledBuffer::getTileFromIndex(const TileIndex& tileIndex)
             selectedTile->coverageDirty = true;
         }
         mTiles.insert(tileIndex, selectedTile);
-
-        emit this->tileCreated(this, selectedTile);
-    } else {
-        emit this->tileUpdated(this, selectedTile);
     }
+    mDirty |= selectedTile->bounds();
 
     return selectedTile;
+}
+
+void TiledBuffer::emitUpdated()
+{
+    if (mDirty.isEmpty()) return;
+    emit updated(mDirty);
+    mDirty = QRect();
 }
 
 void TiledBuffer::drawBrush(QPointF point, qreal brushWidth, QPen pen, QBrush brush, QPainter::CompositionMode cm, bool antialiasing) {
@@ -929,6 +933,7 @@ void TiledBuffer::drawImage(const QImage& image, const QRect& imageBounds, QPain
             mTileBounds.extend(tile->bounds());
         }
     }
+    emitUpdated();
 }
 
 
@@ -965,6 +970,7 @@ void TiledBuffer::drawPath(QPainterPath path, QPen pen, QBrush brush,
             mTileBounds.extend(tile->bounds());
         }
     }
+    emitUpdated();
 }
 
 void TiledBuffer::clear()

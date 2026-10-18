@@ -47,13 +47,18 @@ void EraserTool::loadSettings()
     mQuickSizingProperties.insert(Qt::ControlModifier, StrokeToolProperties::FEATHER_VALUE);
 }
 
+void EraserTool::strokeStarted()
+{
+    mFeatherEnabled = get(ToolProperty::FeatherEnabled);
+    mAntiAliasing = get(ToolProperty::AntiAliasingEnabled) == ON;
+}
+
 void EraserTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
     // Without feather the dab is solid and ignores opacity.
-    const bool feather = get(ToolProperty::FeatherEnabled);
     const QColor dabColor = Qt::white; // palette-exempt: only the eraser dab's alpha counts
-    mBuffer.dab(point, width, feather ? mFeather : 0, dabColor, feather ? opacity : 1.0,
-                get(ToolProperty::AntiAliasingEnabled) == ON, tip);
+    mBuffer.dab(point, width, mFeatherEnabled ? mFeather : 0, dabColor, mFeatherEnabled ? opacity : 1.0,
+                mAntiAliasing, tip);
 }
 
 QPen EraserTool::vectorPreviewPen()

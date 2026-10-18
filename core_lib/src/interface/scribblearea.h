@@ -187,8 +187,7 @@ public slots:
 
     /// Shows a short notice on the canvas for a few seconds.
     void showNote(const QString& text);
-    void onTileUpdated(TiledBuffer* tiledBuffer, Tile* tile);
-    void onTileCreated(TiledBuffer* tiledBuffer, Tile* tile);
+    void onTilesUpdated(const QRect& canvasRect);
 
 protected:
     bool event(QEvent *event) override;

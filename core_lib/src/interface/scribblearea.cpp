@@ -117,8 +117,7 @@ bool ScribbleArea::init()
             connect(tool, &StrokeTool::propertyChanged, this, [this](int id) {
                 if (id == StrokeToolProperties::WIDTH_VALUE) { update(); }
             });
-            connect(&tool->buffer().tiles(), &TiledBuffer::tileUpdated, this, &ScribbleArea::onTileUpdated, Qt::UniqueConnection);
-            connect(&tool->buffer().tiles(), &TiledBuffer::tileCreated, this, &ScribbleArea::onTileCreated, Qt::UniqueConnection);
+            connect(&tool->buffer().tiles(), &TiledBuffer::updated, this, &ScribbleArea::onTilesUpdated, Qt::UniqueConnection);
         }
     }
 
@@ -226,18 +225,9 @@ void ScribbleArea::setCurveSmoothing(int newSmoothingLevel)
 /************************************************************************************/
 // update methods
 
-void ScribbleArea::onTileUpdated(TiledBuffer* tiledBuffer, Tile* tile)
+void ScribbleArea::onTilesUpdated(const QRect& canvasRect)
 {
-    Q_UNUSED(tiledBuffer);
-    const QRectF& mappedRect = mEditor->view()->getView().mapRect(QRectF(tile->bounds()));
-    update(mappedRect.toAlignedRect());
-}
-
-void ScribbleArea::onTileCreated(TiledBuffer* tiledBuffer, Tile* tile)
-{
-    Q_UNUSED(tiledBuffer)
-    const QRectF& mappedRect = mEditor->view()->getView().mapRect(QRectF(tile->bounds()));
-    update(mappedRect.toAlignedRect());
+    update(mEditor->view()->getView().mapRect(QRectF(canvasRect)).toAlignedRect());
 }
 
 void ScribbleArea::updateFrame()

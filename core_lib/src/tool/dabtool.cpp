@@ -170,6 +170,7 @@ void DabTool::drawDabs(const QList<Dab>& dabs)
         tip.angle = dab.angle;
         drawDab(dab.pos, dab.width, dab.opacity, tip);
     }
+    mBuffer.tiles().emitUpdated();
 }
 
 void DabTool::dabPath(const QPolygonF& points)
