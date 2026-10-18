@@ -76,6 +76,8 @@ Temporary; folded after v1.8. Source: `docs/reviews/performance-2026-10.md`
   in `tests/src/test_benchmark.cpp` and of the scenario table in
   `docs/benchmarks.md`; it also runs in `[BenchmarkSmoke]`. Names: `loop`
   (#275), `draw top onion` (#278), `far jump` and `working set` (#279).
+  New rows record through `row("<name>")`, never an `sc[<index>]`; the
+  smoke check's `sc.size()` gets one more per row.
   `save` (#282) goes into the printed baseline table. Release before /
   after numbers go in the commit message, never into the baseline.
 - New counters are `StageProfiler` stages appended before `StageCount`

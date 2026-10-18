@@ -226,10 +226,6 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
     auto row = [&sc](const char* name) -> Scenario& {
         return *std::find_if(sc.begin(), sc.end(), [name](const Scenario& r) { return std::strcmp(r.name, name) == 0; });
     };
-    // Rows after "play blend" are found by name, so tickets can append rows without renumbering.
-    auto row = [&sc](const char* name) -> Scenario& {
-        return *std::find_if(sc.begin(), sc.end(), [name](const Scenario& r) { return std::strcmp(r.name, name) == 0; });
-    };
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
