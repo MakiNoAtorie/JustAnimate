@@ -102,7 +102,6 @@ GNU General Public License for more details.
 #include "welcomedialog.h"
 #include "welcomehelper.h"
 #include "pegbaralignmentdialog.h"
-#include "autosaverbytime.h"
 #include "papertemplatedialog.h"
 
 
@@ -234,21 +233,10 @@ MainWindow2::MainWindow2(QWidget* parent) :
     selectionChanged();
     currentLayerChanged();
 
-    connect(mEditor, &Editor::needSave, this, &MainWindow2::autoSave);
-
-    mAutoSaver = new AutosaverByTime(mEditor->preference(), this);
-    connect(mAutoSaver, &AutosaverByTime::timeout, this, &MainWindow2::autoSaveTimeout);
-
     mEditor->tools()->setDefaultTool();
     ui->background->init(mEditor->preference());
 
     setWindowTitle(getWindowTitle());
-}
-
-void MainWindow2::autoSaveTimeout()
-{
-    FileManager fm;
-    fm.writeToWorkingFolder(mEditor->object());
 }
 
 MainWindow2::~MainWindow2()
@@ -722,8 +710,11 @@ void MainWindow2::createMenus()
 
     //--- Menus ---
     mRecentFileMenu = new RecentFileMenu(tr("Open Recent"), this);
-    mRecentFileMenu->loadFromDisk();
+    mRecentFileMenu->setRecentFiles(mSession->recentFiles());
     ui->menuFile->insertMenu(ui->actionSave, mRecentFileMenu);
+
+    connect(mRecentFileMenu, &RecentFileMenu::clearRequested, mSession, &ProjectSession::clearRecentFiles);
+    connect(mSession, &ProjectSession::recentFilesChanged, mRecentFileMenu, &RecentFileMenu::setRecentFiles);
 
     connect(mRecentFileMenu, &RecentFileMenu::loadRecentFile, this, &MainWindow2::openFile);
 }
@@ -885,7 +876,7 @@ void MainWindow2::closeEvent(QCloseEvent* event)
         return;
     }
 
-    if (!maybeSave())
+    if (!mSession->close())
     {
         event->ignore();
         return;
@@ -902,7 +893,7 @@ void MainWindow2::tabletEvent(QTabletEvent* event)
 
 void MainWindow2::newDocument()
 {
-    if (maybeSave() && !tryLoadPreset())
+    if (mSession->maybeSave() && !tryLoadPreset())
     {
         newObject();
     }
@@ -910,7 +901,7 @@ void MainWindow2::newDocument()
 
 void MainWindow2::openDocument()
 {
-    if (!maybeSave())
+    if (!mSession->maybeSave())
     {
         return;
     }
@@ -928,7 +919,7 @@ bool MainWindow2::saveAsNewDocument()
 
 void MainWindow2::openStartupFile(const QString& filename)
 {
-    if (checkForRecoverableProjects())
+    if (mSession->recover())
     {
         return;
     }
@@ -954,7 +945,7 @@ void MainWindow2::openStartupFile(const QString& filename)
 
 void MainWindow2::openFile(const QString& filename)
 {
-    if (maybeSave())
+    if (mSession->maybeSave())
     {
         openObject(filename);
     }
@@ -969,13 +960,6 @@ bool MainWindow2::openObject(const QString& strFilePath)
         errorDialog.exec();
         emptyDocumentWhenErrorOccurred();
         return false;
-    }
-
-    // Add to recent file list, but only if we are
-    if (!mEditor->object()->filePath().isEmpty())
-    {
-        mRecentFileMenu->addRecentFile(mEditor->object()->filePath());
-        mRecentFileMenu->saveToDisk();
     }
 
     closeDialogs();
@@ -1011,12 +995,15 @@ void MainWindow2::setUpSession()
         return ProjectSession::SaveChoice::Cancel;
     };
     mSession->askSavePath = [this] { return FileDialog::getSaveFileName(this, FileType::ANIMATION); };
+    mSession->askRecover = [this](const QString& folder) { return askRecoverProject(folder); };
     connect(mSession, &ProjectSession::progress, this, [this](ProjectSession::Task task, int value, int maximum)
     {
         showProgress(task == ProjectSession::Task::Save, value, maximum);
     });
     connect(mSession, &ProjectSession::saved, this, &MainWindow2::onSaved);
     connect(mSession, &ProjectSession::saveFailed, this, &MainWindow2::showSaveError);
+    connect(mSession, &ProjectSession::autoSaveSkipped, this, &MainWindow2::remindToSave);
+    connect(mSession, &ProjectSession::recovered, this, &MainWindow2::showRecoveryResult);
 }
 
 void MainWindow2::showProgress(bool saving, int value, int maximum)
@@ -1065,9 +1052,6 @@ void MainWindow2::showSaveError(const Status& st)
 void MainWindow2::onSaved(QString path)
 {
     Welcome::saveThumbnail(mEditor->object(), path, mEditor->currentFrame());
-    mRecentFileMenu->addRecentFile(path);
-    mRecentFileMenu->saveToDisk();
-
     mTimeLine->updateContent();
 
     setWindowTitle(path.prepend("[*]"));
@@ -1085,26 +1069,14 @@ bool MainWindow2::saveDocument()
     return mSession->save().ok();
 }
 
-bool MainWindow2::maybeSave()
+void MainWindow2::remindToSave()
 {
-    return mSession->maybeSave();
-}
-
-bool MainWindow2::autoSave()
-{
-    if (!mEditor->object()->filePath().isEmpty())
-    {
-        return saveDocument();
-    }
-
     if (!mSuppressAutoSaveDialog && mEditor->preference()->isOn(SETTING::AUTO_SAVE_REMINDER))
     {
         const QKeySequence key = ui->actionSave->shortcut();
         mEditor->notice(key.isEmpty() ? tr("Unsaved project: save it to keep autosaving")
                                       : tr("Unsaved project: press %1").arg(key.toString(QKeySequence::NativeText)));
     }
-
-    return false;
 }
 
 void MainWindow2::emptyDocumentWhenErrorOccurred()
@@ -1348,8 +1320,7 @@ bool MainWindow2::newObjectFromPresets(int presetIndex)
 
 bool MainWindow2::loadMostRecent()
 {
-    QSettings& settings = pencilSettings();
-    QString myPath = settings.value(LAST_PCLX_PATH, QVariant("")).toString();
+    const QString myPath = mSession->lastPath();
     if (myPath.isEmpty() || !QFile::exists(myPath))
     {
         return false;
@@ -1370,7 +1341,7 @@ bool MainWindow2::tryLoadPreset()
 void MainWindow2::showWelcomeDialog()
 {
     auto* presetDialog = new WelcomeDialog(mEditor->preference()->getInt(SETTING::DEFAULT_PRESET),
-                                           mRecentFileMenu->getRecentFiles(),
+                                           mSession->recentFiles(),
                                            mEditor->preference()->getString(SETTING::LAST_TEMPLATE), this);
     presetDialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(presetDialog, &WelcomeDialog::finished, [=](int result)
@@ -1382,7 +1353,7 @@ void MainWindow2::showWelcomeDialog()
 
         if (presetDialog->shouldHide())
         {
-            mEditor->preference()->set(SETTING::STARTUP_ACTION, Welcome::hiddenStartupAction(!mRecentFileMenu->getRecentFiles().isEmpty()));
+            mEditor->preference()->set(SETTING::STARTUP_ACTION, Welcome::hiddenStartupAction(!mSession->recentFiles().isEmpty()));
             if (presetDialog->templateIndex() < 0)
             {
                 mEditor->preference()->set(SETTING::DEFAULT_PRESET, presetDialog->presetIndex());
@@ -1883,23 +1854,7 @@ void MainWindow2::displayMessageBoxNoTitle(const QString& body)
     QMessageBox::information(this, nullptr, tr(qPrintable(body)), QMessageBox::Ok);
 }
 
-bool MainWindow2::checkForRecoverableProjects()
-{
-    FileManager fm;
-    QStringList recoverables = fm.searchForUnsavedProjects();
-
-    foreach (const QString path, recoverables)
-    {
-        if (tryRecoverProject(path))
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool MainWindow2::tryRecoverProject(const QString recoverPath)
+ProjectSession::RecoverChoice MainWindow2::askRecoverProject(const QString& recoverPath)
 {
     QString caption = tr("Restore Project?");
     QString text = tr("JustAnimate didn't close correctly. Would you like to restore the project?");
@@ -1914,46 +1869,29 @@ bool MainWindow2::tryRecoverProject(const QString recoverPath)
     msgBox.setStandardButtons(QMessageBox::Open | QMessageBox::Discard | QMessageBox::Cancel);
     msgBox.setDefaultButton(QMessageBox::Cancel);
 
-    int result = msgBox.exec();
-
-    switch (result)
+    switch (msgBox.exec())
     {
-    case QMessageBox::Discard:
-        QDir(recoverPath).removeRecursively();
-        return false;
-    case QMessageBox::Cancel:
-        return false;
-    case QMessageBox::Open:
-        return startProjectRecovery(recoverPath);
-    default:
-        Q_ASSERT(false);
+    case QMessageBox::Open: return ProjectSession::RecoverChoice::Open;
+    case QMessageBox::Discard: return ProjectSession::RecoverChoice::Discard;
+    default: return ProjectSession::RecoverChoice::Cancel;
     }
-
-    return false;
 }
 
-bool MainWindow2::startProjectRecovery(const QString recoverPath)
+void MainWindow2::showRecoveryResult(bool ok)
 {
-    FileManager fm;
-    Object* o = fm.recoverUnsavedProject(recoverPath);
-    if (!fm.error().ok())
+    if (!ok)
     {
-        Q_ASSERT(o == nullptr);
         const QString title = tr("Recovery Failed.");
         const QString text = tr("Sorry! JustAnimate is unable to restore your project");
         QMessageBox::information(this, title, QString("<h4>%1</h4>%2").arg(title, text));
-        return false;
+        return;
     }
 
-    Q_ASSERT(o);
-    mEditor->setObject(o);
     updateSaveState();
 
     const QString title = tr("Recovery Succeeded!");
     const QString text = tr("Please save your work immediately to prevent loss of data");
     QMessageBox::information(this, title, QString("<h4>%1</h4>%2").arg(title, text));
-
-    return true;
 }
 
 void MainWindow2::createToolbars()

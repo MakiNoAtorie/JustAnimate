@@ -22,6 +22,7 @@ GNU General Public License for more details.
 
 #include <QMainWindow>
 #include "defaultlayout.h"
+#include "projectsession.h"
 
 template<typename T> class QList;
 class QActionGroup;
@@ -29,7 +30,6 @@ class QProgressDialog;
 class QToolBar;
 class Object;
 class Editor;
-class ProjectSession;
 class Status;
 class ScribbleArea;
 class BaseDockWidget;
@@ -54,7 +54,6 @@ class PegBarAlignmentDialog;
 class AddTransparencyToPaperDialog;
 class RepositionFramesDialog;
 class StatusBar;
-class AutosaverByTime;
 enum class SETTING;
 
 
@@ -89,8 +88,6 @@ public:
     void openDocument();
     bool saveDocument();
     bool saveAsNewDocument();
-    bool maybeSave();
-    bool autoSave();
     void emptyDocumentWhenErrorOccurred();
 
     // import
@@ -127,7 +124,6 @@ protected:
 private slots:
     void updateCopyCutPasteEnabled();
     void updateLayerMenu();
-    void autoSaveTimeout();
 private:
     void newObject();
     bool newObjectFromPresets(int presetIndex);
@@ -136,6 +132,7 @@ private:
     void showProgress(bool saving, int value, int maximum);
     void showSaveError(const Status& st);
     void onSaved(QString path);
+    void remindToSave();
     void closeDialogs();
 
     void createDockWidgets();
@@ -173,9 +170,8 @@ private:
     void makeConnections(Editor*, OnionSkinWidget*);
     void makeConnections(Editor*, StatusBar*);
 
-    bool checkForRecoverableProjects();
-    bool tryRecoverProject(const QString recoverPath);
-    bool startProjectRecovery(const QString recoverPath);
+    ProjectSession::RecoverChoice askRecoverProject(const QString& recoverPath);
+    void showRecoveryResult(bool ok);
 
     // UI: Dock widgets
     ColorBox*             mColorBox = nullptr;
@@ -202,9 +198,6 @@ private:
     RepositionFramesDialog* mReposDialog = nullptr;
     LayerOpacityDialog* mLayerOpacityDialog = nullptr;
     AddTransparencyToPaperDialog* mAddTranspToPaper = nullptr;
-
-    // Autosave handler
-    AutosaverByTime* mAutoSaver = nullptr;
 
     void createToolbars();
 private:

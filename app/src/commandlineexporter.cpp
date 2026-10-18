@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include "pagewriter.h"
 #include "paperpainter.h"
 #include "playbackmanager.h"
+#include "projectsession.h"
 
 #include "commandlineexporter.h"
 
@@ -58,7 +59,7 @@ Status CommandLineExporter::process(const QString &inputPath,
         return Status::FAIL;
     }
 
-    Status s = mEditor->openObject(inputPath, [](int){}, [](int){});
+    Status s = ProjectSession(mEditor, nullptr).load(inputPath);
     if (!s.ok())
     {
         printError(s);

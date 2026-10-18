@@ -14,9 +14,11 @@ GNU General Public License for more details.
 */
 #include "projectsession.h"
 
+#include <QDir>
 #include <QFileInfo>
 #include <QSettings>
 
+#include "autosaverbytime.h"
 #include "editor.h"
 #include "filemanager.h"
 #include "fileformat.h"
@@ -27,6 +29,13 @@ GNU General Public License for more details.
 
 ProjectSession::ProjectSession(Editor* editor, QObject* parent) : QObject(parent), mEditor(editor)
 {
+    for (const QString& file : pencilSettings().value(RECENT_FILES).toStringList())
+    {
+        if (!file.isEmpty()) { mRecentFiles << file; }
+    }
+    connect(mEditor, &Editor::needSave, this, &ProjectSession::autoSave);
+    auto* timer = new AutosaverByTime(mEditor->preference(), this);
+    connect(timer, &AutosaverByTime::timeout, this, &ProjectSession::autoSaveTick);
 }
 
 bool ProjectSession::isDirty() const
@@ -48,11 +57,16 @@ Status ProjectSession::open(const QString& path)
     });
     emit progress(Task::Open, maximum, maximum);
 
-    if (st.ok())
+    if (st.ok() && !mEditor->object()->filePath().isEmpty())
     {
-        pencilSettings().setValue(LAST_PCLX_PATH, mEditor->object()->filePath());
+        remember(mEditor->object()->filePath());
     }
     return st;
+}
+
+Status ProjectSession::load(const QString& path)
+{
+    return mEditor->openObject(path, [](int) {}, [](int) {});
 }
 
 Status ProjectSession::save()
@@ -98,7 +112,7 @@ Status ProjectSession::saveAs(const QString& path)
     mEditor->undoRedo()->markSaved();
     mEditor->object()->setFilePath(path);
     mEditor->clearTemporary();
-    pencilSettings().setValue(LAST_PCLX_PATH, path);
+    remember(path);
     mEditor->resetAutoSaveCounter();
 
     emit saved(path);
@@ -116,4 +130,80 @@ bool ProjectSession::maybeSave()
     case SaveChoice::Cancel: break;
     }
     return false;
+}
+
+bool ProjectSession::close()
+{
+    return maybeSave();
+}
+
+bool ProjectSession::autoSave()
+{
+    if (!mEditor->object()->filePath().isEmpty())
+    {
+        return save().ok();
+    }
+    emit autoSaveSkipped();
+    return false;
+}
+
+Status ProjectSession::autoSaveTick()
+{
+    FileManager fm;
+    return fm.writeToWorkingFolder(mEditor->object());
+}
+
+bool ProjectSession::recover()
+{
+    FileManager fm;
+    for (const QString& folder : fm.searchForUnsavedProjects())
+    {
+        switch (askRecover ? askRecover(folder) : RecoverChoice::Cancel)
+        {
+        case RecoverChoice::Cancel: break;
+        case RecoverChoice::Discard:
+            QDir(folder).removeRecursively();
+            break;
+        case RecoverChoice::Open:
+        {
+            FileManager recovery;
+            Object* o = recovery.recoverUnsavedProject(folder);
+            if (!recovery.error().ok())
+            {
+                emit recovered(false);
+                break;
+            }
+            mEditor->setObject(o);
+            emit recovered(true);
+            return true;
+        }
+        }
+    }
+    return false;
+}
+
+void ProjectSession::clearRecentFiles()
+{
+    setRecentFiles({});
+}
+
+QString ProjectSession::lastPath() const
+{
+    return pencilSettings().value(LAST_PCLX_PATH).toString();
+}
+
+void ProjectSession::remember(const QString& path)
+{
+    pencilSettings().setValue(LAST_PCLX_PATH, path);
+    QStringList files = mRecentFiles;
+    files.removeAll(path);
+    files.prepend(path);
+    setRecentFiles(files.mid(0, MAX_RECENT_FILES));
+}
+
+void ProjectSession::setRecentFiles(const QStringList& files)
+{
+    mRecentFiles = files;
+    pencilSettings().setValue(RECENT_FILES, mRecentFiles);
+    emit recentFilesChanged(mRecentFiles);
 }
