@@ -110,3 +110,40 @@ TEST_CASE("A Drawing edit repaints the timeline without redrawing its cells", "[
     CHECK(timeline.grab().toImage() == before);
 }
 
+
+TEST_CASE("The timeline paints no keys of a folded group member", "[Timeline]")
+{
+    TestSession session;
+    std::vector<LayerBitmap*> layers;
+    for (int l = 0; l < 3; ++l)
+    {
+        layers.push_back(session.object->addNewBitmapLayer());
+        for (int f = 2; f <= 20; ++f) { layers.back()->addNewKeyFrameAt(f); }
+    }
+    REQUIRE(session.start());
+    LayerManager* manager = session.editor->layers();
+    const int group = manager->createLayerGroup(layers[1]);
+    manager->addLayerToGroup(layers[2], group);
+    manager->setCurrentLayer(layers[0]);
+    TimeLine timeline(nullptr);
+    timeline.setEditor(session.editor.get());
+    timeline.initUI();
+    timeline.resize(800, 300);
+    timeline.grab();
+    TimeLineCells* tracks = tracksOf(timeline);
+
+    const auto keysPainted = [&] {
+        tracks->updateContent();
+        ProfilerOn profiler;
+        tracks->grab();
+        return StageProfiler::calls(StageProfiler::TimelineKey);
+    };
+    const auto open = keysPainted();
+    manager->setLayerGroupCollapsed(group, true);
+    int foldedLayers = 0;
+    for (int i = 0; i < session.object->getLayerCount(); ++i) { foldedLayers += session.object->isLayerFolded(i); }
+    REQUIRE(foldedLayers == 1);
+    const auto folded = keysPainted();
+    CHECK(folded > 0);
+    CHECK(folded * 3 == open * 2); // one of three bitmap layers is folded
+}

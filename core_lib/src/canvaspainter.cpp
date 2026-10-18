@@ -46,6 +46,13 @@ qint64 paletteKey(const Object& object)
     for (int i = 0; i < object.getColorCount(); ++i) { hash = qHashMulti(hash, quint64(object.getColor(i).color.rgba64())); }
     return qint64(hash);
 }
+
+// A transform as cache key values, to 1e-6.
+void appendTransformKey(QVector<qint64>& key, const QTransform& t, bool withTranslation = true)
+{
+    key << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6) << qRound64(t.m22() * 1e6);
+    if (withTranslation) { key << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6); }
+}
 }
 
 CanvasPainter::CanvasPainter(QImage& canvas) : mCanvas(canvas)
@@ -178,9 +185,8 @@ QVector<qint64> CanvasPainter::layersKey(int startPos, int endPos) const
     QVector<qint64> key{ qint64(quintptr(mObject)), mCurrentLayerIndex, mFrameNumber };
     for (auto it = mShiftAndTraceOffsets.cbegin(); it != mShiftAndTraceOffsets.cend(); ++it)
     {
-        const QTransform& t = it.value();
-        key << it.key() << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6)
-            << qRound64(t.m22() * 1e6) << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6);
+        key << it.key();
+        appendTransformKey(key, it.value());
     }
     return key + FrameRenderer::layersKey(*mObject, mFrameNumber, mPaintOrder, startPos, endPos);
 }
@@ -211,10 +217,8 @@ QVector<qint64> CanvasPainter::onionKey() const
                 key << image->stamp();
                 vector = true;
             }
-            const QTransform t = onionTransform(layer, n.frame);
-            const qreal opacity = layer->tweenStateAt(n.frame).opacity;
-            key << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6) << qRound64(t.m22() * 1e6)
-                << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6) << qRound64(opacity * 1e6);
+            appendTransformKey(key, onionTransform(layer, n.frame));
+            key << qRound64(layer->tweenStateAt(n.frame).opacity * 1e6);
         }
     }
     if (vector) { key << paletteKey(*mObject); }
@@ -385,12 +389,9 @@ void CanvasPainter::paintOnionFrame(QPainter& painter, const Layer* layer, int n
     const qreal opacity = tween.opacity - (1.0 - painter.opacity());
     const QTransform canvasTransform = onionTransform(layer, nFrame);
     // The view's translation is not in the key: a pan moves the cached pixmap by whole pixels.
-    key << colorize << (colorize ? qint64(tint.rgba64()) : 0) << (colorize ? qRound64(opacity * 1e6) : 0)
-        << qRound64(canvasTransform.m11() * 1e6) << qRound64(canvasTransform.m12() * 1e6)
-        << qRound64(canvasTransform.m21() * 1e6) << qRound64(canvasTransform.m22() * 1e6)
-        << qRound64(canvasTransform.dx() * 1e6) << qRound64(canvasTransform.dy() * 1e6)
-        << qRound64(mViewTransform.m11() * 1e6) << qRound64(mViewTransform.m12() * 1e6)
-        << qRound64(mViewTransform.m21() * 1e6) << qRound64(mViewTransform.m22() * 1e6);
+    key << colorize << (colorize ? qint64(tint.rgba64()) : 0) << (colorize ? qRound64(opacity * 1e6) : 0);
+    appendTransformKey(key, canvasTransform);
+    appendTransformKey(key, mViewTransform, false);
 
     painter.setWorldMatrixEnabled(false);
     const QRect canvasRect(QPoint(), mOnionSkinPixmap.deviceIndependentSize().toSize());

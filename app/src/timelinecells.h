@@ -122,6 +122,8 @@ private:
     void drawContent();
     /** Calls action on each key whose cell or tween line can reach the frames in view, last first. */
     void foreachVisibleKey(const Layer* layer, const std::function<void(KeyFrame*)>& action) const;
+    /// The last frame a key can show in, with a margin for a partly visible cell.
+    int lastVisibleFrame() const { return mFrameOffset + (width() - mOffsetX) / mFrameSize + 2; }
     size_t visibleKeysHash() const;
     void paintTicks(QPainter& painter, const QPalette& palette) const;
     void paintOnionSkin(QPainter& painter) const;

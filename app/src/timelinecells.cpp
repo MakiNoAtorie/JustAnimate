@@ -238,7 +238,7 @@ void TimeLineCells::foreachVisibleKey(const Layer* layer, const std::function<vo
     // The key before the view can draw a tween line into it.
     const KeyFrame* before = layer->getLastKeyFrameAtPosition(mFrameOffset - 1);
     const int first = before && before->pos() < mFrameOffset ? before->pos() : mFrameOffset;
-    layer->foreachKeyFrameIn(first, mFrameOffset + (width() - mOffsetX) / mFrameSize + 2, action);
+    layer->foreachKeyFrameIn(first, lastVisibleFrame(), action);
 }
 
 size_t TimeLineCells::visibleKeysHash() const
@@ -300,23 +300,15 @@ void TimeLineCells::drawContent()
 
     const int widgetWidth = width();
 
-    // Row geometry once per redraw, as getLayerY and isLayerFolded per row are quadratic in the layer count.
     const Object* object = mEditor->object();
     Q_ASSERT(object != nullptr);
     const int layerCount = object->getLayerCount();
-    QHash<int, int> groupTop; // group id to its top layer index
-    for (int i = 0; i < layerCount; ++i)
-    {
-        if (const int group = object->getLayer(i)->groupId()) { groupTop[group] = i; }
-    }
     std::vector<int> rowY(layerCount);
     std::vector<bool> folded(layerCount);
-    for (int i = layerCount - 1, row = 0; i >= 0; --i)
+    for (int i = 0; i < layerCount; ++i)
     {
-        rowY[i] = mOffsetY + (row - mLayerOffset) * mLayerHeight;
-        const LayerGroup* group = object->findLayerGroup(object->getLayer(i)->groupId());
-        folded[i] = group && group->collapsed && groupTop.value(group->id) != i;
-        if (!folded[i]) { ++row; }
+        rowY[i] = getLayerY(i);
+        folded[i] = object->isLayerFolded(i);
     }
 
     // Draw non-current layers
@@ -696,7 +688,7 @@ void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, i
     int recTop = layerY + 1;
     // Keys out of view draw nothing, unless a move hovers them into it; a sound clip spans many cells.
     const int firstVisible = mFrameOffset;
-    const int lastVisible = mFrameOffset + (width() - mOffsetX) / mFrameSize + 2;
+    const int lastVisible = lastVisibleFrame();
     const bool all = mGesture.isMoving() || layer->type() == Layer::SOUND;
 
     painter.save();

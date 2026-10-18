@@ -228,6 +228,8 @@ private:
     /** Invalidate all cache.
      * call this if you're certain that the change you've made affects all frames */
     void invalidateAllCache();
+    /// Stores mCanvas as the canvas of rame.
+    void cacheCanvas(int frame);
 
     /** invalidate cache for dirty keyframes. */
     void invalidateCacheForDirtyFrames();

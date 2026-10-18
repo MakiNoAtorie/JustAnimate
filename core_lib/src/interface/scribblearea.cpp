@@ -470,9 +470,14 @@ void ScribbleArea::onViewChanged()
     {
         drawCanvas(frame, QRectF(QPointF(r.topLeft()) / mDevicePixelRatio, QSizeF(r.size()) / mDevicePixelRatio).toAlignedRect());
     }
+    cacheCanvas(frame);
+    updateFrame();
+}
+
+void ScribbleArea::cacheCanvas(int frame)
+{
     const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
     mFrameCache.insert(frame, new QImage(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
-    updateFrame();
 }
 
 void ScribbleArea::onLayerChanged()
@@ -1076,8 +1081,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
                 // The cache keeps only whole canvases of one view: with the view unknown, draw all of it.
                 drawCanvas(currentFrame, mFrameCacheView ? event->rect() : rect());
                 mFrameCacheView = mEditor->view()->getView();
-                const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
-                mFrameCache.insert(currentFrame, new QImage(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
+                cacheCanvas(currentFrame);
             }
         }
     }
