@@ -98,6 +98,7 @@ void CanvasPainter::ignoreTransformedSelection()
     mRenderTransform = false;
     mSelectionTransform.reset();
     mSelection = QRect();
+    mSelectionPixmap = QPixmap();
 }
 
 void CanvasPainter::paintCached(const QRect& blitRect)
@@ -537,19 +538,28 @@ void CanvasPainter::drawLayerPixmap(QPainter& painter, const QRect& blitRect, Bl
     if (!rect.isEmpty()) { drawBlended(painter, mCurrentLayerPixmap.copy(rect).toImage(), rect.topLeft(), mode); }
 }
 
-void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView) const
+void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView)
 {
     // Make sure there is something selected
     if (selection.width() == 0 && selection.height() == 0)
         return;
 
-    QPixmap transformedPixmap = QPixmap(mSelection.size());
-    transformedPixmap.fill(Qt::transparent);
+    const QPoint origin = bitmapImage->topLeft(); // crops first, which can replace the image
+    const qint64 key = bitmapImage->image()->cacheKey();
+    if (mSelectionPixmap.isNull() || key != mSelectionPixmapKey || selection != mSelectionPixmapRect
+        || origin != mSelectionPixmapOrigin)
+    {
+        mSelectionPixmap = QPixmap(selection.size());
+        mSelectionPixmap.fill(Qt::transparent);
 
-    QPainter imagePainter(&transformedPixmap);
-    imagePainter.translate(-selection.topLeft());
-    imagePainter.drawImage(bitmapImage->topLeft(), *bitmapImage->image());
-    imagePainter.end();
+        QPainter imagePainter(&mSelectionPixmap);
+        imagePainter.translate(-selection.topLeft());
+        imagePainter.drawImage(origin, *bitmapImage->image());
+        imagePainter.end();
+        mSelectionPixmapKey = key;
+        mSelectionPixmapRect = selection;
+        mSelectionPixmapOrigin = origin;
+    }
 
     painter.save();
 
@@ -566,7 +576,7 @@ void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bi
     painter.setTransform(mSelectionTransform * keyView);
 
     // Draw the selection image separately and on top
-    painter.drawPixmap(selection, transformedPixmap);
+    painter.drawPixmap(selection, mSelectionPixmap);
     painter.restore();
 }
 

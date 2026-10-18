@@ -116,7 +116,7 @@ private:
     /// Positions painted with the current layer: its group's non-Rough layers when the group is translucent.
     QPair<int, int> currentRange() const;
 
-    void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView) const;
+    void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView);
 
     void paintBitmapOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
     void paintVectorOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
@@ -146,6 +146,11 @@ private:
     bool mRenderTransform = false;
     QRect mSelection;
     QTransform mSelectionTransform;
+    // The selected pixels, reused while the image, its origin and the selection rect stay.
+    QPixmap mSelectionPixmap;
+    qint64 mSelectionPixmapKey = 0;
+    QRect mSelectionPixmapRect;
+    QPoint mSelectionPixmapOrigin;
 
     // Caches specifically for when drawing on the canvas
     QPixmap mPostLayersPixmap;
