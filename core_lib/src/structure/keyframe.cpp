@@ -17,6 +17,8 @@ GNU General Public License for more details.
 
 #include "keyframe.h"
 
+#include "attributes.h"
+
 
 KeyFrame::KeyFrame()
 {
@@ -27,13 +29,8 @@ KeyFrame::KeyFrame(const KeyFrame& k2)
     mFrame = k2.mFrame;
     mLength = k2.mLength;
     mIsModified = k2.mIsModified;
-    mTween = k2.mTween;
-    mTweenEasing = k2.mTweenEasing;
-    mTweenState = k2.mTweenState;
-    mMark = k2.mMark;
-    mLinkId = k2.mLinkId;
-    mPanelFields = k2.mPanelFields;
     mAttachedFileName = k2.mAttachedFileName;
+    copyKeyAttributes(k2, *this);
     // intentionally not copying event listeners
 }
 
@@ -52,16 +49,11 @@ KeyFrame& KeyFrame::operator=(const KeyFrame& k2)
 		return *this; // a self-assignment
 	}
 
-	mFrame = k2.mFrame;
-	mLength = k2.mLength;
-	mIsModified = k2.mIsModified;
-	mTween = k2.mTween;
-	mTweenEasing = k2.mTweenEasing;
-	mTweenState = k2.mTweenState;
-	mMark = k2.mMark;
-	mLinkId = k2.mLinkId;
-	mPanelFields = k2.mPanelFields;
-	mAttachedFileName = k2.mAttachedFileName;
+    mFrame = k2.mFrame;
+    mLength = k2.mLength;
+    mIsModified = k2.mIsModified;
+    mAttachedFileName = k2.mAttachedFileName;
+    copyKeyAttributes(k2, *this);
     // intentionally not copying event listeners
     return *this;
 }

@@ -206,8 +206,6 @@ public:
     void recordCameraSize(int layerId, QRect before, QRect after, const QString& description);
     /** Records that the Drawings of `layerId` changed opacity from `before` to `after`, keyed by position */
     void recordKeyFrameOpacities(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after, const QString& description);
-    /** Records Panel fields set on the key at `frame` from `before` to `after` */
-    void recordPanelFields(int layerId, int frame, const PanelFields& before, const PanelFields& after, const QString& description);
     /** Records a change of layer order or groups from `before` to the current arrangement */
     void recordLayerArrangement(const LayerArrangement& before, const QString& description);
 

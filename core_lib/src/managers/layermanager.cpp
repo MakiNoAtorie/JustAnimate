@@ -537,14 +537,7 @@ void LayerManager::setStoryboard(Layer* layer, bool storyboard)
 
 bool LayerManager::setPanelFields(Layer* layer, int frame, const PanelFields& fields)
 {
-    KeyFrame* key = layer ? layer->getLastKeyFrameAtPosition(frame) : nullptr;
-    if (key == nullptr || key->panelFields() == fields || editor()->refusesEdit(layer)) { return false; }
-    const PanelFields before = key->panelFields();
-    key->setPanelFields(fields);
-    editor()->undoRedo()->recordPanelFields(layer->id(), key->pos(), before, fields, tr("Panel Field"));
-    object()->modification();
-    emit editor()->frameModified(key->pos());
-    return true;
+    return setKeyAttribute(layer, frame, AttributeId::PanelFields, QVariant::fromValue(fields));
 }
 
 // Moves layers [lo, hi] so the first lands at index t of the list without them.
@@ -691,40 +684,20 @@ bool LayerManager::moveLayer(int from, int to)
 void LayerManager::setKeyTween(int frame, bool tween, CameraEasingType easing, const TweenState& state)
 {
     Layer* layer = currentLayer();
-    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
-    KeyFrame* key = layer->getKeyFrameAt(frame);
-    if (key == nullptr) { return; }
-    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
-    const int playhead = editor()->currentFrame();
-    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
-    if (visit) { editor()->scrubTo(frame); }
-
-    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
-    key->setTween(tween);
-    key->setTweenEasing(easing);
-    key->setTweenState(state);
-    editor()->undoRedo()->record(saveStateId, tr("Tween"));
-    if (visit) { editor()->scrubTo(playhead); }
-    notifyLayerChanged(layer);
+    if (layer == nullptr || !layer->keyExists(frame)) { return; }
+    if (setKeyAttribute(layer, frame, AttributeId::Tween, QVariant::fromValue(KeyTween{ tween, easing, state }))) { notifyLayerChanged(layer); }
 }
 
 void LayerManager::setKeyMark(int frame, Mark mark)
 {
     Layer* layer = currentLayer();
-    if (layer == nullptr || (layer->type() != Layer::BITMAP && layer->type() != Layer::VECTOR) || editor()->refusesEdit(layer)) { return; }
-    KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
-    if (key == nullptr) { editor()->notice(tr("No Drawing to mark on frame %1").arg(frame)); return; }
-    if (key->mark() == mark) { return; }
-    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
-    const int playhead = editor()->currentFrame();
-    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
-    if (visit) { editor()->scrubTo(key->pos()); }
-
-    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
-    key->setMark(mark);
-    editor()->undoRedo()->record(saveStateId, mark == Mark::None ? tr("Clear Mark") : tr("Mark"));
-    if (visit) { editor()->scrubTo(playhead); }
-    notifyLayerChanged(layer);
+    if (layer == nullptr || !attribute(AttributeId::Mark).appliesTo(layer->type())) { return; }
+    if (layer->getLastKeyFrameAtPosition(frame) == nullptr)
+    {
+        if (!editor()->refusesEdit(layer)) { editor()->notice(tr("No Drawing to mark on frame %1").arg(frame)); }
+        return;
+    }
+    if (setKeyAttribute(layer, frame, AttributeId::Mark, static_cast<int>(mark))) { notifyLayerChanged(layer); }
 }
 
 namespace
@@ -1064,18 +1037,8 @@ bool LayerManager::unlinkDrawing(int frame)
     Layer* layer = currentLayer(0);
     if (layer == nullptr) { return false; }
     KeyFrame* key = layer->getLastKeyFrameAtPosition(frame);
-    if (!layer->isLinked(key) || editor()->refusesEdit(layer)) { return false; }
-    // The keyframe undo state captures the Drawing shown at the current frame: visit the key, then come back.
-    const int playhead = editor()->currentFrame();
-    const bool visit = layer->getLastKeyFrameAtPosition(playhead) != key;
-    if (visit) { editor()->scrubTo(key->pos()); }
-
-    const SAVESTATE_ID saveStateId = editor()->undoRedo()->createState(UndoRedoRecordType::KEYFRAME_MODIFY);
-    key->setLinkId(0);
+    if (!layer->isLinked(key) || !setKeyAttribute(layer, frame, AttributeId::LinkedTo, 0)) { return false; }
     key->modification();
-    editor()->undoRedo()->record(saveStateId, tr("Unlink Drawing"));
-    if (visit) { editor()->scrubTo(playhead); }
-    emit editor()->frameModified(key->pos());
     return true;
 }
 

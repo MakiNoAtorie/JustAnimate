@@ -230,9 +230,6 @@ public:
 
 protected:
     virtual KeyFrame* createKeyFrame(int position) = 0;
-    /** Optional tween and mark attributes of an <image> key element. */
-    static void writeKeyTween(QDomElement& image, const KeyFrame* key);
-    static void readKeyTween(const QDomElement& image, KeyFrame* key);
     /** ADR 0001: each linked copy stays a full image; `linkedTo` on its <image> names the src of the first copy. */
     void writeLinks(QDomElement& layerElem) const;
     void readLinks(const QDomElement& layerElem);

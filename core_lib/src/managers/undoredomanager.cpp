@@ -465,12 +465,6 @@ void UndoRedoManager::recordLayerStoryboard(int layerId, bool storyboard, const 
     pushCommand(new LayerStoryboardCommand(layerId, storyboard, description, editor()));
 }
 
-void UndoRedoManager::recordPanelFields(int layerId, int frame, const PanelFields& before, const PanelFields& after,
-                                        const QString& description)
-{
-    pushCommand(new PanelFieldsCommand(layerId, frame, before, after, description, editor()));
-}
-
 void UndoRedoManager::recordLayerArrangement(const LayerArrangement& before, const QString& description)
 {
     const LayerArrangement after = object()->layerArrangement();

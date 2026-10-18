@@ -375,25 +375,6 @@ private:
     bool storyboard = false;
 };
 
-/// Undo and redo of the Panel fields of the key at `frame` on a layer.
-class PanelFieldsCommand : public UndoRedoCommand
-{
-public:
-    PanelFieldsCommand(int layerId, int frame, const PanelFields& before, const PanelFields& after,
-                       const QString& description, Editor* editor);
-
-    void undo() override;
-    void redo() override;
-
-private:
-    void apply(const PanelFields& fields);
-
-    int layerId = 0;
-    int frame = 0;
-    PanelFields before;
-    PanelFields after;
-};
-
 /// Undo and redo of a layer reorder or a layer group edit.
 class LayerArrangementCommand : public UndoRedoCommand
 {

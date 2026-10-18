@@ -18,8 +18,12 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QDomDocument>
 #include <QIcon>
+#include <QPainter>
+#include <QTemporaryDir>
 
 #include "attributes.h"
+#include "bitmapimage.h"
+#include "filemanager.h"
 #include "layerbitmap.h"
 #include "layercamera.h"
 #include "layermanager.h"
@@ -64,8 +68,25 @@ QVariant otherValue(const AttributeDescriptor& row, const QVariant& current)
     case QMetaType::Bool: return !current.toBool();
     case QMetaType::Int: return current.toInt() + 1;
     case QMetaType::QString: return current.toString() + "x";
-    default: return QVariant();
+    default: break;
     }
+    if (current.canConvert<KeyTween>())
+    {
+        KeyTween t = current.value<KeyTween>();
+        t.on = !t.on;
+        t.easing = CameraEasingType::INQUAD;
+        t.state.tx += 1.5;
+        t.state.scale *= 2;
+        return QVariant::fromValue(t);
+    }
+    if (current.canConvert<PanelFields>())
+    {
+        PanelFields p = current.value<PanelFields>();
+        p.scene += "1";
+        p.notes += "a & <b>";
+        return QVariant::fromValue(p);
+    }
+    return QVariant();
 }
 
 } // namespace
@@ -130,6 +151,83 @@ TEST_CASE("Every layer attribute row round-trips through set save load duplicate
                 CHECK(row.get(layer) == start);
                 redo->trigger();
                 CHECK(row.get(layer) == value);
+            }
+        }
+    }
+}
+
+TEST_CASE("The table has a row for every Drawing attribute", "[Attributes]")
+{
+    for (AttributeId id : { AttributeId::Mark, AttributeId::Tween, AttributeId::PanelFields, AttributeId::LinkedTo })
+    {
+        CHECK(attribute(id).id == id);
+        CHECK(attribute(id).scope == AttributeScope::Drawing);
+    }
+}
+
+TEST_CASE("Every Drawing attribute row round-trips through set save load key copy undo and redo", "[Attributes]")
+{
+    for (const AttributeDescriptor& row : attributeTable())
+    {
+        if (row.scope != AttributeScope::Drawing) { continue; }
+        for (Layer::LAYER_TYPE type : { Layer::BITMAP, Layer::VECTOR, Layer::SOUND, Layer::CAMERA })
+        {
+            if (!row.appliesTo(type)) { continue; }
+            DYNAMIC_SECTION(row.xmlName << " on layer type " << type)
+            {
+                QTemporaryDir dir;
+                REQUIRE(dir.isValid());
+                TestSession session;
+                Layer* layer = addLayer(session.object, type);
+                REQUIRE(layer != nullptr);
+                layer->addNewKeyFrameAt(1);
+                layer->addNewKeyFrameAt(3);
+                if (type == Layer::BITMAP)
+                {
+                    for (int f : { 1, 3 })
+                    {
+                        static_cast<LayerBitmap*>(layer)->getBitmapImageAtFrame(f)->drawRect(
+                            QRectF(0, 0, 4, 4), Qt::NoPen, QBrush(Qt::black), QPainter::CompositionMode_Source, false);
+                    }
+                }
+                // A linked-to value needs a Drawing to link to.
+                layer->getKeyFrameAt(1)->setLinkId(1);
+                session.start();
+                Editor* editor = session.editor.get();
+                QObject parent;
+                QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+                QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
+                KeyFrame* key = layer->getKeyFrameAt(3);
+
+                const QVariant start = row.get(layer, key);
+                CHECK(start == row.defaultValue);
+                const QVariant value = otherValue(row, start);
+                REQUIRE(value.isValid());
+
+                // Frame 4 is a hold of the Drawing at 3.
+                CHECK(editor->layers()->setKeyAttribute(layer, 4, row.id, value));
+                CHECK(row.get(layer, key) == value);
+                // The undo texts from before the table.
+                const QHash<AttributeId, QString> oldText = { { AttributeId::Mark, "Mark" }, { AttributeId::Tween, "Tween" },
+                    { AttributeId::PanelFields, "Panel Field" }, { AttributeId::LinkedTo, "Unlink Drawing" } };
+                CHECK(undo->text().endsWith(" " + oldText.value(row.id, "?")));
+
+                const QString path = dir.filePath("drawing.pclx");
+                FileManager fm;
+                REQUIRE(fm.save(session.object, path).ok());
+                std::unique_ptr<Object> loaded(fm.load(path));
+                REQUIRE(loaded != nullptr);
+                const Layer* loadedLayer = loaded->findLayerById(layer->id());
+                REQUIRE(loadedLayer != nullptr);
+                CHECK(row.get(loadedLayer, loadedLayer->getKeyFrameAt(3)) == value);
+
+                std::unique_ptr<KeyFrame> copy(key->clone());
+                CHECK(row.get(layer, copy.get()) == value);
+
+                undo->trigger();
+                CHECK(row.get(layer, key) == start);
+                redo->trigger();
+                CHECK(row.get(layer, key) == value);
             }
         }
     }
@@ -216,6 +314,79 @@ TEST_CASE("Duplicate Layer keeps the copy in the original's group", "[Attributes
     CHECK(session.object->layerGroupRange(group) == qMakePair(index, index));
     redo->trigger();
     CHECK(session.object->layerGroupRange(group) == qMakePair(index, index + 1));
+}
+
+TEST_CASE("A Mark edit keeps the playhead and the Drawing", "[Attributes]")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+    layer->addNewKeyFrameAt(5);
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(0, 0, 4, 4), Qt::NoPen, QBrush(Qt::black),
+                                              QPainter::CompositionMode_Source, false);
+    session.start();
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(5);
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    int scrubs = 0;
+    QObject::connect(editor, &Editor::scrubbed, &parent, [&scrubs] { ++scrubs; });
+    BitmapImage* key = layer->getBitmapImageAtFrame(1);
+    const QImage pixels = key->image()->copy();
+
+    editor->layers()->setKeyMark(1, Mark::Key);
+    CHECK(key->mark() == Mark::Key);
+    undo->trigger();
+    CHECK(scrubs == 0);
+    CHECK(editor->currentFrame() == 5);
+    // The undo restored the value on the same Drawing, not a clone.
+    REQUIRE(layer->getBitmapImageAtFrame(1) == key);
+    CHECK(key->mark() == Mark::None);
+    CHECK(*key->image() == pixels);
+
+    // Undo texts read as before the table.
+    editor->layers()->setKeyMark(1, Mark::Key);
+    CHECK(undo->text().endsWith(" Mark"));
+    CHECK_FALSE(undo->text().contains("Clear"));
+    editor->layers()->setKeyMark(1, Mark::None);
+    CHECK(undo->text().contains("Clear Mark"));
+}
+
+// Qt 6.4 and 6.5 QDom write attributes in hash order, so compare each <image> sorted.
+TEST_CASE("Drawing attributes save byte-identical", "[Attributes]")
+{
+    LayerBitmap layer(7);
+    layer.addNewKeyFrameAt(1);
+    layer.addNewKeyFrameAt(3);
+    KeyFrame* key = layer.getKeyFrameAt(1);
+    key->setMark(Mark::Breakdown);
+    key->setTween(true);
+    key->setTweenEasing(CameraEasingType::INQUAD);
+    key->setTweenState(TweenState{ 1.5, -2, 30, 0.25, 0.5 });
+    key->setPanelFields({ "1", "12", "Pan & go", "\"Hi\"" });
+    key->setLinkId(4);
+    layer.getKeyFrameAt(3)->setLinkId(4);
+    QDomDocument doc;
+    const QDomElement layerElem = layer.createDomElement(doc);
+    QStringList images;
+    for (QDomElement image = layerElem.firstChildElement(); !image.isNull(); image = image.nextSiblingElement())
+    {
+        const QDomNamedNodeMap attributes = image.attributes();
+        QStringList parts;
+        for (int i = 0; i < attributes.count(); ++i)
+        {
+            const QDomAttr attribute = attributes.item(i).toAttr();
+            parts << QString("%1=\"%2\"").arg(attribute.name(), attribute.value());
+        }
+        parts.sort();
+        images << "<" + image.tagName() + " " + parts.join(' ') + "/>";
+    }
+    CHECK(images.join("").toStdString() ==
+          "<image frame=\"3\" linkedTo=\"007.001.png\" opacity=\"1\" src=\"007.003.png\" topLeftX=\"0\" topLeftY=\"0\"/>"
+          "<image audio=\"\"Hi\"\" cut=\"12\" easing=\"1\" frame=\"1\" mark=\"breakdown\" notes=\"Pan & go\""
+          " opacity=\"0.5\" rot=\"30\" scale=\"0.25\" scene=\"1\" src=\"007.001.png\" topLeftX=\"0\" topLeftY=\"0\""
+          " tween=\"1\" tx=\"1.5\" ty=\"-2\"/>");
 }
 
 TEST_CASE("Setting an attribute to its current value records nothing", "[Attributes]")
