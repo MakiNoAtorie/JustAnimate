@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "blendmode.h"
 #include "camera.h"
 #include "canvaspainter.h"
+#include "exporter.h"
 #include "framerenderer.h"
 #include "layerbitmap.h"
 #include "layercamera.h"
@@ -175,7 +176,14 @@ TEST_CASE("Image sequence export writes the export adapter pixels", "[FrameRende
     auto object = everyRule();
     const LayerCamera* camera = object->getLayersByType<LayerCamera>().front();
     QTemporaryDir dir;
-    REQUIRE(object->exportFrames(1, 3, camera, QSize(160, 120), dir.filePath("seq"), "PNG", true, false, "", true, nullptr, 0).ok());
+    ExportRequest request;
+    request.kind = ExportRequest::Kind::Sequence;
+    request.startFrame = 1;
+    request.endFrame = 3;
+    request.size = QSize(160, 120);
+    request.path = dir.filePath("seq");
+    request.transparency = true;
+    REQUIRE(Exporter::run(*object, request).ok());
 
     FrameRenderer::ExportOptions options;
     options.size = QSize(160, 120);

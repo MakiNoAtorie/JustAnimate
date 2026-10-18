@@ -15,6 +15,7 @@ GNU General Public License for more details.
 */
 
 #include "movieexporter.h"
+#include "exporter.h"
 #include "framerenderer.h"
 
 #include <ctime>
@@ -181,8 +182,7 @@ bool MovieExporter::mayOverwrite(const QString& path, const std::function<bool()
 
 QImage MovieExporter::frameImage(const Object& obj, const ExportMovieDesc& desc, int frame)
 {
-    auto camera = static_cast<const LayerCamera*>(obj.findLayerByName(desc.strCameraName, Layer::CAMERA));
-    if (camera == nullptr) { camera = obj.getLayersByType<LayerCamera>().front(); }
+    const LayerCamera* camera = Exporter::camera(obj, desc.strCameraName);
     const bool transparency = desc.alpha && !desc.strFileName.endsWith("gif", Qt::CaseInsensitive);
     return FrameRenderer::renderForExport(obj, frame, *camera, { desc.exportSize, transparency, true });
 }

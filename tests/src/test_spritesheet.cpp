@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <QTemporaryDir>
 
 #include "bitmapimage.h"
+#include "exporter.h"
 #include "layerbitmap.h"
 #include "layercamera.h"
 #include "object.h"
@@ -42,6 +43,19 @@ std::unique_ptr<Object> fiveFrames(LayerCamera*& camera)
                                                   Qt::NoPen, QBrush(kColors[f - 1]), QPainter::CompositionMode_Source, false);
     }
     return object;
+}
+
+ExportRequest request(ExportRequest::Kind kind, int start, int end, const QString& path, bool transparency, int columns = 0)
+{
+    ExportRequest r;
+    r.kind = kind;
+    r.startFrame = start;
+    r.endFrame = end;
+    r.size = kFrame;
+    r.path = path;
+    r.transparency = transparency;
+    r.columns = columns;
+    return r;
 }
 }
 
@@ -77,7 +91,7 @@ TEST_CASE("Sprite sheet export writes one PNG with the frames in order", "[Sprit
     REQUIRE(dir.isValid());
     const QString path = dir.filePath("sheet.png");
 
-    REQUIRE(object->exportSpriteSheet(1, 5, camera, kFrame, path, 3, true, true, nullptr, 0).ok());
+    REQUIRE(Exporter::run(*object, request(ExportRequest::Kind::SpriteSheet, 1, 5, path, true, 3)).ok());
 
     QImage sheet(path);
     REQUIRE(sheet.size() == QSize(120, 60));
@@ -98,11 +112,11 @@ TEST_CASE("PNG sequence keeps alpha with a transparent background", "[SpriteShee
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
 
-    REQUIRE(object->exportFrames(3, 3, camera, kFrame, dir.filePath("seq"), "PNG", true, false, "", true, nullptr, 0).ok());
+    REQUIRE(Exporter::run(*object, request(ExportRequest::Kind::Sequence, 3, 3, dir.filePath("seq"), true)).ok());
     QImage clear(dir.filePath("seq0003.png"));
     REQUIRE(clear.hasAlphaChannel());
     REQUIRE(clear.pixelColor(20, 15).alpha() == 0);
 
-    REQUIRE(object->exportFrames(3, 3, camera, kFrame, dir.filePath("opaque"), "PNG", false, false, "", true, nullptr, 0).ok());
+    REQUIRE(Exporter::run(*object, request(ExportRequest::Kind::Sequence, 3, 3, dir.filePath("opaque"), false)).ok());
     REQUIRE(QImage(dir.filePath("opaque0003.png")).pixelColor(20, 15) == QColor(Qt::white));
 }

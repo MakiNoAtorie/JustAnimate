@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <QTextStream>
 
 #include "editor.h"
+#include "exporter.h"
 #include "fileformat.h"
 #include "layercamera.h"
 #include "layermanager.h"
@@ -184,18 +185,16 @@ Status CommandLineExporter::exportImageSequence(const QString &outputPath,
                                                 bool transparency)
 {
     mOut << tr("Exporting image sequence...", "Command line task progress") << qEndl;
-    return mEditor->object()->exportFrames(startFrame,
-                                           endFrame,
-                                           cameraLayer,
-                                           exportSize,
-                                           outputPath,
-                                           format,
-                                           transparency,
-                                           false,
-                                           "",
-                                           true,
-                                           nullptr,
-                                           0);
+    ExportRequest request;
+    request.kind = ExportRequest::Kind::Sequence;
+    request.cameraName = cameraLayer->name();
+    request.startFrame = startFrame;
+    request.endFrame = endFrame;
+    request.size = exportSize;
+    request.format = format;
+    request.path = outputPath;
+    request.transparency = transparency;
+    return Exporter::run(*mEditor->object(), request);
 }
 
 void CommandLineExporter::printError(const Status &st)

@@ -44,6 +44,7 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_storyboard.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_tween.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_framerenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_exporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_mark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_inbetweens.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_exposure.cpp

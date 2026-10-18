@@ -60,6 +60,7 @@ GNU General Public License for more details.
 #include "importpositiondialog.h"
 #include "movieimporter.h"
 #include "movieexporter.h"
+#include "exporter.h"
 #include "filedialog.h"
 #include "exportmoviedialog.h"
 #include "exportimagedialog.h"
@@ -69,6 +70,16 @@ GNU General Public License for more details.
 #include "checkupdatesdialog.h"
 #include "errordialog.h"
 
+namespace
+{
+std::function<bool(const QString&)> confirmOverwrite(QWidget* parent)
+{
+    return [parent](const QString& path) {
+        return QMessageBox::question(parent, APP_NAME,
+                   ActionCommands::tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(path))) == QMessageBox::Yes;
+    };
+}
+} // namespace
 
 ActionCommands::ActionCommands(QWidget* parent) : QObject(parent)
 {
@@ -320,10 +331,7 @@ Status ActionCommands::exportMovie(bool isGif)
         return Status::SAFE;
     }
     QString strMoviePath = dialog->getFilePath();
-    if (!MovieExporter::mayOverwrite(strMoviePath, [this, &strMoviePath] {
-            return QMessageBox::question(mParent, APP_NAME,
-                       tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(strMoviePath))) == QMessageBox::Yes;
-        }))
+    if (!MovieExporter::mayOverwrite(strMoviePath, [this, &strMoviePath] { return confirmOverwrite(mParent)(strMoviePath); }))
     {
         return Status::SAFE;
     }
@@ -464,24 +472,19 @@ Status ActionCommands::exportImageSequence()
         return Status::SAFE;
     }
 
-    QString strFilePath = dialog->getFilePath();
-    QSize exportSize = dialog->getExportSize();
-    QString exportFormat = dialog->getExportFormat();
-    bool exportKeyframesOnly = dialog->getExportKeyframesOnly();
-    bool useTransparency = dialog->getTransparency();
-    int startFrame = dialog->getStartFrame();
-    int endFrame  = dialog->getEndFrame();
-
-    if (dialog->getSpriteSheet() && !MovieExporter::mayOverwrite(strFilePath, [this, &strFilePath] {
-            return QMessageBox::question(mParent, APP_NAME,
-                       tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(strFilePath))) == QMessageBox::Yes;
-        }))
-    {
-        return Status::SAFE;
-    }
-
-    QString sCameraLayerName = dialog->getCameraLayerName();
-    LayerCamera* cameraLayer = static_cast<LayerCamera*>(mEditor->layers()->findLayerByName(sCameraLayerName, Layer::CAMERA));
+    ExportRequest request;
+    request.kind = dialog->getSpriteSheet() ? ExportRequest::Kind::SpriteSheet : ExportRequest::Kind::Sequence;
+    request.cameraName = dialog->getCameraLayerName();
+    request.startFrame = dialog->getStartFrame();
+    request.endFrame = dialog->getEndFrame();
+    request.size = dialog->getExportSize();
+    request.format = dialog->getExportFormat();
+    request.path = dialog->getFilePath();
+    request.transparency = dialog->getTransparency();
+    request.keyframesOnly = dialog->getExportKeyframesOnly();
+    request.keyLayerName = mEditor->layers()->currentLayer()->name();
+    request.columns = dialog->getSpriteSheetColumns();
+    request.confirmOverwrite = confirmOverwrite(mParent);
 
     // Show a progress dialog, as this can take a while if you have lots of frames.
     QProgressDialog progress(tr("Exporting image sequence..."), tr("Abort"), 0, 100, mParent);
@@ -489,26 +492,11 @@ Status ActionCommands::exportImageSequence()
     progress.setWindowModality(Qt::WindowModal);
     progress.show();
 
-    Status st = Status::OK;
-    if (dialog->getSpriteSheet())
-    {
-        st = mEditor->object()->exportSpriteSheet(startFrame, endFrame, cameraLayer, exportSize, strFilePath,
-                                                  dialog->getSpriteSheetColumns(), useTransparency, true, &progress, 100);
-    }
-    else
-    {
-        st = mEditor->object()->exportFrames(startFrame, endFrame,
-                                    cameraLayer,
-                                    exportSize,
-                                    strFilePath,
-                                    exportFormat,
-                                    useTransparency,
-                                    exportKeyframesOnly,
-                                    mEditor->layers()->currentLayer()->name(),
-                                    true,
-                                    &progress,
-                                    100);
-    }
+    const Status st = Exporter::run(*mEditor->object(), request, [&progress](int done, int total) {
+        progress.setValue(done * 100 / total);
+        QApplication::processEvents(); // Required to make progress bar update on-screen.
+        return !progress.wasCanceled();
+    });
     if (st == Status::CANCELED) { return Status::SAFE; }
 
     if (!st.ok())
@@ -560,58 +548,18 @@ Status ActionCommands::exportImage()
         return Status::SAFE;
     }
 
-    QString filePath = dialog->getFilePath();
-    QSize exportSize = dialog->getExportSize();
-    QString exportFormat = dialog->getExportFormat();
-    bool useTransparency = dialog->getTransparency();
+    ExportRequest request;
+    request.kind = ExportRequest::Kind::Image;
+    request.cameraName = dialog->getCameraLayerName();
+    request.startFrame = mEditor->currentFrame();
+    request.size = dialog->getExportSize();
+    request.format = dialog->getExportFormat();
+    request.path = dialog->getFilePath();
+    request.transparency = dialog->getTransparency();
+    request.confirmOverwrite = confirmOverwrite(mParent);
 
-    QString extension = "";
-    QString formatStr = exportFormat;
-    if (formatStr == "PNG" || formatStr == "png")
-    {
-        exportFormat = "PNG";
-        extension = ".png";
-    }
-    if (formatStr == "JPG" || formatStr == "jpg" || formatStr == "JPEG" || formatStr == "jpeg")
-    {
-        exportFormat = "JPG";
-        extension = ".jpg";
-        useTransparency = false; // JPG doesn't support transparency, so we have to include the background
-    }
-    if (formatStr == "TIFF" || formatStr == "tiff" || formatStr == "TIF" || formatStr == "tif")
-    {
-        exportFormat = "TIFF";
-        extension = ".tiff";
-    }
-    if (formatStr == "BMP" || formatStr == "bmp")
-    {
-        exportFormat = "BMP";
-        extension = ".bmp";
-        useTransparency = false;
-    }
-    if (formatStr == "WEBP" || formatStr == "webp") {
-        exportFormat = "WEBP";
-        extension = ".webp";
-    }
-    if (!filePath.endsWith(extension, Qt::CaseInsensitive))
-    {
-        filePath += extension;
-    }
-
-    // Export
-    QString sCameraLayerName = dialog->getCameraLayerName();
-    LayerCamera* cameraLayer = static_cast<LayerCamera*>(mEditor->layers()->findLayerByName(sCameraLayerName, Layer::CAMERA));
-
-    QTransform view = cameraLayer->getViewAtFrame(mEditor->currentFrame());
-
-    Status st = mEditor->object()->exportIm(mEditor->currentFrame(),
-                                           view,
-                                           cameraLayer->getViewSize(),
-                                           exportSize,
-                                           filePath,
-                                           exportFormat,
-                                           true,
-                                           useTransparency);
+    const Status st = Exporter::run(*mEditor->object(), request);
+    if (st == Status::CANCELED) { return Status::SAFE; }
 
     if (!st.ok())
     {
