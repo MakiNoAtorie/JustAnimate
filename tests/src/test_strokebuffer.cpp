@@ -123,7 +123,7 @@ TEST_CASE("CanvasPainter paints a vector layer without a stroke buffer")
     LayerVector* layer = object->addNewVectorLayer();
     layer->addNewKeyFrameAt(1);
 
-    QPixmap canvas(20, 20);
+    QImage canvas(20, 20, QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     painter.setViewTransform(QTransform(), QTransform());
     painter.setOptions(CanvasPainterOptions());

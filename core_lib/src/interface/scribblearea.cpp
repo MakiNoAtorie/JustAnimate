@@ -21,6 +21,7 @@ GNU General Public License for more details.
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <utility>
 #include <QGuiApplication>
 #include <QStyleHints>
@@ -410,6 +411,25 @@ void ScribbleArea::onFrameModified(int frameNumber)
     else { updateFrame(); }
 }
 
+// QPixmap::scroll for an image: moves the pixels by step and returns the area they no longer cover.
+static QRegion scrollImage(QImage& image, QPoint step)
+{
+    const QRect to = image.rect().translated(step) & image.rect();
+    if (to.isEmpty()) { return QRegion(image.rect()); }
+    const QRect from = to.translated(-step);
+    const int bytes = to.width() * image.depth() / 8;
+    uchar* bits = image.bits();
+    const qsizetype bpl = image.bytesPerLine();
+    // Rows move down from the bottom and up from the top, so no source row is overwritten first.
+    for (int i = 0; i < to.height(); ++i)
+    {
+        const int row = step.y() > 0 ? to.height() - 1 - i : i;
+        std::memmove(bits + (to.top() + row) * bpl + to.left() * image.depth() / 8,
+                     bits + (from.top() + row) * bpl + from.left() * image.depth() / 8, bytes);
+    }
+    return QRegion(image.rect()) - QRegion(to);
+}
+
 void ScribbleArea::onViewChanged()
 {
     if (currentTool()->isDrawingTool() && currentTool()->isActive())
@@ -419,7 +439,7 @@ void ScribbleArea::onViewChanged()
     }
     const QTransform view = mEditor->view()->getView();
     const int frame = mEditor->currentFrame();
-    const QPixmap* shown = mFrameCache.object(frame);
+    const QImage* shown = mFrameCache.object(frame);
     const std::optional<QTransform> old = std::exchange(mFrameCacheView, view);
     // A pan by exactly whole device pixels shifts the cached canvas and renders only the strips it exposes.
     // Rotated draws do not shift pixel for pixel. An unchanged view is a request to redraw everything.
@@ -435,8 +455,7 @@ void ScribbleArea::onViewChanged()
     mCanvas = *shown;
     mFrameCache.clear();
     mFrameCacheView = *old * QTransform::fromTranslate(step.x() / mDevicePixelRatio, step.y() / mDevicePixelRatio);
-    QRegion exposed;
-    mCanvas.scroll(step.x(), step.y(), mCanvas.rect(), &exposed);
+    QRegion exposed = scrollImage(mCanvas, step);
     // Onion tints outline the canvas edges: the old edge lines are drawn again too.
     const QRect was(step, mCanvas.size());
     exposed += QRegion(QRect(was.left(), 0, 1, mCanvas.height())) + QRegion(QRect(was.right(), 0, 1, mCanvas.height()))
@@ -448,7 +467,7 @@ void ScribbleArea::onViewChanged()
         drawCanvas(frame, QRectF(QPointF(r.topLeft()) / mDevicePixelRatio, QSizeF(r.size()) / mDevicePixelRatio).toAlignedRect());
     }
     const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
-    mFrameCache.insert(frame, new QPixmap(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
+    mFrameCache.insert(frame, new QImage(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
     updateFrame();
 }
 
@@ -946,7 +965,7 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
     mDevicePixelRatio = devicePixelRatioF();
-    mCanvas = QPixmap(QSizeF(size() * mDevicePixelRatio).toSize());
+    mCanvas = QImage(QSizeF(size() * mDevicePixelRatio).toSize(), QImage::Format_ARGB32_Premultiplied);
     mCanvas.setDevicePixelRatio(mDevicePixelRatio);
     mEditor->view()->setCanvasSize(size());
 
@@ -1044,7 +1063,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         }
         else
         {
-            if (const QPixmap* cached = mFrameCache.object(currentFrame))
+            if (const QImage* cached = mFrameCache.object(currentFrame))
             {
                 mCanvas = *cached;
             }
@@ -1052,7 +1071,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
             {
                 drawCanvas(currentFrame, event->rect());
                 const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
-                mFrameCache.insert(currentFrame, new QPixmap(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
+                mFrameCache.insert(currentFrame, new QImage(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
             }
         }
     }
@@ -1089,7 +1108,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
     // the main pixmap which needs to be scaled accordingly to DPI, which is not accounted for when using the event rect
     // instead we can set a clipRect to avoid the area being updated needlessly
     painter.setClipRect(event->rect());
-    painter.drawPixmap(QPointF(), mCanvas);
+    painter.drawImage(QPointF(), mCanvas);
 
     currentTool()->paint(painter, event->rect());
     if (mShiftAndTrace) { paintShiftAndTraceHandles(painter); }

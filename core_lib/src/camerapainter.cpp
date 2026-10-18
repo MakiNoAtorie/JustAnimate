@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "camerapainter.h"
 
 #include <QPainter>
+#include <QImage>
 #include <QPixmap>
 #include "object.h"
 #include "layercamera.h"
@@ -30,7 +31,7 @@ GNU General Public License for more details.
 
 #include "painterutils.h"
 
-CameraPainter::CameraPainter(QPixmap& canvas) : mCanvas(canvas)
+CameraPainter::CameraPainter(QImage& canvas) : mCanvas(canvas)
 {
     reset();
 }
@@ -94,9 +95,9 @@ void CameraPainter::paintCached(const QRect& blitRect)
     }
 }
 
-void CameraPainter::initializePainter(QPainter& painter, QPixmap& pixmap, const QRect& blitRect, bool blitEnabled)
+void CameraPainter::initializePainter(QPainter& painter, QPaintDevice& device, const QRect& blitRect, bool blitEnabled)
 {
-    painter.begin(&pixmap);
+    painter.begin(&device);
 
     if (blitEnabled) {
         painter.setCompositionMode(QPainter::CompositionMode_Clear);

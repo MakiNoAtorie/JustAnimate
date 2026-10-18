@@ -70,7 +70,7 @@ class CanvasPainter
 {
     Q_DECLARE_TR_FUNCTIONS(CanvasPainter)
 public:
-    explicit CanvasPainter(QPixmap& canvas);
+    explicit CanvasPainter(QImage& canvas);
     virtual ~CanvasPainter();
 
     void reset();
@@ -106,7 +106,7 @@ private:
 
     void renderPostLayers(QPainter& painter, const QRect& blitRect);
     void renderPreLayers(QPainter& painter, const QRect& blitRect);
-    void updateCells(LayerCellCache& cache, QPixmap& pixmap, const QVector<qint64>& key, const QRect& blitRect,
+    void updateCells(LayerCellCache& cache, QImage& image, const QVector<qint64>& key, const QRect& blitRect,
                      void (CanvasPainter::*render)(QPainter&, const QRect&));
     /// Positions below are positions in mPaintOrder, not layer indexes.
     QVector<qint64> layersKey(int startPos, int endPos) const;
@@ -133,13 +133,13 @@ private:
     bool isTileVisible(const Tile* tile, const QRect& blitRect) const;
     void paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
     void paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
-    /// Draws mCurrentLayerPixmap onto painter within blitRect, blended with mode.
-    void drawLayerPixmap(QPainter& painter, const QRect& blitRect, BlendMode mode);
+    /// Draws mCurrentLayerImage onto painter within blitRect, blended with mode.
+    void drawLayerImage(QPainter& painter, const QRect& blitRect, BlendMode mode);
 
     CanvasPainterOptions mOptions;
 
     const Object* mObject = nullptr;
-    QPixmap& mCanvas;
+    QImage& mCanvas;
     QTransform mViewTransform;
     QTransform mViewInverse;
 
@@ -160,13 +160,13 @@ private:
     QPoint mSelectionPixmapOrigin;
 
     // Caches specifically for when drawing on the canvas
-    QPixmap mPostLayersPixmap;
-    QPixmap mPreLayersPixmap;
-    QPixmap mCurrentLayerPixmap;
+    QImage mPostLayersImage;
+    QImage mPreLayersImage;
+    QImage mCurrentLayerImage;
     QPixmap mOnionSkinPixmap;
     LayerCellCache mPreLayersCache;
     LayerCellCache mPostLayersCache; // used only with bFastLayersAbove
-    bool mPostLayersPixmapCacheValid = false;
+    bool mPostLayersImageCacheValid = false;
     QVector<int> mPaintOrder; // FrameRenderer::paintOrder with Rough layers
 
     // Tinted onion frames, cropped to their bounds, keyed by content and the view's scale and rotation.

@@ -48,7 +48,7 @@ qint64 paletteKey(const Object& object)
 }
 }
 
-CanvasPainter::CanvasPainter(QPixmap& canvas) : mCanvas(canvas)
+CanvasPainter::CanvasPainter(QImage& canvas) : mCanvas(canvas)
 {
     reset();
 }
@@ -59,21 +59,21 @@ CanvasPainter::~CanvasPainter()
 
 void CanvasPainter::reset()
 {
-    mPostLayersPixmap = QPixmap(mCanvas.size());
-    mPreLayersPixmap = QPixmap(mCanvas.size());
-    mCurrentLayerPixmap = QPixmap(mCanvas.size());
+    mPostLayersImage = QImage(mCanvas.size(), QImage::Format_ARGB32_Premultiplied);
+    mPreLayersImage = QImage(mCanvas.size(), QImage::Format_ARGB32_Premultiplied);
+    mCurrentLayerImage = QImage(mCanvas.size(), QImage::Format_ARGB32_Premultiplied);
     mOnionSkinPixmap = QPixmap(mCanvas.size());
-    mPreLayersPixmap.fill(Qt::transparent);
+    mPreLayersImage.fill(Qt::transparent);
     mPreLayersCache.cells.clear();
     mPostLayersCache.cells.clear();
     mOnionCache.clear(); // the tint covers the whole canvas size
     mCanvas.fill(Qt::transparent);
-    mCurrentLayerPixmap.fill(Qt::transparent);
-    mPostLayersPixmap.fill(Qt::transparent);
+    mCurrentLayerImage.fill(Qt::transparent);
+    mPostLayersImage.fill(Qt::transparent);
     mOnionSkinPixmap.fill(Qt::transparent);
-    mCurrentLayerPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
-    mPreLayersPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
-    mPostLayersPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
+    mCurrentLayerImage.setDevicePixelRatio(mCanvas.devicePixelRatioF());
+    mPreLayersImage.setDevicePixelRatio(mCanvas.devicePixelRatioF());
+    mPostLayersImage.setDevicePixelRatio(mCanvas.devicePixelRatioF());
     mOnionSkinPixmap.setDevicePixelRatio(mCanvas.devicePixelRatioF());
 }
 
@@ -113,13 +113,13 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 {
     mPaintOrder = FrameRenderer::paintOrder(*mObject, true);
     const QPair<int, int> range = currentRange();
-    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, range.first - 1) + onionKey(), blitRect, &CanvasPainter::renderPreLayers);
+    updateCells(mPreLayersCache, mPreLayersImage, layersKey(0, range.first - 1) + onionKey(), blitRect, &CanvasPainter::renderPreLayers);
 
     QPainter mainPainter;
     initializePainter(mainPainter, mCanvas, blitRect);
     paintPaper(mainPainter);
     mainPainter.setWorldMatrixEnabled(false);
-    mainPainter.drawPixmap(mPointZero, mPreLayersPixmap);
+    mainPainter.drawImage(mPointZero, mPreLayersImage);
     mainPainter.setWorldMatrixEnabled(true);
 
     paintCurrentFrame(mainPainter, blitRect, range.first, range.second);
@@ -132,20 +132,20 @@ void CanvasPainter::paintCached(const QRect& blitRect)
     }
     if (mOptions.bFastLayersAbove)
     {
-        updateCells(mPostLayersCache, mPostLayersPixmap, layersKey(range.second + 1, mObject->getLayerCount() - 1),
+        updateCells(mPostLayersCache, mPostLayersImage, layersKey(range.second + 1, mObject->getLayerCount() - 1),
                     blitRect, &CanvasPainter::renderPostLayers);
     }
-    else if (!mPostLayersPixmapCacheValid)
+    else if (!mPostLayersImageCacheValid)
     {
         QPainter postLayerPainter;
-        initializePainter(postLayerPainter, mPostLayersPixmap, blitRect);
+        initializePainter(postLayerPainter, mPostLayersImage, blitRect);
         renderPostLayers(postLayerPainter, blitRect);
         postLayerPainter.end();
-        mPostLayersPixmapCacheValid = true;
+        mPostLayersImageCacheValid = true;
     }
 
     mainPainter.setWorldMatrixEnabled(false);
-    mainPainter.drawPixmap(mPointZero, mPostLayersPixmap);
+    mainPainter.drawImage(mPointZero, mPostLayersImage);
     mainPainter.setWorldMatrixEnabled(true);
 }
 
@@ -169,7 +169,7 @@ void CanvasPainter::resetLayerCache()
 {
     mPreLayersCache.cells.fill(false);
     mPostLayersCache.cells.fill(false);
-    mPostLayersPixmapCacheValid = false;
+    mPostLayersImageCacheValid = false;
 }
 
 // Identifies what positions startPos..endPos show on this frame; another key empties the cache.
@@ -221,11 +221,11 @@ QVector<qint64> CanvasPainter::onionKey() const
     return key;
 }
 
-// Renders into the stale 64 px cells of pixmap that blitRect touches.
-void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QVector<qint64>& key, const QRect& blitRect,
+// Renders into the stale 64 px cells of image that blitRect touches.
+void CanvasPainter::updateCells(LayerCellCache& cache, QImage& image, const QVector<qint64>& key, const QRect& blitRect,
                                 void (CanvasPainter::*render)(QPainter&, const QRect&))
 {
-    const QSize size = pixmap.deviceIndependentSize().toSize();
+    const QSize size = image.deviceIndependentSize().toSize();
     const int cols = (size.width() + kCell - 1) / kCell;
     const int cells = cols * ((size.height() + kCell - 1) / kCell);
     if (cache.cells.size() != cells || key != cache.key || mViewTransform != cache.view)
@@ -252,7 +252,7 @@ void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QV
 
     // shortcut: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
     QPainter painter;
-    initializePainter(painter, pixmap, stale);
+    initializePainter(painter, image, stale);
     (this->*render)(painter, stale);
 }
 
@@ -306,7 +306,7 @@ void CanvasPainter::setPaintSettings(const Object* object, int currentLayer, int
 
 void CanvasPainter::paint(const QRect& blitRect)
 {
-    mPostLayersPixmapCacheValid = false;
+    mPostLayersImageCacheValid = false;
     paintCached(blitRect);
 }
 
@@ -491,7 +491,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
     const bool isDrawing = mTiledBuffer && !mTiledBuffer->bounds().isEmpty();
 
     QPainter currentBitmapPainter;
-    initializePainter(currentBitmapPainter, mCurrentLayerPixmap, blitRect);
+    initializePainter(currentBitmapPainter, mCurrentLayerImage, blitRect);
 
     painter.setWorldMatrixEnabled(false);
 
@@ -516,7 +516,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
     }
 
     if (layer->isRough()) { tintRough(currentBitmapPainter, blitRect); }
-    drawLayerPixmap(painter, blitRect, layer->blendMode());
+    drawLayerImage(painter, blitRect, layer->blendMode());
 }
 
 void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer)
@@ -529,7 +529,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     }
 
     QPainter currentVectorPainter;
-    initializePainter(currentVectorPainter, mCurrentLayerPixmap, blitRect);
+    initializePainter(currentVectorPainter, mCurrentLayerImage, blitRect);
 
     const bool isDrawing = mTiledBuffer && mTiledBuffer->isValid();
 
@@ -558,20 +558,25 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     painter.setTransform(QTransform());
 
     if (layer->isRough()) { tintRough(currentVectorPainter, blitRect); }
-    drawLayerPixmap(painter, blitRect, layer->blendMode());
+    drawLayerImage(painter, blitRect, layer->blendMode());
 }
 
-void CanvasPainter::drawLayerPixmap(QPainter& painter, const QRect& blitRect, BlendMode mode)
+void CanvasPainter::drawLayerImage(QPainter& painter, const QRect& blitRect, BlendMode mode)
 {
     if (mode == BlendMode::Normal)
     {
-        painter.drawPixmap(mPointZero, mCurrentLayerPixmap);
+        painter.drawImage(mPointZero, mCurrentLayerImage);
         return;
     }
-    const qreal dpr = mCurrentLayerPixmap.devicePixelRatioF();
+    const qreal dpr = mCurrentLayerImage.devicePixelRatioF();
     const QRect rect = QRectF(QPointF(blitRect.topLeft()) * dpr, QSizeF(blitRect.size()) * dpr).toAlignedRect()
-                       & mCurrentLayerPixmap.rect();
-    if (!rect.isEmpty()) { drawBlended(painter, mCurrentLayerPixmap.copy(rect).toImage(), rect.topLeft(), mode); }
+                       & mCurrentLayerImage.rect();
+    if (rect.isEmpty()) { return; }
+    // A read-only view of rect: no copy of the layer pixels.
+    const QImage& layer = mCurrentLayerImage;
+    const QImage part(layer.constScanLine(rect.top()) + rect.left() * 4, rect.width(), rect.height(), layer.bytesPerLine(),
+                      layer.format());
+    drawBlended(painter, part, rect.topLeft(), mode);
 }
 
 void CanvasPainter::paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView)

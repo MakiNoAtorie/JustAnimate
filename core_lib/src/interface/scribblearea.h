@@ -31,7 +31,7 @@ GNU General Public License for more details.
 #include <QStringList>
 #include <QWidget>
 #include <QCache>
-#include <QPixmap>
+#include <QImage>
 
 #include "movemode.h"
 #include "pencildef.h"
@@ -302,7 +302,7 @@ private:
 
     PreferenceManager* mPrefs = nullptr;
 
-    QPixmap mCanvas;
+    QImage mCanvas;
     CanvasPainter mCanvasPainter;
     OverlayPainter mOverlayPainter;
     SelectionPainter mSelectionPainter;
@@ -310,7 +310,7 @@ private:
 
     QPolygonF mOriginalPolygonF = QPolygonF();
 
-    QCache<int, QPixmap> mFrameCache; ///< composited frames by frame number, cost in KB
+    QCache<int, QImage> mFrameCache; ///< composited frames by frame number, cost in KB
     std::optional<QTransform> mFrameCacheView; ///< the view mFrameCache was drawn with; empty when unknown
     QRect mModifiedArea; ///< see setModifiedArea; empty means the whole canvas
 

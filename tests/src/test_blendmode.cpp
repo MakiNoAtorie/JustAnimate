@@ -29,6 +29,9 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layermanager.h"
 #include "object.h"
+#include "playbackmanager.h"
+#include "scribblearea.h"
+#include "editor.h"
 #include "stageprofiler.h"
 #include "testfixture.h"
 #include "undoredomanager.h"
@@ -70,7 +73,7 @@ std::unique_ptr<Object> twoLayers(BlendMode mode)
 
 QRgb canvasCenter(const Object* object, int paintedLayer)
 {
-    QPixmap canvas(60, 60);
+    QImage canvas(60, 60, QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     const QTransform view = QTransform::fromTranslate(30, 30);
     painter.setViewTransform(view, view.inverted());
@@ -79,7 +82,7 @@ QRgb canvasCenter(const Object* object, int paintedLayer)
     painter.setOptions(options);
     painter.setPaintSettings(object, paintedLayer, 1, nullptr);
     painter.paint(QRect(0, 0, 60, 60));
-    return canvas.toImage().pixel(30, 30);
+    return canvas.pixel(30, 30);
 }
 
 const BlendMode kModes[] = { BlendMode::Multiply, BlendMode::Screen, BlendMode::Overlay, BlendMode::Add };
@@ -184,6 +187,73 @@ TEST_CASE("A blend layer on export blends into the image without copies", "[Blen
     }
     StageProfiler::enabled() = profiling;
     StageProfiler::reset();
+}
+
+TEST_CASE("A blend layer plays on the canvas without copies", "[BlendMode]")
+{
+    TestSession s;
+    Layer* top = nullptr;
+    for (QRgb color : { kBelow, kAbove })
+    {
+        LayerBitmap* layer = s.object->addNewBitmapLayer();
+        layer->addNewKeyFrameAt(1);
+        layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-20, -20, 40, 40), Qt::NoPen, QBrush(QColor(color)),
+                                                  QPainter::CompositionMode_Source, false);
+        top = layer;
+    }
+    top->setBlendMode(BlendMode::Multiply);
+    REQUIRE(s.start());
+    s.area->init();
+    s.area->resize(200, 200);
+    s.area->show();
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    s.editor->playback()->play();
+    const QImage shown = s.area->grab().toImage();
+    s.editor->playback()->stop();
+    CHECK(StageProfiler::calls(StageProfiler::BlendCopy) == 0);
+    CHECK(shown.pixel(shown.width() / 2, shown.height() / 2) == expected(BlendMode::Multiply));
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
+}
+
+// A partial repaint at a fractional and a whole device pixel ratio keeps the pixels outside it.
+TEST_CASE("A blend layer repaints part of a high-DPI canvas as the full paint does", "[BlendMode]")
+{
+    auto object = twoLayers(BlendMode::Screen);
+    for (qreal dpr : { 1.5, 2.0 })
+    {
+        QImage canvas(QSize(60, 60) * dpr, QImage::Format_ARGB32_Premultiplied);
+        canvas.setDevicePixelRatio(dpr);
+        CanvasPainter painter(canvas);
+        const QTransform view = QTransform::fromTranslate(30, 30);
+        painter.setViewTransform(view, view.inverted());
+        CanvasPainterOptions options;
+        options.eLayerVisibility = LayerVisibility::ALL;
+        painter.setOptions(options);
+        painter.setPaintSettings(object.get(), 0, 1, nullptr);
+        painter.paint(QRect(0, 0, 60, 60));
+        const QImage full = canvas.copy();
+
+        canvas.fill(Qt::transparent);
+        const QImage cleared = canvas.copy();
+        const QRect part(13, 7, 25, 31);
+        painter.paint(part);
+        const QRect device = QTransform::fromScale(dpr, dpr).mapRect(QRectF(part)).toRect();
+        int wrong = 0;
+        for (int y = 0; y < canvas.height(); ++y)
+            for (int x = 0; x < canvas.width(); ++x)
+            {
+                const bool inside = device.adjusted(1, 1, -1, -1).contains(x, y);
+                const bool outside = !device.adjusted(-1, -1, 1, 1).contains(x, y);
+                if (inside) wrong += canvas.pixel(x, y) != full.pixel(x, y);
+                if (outside) wrong += canvas.pixel(x, y) != cleared.pixel(x, y);
+            }
+        INFO("dpr " << dpr);
+        CHECK(wrong == 0);
+    }
 }
 
 TEST_CASE("The layer blend mode is saved in the project", "[BlendMode]")

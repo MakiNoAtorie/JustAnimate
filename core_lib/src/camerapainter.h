@@ -30,6 +30,8 @@ GNU General Public License for more details.
 class LayerCamera;
 class Object;
 class QPalette;
+class QImage;
+class QPaintDevice;
 class QPixmap;
 class QRect;
 class KeyFrame;
@@ -37,7 +39,7 @@ class KeyFrame;
 class CameraPainter
 {
 public:
-    explicit CameraPainter(QPixmap& canvas);
+    explicit CameraPainter(QImage& canvas);
 
     void paint(const QRect& blitRect);
     void paintCached(const QRect& blitRect);
@@ -49,13 +51,13 @@ public:
     void resetCache();
 
 private:
-    void initializePainter(QPainter& painter, QPixmap& pixmap, const QRect& blitRect, bool blitEnabled);
+    void initializePainter(QPainter& painter, QPaintDevice& device, const QRect& blitRect, bool blitEnabled);
     void paintVisuals(QPainter& painter, const QRect& blitRect);
     void paintBorder(QPainter& painter, const QTransform& camTransform, const QRect& camRect);
     void paintOnionSkinning(QPainter& painter, const LayerCamera* cameraLayer);
 
     const Object* mObject = nullptr;
-    QPixmap& mCanvas;
+    QImage& mCanvas;
 
     QPixmap mCameraPixmap;
     QTransform mViewTransform;

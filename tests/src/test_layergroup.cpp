@@ -221,7 +221,7 @@ std::unique_ptr<Object> groupOfTwo(qreal opacity)
 
 QImage canvasImage(const Object* object, int paintedLayer, LayerVisibility visibility = LayerVisibility::ALL)
 {
-    QPixmap canvas(60, 60);
+    QImage canvas(60, 60, QImage::Format_ARGB32_Premultiplied);
     CanvasPainter painter(canvas);
     const QTransform view = QTransform::fromTranslate(30, 30);
     painter.setViewTransform(view, view.inverted());
@@ -230,7 +230,7 @@ QImage canvasImage(const Object* object, int paintedLayer, LayerVisibility visib
     painter.setOptions(options);
     painter.setPaintSettings(object, paintedLayer, 1, nullptr);
     painter.paint(QRect(0, 0, 60, 60));
-    return canvas.toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    return canvas.convertToFormat(QImage::Format_ARGB32_Premultiplied);
 }
 
 QImage exportImage(const Object* object)

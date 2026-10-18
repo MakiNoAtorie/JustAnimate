@@ -154,7 +154,7 @@ TEST_CASE("The screen adapter with caches cold and warm paints the export adapte
             for (bool fastAbove : { false, true })
             {
                 CAPTURE(frame, current, fastAbove);
-                QPixmap canvas(size);
+                QImage canvas(size, QImage::Format_ARGB32_Premultiplied);
                 CanvasPainter painter(canvas);
                 painter.setViewTransform(view, view.inverted());
                 CanvasPainterOptions options;
@@ -165,13 +165,13 @@ TEST_CASE("The screen adapter with caches cold and warm paints the export adapte
                 painter.setPaintSettings(object.get(), current, frame, &buffer);
 
                 painter.paint(full);
-                CHECK(sha1(canvas.toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied)).toStdString() == sha1(exported).toStdString());
+                CHECK(sha1(canvas.convertToFormat(QImage::Format_ARGB32_Premultiplied)).toStdString() == sha1(exported).toStdString());
 
                 // Warm: the cells filled by small updates, then a cached full paint.
                 painter.paintCached(QRect(5, 5, 20, 20));
                 painter.paintCached(QRect(40, 20, 30, 30));
                 painter.paintCached(full);
-                CHECK(sha1(canvas.toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied)).toStdString() == sha1(exported).toStdString());
+                CHECK(sha1(canvas.convertToFormat(QImage::Format_ARGB32_Premultiplied)).toStdString() == sha1(exported).toStdString());
             }
         }
     }

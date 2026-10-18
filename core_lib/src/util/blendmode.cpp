@@ -134,6 +134,16 @@ QImage grabDevice(QPaintDevice* device, const QRect& rect)
     return QImage();
 }
 
+// True when the painter's clip lets it paint every device pixel of rect. Only a clip of one whole-pixel rect counts.
+bool clipKeeps(const QPainter& painter, const QRect& rect)
+{
+    if (!painter.hasClipping()) { return true; }
+    const QRegion clip = painter.clipRegion();
+    if (clip.rectCount() != 1) { return false; }
+    const QRectF device = painter.deviceTransform().mapRect(QRectF(clip.boundingRect()));
+    return device == QRectF(device.toRect()) && device.toRect().contains(rect);
+}
+
 } // namespace
 
 void blendPixels(BlendMode mode, quint32* dst, const quint32* src, int count)
@@ -184,9 +194,9 @@ void drawBlended(QPainter& painter, const QImage& layer, const QPoint& pos, Blen
         src = faded;
     }
 
-    // A premultiplied image without a clip takes the blend in place: the painter would copy the pixels unchanged.
+    // A premultiplied image takes the blend in place when the clip keeps every pixel: the painter would copy them unchanged.
     QPaintDevice* device = painter.device();
-    if (device->devType() == QInternal::Image && !painter.hasClipping())
+    if (device->devType() == QInternal::Image && clipKeeps(painter, QRect(pos, src.size())))
     {
         const QImage* target = static_cast<QImage*>(device);
         if (target->format() == QImage::Format_ARGB32_Premultiplied && target->rect().contains(QRect(pos, src.size())))
