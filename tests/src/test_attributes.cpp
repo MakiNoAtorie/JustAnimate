@@ -135,13 +135,20 @@ TEST_CASE("Every layer attribute row round-trips through set save load duplicate
     }
 }
 
-// QDom writes attributes sorted by name, so these strings are the saved bytes.
+// Qt 6.8 QDom writes attributes sorted by name; Qt 6.4 and 6.5 write them in hash order, so compare them sorted.
 TEST_CASE("Layer attributes save byte-identical", "[Attributes]")
 {
     auto saved = [](const Layer& layer) {
         QDomDocument doc;
-        doc.appendChild(layer.createDomElement(doc));
-        return doc.toString(-1).trimmed().toStdString();
+        const QDomNamedNodeMap attributes = layer.createDomElement(doc).attributes();
+        QStringList parts;
+        for (int i = 0; i < attributes.count(); ++i)
+        {
+            const QDomAttr attribute = attributes.item(i).toAttr();
+            parts << QString("%1=\"%2\"").arg(attribute.name(), attribute.value());
+        }
+        parts.sort();
+        return ("<layer " + parts.join(' ') + "/>").toStdString();
     };
     LayerBitmap layer(7);
     layer.setName("Ink");

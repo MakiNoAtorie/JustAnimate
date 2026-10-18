@@ -89,11 +89,12 @@ TEST_CASE("The export adapter keeps the golden pixels of every layer rule", "[Fr
     auto object = everyRule();
     const LayerCamera* camera = object->getLayersByType<LayerCamera>().front();
 
-    struct Case { int frame; QSize size; bool transparency; bool antialiasing; const char* hash; };
+    // macOS rasterises antialiased and rotated paths differently, so it has its own hashes (CI-confirmed).
+    struct Case { int frame; QSize size; bool transparency; bool antialiasing; const char* hash; const char* macHash; };
     const Case cases[] = {
-        { 1, QSize(80, 60), true, true, "6d7e1b7eb7d7621ada6287ac77180398e9efad19" },
-        { 3, QSize(160, 120), true, true, "2c91323f7b76a7bb2b39b83b1c1a902c53c86329" },
-        { 3, QSize(160, 120), false, false, "0e76b500c721a885bef540e5a39f65e791162c44" },
+        { 1, QSize(80, 60), true, true, "6d7e1b7eb7d7621ada6287ac77180398e9efad19", "00a97949409e8c3e374fd604365d7646f95304e6" },
+        { 3, QSize(160, 120), true, true, "2c91323f7b76a7bb2b39b83b1c1a902c53c86329", "a4db93156c840e5eb1e2aed35c6202c38642c043" },
+        { 3, QSize(160, 120), false, false, "0e76b500c721a885bef540e5a39f65e791162c44", "d5c056bdd4bc99ff1356c7ae5a150485c474f42d" },
     };
     for (const Case& c : cases)
     {
@@ -103,7 +104,11 @@ TEST_CASE("The export adapter keeps the golden pixels of every layer rule", "[Fr
         options.antialiasing = c.antialiasing;
         const QImage image = FrameRenderer::renderForExport(*object, c.frame, *camera, options);
         CAPTURE(c.frame, c.size.width(), c.transparency, c.antialiasing);
+#ifdef Q_OS_MACOS
+        CHECK(sha1(image).toStdString() == std::string(c.macHash));
+#else
         CHECK(sha1(image).toStdString() == std::string(c.hash));
+#endif
     }
 }
 
