@@ -122,6 +122,8 @@ public:
     QHash<TileIndex, Tile*> tiles();
 
     const QRect& bounds() const { return mTileBounds; }
+    /** Holds every pixel the stroke painted; smaller than bounds(), which holds whole tiles. */
+    const QRect& paintBounds() const { return mPaintBounds; }
 
     /** Bytes held by cleared tiles that wait for reuse. */
     qsizetype poolBytes() const { return mPoolBytes; }
@@ -153,6 +155,7 @@ private:
     const int UNIFORM_TILE_SIZE = 64;
 
     BlitRect mTileBounds;
+    BlitRect mPaintBounds;
     QRect mDirty; // tiles touched since the last emitUpdated
 
     QHash<TileIndex, Tile*> mTiles;

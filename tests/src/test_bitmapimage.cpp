@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "tile.h"
 #include "tiledbuffer.h"
 #include <climits>
+#include <random>
 #include <QElapsedTimer>
 #include <QTemporaryDir>
 #include <QThread>
@@ -512,6 +513,64 @@ TEST_CASE("BitmapImage paste: brush tiles are premultiplied images")
     REQUIRE(image.constScanLine(62, 32) == qPremultiply(red.rgba()));
     REQUIRE(image.constScanLine(70, 32) == qPremultiply(red.rgba()));
     REQUIRE(image.constScanLine(70, 60) == 0);
+}
+
+TEST_CASE("BitmapImage paste: a stroke grows the Drawing to its painted pixels and not to whole tiles")
+{
+    TiledBuffer buffer;
+    buffer.drawDab(QPointF(40, 40), 10, 0, QColor(255, 0, 0), 1.0, false);
+    BitmapImage image;
+    image.paste(&buffer);
+    CHECK(QRect(34, 34, 12, 12).contains(image.bounds()));
+    CHECK(image.constScanLine(40, 40) == qRgba(255, 0, 0, 255));
+}
+
+// The smallest rectangle that holds every pixel with alpha, found by a scan of every pixel.
+static QRect scannedBounds(BitmapImage& image)
+{
+    QRect r;
+    const QRect b = image.bounds();
+    for (int y = b.top(); y <= b.bottom(); ++y)
+        for (int x = b.left(); x <= b.right(); ++x)
+            if (qAlpha(image.constScanLine(x, y)) != 0) { r |= QRect(x, y, 1, 1); }
+    return r;
+}
+
+TEST_CASE("BitmapImage paste: auto-crop after an eraser stroke equals the full-scan result")
+{
+    for (unsigned seed = 1; seed <= 40; ++seed)
+    {
+        std::mt19937 rng(seed);
+        auto uniform = [&rng](int lo, int hi) { return std::uniform_int_distribution<int>(lo, hi)(rng); };
+        const QRect canvas(-50, -30, 200, 150);
+        BitmapImage drawn(canvas, Qt::transparent);
+        for (int i = uniform(1, 12); i > 0; --i)
+        {
+            drawn.drawRect(QRectF(uniform(-50, 140), uniform(-30, 110), uniform(1, 20), uniform(1, 20)), Qt::NoPen,
+                           QColor(10, 200, 30, uniform(1, 255)), QPainter::CompositionMode_SourceOver, false);
+        }
+        drawn.enableAutoCrop(true);
+        if (seed % 2 == 0) { drawn.autoCrop(); } // half start minimally bounded
+
+        TiledBuffer eraser;
+        for (int i = uniform(1, 6); i > 0; --i)
+        {
+            eraser.drawDab(QPointF(uniform(-60, 160), uniform(-40, 130)), uniform(2, 120), 0, QColor(0, 0, 0), 1.0, false);
+        }
+        BitmapImage full = drawn;
+        full.enableAutoCrop(false);
+        full.paste(&eraser, QPainter::CompositionMode_DestinationOut);
+        drawn.paste(&eraser, QPainter::CompositionMode_DestinationOut);
+
+        INFO("seed " << seed);
+        CHECK(drawn.bounds() == scannedBounds(full));
+        CHECK(drawn.isMinimallyBounded());
+        bool same = true;
+        for (int y = canvas.top(); y <= canvas.bottom(); ++y)
+            for (int x = canvas.left(); x <= canvas.right(); ++x)
+                same = same && drawn.constScanLine(x, y) == full.constScanLine(x, y);
+        CHECK(same);
+    }
 }
 
 TEST_CASE("TiledBuffer drawDab: a cached mask lands only in the tiles the dab covers")

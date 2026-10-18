@@ -141,7 +141,9 @@ void BitmapImage::copyImageFrom(KeyFrame* source)
 
 static QImage readImageFile(const QString& path)
 {
-    return QImage(path).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    QImage image(path);
+    image.convertTo(QImage::Format_ARGB32_Premultiplied);
+    return image;
 }
 
 void BitmapImage::loadFile()
@@ -249,8 +251,16 @@ void BitmapImage::paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm, 
     {
         return;
     }
-    extend(toImage.mapRect(QRectF(tiledBuffer->bounds())).toAlignedRect());
-
+    // Erasing cannot add pixels. Smudge tiles hold copies of the whole tile, so they keep the tile bounds.
+    // Under a layer transform, smooth resampling can reach one pixel past the painted rect.
+    if (cm != QPainter::CompositionMode_DestinationOut)
+    {
+        const QRect painted = cm == QPainter::CompositionMode_Source ? tiledBuffer->bounds() : tiledBuffer->paintBounds();
+        const bool wholePixels = toImage.type() <= QTransform::TxTranslate && toImage.dx() == qRound(toImage.dx()) && toImage.dy() == qRound(toImage.dy());
+        const int margin = wholePixels ? 0 : 1;
+        extend(toImage.mapRect(QRectF(painted)).toAlignedRect().adjusted(-margin, -margin, margin, margin));
+    }
+    if (image()->isNull()) { return; } // nothing to erase
     QPainter painter(image());
 
     painter.setCompositionMode(cm);
@@ -637,8 +647,18 @@ void BitmapImage::autoCrop()
     int relLeft = 0;
     int relRight = mBounds.width()-1;
 
+    // A pixel in the current border column ends a side at once, without a scan of every row.
+    auto columnHasPixel = [&](int col) {
+        for (int row = relTop; row <= relBottom; ++row)
+        {
+            if (qAlpha(reinterpret_cast<const QRgb*>(mImage.constScanLine(row))[col]) != 0) { return true; }
+        }
+        return false;
+    };
+
     // Check left column - find minimum transparent span at start of each row
     int minLeft = mBounds.width();
+    if (columnHasPixel(0)) { minLeft = 0; }
     for (int row = relTop; row <= relBottom; ++row)
     {
         const QRgb* cursor = reinterpret_cast<const QRgb*>(mImage.constScanLine(row));
@@ -656,6 +676,7 @@ void BitmapImage::autoCrop()
 
     // Check right column - find minimum transparent span at end of each row
     int minRight = 0;
+    if (columnHasPixel(mBounds.width() - 1)) { minRight = mBounds.width() - 1; }
     for (int row = relTop; row <= relBottom; ++row)
     {
         const QRgb* cursor = reinterpret_cast<const QRgb*>(mImage.constScanLine(row)) + mBounds.width() - 1;

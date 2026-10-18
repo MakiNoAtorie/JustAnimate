@@ -50,6 +50,7 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | autosave | the same autosave until its archive is written and renamed |
 | draw 4K | the pencil strokes on frame 1 of layer 1 of the working set project after a 3840×2160 fill, so each stroke and its undo step land on a 4K Drawing; the resident set after it is printed |
 | pan onion | 50 hand-tool pan steps of 7 px on frame 3 with the onion skin on, repaint after each |
+| erase 4K | the eraser strokes on the same 4K Drawing right after draw 4K; each stroke ends with an auto-crop of the Drawing |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke. A last line prints the peak RAM (working set, sampled after

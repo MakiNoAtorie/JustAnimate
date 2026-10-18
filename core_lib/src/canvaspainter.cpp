@@ -456,6 +456,12 @@ static void tintRough(QPainter& layerPainter, const QRect& blitRect)
     layerPainter.fillRect(blitRect, QColor(107, 143, 201, 96));
 }
 
+// A tile outside the blit rect would be clipped whole; the margin covers smooth resampling.
+bool CanvasPainter::isTileVisible(const Tile* tile, const QRect& blitRect) const
+{
+    return mViewTransform.mapRect(QRectF(tile->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1).intersects(blitRect);
+}
+
 void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer)
 {
     LayerBitmap* bitmapLayer = static_cast<LayerBitmap*>(layer);
@@ -480,6 +486,7 @@ void CanvasPainter::paintCurrentBitmapFrame(QPainter& painter, const QRect& blit
         currentBitmapPainter.setCompositionMode(mOptions.cmBufferBlendMode);
         const auto tiles = mTiledBuffer->tiles();
         for (const Tile* tile : tiles) {
+            if (!isTileVisible(tile, blitRect)) { continue; }
             currentBitmapPainter.drawImage(tile->posF(), tile->image());
         }
     }
@@ -523,6 +530,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
 
         const auto tiles = mTiledBuffer->tiles();
         for (const Tile* tile : tiles) {
+            if (!isTileVisible(tile, blitRect)) { continue; }
             currentVectorPainter.drawImage(tile->posF(), tile->image());
         }
     }

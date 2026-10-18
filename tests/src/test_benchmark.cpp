@@ -262,6 +262,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "autosave",     "file",   1 },
         { "draw 4K",      "stroke", cfg.strokes },
         { "pan onion",    "event",  50 },
+        { "erase 4K",     "stroke", cfg.strokes },
     };
     // Rows after "play blend" are found by name, so tickets append rows without renumbering.
     auto row = [&sc](const char* name) -> Scenario& {
@@ -496,6 +497,11 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         row("draw 4K").ms.push_back(t.nsecsElapsed() / 1e6);
         draw4kBytes = ramBytes();
         REQUIRE(bottom->getBitmapImageAtFrame(1)->bounds().width() >= 3840);
+
+        // Eraser on the same 4K Drawing: each stroke ends with an auto-crop.
+        t.start();
+        drawStrokes(s, ERASER, cfg.strokes);
+        row("erase 4K").ms.push_back(t.nsecsElapsed() / 1e6);
     }
     return sc;
 }
@@ -763,7 +769,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 20);
+    REQUIRE(sc.size() == 21);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

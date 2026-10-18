@@ -36,6 +36,7 @@ GNU General Public License for more details.
 
 
 class TiledBuffer;
+class Tile;
 class Object;
 class BitmapImage;
 class ViewManager;
@@ -124,6 +125,7 @@ private:
     /// The onion frame's canvas transform: its tween, then its Shift and Trace offset.
     QTransform onionTransform(const Layer* layer, int nFrame) const;
 
+    bool isTileVisible(const Tile* tile, const QRect& blitRect) const;
     void paintCurrentBitmapFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
     void paintCurrentVectorFrame(QPainter& painter, const QRect& blitRect, Layer* layer, bool isCurrentLayer);
     /// Draws mCurrentLayerPixmap onto painter within blitRect, blended with mode.
