@@ -71,6 +71,8 @@ namespace
 quint64 peakRamBytes = 0;
 // Resident set after the "working set" scrub.
 quint64 workingSetBytes = 0;
+// Resident set after the "draw 4K" strokes, which hold their undo steps.
+quint64 draw4kBytes = 0;
 
 quint64 ramBytes()
 {
@@ -258,6 +260,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "draw top onion", "stroke", cfg.strokes },
         { "autosave ui",  "file",   1 },
         { "autosave",     "file",   1 },
+        { "draw 4K",      "stroke", cfg.strokes },
     };
     // Rows after "play blend" are found by name, so tickets append rows without renumbering.
     auto row = [&sc](const char* name) -> Scenario& {
@@ -464,6 +467,17 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             REQUIRE(counter.paints == cfg.frames);
             workingSetBytes = ramBytes();
         }
+
+        // Pencil on a 4K Drawing: each undo step keeps the stroke rect, not the frame.
+        s.editor->layers()->setCurrentLayer(1);
+        auto* bottom = static_cast<LayerBitmap*>(s.editor->layers()->currentLayer());
+        bottom->getBitmapImageAtFrame(1)->drawRect(QRectF(-1920, -1080, 3840, 2160), Qt::NoPen, QBrush(Qt::white),
+                                                   QPainter::CompositionMode_DestinationOver, false);
+        t.start();
+        drawStrokes(s, PENCIL, cfg.strokes);
+        row("draw 4K").ms.push_back(t.nsecsElapsed() / 1e6);
+        draw4kBytes = ramBytes();
+        REQUIRE(bottom->getBitmapImageAtFrame(1)->bounds().width() >= 3840);
     }
     return sc;
 }
@@ -485,6 +499,7 @@ void printResults(const BenchConfig& cfg, std::vector<Scenario>& sc)
     const double releases = double(cfg.strokes) * cfg.reps;
     std::printf("draw top onion, per pen release: %.1f layer draws, %.1f cell renders\n",
                 onionRelease.layerDraws / releases, onionRelease.cellRenders / releases);
+    std::printf("working set after the draw 4K strokes: %.1f MB\n", draw4kBytes / (1024.0 * 1024.0));
     std::fflush(stdout);
 }
 
@@ -730,7 +745,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 18);
+    REQUIRE(sc.size() == 19);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

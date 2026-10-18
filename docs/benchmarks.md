@@ -48,6 +48,7 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | draw top onion | the top-layer pencil strokes with the onion skin on; each release paints only its pending area, and the layer draws and cell renders it causes are printed per release |
 | autosave ui | `ProjectSession::autoSave` after one pencil stroke on a saved project: the time the UI is blocked |
 | autosave | the same autosave until its archive is written and renamed |
+| draw 4K | the pencil strokes on frame 1 of layer 1 of the working set project after a 3840×2160 fill, so each stroke and its undo step land on a 4K Drawing; the resident set after it is printed |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke. A last line prints the peak RAM (working set, sampled after

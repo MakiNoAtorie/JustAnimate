@@ -301,42 +301,33 @@ void MoveBitmapsCommand::apply(int direction)
     }
 }
 
-BitmapReplaceCommand::BitmapReplaceCommand(const BitmapImage* undoBitmap,
-                             const int undoLayerId,
+BitmapReplaceCommand::BitmapReplaceCommand(int frame,
+                             const BitmapPatch& before,
+                             const BitmapPatch& after,
+                             const std::optional<BitmapPatch>& below,
+                             int layerId,
                              const QString& description,
                              Editor *editor,
-                             QUndoCommand *parent) : UndoRedoCommand(editor, parent)
+                             QUndoCommand *parent) : UndoRedoCommand(editor, parent),
+    mFrame(frame), mLayerId(layerId), mBefore(before), mAfter(after), mBelow(below)
 {
-
-    this->undoBitmap = *undoBitmap;
-    this->undoLayerId = undoLayerId;
-
-    Layer* layer = editor->layers()->currentLayer();
-    redoLayerId = layer->id();
-    redoBitmap = *static_cast<LayerBitmap*>(layer)->
-            getLastBitmapImageAtFrame(editor->currentFrame());
-
     setText(description);
 }
 
 void BitmapReplaceCommand::undo()
 {
-    Layer* layer = editor()->layers()->findLayerById(undoLayerId);
+    Layer* layer = editor()->layers()->findLayerById(mLayerId);
     if (!layer) {
         return setObsolete(true);
     }
 
     UndoRedoCommand::undo();
-
-    static_cast<LayerBitmap*>(layer)->replaceKeyFrame(&undoBitmap);
-    editor()->layers()->syncLinkedDrawings(layer, undoBitmap.pos());
-
-    editor()->scrubTo(undoBitmap.pos());
+    apply(mBefore, mBelow);
 }
 
 void BitmapReplaceCommand::redo()
 {
-    Layer* layer = editor()->layers()->findLayerById(redoLayerId);
+    Layer* layer = editor()->layers()->findLayerById(mLayerId);
     if (!layer) {
         return setObsolete(true);
     }
@@ -346,10 +337,22 @@ void BitmapReplaceCommand::redo()
     // Ignore automatic redo when added to undo stack
     if (isFirstRedo()) { setFirstRedo(false); return; }
 
-    static_cast<LayerBitmap*>(layer)->replaceKeyFrame(&redoBitmap);
-    editor()->layers()->syncLinkedDrawings(layer, redoBitmap.pos());
+    apply(mAfter, std::nullopt);
+}
 
-    editor()->scrubTo(redoBitmap.pos());
+void BitmapReplaceCommand::apply(const BitmapPatch& patch, const std::optional<BitmapPatch>& expected)
+{
+    Layer* layer = editor()->layers()->findLayerById(mLayerId);
+    BitmapImage* image = static_cast<LayerBitmap*>(layer)->getBitmapImageAtFrame(mFrame);
+    if (image == nullptr) { return; }
+    UndoRedoManager* undoRedo = editor()->undoRedo();
+    undoRedo->restoreExpectedDrawing(mLayerId, image);
+    image->applyPatch(patch);
+    undoRedo->setExpectedDrawing(mLayerId, image, expected ? *expected : image->whole());
+    editor()->layers()->syncLinkedDrawings(layer, mFrame);
+
+    // A scrub can apply a pending selection transform with no record; the next step puts the Drawing back.
+    editor()->scrubTo(mFrame);
 }
 
 VectorReplaceCommand::VectorReplaceCommand(const VectorImage* undoVector,

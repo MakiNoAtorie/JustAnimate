@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #ifndef UNDOREDOCOMMAND_H
 #define UNDOREDOCOMMAND_H
 
+#include <optional>
+
 #include <QUndoCommand>
 #include <QRectF>
 
@@ -159,8 +161,13 @@ class BitmapReplaceCommand : public UndoRedoCommand
 {
 
 public:
-    BitmapReplaceCommand(const BitmapImage* backupBitmap,
-                  const int undoLayerId,
+    /// `before` and `after` hold the same rect of the Drawing at `frame`. `below` is set when a change with
+    /// no record came before the step: the whole Drawing the step below it left.
+    BitmapReplaceCommand(int frame,
+                  const BitmapPatch& before,
+                  const BitmapPatch& after,
+                  const std::optional<BitmapPatch>& below,
+                  int layerId,
                   const QString& description,
                   Editor* editor,
                   QUndoCommand* parent = nullptr);
@@ -169,11 +176,14 @@ public:
     void redo() override;
 
 private:
-    int undoLayerId = 0;
-    int redoLayerId = 0;
+    /// Paints `patch` over the Drawing the stack expects; then the stack expects `expected`, or the result.
+    void apply(const BitmapPatch& patch, const std::optional<BitmapPatch>& expected);
 
-    BitmapImage undoBitmap;
-    BitmapImage redoBitmap;
+    int mFrame = 0;
+    int mLayerId = 0;
+    BitmapPatch mBefore;
+    BitmapPatch mAfter;
+    std::optional<BitmapPatch> mBelow;
 };
 
 class VectorReplaceCommand : public UndoRedoCommand

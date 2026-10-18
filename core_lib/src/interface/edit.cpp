@@ -36,6 +36,11 @@ void Edit::commit()
     end(true);
 }
 
+void Edit::willChange(const QRect& canvasRect)
+{
+    if (mManager) { mManager->willChange(mStateId, canvasRect); }
+}
+
 void Edit::recordLayerAdd(int layerId)
 {
     if (mManager) { mManager->recordLayerAdd(layerId, QString()); }

@@ -239,6 +239,7 @@ void StrokeTool::drawScreenPath(const QPainterPath& path, const QPen& pen)
 
 void StrokeTool::commitBuffer()
 {
+    if (mStrokeEdit) { mStrokeEdit->willChange(mBuffer.tiles().bounds()); }
     const QRect changed = mBuffer.commit();
     // The caller's setModified repaints this area only; the margin covers edge pixels at any zoom.
     if (!changed.isEmpty())

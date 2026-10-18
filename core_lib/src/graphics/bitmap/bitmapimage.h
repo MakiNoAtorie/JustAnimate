@@ -25,6 +25,15 @@ GNU General Public License for more details.
 
 class TiledBuffer;
 
+/// The pixels of one rect and the bounds around them: what an undo record keeps of a Drawing.
+struct BitmapPatch
+{
+    QRect bounds;
+    bool minBound = true;
+    QRect rect;
+    QImage pixels;
+};
+
 class BitmapImage : public KeyFrame
 {
 public:
@@ -72,6 +81,15 @@ public:
     /// Pastes the buffer mapped through `toImage`, from canvas space into the space of this image.
     void paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm = QPainter::CompositionMode_SourceOver,
                const QTransform& toImage = QTransform());
+
+    /// The pixels of `rect` and the bounds as they are, without an auto-crop; transparent outside the bounds.
+    BitmapPatch patch(const QRect& rect);
+    /// The whole image as a patch; it shares the pixels, so it copies nothing until one side is painted.
+    BitmapPatch whole();
+    /// Sets the bounds and the `rect` pixels of `p`; every other pixel keeps its place.
+    void applyPatch(const BitmapPatch& p);
+    /// The smallest rect outside which `a` and `b` have the same pixels.
+    static QRect changedRect(BitmapImage& a, BitmapImage& b);
 
     void moveTopLeft(QPoint point);
     void moveTopLeft(QPointF point) { moveTopLeft(point.toPoint()); }

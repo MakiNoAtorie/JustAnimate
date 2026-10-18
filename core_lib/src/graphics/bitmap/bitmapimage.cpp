@@ -272,6 +272,98 @@ void BitmapImage::paste(TiledBuffer* tiledBuffer, QPainter::CompositionMode cm, 
     }
 }
 
+BitmapPatch BitmapImage::patch(const QRect& rect)
+{
+    const QImage* source = image();
+    BitmapPatch p{ mBounds, mMinBound, rect, QImage() };
+    if (rect.isEmpty()) { return p; }
+    if (source->isNull())
+    {
+        p.pixels = QImage(rect.size(), QImage::Format_ARGB32_Premultiplied);
+        p.pixels.fill(Qt::transparent);
+    }
+    else
+    {
+        // QImage::copy fills the part outside the image with 0, which is transparent.
+        p.pixels = source->copy(rect.translated(-mBounds.topLeft()));
+    }
+    return p;
+}
+
+BitmapPatch BitmapImage::whole()
+{
+    const QImage* source = image();
+    return { mBounds, mMinBound, mBounds, *source };
+}
+
+void BitmapImage::applyPatch(const BitmapPatch& p)
+{
+    image();
+    if (p.rect == p.bounds && p.pixels.size() == p.bounds.size())
+    {
+        // A whole patch: share its pixels.
+        mImage = p.pixels;
+        mBounds = p.bounds;
+        mMinBound = p.minBound;
+        modification();
+        return;
+    }
+    if (mBounds != p.bounds)
+    {
+        QImage resized(p.bounds.size(), QImage::Format_ARGB32_Premultiplied);
+        resized.fill(Qt::transparent);
+        if (!resized.isNull() && !mImage.isNull())
+        {
+            QPainter painter(&resized);
+            painter.setCompositionMode(QPainter::CompositionMode_Source);
+            painter.drawImage(mBounds.topLeft() - p.bounds.topLeft(), mImage);
+        }
+        mImage = resized;
+        mBounds = p.bounds;
+    }
+    if (!p.pixels.isNull() && !mImage.isNull())
+    {
+        QPainter painter(&mImage);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.drawImage(p.rect.topLeft() - mBounds.topLeft(), p.pixels);
+    }
+    mMinBound = p.minBound;
+    modification();
+}
+
+QRect BitmapImage::changedRect(BitmapImage& a, BitmapImage& b)
+{
+    const QImage* imageA = a.image();
+    const QImage* imageB = b.image();
+    if (a.mBounds == b.mBounds && imageA->cacheKey() == imageB->cacheKey()) { return QRect(); }
+
+    auto row = [](const QImage* img, const QRect& bounds, int y) -> const QRgb* {
+        if (img->isNull() || y < bounds.top() || y > bounds.bottom()) { return nullptr; }
+        return reinterpret_cast<const QRgb*>(img->constScanLine(y - bounds.top()));
+    };
+    auto pixelAt = [](const QRgb* line, const QRect& bounds, int x) -> QRgb {
+        return (line && x >= bounds.left() && x <= bounds.right()) ? line[x - bounds.left()] : 0;
+    };
+    const QRect all = a.mBounds.united(b.mBounds);
+    QRect changed;
+    for (int y = all.top(); y <= all.bottom(); ++y)
+    {
+        const QRgb* lineA = row(imageA, a.mBounds, y);
+        const QRgb* lineB = row(imageB, b.mBounds, y);
+        if (!lineA && !lineB) { continue; }
+        for (int x = all.left(); x <= all.right(); ++x)
+        {
+            if (pixelAt(lineA, a.mBounds, x) == pixelAt(lineB, b.mBounds, x)) { continue; }
+            // Only the row ends can widen the rect: jump to the last differing pixel.
+            int last = all.right();
+            while (pixelAt(lineA, a.mBounds, last) == pixelAt(lineB, b.mBounds, last)) { --last; }
+            changed |= QRect(x, y, last - x + 1, 1);
+            break;
+        }
+    }
+    return changed;
+}
+
 void BitmapImage::moveTopLeft(QPoint point)
 {
     mBounds.moveTopLeft(point);

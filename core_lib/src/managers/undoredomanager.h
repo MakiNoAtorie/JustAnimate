@@ -33,6 +33,8 @@ GNU General Public License for more details.
 #include <memory>
 #include <vector>
 
+#include "bitmapimage.h"
+
 class QAction;
 class QUndoCommand;
 
@@ -117,6 +119,7 @@ private:
     void recordLayerArrangement(const LayerArrangement& before, const QString& description);
 
     SAVESTATE_ID beginEdit(const QString& description, Layer* layer, int frame);
+    void willChange(SAVESTATE_ID saveStateId, const QRect& canvasRect);
     void endEdit(SAVESTATE_ID saveStateId, bool commit);
     void recordEdit(const UndoSaveState& state);
     /** Makes the records between beginMacro and endMacro one undo step.
@@ -138,6 +141,22 @@ private:
 
     void clearSaveStates();
 
+    friend class BitmapReplaceCommand;
+    /// A Drawing as the undo stack last left it. It shares the pixels, so it costs nothing until one side is painted.
+    struct ExpectedDrawing
+    {
+        const KeyFrame* key = nullptr;
+        BitmapPatch whole;
+    };
+    /** Compares the Drawing at the start of an Edit with the one the stack expects. A change with no record
+     *  in between joins the record of the Edit. */
+    void findUnrecordedChange(UndoSaveState* state);
+    /** Puts back the Drawing the stack expects at `image` when a change with no record came after it. */
+    void restoreExpectedDrawing(int layerId, BitmapImage* image);
+    void setExpectedDrawing(int layerId, BitmapImage* image, const BitmapPatch& whole);
+
+    // Keyed by (layer id, key position).
+    QHash<QPair<int, int>, ExpectedDrawing> mExpectedDrawings;
     QUndoStack mUndoStack;
     int mMacroDepth = 0;
     bool mMacroOpen = false; // the stack macro starts at the first record
