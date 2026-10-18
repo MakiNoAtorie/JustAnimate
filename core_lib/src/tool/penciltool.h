@@ -31,9 +31,6 @@ public:
 
     ToolType type() const override { return PENCIL; }
 
-    ToolProperties& toolProperties() override { return mSettings.toolProperties(); }
-    const StrokeToolProperties& strokeToolProperties() const override { return mSettings; }
-
     void loadSettings() override;
 
     void paintVectorStroke(Layer* layer);
@@ -43,9 +40,6 @@ protected:
     void drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip) override;
     QPen vectorPreviewPen() override;
     void finishVectorStroke(Layer* layer) override;
-
-private:
-    StrokeToolProperties mSettings;
 };
 
 #endif // PENCILTOOL_H

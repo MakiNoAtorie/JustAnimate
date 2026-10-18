@@ -102,7 +102,7 @@ TEST_CASE("ScribbleArea - canvas HUD shows the brush ring and view values")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(20);
+    brush->set(ToolProperty::Width, 20);
 
     editor->view()->scale(2.0);
     editor->view()->rotate(30);
@@ -204,12 +204,12 @@ TEST_CASE("ScribbleArea - quick preset picker applies a preset with the pen")
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
     BrushPresets presets(dir.path());
-    brush->setWidth(3);
+    brush->set(ToolProperty::Width, 3);
     REQUIRE(presets.save("Fine", *brush));
-    brush->setWidth(60);
+    brush->set(ToolProperty::Width, 60);
     REQUIRE(presets.save("Wide", *brush));
     REQUIRE(presets.save("Rub", *brush, QString(), "eraser")); // not listed for the brush
-    brush->setWidth(10);
+    brush->set(ToolProperty::Width, 10);
 
     area->openPresetPicker(QPointF(400, 300), dir.path());
     const RadialMenu& menu = area->radialMenu();
@@ -220,7 +220,7 @@ TEST_CASE("ScribbleArea - quick preset picker applies a preset with the pen")
     pen(area, QEvent::TabletPress, wide);
     pen(area, QEvent::TabletRelease, wide);
     CHECK(area->radialMenu().kind == RadialMenu::Closed);
-    CHECK(brush->strokeToolProperties().width() == 60);
+    CHECK(brush->get(ToolProperty::Width) == 60);
 }
 
 namespace
@@ -386,11 +386,11 @@ TEST_CASE("ScribbleArea - Brush outline follows size zoom and View rotation")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 100);
-    brush->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, 0);
-    brush->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, false);
+    brush->setValue(StrokeToolProperties::TIP_ASPECT_VALUE, 100);
+    brush->setValue(StrokeToolProperties::TIP_ANGLE_VALUE, 0);
+    brush->setValue(StrokeToolProperties::TIP_SQUARE_ENABLED, false);
 
-    brush->setWidth(40);
+    brush->set(ToolProperty::Width, 40);
     QRect b = outlineBounds(editor, area);
     CHECK(b.width() == Approx(41).margin(2));  // 40 px across at 100 %
     CHECK(b.height() == Approx(41).margin(2));
@@ -401,7 +401,7 @@ TEST_CASE("ScribbleArea - Brush outline follows size zoom and View rotation")
 
     // A flat tip lies along x; a quarter turn of the View stands it up.
     editor->view()->scale(1.0);
-    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 50);
+    brush->setValue(StrokeToolProperties::TIP_ASPECT_VALUE, 50);
     b = outlineBounds(editor, area);
     CHECK(b.width() == Approx(41).margin(2));
     CHECK(b.height() == Approx(21).margin(2));
@@ -426,7 +426,7 @@ TEST_CASE("ScribbleArea - the Brush outline paints its centre cross")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(40);
+    brush->set(ToolProperty::Width, 40);
 
     // The hardware cursor is not in a grab, so a cross in the grab is painted.
     const QPoint centre = editor->view()->mapCanvasToScreen(QPointF(0, 0)).toPoint();
@@ -455,7 +455,7 @@ TEST_CASE("ScribbleArea - below 6 px on screen only the cross shows")
     StrokeTool* pencil = static_cast<StrokeTool*>(editor->tools()->getTool(PENCIL));
     const ToolSettingsGuard guard(pencil);
 
-    pencil->setWidth(5);
+    pencil->set(ToolProperty::Width, 5);
     CHECK(outlineBounds(editor, area).isEmpty());
     editor->view()->scale(2.0); // 10 px on screen
     CHECK_FALSE(outlineBounds(editor, area).isEmpty());

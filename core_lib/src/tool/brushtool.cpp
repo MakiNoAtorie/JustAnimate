@@ -55,7 +55,7 @@ void BrushTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTi
 {
     mScribbleArea->drawBrush(point,
                              width,
-                             mSettings.feather(),
+                             get(ToolProperty::Feather),
                              mEditor->color()->frontColor(),
                              opacity,
                              true,
@@ -65,8 +65,8 @@ void BrushTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTi
 
 QPen BrushTool::vectorPreviewPen()
 {
-    qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1;
-    return QPen(mEditor->color()->frontColor(), mSettings.width() * pressure, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    qreal pressure = (get(ToolProperty::PressureEnabled)) ? mCurrentPressure : 1;
+    return QPen(mEditor->color()->frontColor(), get(ToolProperty::Width) * pressure, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
 }
 
 void BrushTool::finishVectorStroke(Layer* layer)
@@ -88,11 +88,11 @@ void BrushTool::paintVectorStroke(Layer* layer)
         qreal tol = mScribbleArea->getCurveSmoothing() / mEditor->view()->scaling();
 
         BezierCurve curve(mStrokePoints, mStrokePressures, tol);
-        curve.setWidth(mSettings.width());
-        curve.setFeather(mSettings.feather());
+        curve.setWidth(get(ToolProperty::Width));
+        curve.setFeather(get(ToolProperty::Feather));
         curve.setFilled(false);
-        curve.setInvisibility(mSettings.invisibilityEnabled());
-        curve.setVariableWidth(mSettings.pressureEnabled());
+        curve.setInvisibility(get(ToolProperty::InvisibilityEnabled));
+        curve.setVariableWidth(get(ToolProperty::PressureEnabled));
         curve.setColorNumber(mEditor->color()->frontColorNumber());
 
         VectorImage* vectorImage = static_cast<VectorImage*>(layer->getLastKeyFrameAtPosition(mEditor->currentFrame()));

@@ -188,7 +188,7 @@ TEST_CASE("LayerBitmap - painting with lock transparency never changes alpha")
         INFO("tool " << tool);
         editor->tools()->setCurrentTool(tool);
         const ToolSettingsGuard guard(editor->tools()->currentTool());
-        static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(10);
+        static_cast<StrokeTool*>(editor->tools()->currentTool())->set(ToolProperty::Width, 10);
         drag(QPointF(-30, 0), QPointF(30, 0));
         CHECK(qAlpha(image->pixel(QPoint(-15, 0))) == 255);
         CHECK(qAlpha(image->pixel(QPoint(15, 0))) == 0);

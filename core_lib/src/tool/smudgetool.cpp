@@ -57,11 +57,11 @@ bool SmudgeTool::emptyFrameActionEnabled()
 void SmudgeTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
     SmudgeSettings smudge;
-    smudge.length = mSettings.smudgeLength() / 100.0f;
-    smudge.radius = mSettings.smudgeRadius() / 100.0f;
-    smudge.colorRate = mSettings.smudgeColorRate() / 100.0f;
-    smudge.wet = mSettings.smudgeMix() == 1;
-    mScribbleArea->smudgeDab(point, width, mSettings.feather(), mEditor->color()->frontColor(), opacity, tip, smudge);
+    smudge.length = get(ToolProperty::SmudgeLength) / 100.0f;
+    smudge.radius = get(ToolProperty::SmudgeRadius) / 100.0f;
+    smudge.colorRate = get(ToolProperty::SmudgeColorRate) / 100.0f;
+    smudge.wet = get(ToolProperty::SmudgeMix) == 1;
+    mScribbleArea->smudgeDab(point, width, get(ToolProperty::Feather), mEditor->color()->frontColor(), opacity, tip, smudge);
 }
 
 void SmudgeTool::pointerPressEvent(PointerEvent* event)

@@ -444,7 +444,7 @@ ReplayResult replay(const ReplayCase& c, const std::vector<Stroke>& strokes, con
     tool->resetSettings();
     if (!presetFolder.isEmpty())
         REQUIRE(BrushPresets(presetFolder).apply("Classic", *static_cast<StrokeTool*>(tool)));
-    static_cast<StrokeTool*>(tool)->setWidth(c.size);
+    static_cast<StrokeTool*>(tool)->set(ToolProperty::Width, c.size);
 
     const QPointingDevice pen("replay pen", 1, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Pen,
                               QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
@@ -661,7 +661,7 @@ PredictionRun predictionRun(ToolType toolType, bool predict)
     const ToolSettingsGuard guard(tool);
     tool->resetSettings();
     auto* dabTool = static_cast<DabTool*>(tool);
-    dabTool->setWidth(24);
+    dabTool->set(ToolProperty::Width, 24);
     dabTool->setPredictionEnabled(predict);
 
     PredictionRun r;
@@ -716,7 +716,7 @@ TEST_CASE("Pen prediction: input-to-pixel latency of a 256 px brush on a 4K canv
     const ToolSettingsGuard guard(tool);
     tool->resetSettings();
     // Width tops out at 200 canvas px: zoom 128 % so the dab covers 256 screen px.
-    static_cast<StrokeTool*>(tool)->setWidth(200);
+    static_cast<StrokeTool*>(tool)->set(ToolProperty::Width, 200);
     s.editor->view()->scale(1.28);
     REQUIRE(s.area->size() == QSize(3840, 2160));
 
@@ -797,8 +797,8 @@ TEST_CASE("Brush replay: dabs per second at 256 and 4 screen px", "[.dabrate]")
             const ToolSettingsGuard guard(tool);
             tool->resetSettings();
             auto* strokeTool = static_cast<StrokeTool*>(tool);
-            strokeTool->setWidth(screenPx / 1.28);
-            strokeTool->setPressureEnabled(false);
+            strokeTool->set(ToolProperty::Width, screenPx / 1.28);
+            strokeTool->set(ToolProperty::PressureEnabled, false);
             s.editor->view()->scale(1.28);
             StageProfiler::reset();
             QElapsedTimer t;

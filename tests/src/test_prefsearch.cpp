@@ -113,8 +113,8 @@ TEST_CASE("Reset all tools button asks first and resets only on yes", "[PrefSear
     auto* pencil = static_cast<StrokeTool*>(s.editor->tools()->getTool(PENCIL));
     const ToolSettingsGuard toolGuard(pencil);
     pencil->resetSettings();
-    const qreal defaultWidth = pencil->strokeToolProperties().width();
-    pencil->setWidth(defaultWidth + 7);
+    const qreal defaultWidth = pencil->get(ToolProperty::Width);
+    pencil->set(ToolProperty::Width, defaultWidth + 7);
 
     ActionCommands commands(nullptr);
     commands.setCore(s.editor.get());
@@ -129,8 +129,8 @@ TEST_CASE("Reset all tools button asks first and resets only on yes", "[PrefSear
     bool answer = false;
     page->confirmReset = [&answer] { return answer; };
     button->click();
-    CHECK(pencil->strokeToolProperties().width() == defaultWidth + 7);
+    CHECK(pencil->get(ToolProperty::Width) == defaultWidth + 7);
     answer = true;
     button->click();
-    CHECK(pencil->strokeToolProperties().width() == defaultWidth);
+    CHECK(pencil->get(ToolProperty::Width) == defaultWidth);
 }

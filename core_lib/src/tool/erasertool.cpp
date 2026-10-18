@@ -52,18 +52,18 @@ void EraserTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushT
 {
     mScribbleArea->drawBrush(point,
                              width,
-                             mSettings.feather(),
+                             get(ToolProperty::Feather),
                              Qt::white,
                              opacity,
-                             mSettings.featherEnabled(),
-                             mSettings.AntiAliasingEnabled() == ON,
+                             get(ToolProperty::FeatherEnabled),
+                             get(ToolProperty::AntiAliasingEnabled) == ON,
                              tip);
 }
 
 QPen EraserTool::vectorPreviewPen()
 {
-    mCurrentWidth = mSettings.width();
-    if (mSettings.pressureEnabled())
+    mCurrentWidth = get(ToolProperty::Width);
+    if (get(ToolProperty::PressureEnabled))
     {
         mCurrentWidth = (mCurrentWidth + (mInterpolator.getPressure() * mCurrentWidth)) * 0.5;
     }
@@ -97,7 +97,7 @@ void EraserTool::strokeMoved()
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer->type() == Layer::VECTOR)
     {
-        qreal radius = mSettings.width() / 2;
+        qreal radius = get(ToolProperty::Width) / 2;
 
         VectorImage* currKey = static_cast<VectorImage*>(layer->getLastKeyFrameAtPosition(mEditor->currentFrame()));
         if (currKey == nullptr) { return; } // Before the layer's first keyframe: nothing to erase

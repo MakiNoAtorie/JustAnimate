@@ -54,18 +54,17 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     startStroke(event->inputType());
     mPressureCurve = PressureCurve::fromString(pressureCurve().isEmpty() ? mEditor->preference()->getString(SETTING::PRESSURE_CURVE)
                                                                          : pressureCurve());
-    mScribbleArea->setWashOpacity(strokeToolProperties().washEnabled() ? strokeToolProperties().opacity() / 100 : 1.0);
-    const StrokeToolProperties& p = strokeToolProperties();
-    mSpeedToSize = p.speedToSize() / 100.0;
-    mTiltToSize = p.tiltToSize() / 100.0;
-    mTiltToAngle = p.tiltToAngle() / 100.0;
-    mSizeJitter = p.sizeJitter() / 100.0;
-    mScatter = p.scatter() / 100.0;
-    mAngleJitter = p.angleJitter();
-    mDabCount = qMax(1, p.dabCount());
+    mScribbleArea->setWashOpacity(get(ToolProperty::WashEnabled) ? get(ToolProperty::Opacity) / 100 : 1.0);
+    mSpeedToSize = get(ToolProperty::SpeedToSize) / 100.0;
+    mTiltToSize = get(ToolProperty::TiltToSize) / 100.0;
+    mTiltToAngle = get(ToolProperty::TiltToAngle) / 100.0;
+    mSizeJitter = get(ToolProperty::SizeJitter) / 100.0;
+    mScatter = get(ToolProperty::Scatter) / 100.0;
+    mAngleJitter = get(ToolProperty::AngleJitter);
+    mDabCount = qMax(1, get(ToolProperty::DabCount));
     mLastBrushPressure = mCurrentPressure;
-    mTaperStart = p.taperStart();
-    mTaperEnd = p.taperEnd();
+    mTaperStart = get(ToolProperty::TaperStart);
+    mTaperEnd = get(ToolProperty::TaperEnd);
     mStrokeLength = 0;
     mBrushDistance = 0;
     mStrokeEnding = false;
@@ -164,26 +163,25 @@ void DabTool::paint(QPainter& painter, const QRect& blitRect)
 
 qreal DabTool::dabSpacing(qreal brushWidth) const
 {
-    return qMax(0.25, brushWidth * (strokeToolProperties().spacing() / 100.0));
+    return qMax(0.25, brushWidth * (get(ToolProperty::Spacing) / 100.0));
 }
 
 qreal DabTool::dabWidth(qreal pressure) const
 {
-    return strokeToolProperties().width() * (strokeToolProperties().pressureEnabled() ? mPressureCurve.value(pressure) : 1.0);
+    return get(ToolProperty::Width) * (get(ToolProperty::PressureEnabled) ? mPressureCurve.value(pressure) : 1.0);
 }
 
 qreal DabTool::dabOpacity(qreal pressure) const
 {
-    const StrokeToolProperties& p = strokeToolProperties();
     // Flow per dab with pressure off gives full flow, like the tools before v0.3.
-    const qreal flow = p.pressureEnabled() ? p.flow() / 100 * mPressureCurve.value(pressure)
-                                           : (p.flowPerDab() ? 1.0 : p.flow() / 100);
-    return p.washEnabled() ? flow : flow * p.opacity() / 100;
+    const qreal flow = get(ToolProperty::PressureEnabled) ? get(ToolProperty::Flow) / 100 * mPressureCurve.value(pressure)
+                                           : (get(ToolProperty::FlowPerDab) ? 1.0 : get(ToolProperty::Flow) / 100);
+    return get(ToolProperty::WashEnabled) ? flow : flow * get(ToolProperty::Opacity) / 100;
 }
 
 qreal DabTool::spacedDabOpacity(qreal pressure, qreal brushWidth) const
 {
-    if (strokeToolProperties().flowPerDab())
+    if (get(ToolProperty::FlowPerDab))
         return dabOpacity(pressure);
     // About width / spacing dabs cover each pixel; this alpha makes them add up to dabOpacity.
     const qreal overlap = brushWidth > 0 ? qMin(1.0, dabSpacing(brushWidth) / brushWidth) : 1.0;
@@ -200,19 +198,18 @@ qreal DabTool::taperAt(qreal distance) const
 
 BrushTip DabTool::dabTip(QPointF direction) const
 {
-    const StrokeToolProperties& p = strokeToolProperties();
     BrushTip tip;
-    tip.square = p.tipSquare();
-    tip.aspect = p.tipAspect() / 100.0;
-    tip.angle = p.tipAngle();
+    tip.square = get(ToolProperty::TipSquare);
+    tip.aspect = get(ToolProperty::TipAspect) / 100.0;
+    tip.angle = get(ToolProperty::TipAngle);
     tip.image = mTipImage;
-    tip.grainTexture = p.grainTexture();
-    tip.grainMode = p.grainMode();
-    tip.grainScale = p.grainScale() / 100.0f;
-    tip.grainContrast = p.grainContrast() / 100.0f;
-    tip.grainBrightness = p.grainBrightness() / 100.0f;
+    tip.grainTexture = get(ToolProperty::GrainTexture);
+    tip.grainMode = get(ToolProperty::GrainMode);
+    tip.grainScale = get(ToolProperty::GrainScale) / 100.0f;
+    tip.grainContrast = get(ToolProperty::GrainContrast) / 100.0f;
+    tip.grainBrightness = get(ToolProperty::GrainBrightness) / 100.0f;
     // Canvas y points down, so the angle counts counter-clockwise on screen.
-    if (p.tipFollowsDirection() && !direction.isNull())
+    if (get(ToolProperty::TipFollowDirection) && !direction.isNull())
         tip.angle += qRadiansToDegrees(std::atan2(-direction.y(), direction.x()));
     // Tablet y tilt points toward the user (down), like canvas y.
     if (mTiltToAngle != 0 && !mDabTilt.isNull())

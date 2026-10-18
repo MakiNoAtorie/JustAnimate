@@ -53,10 +53,11 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
 
 - The global pressure curve is the only brush setting in `PreferenceManager`
   (read in `DabTool::pointerPressEvent`). Every other brush setting is a
-  per-tool `StrokeToolProperties` value, so presets keep it. Dynamics,
-  jitter, scatter, taper and dabs per step go through `StrokeTool::setDynamic`
-  and the stroke options widget; they default to 0 (dab count 1), which
-  leaves output unchanged.
+  per-tool `StrokeToolProperties` value, so presets keep it. Read and write
+  one with `StrokeTool::get`/`set` (typed) or `setValue` (by id); every
+  write emits `StrokeTool::propertyChanged(id)`. Dynamics, jitter, scatter,
+  taper and dabs per step default to 0 (dab count 1), which leaves output
+  unchanged.
 - New `StrokeToolProperties` ids take the next free number on the
   integration branch tip. A setting that changes how dab alpha adds up is a
   bool, off by default, so a preset can bring back older output.
@@ -116,11 +117,12 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
   (`mz_zip_reader_extract_to_mem`, sizes bounded), write only after every
   check passes, never overwrite an existing preset.
 - Offscreen brush rendering uses a hidden Editor/ScribbleArea driven by
-  tablet events (`PresetSampler`, `brushpreseteditor.h`). The preset editor
-  builds controls from `ToolProperties` ranges (`objectName` = identifier);
-  a new property needs only a row label in `BrushPresetEditor::settingLabel`
-  (reuse the stroke options text). Code that changes tool values outside the
-  options widget emits `ToolManager::toolsReset`.
+  tablet events (`PresetSampler`, `brushpreseteditor.h`). The Tool settings
+  Panel and the preset editor build their rows from the descriptors
+  (label, range, combo items; editor `objectName` = key): a new property is
+  one descriptor row, plus a Panel control only when it needs its own place.
+  Code that changes tool values outside the options widget emits
+  `ToolManager::toolsReset`.
 
 ## Tests
 

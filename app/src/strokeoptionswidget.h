@@ -6,10 +6,6 @@
 
 class Editor;
 class BaseTool;
-class QCheckBox;
-class QComboBox;
-class SpinSlider;
-class QSpinBox;
 
 class StrokeTool;
 
@@ -29,28 +25,12 @@ public:
     void initUI() override;
 
 private:
-    void makeConnectionFromModelToUI(StrokeTool* strokeTool);
     void makeConnectionFromUIToModel();
     void updateToolConnections(BaseTool* tool);
 
-    void setWidthValue(qreal);
-    void setFeatherValue(qreal);
-    void setFeatherEnabled(bool);
-    void setSpacingValue(qreal);
-    void updateTip();
-    void updateDynamics();
-    void setFlowValue(qreal);
-    void setStrokeOpacityValue(qreal);
-    void setWashEnabled(bool);
-    void setPenInvisibilityEnabled(bool);
-    void setPressureEnabled(bool);
-    void setAntiAliasingEnabled(bool);
-    void setSmoothingMode(int);
-    void setSmoothingStrength(int);
-    void setFillContourEnabled(bool);
-    void setBezierPathEnabled(bool);
-    void setClosedPathEnabled(bool);
-    void setShapeMode(int);
+    /// Makes a control the row of a property: its range, label and value come from the descriptor.
+    void bind(int id, QWidget* control);
+    void updateRow(int id);
 
     void setVisibility(BaseTool*);
 
@@ -59,11 +39,7 @@ private:
 
     StrokeTool* mCurrentTool = nullptr;
     QWidget* mDynamicsBox = nullptr;
-    QComboBox* mShapeModeCombo = nullptr;
-    QComboBox* mGrainModeCombo = nullptr;
-    QComboBox* mGrainTextureCombo = nullptr;
-    QComboBox* mSmudgeMixCombo = nullptr;
-    QList<std::pair<int, QSpinBox*>> mDynamicsSpinBoxes;
+    QList<std::pair<int, QWidget*>> mRows; // property id, control
 
     Editor* mEditor = nullptr;
 

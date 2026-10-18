@@ -30,15 +30,8 @@ public:
 
     ToolType type() const override;
 
-    ToolProperties& toolProperties() override { return mSettings.toolProperties(); }
-    const StrokeToolProperties& strokeToolProperties() const override { return mSettings.strokeToolProperties(); }
-    const PolylineToolProperties& settings() const { return mSettings; }
-
     void loadSettings() override;
     QCursor cursor() override;
-
-    void setUseBezier(bool useBezier);
-    void setClosePath(bool closePath);
 
     void pointerPressEvent(PointerEvent*) override;
     void pointerReleaseEvent(PointerEvent*) override;
@@ -54,13 +47,7 @@ public:
 
     bool isActive() const override;
 
-signals:
-    void bezierPathEnabledChanged(bool useBezier);
-    void closePathChanged(bool closePath);
-
-
 private:
-    PolylineToolProperties mSettings;
     QList<QPointF> mPoints;
     bool mClosedPathOverrideEnabled = false;
 

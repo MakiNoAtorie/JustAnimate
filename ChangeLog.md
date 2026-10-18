@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Movie, GIF, paper page export and the Welcome thumbnail render through the frame renderer export adapter (#260).
+- The Tool settings Panel and the brush preset editor build their rows from the tool property registry; the editor picks grain and smudge mixing from a list (#267).
 - Preferences load and save from one table with typed access; the Onion skin panel now shows a saved "while playback" choice (#271).
 - Autosave, crash recovery, closing and the recent files move to the project session; command line export opens through it (#263).
 - Setting a Mark, tween, Panel field or unlinking a Drawing no longer moves the playhead, and its undo keeps the Drawing; these are rows of the attribute table (#254).

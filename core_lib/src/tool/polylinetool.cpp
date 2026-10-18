@@ -227,7 +227,7 @@ void PolylineTool::drawPolyline(QList<QPointF> points, QPointF endPoint)
     if (points.size() > 0)
     {
         QPen pen(mEditor->color()->frontColor(),
-                 mSettings.width(),
+                 get(ToolProperty::Width),
                  Qt::SolidLine,
                  Qt::RoundCap,
                  Qt::RoundJoin);
@@ -235,7 +235,7 @@ void PolylineTool::drawPolyline(QList<QPointF> points, QPointF endPoint)
 
         // Bitmap by default
         QPainterPath tempPath;
-        if (mSettings.bezierPathEnabled())
+        if (get(ToolProperty::BezierPathEnabled))
         {
             tempPath = BezierCurve(points).getSimplePath();
         }
@@ -246,7 +246,7 @@ void PolylineTool::drawPolyline(QList<QPointF> points, QPointF endPoint)
         tempPath.lineTo(endPoint);
 
         // Ctrl key inverts closed behavior while held (XOR)
-        if ((mSettings.closedPathEnabled() == !mClosedPathOverrideEnabled) && points.size() > 1)
+        if ((get(ToolProperty::ClosedPathEnabled) == !mClosedPathOverrideEnabled) && points.size() > 1)
         {
             tempPath.closeSubpath();
         }
@@ -263,12 +263,12 @@ void PolylineTool::drawPolyline(QList<QPointF> points, QPointF endPoint)
                 }
                 else
                 {
-                    pen.setWidth(mSettings.width());
+                    pen.setWidth(get(ToolProperty::Width));
                 }
             }
         }
 
-        mScribbleArea->drawPolyline(tempPath, pen, mSettings.AntiAliasingEnabled());
+        mScribbleArea->drawPolyline(tempPath, pen, get(ToolProperty::AntiAliasingEnabled));
     }
 }
 
@@ -288,14 +288,14 @@ void PolylineTool::endPolyline(QList<QPointF> points)
 
     if (layer->type() == Layer::VECTOR)
     {
-        BezierCurve curve = BezierCurve(points, mSettings.bezierPathEnabled());
+        BezierCurve curve = BezierCurve(points, get(ToolProperty::BezierPathEnabled));
         if (mScribbleArea->makeInvisible() == true)
         {
             curve.setWidth(0);
         }
         else
         {
-            curve.setWidth(mSettings.width());
+            curve.setWidth(get(ToolProperty::Width));
         }
         curve.setColorNumber(mEditor->color()->frontColorNumber());
         curve.setVariableWidth(false);
@@ -317,16 +317,4 @@ void PolylineTool::endPolyline(QList<QPointF> points)
     mEditor->undoRedo()->record(saveStateId, typeName());
 
     clearToolData();
-}
-
-void PolylineTool::setUseBezier(bool useBezier)
-{
-    toolProperties().setBaseValue(PolylineToolProperties::BEZIERPATH_ENABLED, useBezier);
-    emit bezierPathEnabledChanged(useBezier);
-}
-
-void PolylineTool::setClosePath(bool closePath)
-{
-    toolProperties().setBaseValue(PolylineToolProperties::CLOSEDPATH_ENABLED, closePath);
-    emit closePathChanged(closePath);
 }

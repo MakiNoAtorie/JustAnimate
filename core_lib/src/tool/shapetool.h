@@ -32,7 +32,6 @@ public:
     QCursor cursor() override;
 
     Mode shapeMode() const;
-    void setShapeMode(Mode mode);
 
     /// The shape dragged from `from` to `to`, in canvas points; closed shapes end on their first point.
     /// Shift gives 45 degree lines, squares and circles; Alt makes `from` the centre.
@@ -48,9 +47,6 @@ public:
     /// Drops a polygon that is not closed yet.
     void clearToolData() override;
     void paint(QPainter& painter, const QRect& blitRect) override;
-
-signals:
-    void shapeModeChanged(int mode);
 
 private:
     void finishShape(const QPolygonF& shape, PointerEvent* event);

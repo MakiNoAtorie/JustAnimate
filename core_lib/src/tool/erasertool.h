@@ -28,9 +28,6 @@ public:
     explicit EraserTool(QObject* parent = nullptr);
     ToolType type() const override;
 
-    ToolProperties& toolProperties() override { return mSettings.toolProperties(); }
-    const StrokeToolProperties& strokeToolProperties() const override { return mSettings; }
-
     void loadSettings() override;
 
     void removeVectorPaint();
@@ -41,8 +38,6 @@ protected:
     QPen vectorPreviewPen() override;
     void finishVectorStroke(Layer* layer) override;
     bool showsPrediction() const override { return false; }
-
-    StrokeToolProperties mSettings;
 };
 
 #endif // ERASERTOOL_H

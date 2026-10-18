@@ -14,6 +14,8 @@ GNU General Public License for more details.
 */
 #include "toolproperties.h"
 
+#include <QCoreApplication>
+
 #include "shapetool.h"
 #include "tiledbuffer.h"
 
@@ -28,9 +30,9 @@ template <> constexpr PropertyInfo::ValueType valueType<bool>() { return Propert
 // The id's value type sets the descriptor's type, so the two cannot disagree.
 template <typename T>
 ToolPropertyDescriptor row(ToolPropertyId<T> id, const char* key, double min, double max, double defaultValue,
-                           ToolRowKind kind, const char* label, const char* disambiguation, QVector<ToolPropertyUse> uses)
+                           ToolRowKind kind, const char* label, const char* disambiguation, QVector<ToolPropertyUse> uses, QVector<const char*> items = {})
 {
-    return { id.raw, key, valueType<T>(), min, max, defaultValue, label, disambiguation, kind, std::move(uses) };
+    return { id.raw, key, valueType<T>(), min, max, defaultValue, label, disambiguation, kind, std::move(uses), std::move(items) };
 }
 
 QVector<ToolPropertyUse> rows(std::initializer_list<ToolType> tools, quint8 layers)
@@ -73,8 +75,9 @@ QVector<ToolPropertyDescriptor> makeDescriptors()
             { ERASER, BITMAP_ROW, true, "eraserAA" }, { PEN, BITMAP_ROW, true, "penAA" }, { POLYLINE, BITMAP_ROW, true, "brushAA" } }),
         row(FillContourEnabled, "FillContourEnabled", 0, 1, false, K::CheckBox, "Fill Contour", nullptr, {
             { PENCIL, VECTOR_ROW, {}, "FillContour" } }),
-        // Shown with the smoothing mode.
-        row(SmoothingStrength, "SmoothingStrength", 0, 100, 50, K::Slider, "Smoothing strength", nullptr, {}),
+        // The smoothing mode's rows.
+        row(SmoothingStrength, "SmoothingStrength", 0, 100, 50, K::Slider, "Smoothing strength", nullptr,
+            rows({ PENCIL, BRUSH, ERASER, PEN }, BOTH_ROWS) << ToolPropertyUse{ SMUDGE, BITMAP_ROW }),
         row(Spacing, "Spacing", 1, 400, 12.5, K::Slider, "Spacing %", nullptr, {
             { PENCIL, BITMAP_ROW }, { BRUSH, BITMAP_ROW }, { ERASER, BITMAP_ROW },
             // About the 2 px step of the smudge loop before v0.5 at the default width.
@@ -97,19 +100,24 @@ QVector<ToolPropertyDescriptor> makeDescriptors()
         row(FlowPerDab, "FlowPerDab", 0, 1, false, K::CheckBox, "Flow per dab (Classic)", nullptr, {}),
         row(TaperStart, "TaperStart", 0, 1000, 0, K::SpinBox, "Start taper", nullptr, rows(dabTools, BITMAP_ROW)),
         row(TaperEnd, "TaperEnd", 0, 1000, 0, K::SpinBox, "End taper", nullptr, rows(dabTools, BITMAP_ROW)),
-        row(GrainMode, "GrainMode", 0, 2, 0, K::ComboBox, "Grain", nullptr, rows(dabTools, BITMAP_ROW)),
+        row(GrainMode, "GrainMode", 0, 2, 0, K::ComboBox, "Grain", nullptr, rows(dabTools, BITMAP_ROW),
+            { QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Off"), QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Fixed to paper"),
+              QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Moves with stroke") }),
         row(GrainScale, "GrainScale", 25, 800, 100, K::SpinBox, "Grain scale", nullptr, rows(dabTools, BITMAP_ROW)),
         row(GrainContrast, "GrainContrast", 0, 400, 100, K::SpinBox, "Grain contrast", nullptr, rows(dabTools, BITMAP_ROW)),
         row(GrainBrightness, "GrainBrightness", -100, 100, 0, K::SpinBox, "Grain brightness", nullptr, rows(dabTools, BITMAP_ROW)),
         row(SmudgeLength, "SmudgeLength", 0, 100, 50, K::SpinBox, "Smudge length", nullptr, rows({ SMUDGE }, BITMAP_ROW)),
         row(SmudgeRadius, "SmudgeRadius", 1, 100, 50, K::SpinBox, "Smudge sample radius", nullptr, rows({ SMUDGE }, BITMAP_ROW)),
         row(SmudgeColorRate, "SmudgeColorRate", 0, 100, 0, K::SpinBox, "Smudge colour rate", nullptr, rows({ SMUDGE }, BITMAP_ROW)),
-        row(SmudgeMix, "SmudgeMix", 0, 1, 0, K::ComboBox, "Smudge mixing", nullptr, rows({ SMUDGE }, BITMAP_ROW)),
+        row(SmudgeMix, "SmudgeMix", 0, 1, 0, K::ComboBox, "Smudge mixing", nullptr, rows({ SMUDGE }, BITMAP_ROW),
+            { QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Light"), QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Pigment") }),
         row(GrainTexture, "GrainTexture", 0, TiledBuffer::grainTextureCount - 1, 0, K::ComboBox, "Grain texture", nullptr, rows(dabTools, BITMAP_ROW)),
         row(ClosedPathEnabled, "ClosedPathEnabled", 0, 1, false, K::CheckBox, "Closed Path", nullptr, {
             { POLYLINE, BOTH_ROWS, {}, "closedPolylinePath" } }),
         row(BezierPathEnabled, "BezierPathEnabled", 0, 1, false, K::CheckBox, "B\xC3\xA9zier", opts, rows({ POLYLINE }, BITMAP_ROW)),
-        row(ShapeMode, "ShapeMode", ShapeTool::LINE, ShapeTool::POLYGON, ShapeTool::RECTANGLE, K::ComboBox, "Shape", nullptr, rows({ SHAPE }, BOTH_ROWS)),
+        row(ShapeMode, "ShapeMode", ShapeTool::LINE, ShapeTool::POLYGON, ShapeTool::RECTANGLE, K::ComboBox, "Shape", nullptr, rows({ SHAPE }, BOTH_ROWS),
+            { QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Line"), QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Rectangle"),
+              QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Ellipse"), QT_TRANSLATE_NOOP("StrokeOptionsWidget", "Polygon") }),
     };
 }
 
@@ -139,6 +147,24 @@ PropertyInfo ToolPropertyDescriptor::info(ToolType tool) const
     case PropertyInfo::INVALID: break;
     }
     return PropertyInfo();
+}
+
+QString ToolPropertyDescriptor::text() const
+{
+    return QCoreApplication::translate("StrokeOptionsWidget", label, disambiguation);
+}
+
+QStringList ToolPropertyDescriptor::itemTexts() const
+{
+    QStringList texts;
+    if (id == StrokeToolProperties::GRAIN_TEXTURE_VALUE)
+    {
+        for (int i = 0; i < TiledBuffer::grainTextureCount; ++i)
+            texts << QCoreApplication::translate("GrainTexture", TiledBuffer::grainTextureName(i));
+    }
+    for (const char* item : items)
+        texts << QCoreApplication::translate("StrokeOptionsWidget", item);
+    return texts;
 }
 
 const QVector<ToolPropertyDescriptor>& ToolProperties::descriptors()

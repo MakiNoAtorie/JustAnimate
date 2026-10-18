@@ -41,7 +41,14 @@ public:
     explicit StrokeTool(QObject* parent);
     ~StrokeTool();
 
-    virtual const StrokeToolProperties& strokeToolProperties() const = 0;
+    ToolProperties& toolProperties() override { return mProperties; }
+    const ToolProperties& properties() const { return mProperties; }
+    template <typename T>
+    T get(ToolPropertyId<T> id) const { return mProperties.get(id); }
+    template <typename T, typename V, typename = std::enable_if_t<kToolPropertyAccepts<T, V>>>
+    void set(ToolPropertyId<T> id, V value) { setValue(id.raw, QVariant(static_cast<T>(value))); }
+    /// Sets a registered property, converted to its type and clamped to its range, and emits propertyChanged.
+    void setValue(int id, const QVariant& value);
 
     void startStroke(PointerEvent::InputType inputType);
     void drawStroke();
@@ -70,19 +77,6 @@ public:
     /// Below this size on screen the Brush outline hides and only the cross shows.
     static constexpr qreal OUTLINE_MIN_SCREEN_PX = 6.0;
 
-    virtual void setSmoothingMode(int mode);
-    virtual void setSmoothingStrength(int strength);
-    virtual void setWidth(qreal width);
-    virtual void setFeather(qreal feather);
-    virtual void setSpacing(qreal percent);
-    /// Sets a dynamics or scatter property, such as StrokeToolProperties::SCATTER_VALUE.
-    void setDynamic(int type, int value);
-    void setTip(int type, qreal value);
-    /// Per-dab alpha in percent; overlapping dabs build up.
-    void setFlow(qreal percent);
-    /// Stroke alpha in percent; in wash mode no overlap goes past it.
-    void setStrokeOpacity(qreal percent);
-    void setWashEnabled(bool enabled);
     /// Loads an image tip from a PNG or .gbr file; an empty name restores the generated tip.
     /// On failure the tip does not change.
     Status setTipImage(const QString& fileName);
@@ -92,28 +86,9 @@ public:
     /// preference, set by a preset; empty uses the global curve.
     void setPressureCurve(const QString& curve) { mPressureCurveOverride = curve; }
     QString pressureCurve() const { return mPressureCurveOverride; }
-    virtual void setPressureEnabled(bool enabled);
-    virtual void setFeatherEnabled(bool enabled);
-    virtual void setAntiAliasingEnabled(bool enabled);
-    virtual void setFillContourEnabled(bool enabled);
-    virtual void setStrokeInvisibleEnabled(bool enabled);
 
 signals:
-    void widthChanged(qreal value);
-    void featherChanged(qreal value);
-    void spacingChanged(qreal value);
-    void tipChanged();
-    void dynamicsChanged();
-    void flowChanged(qreal value);
-    void strokeOpacityChanged(qreal value);
-    void washEnabledChanged(bool enabled);
-    void pressureEnabledChanged(bool enabled);
-    void featherEnabledChanged(bool enabled);
-    void antiAliasingEnabledChanged(bool enabled);
-    void fillContourEnabledChanged(bool enabled);
-    void invisibleStrokeEnabledChanged(bool enabled);
-    void smoothingModeChanged(int mode);
-    void smoothingStrengthChanged(int strength);
+    void propertyChanged(int id);
 
 public slots:
     void onPreferenceChanged(SETTING setting);
@@ -171,6 +146,7 @@ protected:
     static const qreal FEATHER_MAX;
 
     SAVESTATE_ID mUndoSaveStateId = 0;
+    ToolProperties mProperties;
 
 private:
     CanvasCursorPainter mWidthCursorPainter;

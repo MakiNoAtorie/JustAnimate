@@ -29,9 +29,6 @@ public:
 
     ToolType type() const override;
 
-    ToolProperties& toolProperties() override { return mSettings.toolProperties(); }
-    const StrokeToolProperties& strokeToolProperties() const override { return mSettings; }
-
     void loadSettings() override;
 
     void pointerPressEvent(PointerEvent*) override;
@@ -48,8 +45,6 @@ protected:
 
 private:
     QPointF offsetFromPressPos();
-
-    StrokeToolProperties mSettings;
 };
 
 #endif // SMUDGETOOL_H

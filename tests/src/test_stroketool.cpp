@@ -113,9 +113,9 @@ TEST_CASE("StrokeTool - A tap is sized by its own pressure, not the previous str
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(40);
-    brush->setPressureEnabled(true);
-    brush->setFeatherEnabled(false);
+    brush->set(ToolProperty::Width, 40);
+    brush->set(ToolProperty::PressureEnabled, true);
+    brush->set(ToolProperty::FeatherEnabled, false);
 
     // A light stroke, then a hard tap.
     editor->scrubTo(1);
@@ -153,9 +153,9 @@ TEST_CASE("StrokeTool - a stabilized stroke ends at the pen on lift")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(10);
-    brush->setPressureEnabled(false);
-    brush->setFeatherEnabled(false);
+    brush->set(ToolProperty::Width, 10);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::FeatherEnabled, false);
 
     auto rightEdge = [](BitmapImage* image) {
         const int left = image->left();
@@ -167,7 +167,7 @@ TEST_CASE("StrokeTool - a stabilized stroke ends at the pen on lift")
         return left + right;
     };
 
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
     editor->scrubTo(1);
     stroke(area, QPointF(100, 300), QPointF(500, 300), 1.0);
     const int pen = rightEdge(layer->getBitmapImageAtFrame(1));
@@ -175,8 +175,8 @@ TEST_CASE("StrokeTool - a stabilized stroke ends at the pen on lift")
     for (SmoothingMode mode : { SmoothingMode::Weighted, SmoothingMode::Stabilizer })
     {
         CAPTURE(static_cast<int>(mode));
-        brush->setSmoothingMode(static_cast<int>(mode));
-        brush->setSmoothingStrength(100);
+        brush->set(ToolProperty::SmoothingMode, static_cast<int>(mode));
+        brush->set(ToolProperty::SmoothingStrength, 100);
         layer->removeKeyFrame(2);
         layer->addNewKeyFrameAt(2);
         editor->scrubTo(2);
@@ -201,9 +201,9 @@ TEST_CASE("DabTool - dabs are evenly spaced at any input speed and take pressure
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(20);
-    brush->setFeatherEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     const bool profiling = StageProfiler::enabled();
     StageProfiler::enabled() = true;
@@ -217,7 +217,7 @@ TEST_CASE("DabTool - dabs are evenly spaced at any input speed and take pressure
         tablet(area, QEvent::TabletRelease, to, 1.0);
         return static_cast<double>(StageProfiler::calls(StageProfiler::DabMask));
     };
-    brush->setPressureEnabled(false);
+    brush->set(ToolProperty::PressureEnabled, false);
     editor->scrubTo(1);
     const double slow = dabsFor(400);
     const double fast = dabsFor(4);
@@ -227,7 +227,7 @@ TEST_CASE("DabTool - dabs are evenly spaced at any input speed and take pressure
     CHECK(slow == Approx(fast).epsilon(0.05));
 
     // A fast ramp from light to hard: the light end stays thin.
-    brush->setPressureEnabled(true);
+    brush->set(ToolProperty::PressureEnabled, true);
     editor->scrubTo(2);
     tablet(area, QEvent::TabletPress, QPointF(100, 300), 0.1);
     tablet(area, QEvent::TabletMove, QPointF(500, 300), 1.0);
@@ -262,10 +262,10 @@ TEST_CASE("DabTool - Spacing percent sets the dab density and defaults to 12.5")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(20);
-    brush->setFeatherEnabled(false);
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
     editor->scrubTo(1);
 
     const bool profiling = StageProfiler::enabled();
@@ -278,7 +278,7 @@ TEST_CASE("DabTool - Spacing percent sets the dab density and defaults to 12.5")
         return static_cast<double>(StageProfiler::calls(StageProfiler::DabMask));
     };
     const double normal = dabs();
-    brush->setSpacing(25.0);
+    brush->set(ToolProperty::Spacing, 25.0);
     const double sparse = dabs();
     StageProfiler::enabled() = profiling;
     INFO("default " << normal << " 25% " << sparse);
@@ -303,33 +303,33 @@ TEST_CASE("DabTool - a flat tip keeps its angle or follows the stroke direction"
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(40);
-    brush->setFeatherEnabled(false);
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
-    CHECK(brush->strokeToolProperties().tipAspect() == 100); // the round tip
-    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 20); // 40 px wide, 8 px tall
+    brush->set(ToolProperty::Width, 40);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+    CHECK(brush->get(ToolProperty::TipAspect) == 100); // the round tip
+    brush->setValue(StrokeToolProperties::TIP_ASPECT_VALUE, 20); // 40 px wide, 8 px tall
 
     // A vertical stroke with the tip at 0 degrees: the ink is as wide as the tip.
     editor->scrubTo(1);
     stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
     const int fixedWidth = inkWidth(layer->getBitmapImageAtFrame(1));
 
-    brush->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, 90);
+    brush->setValue(StrokeToolProperties::TIP_ANGLE_VALUE, 90);
     editor->scrubTo(2);
     stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
     const int turnedWidth = inkWidth(layer->getBitmapImageAtFrame(2));
 
     // Follow direction: the tip width lies along the stroke, so the ink is as wide as the tip is tall.
-    brush->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, 0);
-    brush->setTip(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, true);
+    brush->setValue(StrokeToolProperties::TIP_ANGLE_VALUE, 0);
+    brush->setValue(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, true);
     editor->scrubTo(3);
     stroke(area, QPointF(300, 100), QPointF(300, 400), 1.0);
     const int followWidth = inkWidth(layer->getBitmapImageAtFrame(3));
 
-    brush->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, true);
-    brush->setTip(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, false);
-    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 100);
+    brush->setValue(StrokeToolProperties::TIP_SQUARE_ENABLED, true);
+    brush->setValue(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, false);
+    brush->setValue(StrokeToolProperties::TIP_ASPECT_VALUE, 100);
     editor->scrubTo(4);
     tap(area, QPointF(300, 300), 1.0);
     const QImage* img = layer->getBitmapImageAtFrame(4)->image();
@@ -345,7 +345,7 @@ TEST_CASE("DabTool - a flat tip keeps its angle or follows the stroke direction"
     CHECK(painted >= 39 * 39); // a 40 px circle covers about 1257 pixels
 }
 
-TEST_CASE("StrokeTool - setTip sets each tip value and signals one change")
+TEST_CASE("StrokeTool - setValue sets each tip value and signals each change")
 {
     TestSession s;
     s.start();
@@ -354,20 +354,20 @@ TEST_CASE("StrokeTool - setTip sets each tip value and signals one change")
     const ToolSettingsGuard guard(brush);
 
     int changes = 0;
-    QObject::connect(brush, &StrokeTool::tipChanged, [&] { ++changes; });
-    brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 40);
-    brush->setTip(StrokeToolProperties::TIP_ANGLE_VALUE, -30);
-    brush->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, 1);
-    brush->setTip(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, 1);
+    QObject::connect(brush, &StrokeTool::propertyChanged, [&] { ++changes; });
+    brush->setValue(StrokeToolProperties::TIP_ASPECT_VALUE, 40);
+    brush->setValue(StrokeToolProperties::TIP_ANGLE_VALUE, -30);
+    brush->setValue(StrokeToolProperties::TIP_SQUARE_ENABLED, 1);
+    brush->setValue(StrokeToolProperties::TIP_FOLLOW_DIRECTION_ENABLED, 1);
 
-    const StrokeToolProperties& p = brush->strokeToolProperties();
-    CHECK(p.tipAspect() == 40);
-    CHECK(p.tipAngle() == -30);
-    CHECK(p.tipSquare());
-    CHECK(p.tipFollowsDirection());
+    const StrokeTool& p = *brush;
+    CHECK(p.get(ToolProperty::TipAspect) == 40);
+    CHECK(p.get(ToolProperty::TipAngle) == -30);
+    CHECK(p.get(ToolProperty::TipSquare));
+    CHECK(p.get(ToolProperty::TipFollowDirection));
     CHECK(changes == 4);
-    brush->setTip(StrokeToolProperties::TIP_SQUARE_ENABLED, 0);
-    CHECK_FALSE(brush->strokeToolProperties().tipSquare());
+    brush->setValue(StrokeToolProperties::TIP_SQUARE_ENABLED, 0);
+    CHECK_FALSE(brush->get(ToolProperty::TipSquare));
 }
 
 TEST_CASE("DabTool - an image tip from a file paints its shape and a bad file keeps the old tip")
@@ -401,9 +401,9 @@ TEST_CASE("DabTool - an image tip from a file paints its shape and a bad file ke
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(40);
-    brush->setFeatherEnabled(false);
-    brush->setPressureEnabled(false);
+    brush->set(ToolProperty::Width, 40);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::PressureEnabled, false);
 
     editor->scrubTo(1);
     tap(area, QPointF(300, 300), 1.0);
@@ -452,7 +452,7 @@ TEST_CASE("Pencil, Brush and Eraser - a tap paints a dab and a vector stroke edi
         CAPTURE(tool);
         editor->tools()->setCurrentTool(tool);
         const ToolSettingsGuard guard(editor->tools()->currentTool());
-        static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(20);
+        static_cast<StrokeTool*>(editor->tools()->currentTool())->set(ToolProperty::Width, 20);
 
         editor->layers()->setCurrentLayer(bitmap);
         const QImage before = *bitmap->getBitmapImageAtFrame(1)->image();
@@ -487,7 +487,7 @@ TEST_CASE("Pencil - a stroke on a translated key lands where it was drawn")
     editor->scrubTo(1);
     editor->tools()->setCurrentTool(PENCIL);
     const ToolSettingsGuard guard(editor->tools()->currentTool());
-    static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(6);
+    static_cast<StrokeTool*>(editor->tools()->currentTool())->set(ToolProperty::Width, 6);
     const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
 
     editor->layers()->setCurrentLayer(bitmap);
@@ -542,7 +542,7 @@ TEST_CASE("Tools on a translated key act where the key is drawn")
         editor->layers()->setCurrentLayer(vector);
         editor->tools()->setCurrentTool(ERASER);
         const ToolSettingsGuard guard(editor->tools()->currentTool());
-        static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(10);
+        static_cast<StrokeTool*>(editor->tools()->currentTool())->set(ToolProperty::Width, 10);
         stroke(area, screen({ 40, -12 }), screen({ 40, 12 }), 1.0);
         CHECK(vector->getVectorImageAtFrame(1)->getCurveSize(0) == -1); // no curve left
     }
@@ -561,10 +561,10 @@ TEST_CASE("Tools on a translated key act where the key is drawn")
         editor->tools()->setCurrentTool(SMUDGE);
         StrokeTool* smudge = static_cast<StrokeTool*>(editor->tools()->currentTool());
         const ToolSettingsGuard guard(smudge);
-        smudge->setWidth(20);
-        smudge->setFeather(48);
-        smudge->setSmoothingMode(static_cast<int>(SmoothingMode::None));
-        smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+        smudge->set(ToolProperty::Width, 20);
+        smudge->set(ToolProperty::Feather, 48);
+        smudge->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+        smudge->setValue(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
         stroke(area, screen({ 30, 0 }), screen({ 70, 0 }), 1.0);
         CHECK(alphaAt(20, 0) > 0); // red carried right in key space
     }
@@ -809,10 +809,10 @@ TEST_CASE("DabTool - the pressure curve maps pen pressure to dab size and opacit
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
     OnScopeExit(brush->setPressureCurve(QString()));
-    brush->setWidth(20);
-    brush->setFeatherEnabled(false);
-    brush->setPressureEnabled(true);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::PressureEnabled, true);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     // Ink height and peak alpha at x = 300 of a light stroke.
     auto lightStroke = [&](int frame) {
@@ -864,10 +864,10 @@ TEST_CASE("DabTool - a mouse stroke tapers at both ends")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(20);
-    brush->setFeatherEnabled(false);
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     auto mouse = [&](QEvent::Type type, QPointF pos, Qt::MouseButtons buttons) {
         QMouseEvent e(type, pos, area->mapToGlobal(pos), Qt::LeftButton, buttons, Qt::NoModifier);
@@ -894,11 +894,11 @@ TEST_CASE("DabTool - a mouse stroke tapers at both ends")
         return heights;
     };
 
-    brush->setDynamic(StrokeToolProperties::TAPER_START_VALUE, 100);
-    brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 100);
+    brush->setValue(StrokeToolProperties::TAPER_START_VALUE, 100);
+    brush->setValue(StrokeToolProperties::TAPER_END_VALUE, 100);
     const auto tapered = strokeHeights(1);
-    brush->setDynamic(StrokeToolProperties::TAPER_START_VALUE, 0);
-    brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 0);
+    brush->setValue(StrokeToolProperties::TAPER_START_VALUE, 0);
+    brush->setValue(StrokeToolProperties::TAPER_END_VALUE, 0);
     const auto plain = strokeHeights(2);
     INFO("tapered " << tapered[0] << "/" << tapered[1] << "/" << tapered[2]
          << " plain " << plain[0] << "/" << plain[1] << "/" << plain[2]);
@@ -925,9 +925,9 @@ TEST_CASE("DabTool - Classic with pressure off paints full alpha like before v0.
     QTemporaryDir dir;
     BrushPresets(dir.path()).addDefaults();
     REQUIRE(BrushPresets(dir.path()).apply("Classic", *brush));
-    brush->setWidth(20);
-    brush->setFeather(1);
-    brush->setPressureEnabled(false);
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::Feather, 1);
+    brush->set(ToolProperty::PressureEnabled, false);
 
     tap(area, QPointF(400, 300), 0.3);
     const QImage* img = layer->getBitmapImageAtFrame(1)->image();
@@ -953,12 +953,12 @@ TEST_CASE("DabTool - dabs held back for the end taper keep their own pen tilt")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(20);
-    brush->setFeatherEnabled(false);
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
-    brush->setDynamic(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
-    brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 100);
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+    brush->setValue(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
+    brush->setValue(StrokeToolProperties::TAPER_END_VALUE, 100);
 
     // A tilted stroke from x = 100 to 500; the pen stands up at the end if `uprightEnd`.
     // Returns the ink height at x = 460, which waits for the end taper until release.
@@ -1008,10 +1008,10 @@ TEST_CASE("DabTool - flow builds up and opacity caps the stroke")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(20);
-    brush->setFeather(1); // Brush dabs always fade over the feather.
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::Feather, 1); // Brush dabs always fade over the feather.
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     // Peak alpha of a stroke that runs right, then back over itself.
     auto peakAlpha = [&](int frame) {
@@ -1028,12 +1028,12 @@ TEST_CASE("DabTool - flow builds up and opacity caps the stroke")
         return alpha;
     };
 
-    brush->setStrokeOpacity(50);
-    brush->setWashEnabled(false);
+    brush->set(ToolProperty::Opacity, 50);
+    brush->set(ToolProperty::WashEnabled, false);
     const int buildUp = peakAlpha(1);
-    brush->setWashEnabled(true);
+    brush->set(ToolProperty::WashEnabled, true);
     const int wash = peakAlpha(2);
-    brush->setFlow(30);
+    brush->set(ToolProperty::Flow, 30);
     const int washLowFlow = peakAlpha(3);
     INFO("build-up " << buildUp << " wash " << wash << " wash at 30% flow " << washLowFlow);
     CHECK(buildUp > 160); // 1 - 0.5 * 0.5 where the passes overlap
@@ -1059,11 +1059,11 @@ TEST_CASE("DabTool - spacing does not change how dark a low-flow stroke is")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(20);
-    brush->setFeather(1); // Brush dabs always fade over the feather.
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
-    brush->setFlow(30);
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::Feather, 1); // Brush dabs always fade over the feather.
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Flow, 30);
 
     // Alpha on the stroke's centre line at x = 300.
     auto centreAlpha = [&](int frame) {
@@ -1076,9 +1076,9 @@ TEST_CASE("DabTool - spacing does not change how dark a low-flow stroke is")
         return qAlpha(bitmap->image()->pixel(p));
     };
 
-    brush->setSpacing(12.5);
+    brush->set(ToolProperty::Spacing, 12.5);
     const int dense = centreAlpha(1);
-    brush->setSpacing(50);
+    brush->set(ToolProperty::Spacing, 50);
     const int sparse = centreAlpha(2);
     INFO("12.5% " << dense << " 50% " << sparse);
     CHECK(dense == Approx(76).margin(8));
@@ -1102,10 +1102,10 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(20);
-    brush->setFeatherEnabled(false);
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 20);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     // A stroke from x = 100 to 500 in `events` moves 8 ms apart; returns the ink height at x = 300.
     auto strokeAt = [&](int frame, int events, QPointF tilt) {
@@ -1133,7 +1133,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
 
     SECTION("Speed to size: a fast stroke is thinner than a slow one")
     {
-        brush->setDynamic(StrokeToolProperties::SPEED_TO_SIZE_VALUE, -100);
+        brush->setValue(StrokeToolProperties::SPEED_TO_SIZE_VALUE, -100);
         const int slow = strokeAt(1, 100, QPointF()); // 0.5 px/ms
         const int fast = strokeAt(2, 5, QPointF());   // 10 px/ms
         INFO("slow " << slow << "px fast " << fast << "px");
@@ -1142,7 +1142,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     }
     SECTION("Tilt to size: a tilted pen paints a wider stroke")
     {
-        brush->setDynamic(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
+        brush->setValue(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
         const int upright = strokeAt(1, 20, QPointF());
         const int tilted = strokeAt(2, 20, QPointF(60, 0));
         INFO("upright " << upright << "px tilted " << tilted << "px");
@@ -1151,8 +1151,8 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     }
     SECTION("Tilt to angle: a flat tip turns with the pen tilt")
     {
-        brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 10); // 20 px wide, 2 px tall
-        brush->setDynamic(StrokeToolProperties::TILT_TO_ANGLE_VALUE, 100);
+        brush->setValue(StrokeToolProperties::TIP_ASPECT_VALUE, 10); // 20 px wide, 2 px tall
+        brush->setValue(StrokeToolProperties::TILT_TO_ANGLE_VALUE, 100);
         const int upright = strokeAt(1, 20, QPointF());
         const int tilted = strokeAt(2, 20, QPointF(0, -60)); // tip turns to 90 degrees
         INFO("upright " << upright << "px tilted " << tilted << "px");
@@ -1162,7 +1162,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     SECTION("Size jitter: the same seed paints the same stroke")
     {
         strokeAt(1, 20, QPointF());
-        brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 100);
+        brush->setValue(StrokeToolProperties::SIZE_JITTER_VALUE, 100);
         brush->seedRandom(7);
         strokeAt(2, 20, QPointF());
         brush->seedRandom(7);
@@ -1180,7 +1180,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
     SECTION("Scatter: position, angle and dab count scatter dabs and a seed replays them")
     {
         const int plain = strokeAt(1, 20, QPointF());
-        brush->setDynamic(StrokeToolProperties::SCATTER_VALUE, 100); // up to one dab width off the line
+        brush->setValue(StrokeToolProperties::SCATTER_VALUE, 100); // up to one dab width off the line
         brush->seedRandom(7);
         const int scattered = strokeAt(2, 20, QPointF());
         brush->seedRandom(7);
@@ -1191,7 +1191,7 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
         CHECK(scattered > 30);
 
         // More dabs per step cover more of the scatter band.
-        brush->setDynamic(StrokeToolProperties::DAB_COUNT_VALUE, 8);
+        brush->setValue(StrokeToolProperties::DAB_COUNT_VALUE, 8);
         brush->seedRandom(7);
         strokeAt(4, 20, QPointF());
         auto inked = [&](int frame) {
@@ -1206,11 +1206,11 @@ TEST_CASE("DabTool - speed and tilt change dab size and angle and seeded jitter 
         CHECK(inked(4) > inked(2) * 1.15);
 
         // Angle jitter turns a flat tip off the line.
-        brush->setDynamic(StrokeToolProperties::SCATTER_VALUE, 0);
-        brush->setDynamic(StrokeToolProperties::DAB_COUNT_VALUE, 1);
-        brush->setTip(StrokeToolProperties::TIP_ASPECT_VALUE, 10);
+        brush->setValue(StrokeToolProperties::SCATTER_VALUE, 0);
+        brush->setValue(StrokeToolProperties::DAB_COUNT_VALUE, 1);
+        brush->setValue(StrokeToolProperties::TIP_ASPECT_VALUE, 10);
         const int flat = strokeAt(5, 20, QPointF());
-        brush->setDynamic(StrokeToolProperties::ANGLE_JITTER_VALUE, 180);
+        brush->setValue(StrokeToolProperties::ANGLE_JITTER_VALUE, 180);
         const int turned = strokeAt(6, 20, QPointF());
         INFO("flat " << flat << "px turned " << turned << "px");
         CHECK(flat < 6);
@@ -1234,10 +1234,10 @@ TEST_CASE("DabTool - grain is fixed to the paper or moves with each dab and repl
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(40);
-    brush->setFeather(1); // solid to 99% of the radius
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 40);
+    brush->set(ToolProperty::Feather, 1); // solid to 99% of the radius
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     const QPoint p = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint();
     const QPoint shift(3, 5);
@@ -1266,14 +1266,14 @@ TEST_CASE("DabTool - grain is fixed to the paper or moves with each dab and repl
     CHECK(distinct(block(1, QPoint())) == 1);
     const int plain = alphaAt(1, p);
 
-    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 1);
+    brush->setValue(StrokeToolProperties::GRAIN_MODE_VALUE, 1);
     tapAt(2, QPoint());
     tapAt(3, shift);
     INFO("paper grain levels " << distinct(block(2, QPoint())));
     CHECK(distinct(block(2, QPoint())) > 10);
     CHECK(block(2, QPoint()) == block(3, QPoint())); // fixed to the canvas
 
-    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 2);
+    brush->setValue(StrokeToolProperties::GRAIN_MODE_VALUE, 2);
     tapAt(4, QPoint());
     tapAt(5, shift);
     CHECK(distinct(block(4, QPoint())) > 10);
@@ -1281,18 +1281,18 @@ TEST_CASE("DabTool - grain is fixed to the paper or moves with each dab and repl
     CHECK(block(4, QPoint()) != block(5, QPoint()));
 
     // Contrast 0 flattens the grain to its mid level; brightness lifts it.
-    brush->setDynamic(StrokeToolProperties::GRAIN_CONTRAST_VALUE, 0);
+    brush->setValue(StrokeToolProperties::GRAIN_CONTRAST_VALUE, 0);
     tapAt(6, QPoint());
     CHECK(distinct(block(6, QPoint())) == 1);
     CHECK(alphaAt(6, p) == Approx(plain / 2.0).margin(2));
-    brush->setDynamic(StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, 100);
+    brush->setValue(StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, 100);
     tapAt(7, QPoint());
     CHECK(alphaAt(7, p) == plain);
 
     // A seeded jittered stroke with grain replays the same.
-    brush->setDynamic(StrokeToolProperties::GRAIN_CONTRAST_VALUE, 100);
-    brush->setDynamic(StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, 0);
-    brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 50);
+    brush->setValue(StrokeToolProperties::GRAIN_CONTRAST_VALUE, 100);
+    brush->setValue(StrokeToolProperties::GRAIN_BRIGHTNESS_VALUE, 0);
+    brush->setValue(StrokeToolProperties::SIZE_JITTER_VALUE, 50);
     for (int frame : { 8, 9 })
     {
         editor->scrubTo(frame);
@@ -1319,14 +1319,14 @@ TEST_CASE("DabTool - every bundled grain texture loads and shapes the grain")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(40);
-    brush->setFeather(1);
-    brush->setPressureEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
-    brush->setDynamic(StrokeToolProperties::GRAIN_MODE_VALUE, 1);
+    brush->set(ToolProperty::Width, 40);
+    brush->set(ToolProperty::Feather, 1);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
+    brush->setValue(StrokeToolProperties::GRAIN_MODE_VALUE, 1);
 
     // The property range is the list the options panel shows.
-    CHECK(brush->strokeToolProperties().getInfo(StrokeToolProperties::GRAIN_TEXTURE_VALUE).maxInt() == count - 1);
+    CHECK(ToolProperties::descriptor(StrokeToolProperties::GRAIN_TEXTURE_VALUE)->max == count - 1);
 
     const QPoint p = editor->view()->mapScreenToCanvas(QPointF(300, 300)).toPoint();
     std::vector<std::vector<int>> blocks;
@@ -1334,8 +1334,8 @@ TEST_CASE("DabTool - every bundled grain texture loads and shapes the grain")
     {
         CHECK(TiledBuffer::grainTextureLoaded(i));
         CHECK(QByteArray(TiledBuffer::grainTextureName(i)).size() > 0);
-        brush->setDynamic(StrokeToolProperties::GRAIN_TEXTURE_VALUE, i);
-        CHECK(brush->strokeToolProperties().grainTexture() == i);
+        brush->setValue(StrokeToolProperties::GRAIN_TEXTURE_VALUE, i);
+        CHECK(brush->get(ToolProperty::GrainTexture) == i);
         editor->scrubTo(i + 1);
         tap(area, editor->view()->mapCanvasToScreen(QPointF(p)), 1.0);
         BitmapImage* bitmap = layer->getBitmapImageAtFrame(i + 1);
@@ -1367,9 +1367,9 @@ TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
     editor->tools()->setCurrentTool(SMUDGE);
     StrokeTool* smudge = static_cast<StrokeTool*>(editor->tools()->getTool(SMUDGE));
     const ToolSettingsGuard guard(smudge);
-    smudge->setWidth(20);
-    smudge->setFeather(48); // a hard opaque dab repaints its own last colour at any length
-    smudge->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    smudge->set(ToolProperty::Width, 20);
+    smudge->set(ToolProperty::Feather, 48); // a hard opaque dab repaints its own last colour at any length
+    smudge->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     QObject parent;
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
@@ -1387,7 +1387,7 @@ TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
     };
 
     // A long smudge length carries red far into the empty part; length 0 much less.
-    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+    smudge->setValue(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
     prepare(1);
     drag(QPointF(-30, 0), QPointF(40, 0));
     const QRgb carried = pixel(1, QPoint(20, 0));
@@ -1402,20 +1402,20 @@ TEST_CASE("SmudgeTool - smudge drags and mixes colour through the brush engine")
     redoAction->trigger();
     CHECK(pixel(1, QPoint(20, 0)) == carried);
 
-    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 0);
+    smudge->setValue(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 0);
     prepare(2);
     drag(QPointF(-30, 0), QPointF(40, 0));
     CHECK(qAlpha(pixel(2, QPoint(20, 0))) < qAlpha(carried) / 2);
 
     // Smudge smears transparency into paint too: it lowers alpha, not only adds.
-    smudge->setDynamic(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
+    smudge->setValue(StrokeToolProperties::SMUDGE_LENGTH_VALUE, 90);
     prepare(3);
     drag(QPointF(40, 0), QPointF(-40, 0));
     CHECK(qAlpha(pixel(3, QPoint(-20, 0))) < 200);
     CHECK(qAlpha(pixel(3, QPoint(-20, 40))) == 255); // outside the dabs
 
     // Full colour rate paints the front colour, like a wet brush.
-    smudge->setDynamic(StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE, 100);
+    smudge->setValue(StrokeToolProperties::SMUDGE_COLOR_RATE_VALUE, 100);
     editor->color()->setFrontColor(Qt::blue);
     prepare(4);
     drag(QPointF(20, 200), QPointF(80, 200));
@@ -1438,10 +1438,10 @@ TEST_CASE("StrokeTool - a stroke that starts near the ruler snaps to it")
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(4);
-    brush->setPressureEnabled(false);
-    brush->setFeatherEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 4);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     // Canvas rows that hold ink after a stroke on a new key, as [top, bottom].
     auto draw = [&](int frame, QPointF a, QPointF b) {
@@ -1520,10 +1520,10 @@ TEST_CASE("StrokeTool - perspective snap locks a stroke to the line toward the n
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(4);
-    brush->setPressureEnabled(false);
-    brush->setFeatherEnabled(false);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 4);
+    brush->set(ToolProperty::PressureEnabled, false);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     PreferenceManager* prefs = editor->preference();
     const bool twoPointWas = prefs->isOn(SETTING::OVERLAY_PERSPECTIVE2);
@@ -1595,9 +1595,9 @@ TEST_CASE("Eraser - a stroke shrinks the bitmap bounds to the remaining ink and 
     editor->tools()->setCurrentTool(ERASER);
     auto* eraser = static_cast<StrokeTool*>(editor->tools()->currentTool());
     const ToolSettingsGuard guard(eraser);
-    eraser->setWidth(100);
-    eraser->setFeatherEnabled(false);
-    eraser->setPressureEnabled(false);
+    eraser->set(ToolProperty::Width, 100);
+    eraser->set(ToolProperty::FeatherEnabled, false);
+    eraser->set(ToolProperty::PressureEnabled, false);
     auto erase = [&](QPointF from, QPointF to) {
         stroke(area, editor->view()->mapCanvasToScreen(from), editor->view()->mapCanvasToScreen(to), 1.0);
     };
@@ -1640,7 +1640,7 @@ TEST_CASE("Pencil - a stroke on a held frame makes a new Drawing by default")
     editor->layers()->setCurrentLayer(layer);
     editor->tools()->setCurrentTool(PENCIL);
     const ToolSettingsGuard guard(editor->tools()->currentTool());
-    static_cast<StrokeTool*>(editor->tools()->currentTool())->setWidth(6);
+    static_cast<StrokeTool*>(editor->tools()->currentTool())->set(ToolProperty::Width, 6);
     const QPointF origin = editor->view()->mapCanvasToScreen(QPointF(0, 0));
 
     QObject parent;
@@ -1784,10 +1784,10 @@ TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure
     editor->tools()->setCurrentTool(BRUSH);
     BrushTool* brush = static_cast<BrushTool*>(editor->tools()->getTool(BRUSH));
     const ToolSettingsGuard guard(brush);
-    brush->setWidth(40);
-    brush->setFeatherEnabled(false);
-    brush->setPressureEnabled(true);
-    brush->setSmoothingMode(static_cast<int>(SmoothingMode::None));
+    brush->set(ToolProperty::Width, 40);
+    brush->set(ToolProperty::FeatherEnabled, false);
+    brush->set(ToolProperty::PressureEnabled, true);
+    brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::None));
 
     const QPointingDevice eraser("balloon eraser", 175, QInputDevice::DeviceType::Stylus, QPointingDevice::PointerType::Eraser,
                                  QInputDevice::Capability::Position | QInputDevice::Capability::Pressure, 1, 2);
@@ -1882,7 +1882,7 @@ TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure
     }
     SECTION("The full-pressure end of a tapered stroke and of a shape stays on its own stroke")
     {
-        brush->setDynamic(StrokeToolProperties::TAPER_END_VALUE, 50);
+        brush->setValue(StrokeToolProperties::TAPER_END_VALUE, 50);
         editor->scrubTo(4);
         lightStroke(1.0);
         editor->scrubTo(5);
@@ -1931,9 +1931,9 @@ TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure
     }
     SECTION("Speed, tilt and jitter stay inside their size range at odd timestamps and tilts")
     {
-        brush->setDynamic(StrokeToolProperties::SPEED_TO_SIZE_VALUE, 100);
-        brush->setDynamic(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
-        brush->setDynamic(StrokeToolProperties::SIZE_JITTER_VALUE, 100);
+        brush->setValue(StrokeToolProperties::SPEED_TO_SIZE_VALUE, 100);
+        brush->setValue(StrokeToolProperties::TILT_TO_SIZE_VALUE, 100);
+        brush->setValue(StrokeToolProperties::SIZE_JITTER_VALUE, 100);
         brush->seedRandom(175);
         editor->scrubTo(12);
         pen(QEvent::TabletPress, QPointF(100, 300), 0.2, clock += 1000, QPointF(90, -90));
@@ -1949,8 +1949,8 @@ TEST_CASE("DabTool - no event sequence balloons a light stroke past its pressure
     }
     SECTION("Smoothing does not carry a hard stroke into the next light one")
     {
-        brush->setSmoothingMode(static_cast<int>(SmoothingMode::OneEuro));
-        brush->setSmoothingStrength(100);
+        brush->set(ToolProperty::SmoothingMode, static_cast<int>(SmoothingMode::OneEuro));
+        brush->set(ToolProperty::SmoothingStrength, 100);
         editor->scrubTo(13);
         lightStroke(1.0, 3);
         editor->scrubTo(14);

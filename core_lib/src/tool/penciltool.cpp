@@ -56,7 +56,7 @@ void PencilTool::strokeStarted()
 
 void PencilTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
-    mScribbleArea->drawPencil(point, width, mSettings.feather(), mEditor->color()->frontColor(), opacity, tip);
+    mScribbleArea->drawPencil(point, width, get(ToolProperty::Feather), mEditor->color()->frontColor(), opacity, tip);
 }
 
 QPen PencilTool::vectorPreviewPen()
@@ -90,7 +90,7 @@ void PencilTool::paintVectorStroke(Layer* layer)
     mapCurveToKey(curve);
     vectorImage->addCurve(curve, qAbs(mEditor->view()->scaling()), false);
 
-    if (mSettings.fillContourEnabled())
+    if (get(ToolProperty::FillContourEnabled))
     {
         vectorImage->fillContour(mStrokePoints,
                                  mEditor->color()->frontColorNumber());

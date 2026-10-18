@@ -85,7 +85,9 @@ bool ScribbleArea::init()
         // The HUD ring follows the brush size.
         if (auto* tool = dynamic_cast<StrokeTool*>(mEditor->tools()->getTool(static_cast<ToolType>(t))))
         {
-            connect(tool, &StrokeTool::widthChanged, this, [this] { update(); });
+            connect(tool, &StrokeTool::propertyChanged, this, [this](int id) {
+                if (id == StrokeToolProperties::WIDTH_VALUE) { update(); }
+            });
         }
     }
 
@@ -1536,7 +1538,7 @@ CanvasHud ScribbleArea::canvasHud() const
     CanvasHud hud;
     if (const StrokeTool* tool = mEditor->tools()->currentStrokeTool())
     {
-        hud.ringRadius = tool->strokeToolProperties().width() * 0.5 * view->scaling();
+        hud.ringRadius = tool->get(ToolProperty::Width) * 0.5 * view->scaling();
     }
     hud.zoomPercent = qRound(view->scaling() * 100);
     hud.rotation = view->rotation();

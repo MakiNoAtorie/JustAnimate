@@ -110,14 +110,14 @@ void PenTool::paintAt(QPointF point)
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer->type() == Layer::BITMAP)
     {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
+        qreal pressure = (get(ToolProperty::PressureEnabled)) ? mCurrentPressure : 1.0;
+        qreal brushWidth = get(ToolProperty::Width) * pressure;
         mCurrentWidth = brushWidth;
 
         mScribbleArea->drawPen(point,
                                brushWidth,
                                mEditor->color()->frontColor(),
-                               mSettings.AntiAliasingEnabled());
+                               get(ToolProperty::AntiAliasingEnabled));
     }
 }
 
@@ -130,8 +130,8 @@ void PenTool::drawStroke()
 
     if (layer->type() == Layer::BITMAP)
     {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
+        qreal pressure = (get(ToolProperty::PressureEnabled)) ? mCurrentPressure : 1.0;
+        qreal brushWidth = get(ToolProperty::Width) * pressure;
         mCurrentWidth = brushWidth;
 
         // TODO: Make popup widget for less important properties,
@@ -151,7 +151,7 @@ void PenTool::drawStroke()
             mScribbleArea->drawPen(point,
                                    brushWidth,
                                    mEditor->color()->frontColor(),
-                                   mSettings.AntiAliasingEnabled());
+                                   get(ToolProperty::AntiAliasingEnabled));
 
             if (i == (steps - 1))
             {
@@ -161,8 +161,8 @@ void PenTool::drawStroke()
     }
     else if (layer->type() == Layer::VECTOR)
     {
-        qreal pressure = (mSettings.pressureEnabled()) ? mCurrentPressure : 1.0;
-        qreal brushWidth = mSettings.width() * pressure;
+        qreal pressure = (get(ToolProperty::PressureEnabled)) ? mCurrentPressure : 1.0;
+        qreal brushWidth = get(ToolProperty::Width) * pressure;
 
         QPen pen(mEditor->color()->frontColor(),
                  brushWidth,
@@ -189,11 +189,11 @@ void PenTool::paintVectorStroke(Layer* layer)
     qreal tol = mScribbleArea->getCurveSmoothing() / mEditor->view()->scaling();
 
     BezierCurve curve(mStrokePoints, mStrokePressures, tol);
-    curve.setWidth(mSettings.width());
-    curve.setFeather(mSettings.feather());
+    curve.setWidth(get(ToolProperty::Width));
+    curve.setFeather(get(ToolProperty::Feather));
     curve.setFilled(false);
-    curve.setInvisibility(mSettings.invisibilityEnabled());
-    curve.setVariableWidth(mSettings.pressureEnabled());
+    curve.setInvisibility(get(ToolProperty::InvisibilityEnabled));
+    curve.setVariableWidth(get(ToolProperty::PressureEnabled));
     curve.setColorNumber(mEditor->color()->frontColorNumber());
 
     auto pLayerVector = static_cast<LayerVector*>(layer);
