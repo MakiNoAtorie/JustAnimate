@@ -30,18 +30,26 @@ Rules for every code change, read before you edit code. Same limits as
   `Layer::tweenStateAt`; state that varies inside a hold joins `layersKey`
   and skips the `ScribbleArea` frame cache.
 - Layer order and group edits: `LayerManager::commitLayerArrangement`;
-  timeline rows: `getLayerNumber`/`getLayerY`. Rendering asks
+  timeline rows: `TimeLineCells::rowTable`/`getLayerY`; keys paint only
+  through `foreachVisibleKey`. Rendering asks
   `Object::isLayerVisible`; group opacity applies to the composite only.
 - Saving goes through `FileManager::save` (`<name>.tmp`, renamed only on
   success); movie export through `MovieExporter::writeThenReplace`; ffmpeg
   pipe writes only through `executeFFMpegPipe`, bounded by `bytesToWrite()`.
 - Zip and unzip run through `FileManager::runArchiveJob` (worker thread,
-  caller emits progress). One `FileManager::save` at a time.
+  caller emits progress), except the background autosave (worker pool,
+  finished by `BackgroundSave::finish` on the UI thread). One save at a
+  time. Code that writes or moves a frame file reports it to the save. `BitmapImage` load, crop
+  and write run on the UI thread only; workers get `QImage` copies.
 - New preference: enum value plus one `kPrefRows` row in
   `preferencesdef.h` (key in `pencildef.h`). A renamed key is the row's
   `migratedFrom`. New code reads and writes through `get<S>()`/`set<S>()`.
 - Read `docs/brush-engine.md` before editing dab, stroke, tiled-buffer,
   tool-property or preset code.
+- A bitmap paint inside an Edit calls `Edit::willChange(canvasRect)`
+  first. A pan goes through `ViewManager::panByScreen`; a view setter calls
+  `foldPan()` first. A known edit area goes to
+  `ScribbleArea::setModifiedArea` before `setModified`.
 - Bitmap shape and path strokes go through `DabTool::dabPath`. A tool
   subclass skips its base's legacy settings migration. A tool that uses
   Shift or Alt clears `mQuickSizingProperties`. A vector fill from a new
@@ -57,9 +65,14 @@ Rules for every code change, read before you edit code. Same limits as
   `CanvasPainter::paint` pixel for pixel and clear on
   modification signals; reuse `LayerCellCache`/`layersKey`; output-changing
   settings join `invalidateAllCache`. A cache that survives a scrub is keyed
-  by content and carries a golden hash.
-- Frame pool: frames over 50 from the playhead unload unless modified;
-  viewing never marks modified. Playback preloads through
+  by content and carries a golden hash. Canvas surfaces are premultiplied
+  `QImage`s; paint code reads no preference (members refreshed in
+  `settingUpdated`). Content keys: `QImage::cacheKey` (bitmap),
+  `KeyFrame::stamp` (vector; selections `touchStamp()`). Onion frames go only through `paintOnionFrame`.
+- Frame pool: a Drawing over 50 frames from where it was last put or
+  loaded unloads unless modified; viewing never marks modified. Every
+  load notifies the pool (`onKeyFrameLoaded`); only shown Drawings load
+  synchronously. Playback preloads through
   `Object::preloadFrames`.
 - Frame selections span layers. Multi-layer edits: one outer Edit
   with one Edit per layer.

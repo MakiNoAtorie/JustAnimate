@@ -49,9 +49,14 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   fails its test after 2 s (watchdog in `tests/src/main.cpp`).
 - A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
   on Windows.
+- Benchmark rows append to the `sc` table and `docs/benchmarks.md`,
+  record through `row("<name>")` and run in `[BenchmarkSmoke]`. Counters
+  are `StageProfiler` stages appended before `StageCount`; tests read
+  `StageProfiler::calls`.
 - Golden values change only in a commit that means to change output.
 - Saved XML: compare attributes sorted (Qt 6.4/6.5 QDom writes them in
-  hash order). Render golden hashes keep a macOS column.
+  hash order). Render golden hashes keep a column per
+  platform or Qt version that rasterises differently.
 - A test that needs the app's connections builds `TestSession`, never
   its own session struct; event filters go on after `start()`.
 
@@ -66,39 +71,3 @@ Read `docs/conventions-code.md` before you edit code.
   (`tools/check-changelog.sh` guards it). Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
-
-## v1.8 homes
-
-Temporary; folded after v1.8. Source: `docs/reviews/performance-2026-10.md`
-(untracked; a copy sits in the orchestrator's scratchpad).
-
-- Benchmark: a new scenario is a row appended at the end of the `sc` table
-  in `tests/src/test_benchmark.cpp` and of the scenario table in
-  `docs/benchmarks.md`; it also runs in `[BenchmarkSmoke]`. Names: `loop`
-  (#275), `draw top onion` (#278), `far jump` and `working set` (#279).
-  New rows record through `row("<name>")`, never an `sc[<index>]`; the
-  smoke check's `sc.size()` gets one more per row.
-  `save` (#282) goes into the printed baseline table. Release before /
-  after numbers go in the commit message, never into the baseline.
-- New counters are `StageProfiler` stages appended before `StageCount`
-  (name in `names[]`, same order); tests read `StageProfiler::calls`.
-- Frame cache (#275): a `ScribbleArea` member cache keyed by frame,
-  replacing `mPixmapCacheKeys`; no `QPixmapCache::setCacheLimit`. #280 and
-  #287 build on it. `QPixmapCache` stays only for `Theme` icons.
-- Onion cache: `CanvasPainter::mOnionCache` is the one onion cache. #278
-  adds onion image keys to the below-layers cell key; #280 re-keys by view
-  scale/rotation; #289 adds vector entries keyed by the `VectorImage`
-  modification counter. These three land in that order.
-- Frame pool (#279): `ActiveFramePool` keeps its memory total as a running
-  sum; every Drawing load reaches it through `KeyFrameEventListener`.
-  Preload stays `Object::preloadFrames`.
-- Undo rectangles (#281) live inside the Edit's bitmap state; no new public
-  API on `Editor`.
-- Save (#282): stored PNG entries and the copy of unchanged entries live in
-  `FileManager`/`qminiz`; #283 runs that same `FileManager::save` path from
-  `ProjectSession` on the worker, never a second writer.
-- Export (#284): encoding goes through `parallelFor` inside `Exporter`;
-  rendering stays on the calling thread.
-- Stroke settings (#277): read at press into `StrokeTool` members from the
-  tool property registry; #288 keeps that.
-
