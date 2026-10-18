@@ -11,11 +11,14 @@ rem The build folder deploys only the windows plugin, so load platform plugins f
 if not defined QT_QPA_PLATFORM if exist "%QTDIR%\plugins\platforms\qoffscreen.dll" set "QT_QPA_PLATFORM=offscreen"& set "QT_QPA_PLATFORM_PLUGIN_PATH=%QTDIR%\plugins\platforms"
 cd /d "%~dp0.."
 rem Same source guards as CI: no UTF-8 BOM, no ponytail markers, every test file has a TEST_CASE, no private Qt headers outside external/.
-powershell -NoProfile -Command "$f = git ls-files --cached --others --exclude-standard -- '*.cpp' '*.h'; $bom = $f | Where-Object { $b = [IO.File]::ReadAllBytes($_); $b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF } | ForEach-Object { \"UTF-8 BOM: $_\" }; $pt = Select-String -Path $f -SimpleMatch 'ponytail:' | ForEach-Object { \"$($_.Path):$($_.LineNumber): use // shortcut:\" }; $et = $f | Where-Object { $_ -like 'tests/src/test_*.cpp' -and -not (Select-String -Path $_ -SimpleMatch 'TEST_CASE' -Quiet) } | ForEach-Object { \"no TEST_CASE: $_\" }; $pv = $f | Where-Object { $_ -notlike 'core_lib/src/external/*' } | ForEach-Object { Select-String -Path $_ -Pattern '#include\s*[<\"\"](qpa/|private/|[^>\"\"]*_p\.h)' } | ForEach-Object { \"$($_.Path):$($_.LineNumber): private Qt header\" }; if ($bom -or $pt -or $et -or $pv) { $bom; $pt; $et; $pv; exit 1 }" || exit /b 1
+powershell -NoProfile -Command "$f = git ls-files --cached --others --exclude-standard -- '*.cpp' '*.h'; if (-not $f) { 'Source guards: git ls-files found no sources'; exit 1 }; $bom = $f | Where-Object { $b = [IO.File]::ReadAllBytes($_); $b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF } | ForEach-Object { \"UTF-8 BOM: $_\" }; $pt = Select-String -Path $f -SimpleMatch 'ponytail:' | ForEach-Object { \"$($_.Path):$($_.LineNumber): use // shortcut:\" }; $et = $f | Where-Object { $_ -like 'tests/src/test_*.cpp' -and -not (Select-String -Path $_ -SimpleMatch 'TEST_CASE' -Quiet) } | ForEach-Object { \"no TEST_CASE: $_\" }; $pv = $f | Where-Object { $_ -notlike 'core_lib/src/external/*' } | ForEach-Object { Select-String -Path $_ -Pattern '#include\s*[<\"\"](qpa/|private/|[^>\"\"]*_p\.h)' } | ForEach-Object { \"$($_.Path):$($_.LineNumber): private Qt header\" }; if ($bom -or $pt -or $et -or $pv) { $bom; $pt; $et; $pv; exit 1 }" || exit /b 1
+rem The ChangeLog and colour guards need Git's bash; System32\bash.exe is WSL, so it is never used. Override with BASH.
+if not defined BASH if exist "%ProgramFiles%\Git\bin\bash.exe" set "BASH=%ProgramFiles%\Git\bin\bash.exe"
+if not defined BASH (echo Git bash not found: set BASH to bash.exe so the ChangeLog and colour guards run& exit /b 1)
 rem Same ChangeLog guard as CI.
-where bash >nul 2>&1 && (bash tools/check-changelog.sh || exit /b 1)
+"%BASH%" tools/check-changelog.sh || exit /b 1
 rem Same colour guard as CI, on lines added since origin/master.
-where bash >nul 2>&1 && (bash tools/check-new-colours.sh origin/master || exit /b 1)
+"%BASH%" tools/check-new-colours.sh origin/master || exit /b 1
 rem ccache, when installed, shares one compiler cache across worktrees: base_dir makes their paths relative. MSVC needs embedded debug info for it.
 set "LAUNCH="
 where ccache >nul 2>&1 && set "LAUNCH=-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_POLICY_DEFAULT_CMP0141=NEW -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded"

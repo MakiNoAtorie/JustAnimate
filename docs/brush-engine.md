@@ -22,7 +22,9 @@ before you edit `dabtool.*`, `dabplacer.*`, `smudgetool.*`, `tiledbuffer.*`,
   `tilt()`, stored per `DabSample`.
 - Per-dab random values come from the raw output of the placer's
   `QRandomGenerator` (`generate()`), never std distributions; the Dab tool
-  owns it and tests seed it with `seedRandom()`.
+  owns it and tests seed it with `seedRandom()`. Each draw goes into its own
+  named local, in a fixed order: argument evaluation order differs between
+  compilers, so two draws in one call place dabs differently on macOS.
   `sizeDynamics()` runs once per placed dab and consumes the RNG, so never
   call it from spacing or prediction.
 - Dab alpha: `DabPlacer::opacity` is what the whole stroke reaches;

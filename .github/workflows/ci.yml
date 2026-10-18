@@ -102,8 +102,17 @@ jobs:
           Expand-Archive ffmpeg-win64.zip -DestinationPath ffmpeg
           "FFMPEG=$("$PWD\ffmpeg\ffmpeg.exe".Replace('\', '/'))" >> $env:GITHUB_ENV
 
-      - name: Download ffmpeg (macOS)
+      # evermeet.cx rate-limits runners (HTTP 429), so the verified binary is cached by version.
+      - name: Cache ffmpeg (macOS)
         if: runner.os == 'macOS'
+        id: ffmpeg-cache-mac
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg
+          key: ffmpeg-macos-8.0.1
+
+      - name: Download ffmpeg (macOS)
+        if: runner.os == 'macOS' && steps.ffmpeg-cache-mac.outputs.cache-hit != 'true'
         timeout-minutes: 10
         run: |
           curl --retry 5 --retry-delay 15 --max-time 120 -fsSLo ffmpeg.7z https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z
@@ -111,7 +120,10 @@ jobs:
           curl --retry 5 --retry-delay 15 --max-time 120 -fsSL https://evermeet.cx/ffmpeg/0x1A660874.asc | gpg --import
           gpg --verify ffmpeg.7z.sig ffmpeg.7z
           mkdir ffmpeg && bsdtar -xf ffmpeg.7z -C ffmpeg
-          echo "FFMPEG=$PWD/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
+
+      - name: Use ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: echo "FFMPEG=$PWD/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
 
       - name: Configure release
         run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_FFMPEG="${{ env.FFMPEG }}"
