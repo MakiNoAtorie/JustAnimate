@@ -58,6 +58,8 @@ public:
                std::function<void(float)> minorProgress,
                std::function<void(QString)> progressMessage);
     QString error();
+    // The frame as the export adapter renders it through desc's camera; GIF frames are opaque.
+    static QImage frameImage(const Object& obj, const ExportMovieDesc& desc, int frame);
     // "<layer> frame <n>" of each sound clip the last run left out because its file is missing.
     QStringList skippedClips() const { return mSkippedClips; }
 

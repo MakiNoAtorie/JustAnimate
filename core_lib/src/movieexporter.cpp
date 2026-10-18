@@ -15,6 +15,7 @@ GNU General Public License for more details.
 */
 
 #include "movieexporter.h"
+#include "framerenderer.h"
 
 #include <ctime>
 #include <vector>
@@ -27,7 +28,6 @@ GNU General Public License for more details.
 #include <QStandardPaths>
 #include <QThread>
 #include <QtMath>
-#include <QPainter>
 #include <QRegularExpression>
 
 #include "object.h"
@@ -177,6 +177,14 @@ Status MovieExporter::writeThenReplace(const QString& target, const std::functio
 bool MovieExporter::mayOverwrite(const QString& path, const std::function<bool()>& confirm)
 {
     return !QFile::exists(path) || confirm();
+}
+
+QImage MovieExporter::frameImage(const Object& obj, const ExportMovieDesc& desc, int frame)
+{
+    auto camera = static_cast<const LayerCamera*>(obj.findLayerByName(desc.strCameraName, Layer::CAMERA));
+    if (camera == nullptr) { camera = obj.getLayersByType<LayerCamera>().front(); }
+    const bool transparency = desc.alpha && !desc.strFileName.endsWith("gif", Qt::CaseInsensitive);
+    return FrameRenderer::renderForExport(obj, frame, *camera, { desc.exportSize, transparency, true });
 }
 
 QString MovieExporter::error()
@@ -330,33 +338,8 @@ Status MovieExporter::generateMovie(
     int frameStart = mDesc.startFrame;
     int frameEnd = mDesc.endFrame;
     const QSize exportSize = mDesc.exportSize;
-    bool transparency = mDesc.alpha;
-    QString strCameraName = mDesc.strCameraName;
     bool loop = mDesc.loop;
-
-    auto cameraLayer = static_cast<LayerCamera*>(obj->findLayerByName(strCameraName, Layer::CAMERA));
-    if (cameraLayer == nullptr)
-    {
-        cameraLayer = obj->getLayersByType< LayerCamera >().front();
-    }
     int currentFrame = frameStart;
-
-    /* We create an image with the correct dimensions and background
-     * color here and then copy this and draw over top of it to
-     * generate each frame. This is faster than having to generate
-     * a new background image for each frame.
-     */
-    QImage imageToExportBase(exportSize, QImage::Format_ARGB32_Premultiplied);
-    QColor bgColor = Qt::white;
-    if (transparency)
-    {
-        bgColor.setAlpha(0);
-    }
-    imageToExportBase.fill(bgColor);
-
-    QSize camSize = cameraLayer->getViewSize();
-    QTransform centralizeCamera;
-    centralizeCamera.translate(camSize.width() / 2, camSize.height() / 2);
 
     // Build FFmpeg command
 
@@ -404,16 +387,7 @@ Status MovieExporter::generateMovie(
             return false;
         }
 
-        imageToExport = imageToExportBase.copy();
-        QPainter painter(&imageToExport);
-
-        QTransform view = cameraLayer->getViewAtFrame(currentFrame);
-        painter.setWorldTransform(view * centralizeCamera);
-        painter.setWindow(QRect(0, 0, camSize.width(), camSize.height()));
-
-        obj->paintImage(painter, currentFrame, false, true);
-        painter.end();
-
+        imageToExport = frameImage(*obj, mDesc, currentFrame);
         currentFrame++;
         return true;
     });
@@ -451,33 +425,8 @@ Status MovieExporter::generateGif(
     int frameStart = mDesc.startFrame;
     int frameEnd = mDesc.endFrame;
     const QSize exportSize = mDesc.exportSize;
-    bool transparency = false;
-    QString strCameraName = mDesc.strCameraName;
     bool loop = mDesc.loop;
-
-    auto cameraLayer = static_cast<LayerCamera*>(obj->findLayerByName(strCameraName, Layer::CAMERA));
-    if (cameraLayer == nullptr)
-    {
-        cameraLayer = obj->getLayersByType< LayerCamera >().front();
-    }
     int currentFrame = frameStart;
-
-    /* We create an image with the correct dimensions and background
-     * color here and then copy this and draw over top of it to
-     * generate each frame. This is faster than having to generate
-     * a new background image for each frame.
-     */
-    QImage imageToExportBase(exportSize, QImage::Format_ARGB32_Premultiplied);
-    QColor bgColor = Qt::white;
-    if (transparency)
-    {
-        bgColor.setAlpha(0);
-    }
-    imageToExportBase.fill(bgColor);
-
-    QSize camSize = cameraLayer->getViewSize();
-    QTransform centralizeCamera;
-    centralizeCamera.translate(camSize.width() / 2, camSize.height() / 2);
 
     // Build FFmpeg command
 
@@ -503,16 +452,7 @@ Status MovieExporter::generateGif(
             return false;
         }
 
-        imageToExport = imageToExportBase.copy();
-        QPainter painter(&imageToExport);
-
-        QTransform view = cameraLayer->getViewAtFrame(currentFrame);
-        painter.setWorldTransform(view * centralizeCamera);
-        painter.setWindow(QRect(0, 0, camSize.width(), camSize.height()));
-
-        obj->paintImage(painter, currentFrame, false, true);
-        painter.end();
-
+        imageToExport = frameImage(*obj, mDesc, currentFrame);
         currentFrame++;
         return true;
     });

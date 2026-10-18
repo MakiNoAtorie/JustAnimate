@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include <memory>
 #include <QCryptographicHash>
+#include <QFile>
 #include <QImageReader>
 #include <QTemporaryDir>
 
@@ -26,8 +27,13 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layercamera.h"
 #include "layervector.h"
+#include "movieexporter.h"
 #include "object.h"
+#include "pagewriter.h"
+#include "paperpainter.h"
+#include "objectdata.h"
 #include "vectorimage.h"
+#include "welcomehelper.h"
 
 namespace
 {
@@ -128,4 +134,66 @@ TEST_CASE("Image sequence export writes the export adapter pixels", "[FrameRende
                                    .convertToFormat(QImage::Format_ARGB32_Premultiplied);
         CHECK(written == FrameRenderer::renderForExport(*object, frame, *camera, options));
     }
+}
+
+TEST_CASE("Movie and GIF frames are the export adapter pixels", "[FrameRenderer]")
+{
+    auto object = everyRule();
+    const LayerCamera* camera = object->getLayersByType<LayerCamera>().front();
+    ExportMovieDesc desc;
+    desc.exportSize = QSize(160, 120);
+    desc.alpha = true;
+    FrameRenderer::ExportOptions options;
+    options.size = desc.exportSize;
+    for (const QString name : { QString("out.mp4"), QString("out.gif") })
+    {
+        desc.strFileName = name;
+        options.transparency = !name.endsWith(".gif"); // GIF frames are opaque
+        for (int frame = 1; frame <= 3; ++frame)
+        {
+            CAPTURE(name.toStdString(), frame);
+            CHECK(MovieExporter::frameImage(*object, desc, frame) == FrameRenderer::renderForExport(*object, frame, *camera, options));
+        }
+    }
+}
+
+TEST_CASE("Paper pages draw the export adapter pixels in the camera frame", "[FrameRenderer]")
+{
+    auto object = everyRule();
+    const LayerCamera* camera = object->getLayersByType<LayerCamera>().front();
+    PageSpec spec;
+    spec.dpi = 50;
+    const PagePaintFn expected = [&](QPainter& painter, const QRectF& page, int index) {
+        const QRectF f = paperFrameOnPage(page, camera->getViewSize());
+        PaperTemplate paper = object->data()->paperTemplate();
+        paper.on = true;
+        paintPaperTemplate(painter, f, paper);
+        FrameRenderer::ExportOptions options;
+        options.size = f.toRect().size();
+        options.transparency = true;
+        painter.drawImage(f.toRect(), FrameRenderer::renderForExport(*object, 1 + index, *camera, options));
+    };
+    for (int index = 0; index < 3; ++index)
+    {
+        CAPTURE(index);
+        CHECK(renderPage(spec, paperFramePages(*object, *camera, 1), index) == renderPage(spec, expected, index));
+    }
+}
+
+TEST_CASE("The Welcome thumbnail is the export adapter fit to the thumbnail", "[FrameRenderer]")
+{
+    auto object = everyRule();
+    const LayerCamera* camera = object->getLayersByType<LayerCamera>().front();
+    QTemporaryDir dir;
+    const QString project = dir.filePath("thumb.pclx");
+    REQUIRE(Welcome::saveThumbnail(object.get(), project, 3));
+    const QImage written = QImageReader(Welcome::thumbnailPath(project)).read().convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    QFile::remove(Welcome::thumbnailPath(project));
+    REQUIRE_FALSE(written.isNull());
+
+    const QSize cam = camera->getViewSize();
+    const qreal s = qMin(qreal(written.width()) / cam.width(), qreal(written.height()) / cam.height());
+    FrameRenderer::ExportOptions options;
+    options.size = written.size();
+    CHECK(written == FrameRenderer::renderForExport(*object, 3, camera->getViewAtFrame(3) * QTransform::fromScale(s, s), written.size(), options));
 }
