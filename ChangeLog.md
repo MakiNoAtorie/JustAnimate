@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Timeline click select, box select and frame move run through one frame-edit gesture, driven by layer and frame instead of pixels (#264).
 - The canvas paints its layers through the frame renderer rules, pinned to the export pixels by a parity test (#261).
 - Image and image sequence export run through one core exporter; a cancelled or failed export leaves no partial files, and replacing an existing image asks first (#273).
 - Movie, GIF, paper page export and the Welcome thumbnail render through the frame renderer export adapter (#260).

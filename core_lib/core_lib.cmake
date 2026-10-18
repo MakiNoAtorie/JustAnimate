@@ -27,6 +27,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/backgroundwidget.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/editor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/flowlayout.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/frameeditgesture.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/recentfilemenu.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/scribblearea.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/toolboxlayout.h
@@ -142,6 +143,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/backgroundwidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/editor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/flowlayout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/frameeditgesture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/recentfilemenu.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/scribblearea.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/interface/toolboxlayout.cpp
