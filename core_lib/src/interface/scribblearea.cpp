@@ -21,6 +21,7 @@ GNU General Public License for more details.
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <QGuiApplication>
 #include <QStyleHints>
 #include <QKeySequence>
@@ -382,12 +383,30 @@ void ScribbleArea::onFramesModified()
 
 void ScribbleArea::onFrameModified(int frameNumber)
 {
+    const QRect area = std::exchange(mModifiedArea, QRect());
     if (mPrefs->get<SETTING::PREV_ONION>() || mPrefs->get<SETTING::NEXT_ONION>()) {
         invalidateOnionSkinsCacheAround(frameNumber);
-        invalidatePainterCaches();
+        mCameraPainter.resetCache();
+        // Bitmap onion frames are in the below-layers cell key; vector ones have no content key yet (#289).
+        const Object* object = mEditor->object();
+        for (int i = 0; i < object->getLayerCount(); ++i)
+        {
+            if (object->getLayer(i)->type() == Layer::VECTOR) { mCanvasPainter.resetLayerCache(); break; }
+        }
     }
     invalidateCacheForFrame(frameNumber);
-    updateFrame();
+
+    // The rest of the canvas is unchanged unless the modified key also shows as an onion frame.
+    const Layer* layer = mEditor->layers()->currentLayer();
+    const KeyFrame* key = layer ? layer->getLastKeyFrameAtPosition(frameNumber) : nullptr;
+    bool onlyArea = !area.isEmpty() && key && frameNumber == mEditor->currentFrame();
+    if (onlyArea)
+    {
+        const auto onion = OnionSkinSubPainter().neighbours(layer, onionSkinOptions(), frameNumber);
+        onlyArea = std::none_of(onion.begin(), onion.end(), [key](const auto& n) { return n.frame == key->pos(); });
+    }
+    if (onlyArea) { update(area); }
+    else { updateFrame(); }
 }
 
 void ScribbleArea::onViewChanged()

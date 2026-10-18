@@ -108,6 +108,7 @@ private:
                      void (CanvasPainter::*render)(QPainter&, const QRect&));
     /// Positions below are positions in mPaintOrder, not layer indexes.
     QVector<qint64> layersKey(int startPos, int endPos) const;
+    QVector<qint64> onionKey() const;
 
     void paintCurrentFrame(QPainter& painter, const QRect& blitRect, int startPos, int endPos);
     /// Paints the visible layer at index: relative opacity, its key, the stroke buffer, the selection and the Rough tint.

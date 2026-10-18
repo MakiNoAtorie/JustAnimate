@@ -225,8 +225,8 @@ void StrokeTool::endStroke()
 
     enableCoalescing();
 
-    mEditor->setModified(mEditor->currentLayerIndex(), mEditor->currentFrame());
     commitBuffer();
+    mEditor->setModified(mEditor->currentLayerIndex(), mEditor->currentFrame());
 
     endStrokeEdit(true);
 }
@@ -240,8 +240,11 @@ void StrokeTool::drawScreenPath(const QPainterPath& path, const QPen& pen)
 void StrokeTool::commitBuffer()
 {
     const QRect changed = mBuffer.commit();
-    mScribbleArea->update(mEditor->view()->mapCanvasToScreen(changed).toRect());
-    mScribbleArea->onFrameModified(mEditor->currentFrame());
+    // The caller's setModified repaints this area only; the margin covers edge pixels at any zoom.
+    if (!changed.isEmpty())
+    {
+        mScribbleArea->setModifiedArea(mEditor->view()->mapCanvasToScreen(QRectF(changed.adjusted(-1, -1, 1, 1))).toAlignedRect());
+    }
 }
 
 VectorImage* StrokeTool::commitVectorStroke(qreal width, qreal feather, bool invisible, bool variableWidth)

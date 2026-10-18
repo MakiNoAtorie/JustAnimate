@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- A pen lift repaints only the stroke's area; with onion skin on, the layers below and the onion frames stay cached unless an onion frame changed (#278).
 - The rendered-frame cache is sized from RAM and the canvas size and no longer shares Qt's pixmap cache, so looped playback repaints from it after the first pass (#275).
 - Save stores PNG frames without compressing them again and copies unchanged frames from the previous archive, so a save costs what changed (#282).
 - Image sequence export encodes frames on all cores while the next frames render, and movie export renders the next frame while ffmpeg reads the last (#284).

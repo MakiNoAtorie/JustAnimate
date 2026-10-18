@@ -117,6 +117,8 @@ public:
 
     /** Frame modified, invalidate cache for frame if any */
     void onFrameModified(int frameNumber);
+    /// The screen area the next onFrameModified of the current frame repaints instead of the whole canvas.
+    void setModifiedArea(const QRect& area) { mModifiedArea = area; }
 
     /** Layer changed, invalidate relevant cache */
     void onLayerChanged();
@@ -307,6 +309,7 @@ private:
     QPolygonF mOriginalPolygonF = QPolygonF();
 
     QCache<int, QPixmap> mFrameCache; ///< composited frames by frame number, cost in KB
+    QRect mModifiedArea; ///< see setModifiedArea; empty means the whole canvas
 
     // debug
     QLoggingCategory mLog{ "ScribbleArea" };

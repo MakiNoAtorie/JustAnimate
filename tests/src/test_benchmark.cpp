@@ -193,8 +193,17 @@ void mouse(QWidget* w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
     QApplication::sendEvent(w, &e);
 }
 
+// Layer draws and cell renders from pen release to the next paint, summed over the "draw top onion" strokes.
+struct ReleaseCounts
+{
+    std::uint64_t layerDraws = 0;
+    std::uint64_t cellRenders = 0;
+};
+ReleaseCounts onionRelease;
+
 // Deterministic zig-zag strokes across the canvas, repainting after each move like the app.
-void drawStrokes(TestSession& s, ToolType tool, int strokes)
+// With counts, a release paints only the area it updated, as the event loop does, and is counted.
+void drawStrokes(TestSession& s, ToolType tool, int strokes, ReleaseCounts* counts = nullptr)
 {
     s.editor->tools()->setCurrentTool(tool);
     s.editor->scrubTo(1);
@@ -207,8 +216,21 @@ void drawStrokes(TestSession& s, ToolType tool, int strokes)
             mouse(s.area.get(), QEvent::MouseMove, QPointF(200 + p * 8, y + ((p % 10) - 5) * 6), Qt::LeftButton);
             s.area->repaint();
         }
+        if (counts == nullptr)
+        {
+            mouse(s.area.get(), QEvent::MouseButtonRelease, QPointF(1000, y), Qt::NoButton);
+            s.area->repaint();
+            continue;
+        }
+        const bool wasOn = StageProfiler::enabled();
+        StageProfiler::enabled() = true;
+        const std::uint64_t draws = StageProfiler::calls(StageProfiler::LayerDraw);
+        const std::uint64_t cells = StageProfiler::calls(StageProfiler::CellRender);
         mouse(s.area.get(), QEvent::MouseButtonRelease, QPointF(1000, y), Qt::NoButton);
-        s.area->repaint();
+        QApplication::processEvents();
+        counts->layerDraws += StageProfiler::calls(StageProfiler::LayerDraw) - draws;
+        counts->cellRenders += StageProfiler::calls(StageProfiler::CellRender) - cells;
+        StageProfiler::enabled() = wasOn;
     }
 }
 
@@ -232,11 +254,13 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "timeline",     "stroke", cfg.strokes },
         { "far jump",     "jump",   10 },
         { "working set",  "frame",  cfg.frames },
+        { "draw top onion", "stroke", cfg.strokes },
     };
     // Rows after "play blend" are found by name, so tickets append rows without renumbering.
     auto row = [&sc](const char* name) -> Scenario& {
         return *std::find_if(sc.begin(), sc.end(), [name](const Scenario& r) { return std::strcmp(r.name, name) == 0; });
     };
+    onionRelease = ReleaseCounts();
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
@@ -346,6 +370,11 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             }
             sc[7].ms.push_back(t.nsecsElapsed() / 1e6);
             REQUIRE(counter.paints == cfg.frames);
+
+            // The top-layer pencil strokes again with the onion skin on.
+            t.start();
+            drawStrokes(s, PENCIL, cfg.strokes, &onionRelease);
+            row("draw top onion").ms.push_back(t.nsecsElapsed() / 1e6);
         }
 
         // Play again with every bitmap layer above the bottom one blended (multiply, screen, overlay, add).
@@ -439,6 +468,9 @@ void printResults(const BenchConfig& cfg, std::vector<Scenario>& sc)
     }
     std::printf("peak RAM during scrub and play: %.1f MB\n", peakRamBytes / (1024.0 * 1024.0));
     std::printf("working set after the 3s onion scrub: %.1f MB\n", workingSetBytes / (1024.0 * 1024.0));
+    const double releases = double(cfg.strokes) * cfg.reps;
+    std::printf("draw top onion, per pen release: %.1f layer draws, %.1f cell renders\n",
+                onionRelease.layerDraws / releases, onionRelease.cellRenders / releases);
     std::fflush(stdout);
 }
 
@@ -684,12 +716,15 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 15);
+    REQUIRE(sc.size() == 16);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);
         REQUIRE(s.ms[0] >= 0.0);
     }
+    // A pen release on the top layer draws that layer once; the layers below and the onion frames stay cached.
+    CHECK(onionRelease.layerDraws == std::uint64_t(cfg.strokes));
+    CHECK(onionRelease.cellRenders == 0);
 }
 
 // Hidden: run with `pencil2d_tests "[benchmark]"` or the `benchmark` build target.

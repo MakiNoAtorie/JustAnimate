@@ -15,8 +15,10 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QApplication>
+#include <QPaintEvent>
 #include <QPixmapCache>
 #include <QTabletEvent>
+#include <QWindow>
 #include <QWheelEvent>
 #include <QTemporaryDir>
 #include <QtMath>
@@ -413,6 +415,99 @@ TEST_CASE("ScribbleArea - an edit on another layer's key repaints its held frame
     CHECK(centre() == QColor(Qt::red));
     fill(Qt::blue);
     CHECK(centre() == QColor(Qt::blue));
+}
+
+namespace
+{
+
+/// The bounds of every area painted while installed.
+struct PaintedArea : QObject
+{
+    QRect painted;
+    bool eventFilter(QObject*, QEvent* e) override
+    {
+        if (e->type() == QEvent::Paint) { painted |= static_cast<QPaintEvent*>(e)->rect(); }
+        return false;
+    }
+};
+
+void mouse(QWidget* w, QEvent::Type type, QPointF pos, Qt::MouseButtons buttons)
+{
+    QMouseEvent e(type, pos, w->mapToGlobal(pos), Qt::LeftButton, buttons, Qt::NoModifier);
+    QApplication::sendEvent(w, &e);
+}
+
+}
+
+TEST_CASE("ScribbleArea - a stroke end with onion skin repaints only the stroke")
+{
+    const SettingsGuard settings({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
+    TestSession s;
+    LayerBitmap* below = s.object->addNewBitmapLayer();
+    LayerBitmap* top = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    QObject::connect(editor, &Editor::frameModified, area, &ScribbleArea::onFrameModified);
+    area->init();
+    area->resize(400, 300);
+    area->show();
+    for (int i = 0; i < 100 && !area->windowHandle()->isExposed(); ++i) { QApplication::processEvents(); }
+    REQUIRE(area->windowHandle()->isExposed());
+    for (int f = 1; f <= 5; ++f)
+    {
+        if (f > 1) { REQUIRE(below->addNewKeyFrameAt(f)); REQUIRE(top->addNewKeyFrameAt(f)); }
+        below->getBitmapImageAtFrame(f)->drawRect(QRectF(-150, -100, 300, 200), Qt::NoPen, QBrush(Qt::gray),
+                                                  QPainter::CompositionMode_SourceOver, false);
+        top->getBitmapImageAtFrame(f)->drawRect(QRectF(-120 + f * 30, -60, 40, 40), Qt::NoPen, QBrush(Qt::black),
+                                                QPainter::CompositionMode_SourceOver, false);
+    }
+    PreferenceManager* prefs = editor->preference();
+    prefs->set<SETTING::PREV_ONION>(true);
+    prefs->set<SETTING::NEXT_ONION>(true);
+    prefs->set<SETTING::ONION_RED>(true);
+    prefs->set<SETTING::ONION_BLUE>(true);
+    editor->layers()->setCurrentLayer(top);
+    editor->tools()->setCurrentTool(PENCIL);
+    editor->scrubTo(3);
+    area->onObjectLoaded();
+    area->repaint();
+
+    const QPointF from = editor->view()->mapCanvasToScreen(QPointF(-30, 40));
+    mouse(area, QEvent::MouseButtonPress, from, Qt::LeftButton);
+    for (int p = 1; p <= 10; ++p)
+    {
+        mouse(area, QEvent::MouseMove, from + QPointF(p * 5, 0), Qt::LeftButton);
+        area->repaint();
+    }
+    PaintedArea painted;
+    area->installEventFilter(&painted);
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    mouse(area, QEvent::MouseButtonRelease, from + QPointF(50, 0), Qt::NoButton);
+    QApplication::processEvents();
+    StageProfiler::enabled() = profiling;
+    area->removeEventFilter(&painted);
+    REQUIRE_FALSE(painted.painted.isEmpty());
+    CHECK(painted.painted.width() < area->width() / 2); // the stroke, not the whole canvas
+    CHECK(StageProfiler::calls(StageProfiler::LayerDraw) == 1);  // the current layer only
+    CHECK(StageProfiler::calls(StageProfiler::CellRender) == 0); // the layers below and the onion frames stay cached
+    StageProfiler::reset();
+
+    // The cached frame matches a paint with every cache empty.
+    const QImage cached = area->grab().toImage();
+    area->onObjectLoaded();
+    CHECK(area->grab().toImage() == cached);
+
+    // An onion frame changes: the cached cells follow it.
+    top->getBitmapImageAtFrame(2)->drawRect(QRectF(-100, 50, 60, 30), Qt::NoPen, QBrush(Qt::black),
+                                            QPainter::CompositionMode_SourceOver, false);
+    editor->setModified(editor->currentLayerIndex(), 2);
+    const QImage onionChanged = area->grab().toImage();
+    CHECK(onionChanged != cached);
+    area->onObjectLoaded();
+    CHECK(area->grab().toImage() == onionChanged);
 }
 
 namespace

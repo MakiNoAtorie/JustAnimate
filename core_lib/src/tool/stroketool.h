@@ -114,7 +114,7 @@ protected:
     /// The outline of one dab of the base width and tip at a canvas point.
     QPainterPath brushOutline(const QPointF& point) const;
 
-    /// Writes the buffer into the current bitmap Drawing and repaints it.
+    /// Writes the buffer into the current bitmap Drawing; the next setModified repaints the changed area.
     void commitBuffer();
     /// Adds the stroke points as a curve to the current vector Drawing and selects only that curve.
     /// Returns the Drawing; nullptr without stroke points or a Drawing.

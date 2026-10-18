@@ -45,6 +45,7 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | timeline | 20 times: `frameModified` on frame 1 (a stroke end), then a paint of a 1280x300 timeline |
 | far jump | 10 jumps between the first and the last frame + repaint, caches cleared before each |
 | working set | `scrubTo(f)` + repaint for frames 1–500 on a second project with a key every 3 frames, onion skin on both sides; the resident set after it is printed |
+| draw top onion | the top-layer pencil strokes with the onion skin on; each release paints only its pending area, and the layer draws and cell renders it causes are printed per release |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke. A last line prints the peak RAM (working set, sampled after

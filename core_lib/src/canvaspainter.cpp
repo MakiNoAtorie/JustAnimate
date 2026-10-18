@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "layercamera.h"
 #include "objectdata.h"
 #include "paperpainter.h"
+#include "stageprofiler.h"
 #include "bitmapimage.h"
 #include "tile.h"
 #include "tiledbuffer.h"
@@ -103,7 +104,7 @@ void CanvasPainter::paintCached(const QRect& blitRect)
 {
     mPaintOrder = FrameRenderer::paintOrder(*mObject, true);
     const QPair<int, int> range = currentRange();
-    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, range.first - 1), blitRect, &CanvasPainter::renderPreLayers);
+    updateCells(mPreLayersCache, mPreLayersPixmap, layersKey(0, range.first - 1) + onionKey(), blitRect, &CanvasPainter::renderPreLayers);
 
     QPainter mainPainter;
     initializePainter(mainPainter, mCanvas, blitRect);
@@ -175,6 +176,30 @@ QVector<qint64> CanvasPainter::layersKey(int startPos, int endPos) const
     return key + FrameRenderer::layersKey(*mObject, mFrameNumber, mPaintOrder, startPos, endPos);
 }
 
+// Identifies the bitmap onion frames renderPreLayers paints; a changed onion frame empties the cache.
+QVector<qint64> CanvasPainter::onionKey() const
+{
+    QVector<qint64> key;
+    const bool allLayers = mOptions.bOnionSkinMultiLayer && mOptions.eLayerVisibility != LayerVisibility::CURRENTONLY;
+    for (int i = 0; i < mObject->getLayerCount(); ++i)
+    {
+        Layer* layer = mObject->getLayer(i);
+        if ((!allLayers && i != mCurrentLayerIndex) || layer->type() != Layer::BITMAP) { continue; }
+        key << i << mObject->isLayerVisible(layer);
+        for (const OnionSkinSubPainter::Neighbour& n : mOnionSkinSubPainter.neighbours(layer, mOnionSkinPainterOptions, mFrameNumber))
+        {
+            BitmapImage* image = static_cast<LayerBitmap*>(layer)->getBitmapImageAtFrame(n.frame);
+            if (image == nullptr) { continue; }
+            const QTransform t = onionTransform(layer, n.frame);
+            const qreal opacity = layer->tweenStateAt(n.frame).opacity;
+            key << n.frame << image->topLeft().x() << image->topLeft().y() << image->image()->cacheKey()
+                << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6) << qRound64(t.m22() * 1e6)
+                << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6) << qRound64(opacity * 1e6);
+        }
+    }
+    return key;
+}
+
 // Renders into the stale 64 px cells of pixmap that blitRect touches.
 void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QVector<qint64>& key, const QRect& blitRect,
                                 void (CanvasPainter::*render)(QPainter&, const QRect&))
@@ -202,6 +227,7 @@ void CanvasPainter::updateCells(LayerCellCache& cache, QPixmap& pixmap, const QV
         }
     }
     if (stale.isEmpty()) { return; }
+    StageScope stage(StageProfiler::CellRender);
 
     // shortcut: repaints the bounding rect of the stale cells; clip to a QRegion if scattered cells cost too much.
     QPainter painter;
@@ -563,8 +589,8 @@ void CanvasPainter::paintLayer(QPainter& painter, const QRect& blitRect, int ind
     CANVASPAINTER_LOG("  Render Layer[%d] %s", index, layer->name());
     switch (layer->type())
     {
-    case Layer::BITMAP: { paintCurrentBitmapFrame(painter, blitRect, layer, isCurrentLayer); break; }
-    case Layer::VECTOR: { paintCurrentVectorFrame(painter, blitRect, layer, isCurrentLayer); break; }
+    case Layer::BITMAP: { StageScope stage(StageProfiler::LayerDraw); paintCurrentBitmapFrame(painter, blitRect, layer, isCurrentLayer); break; }
+    case Layer::VECTOR: { StageScope stage(StageProfiler::LayerDraw); paintCurrentVectorFrame(painter, blitRect, layer, isCurrentLayer); break; }
     default: break;
     }
 }
