@@ -47,12 +47,7 @@ qint64 paletteKey(const Object& object)
     return qint64(hash);
 }
 
-// A transform as cache key values, to 1e-6.
-void appendTransformKey(QVector<qint64>& key, const QTransform& t, bool withTranslation = true)
-{
-    key << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6) << qRound64(t.m22() * 1e6);
-    if (withTranslation) { key << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6); }
-}
+using FrameRenderer::appendTransformKey;
 }
 
 CanvasPainter::CanvasPainter(QImage& canvas) : mCanvas(canvas)
@@ -191,6 +186,24 @@ QVector<qint64> CanvasPainter::layersKey(int startPos, int endPos) const
     return key + FrameRenderer::layersKey(*mObject, mFrameNumber, mPaintOrder, startPos, endPos);
 }
 
+// Identifies what paint() puts on the canvas for this frame, without the frame number: held frames share it.
+QVector<qint64> CanvasPainter::frameKey() const
+{
+    QVector<qint64> key{ qint64(quintptr(mObject)), mCurrentLayerIndex, int(mOptions.eLayerVisibility), mRenderTransform };
+    for (auto it = mShiftAndTraceOffsets.cbegin(); it != mShiftAndTraceOffsets.cend(); ++it)
+    {
+        key << it.key();
+        appendTransformKey(key, it.value());
+    }
+    if (mRenderTransform)
+    {
+        key << mSelection.x() << mSelection.y() << mSelection.width() << mSelection.height();
+        appendTransformKey(key, mSelectionTransform);
+    }
+    const QVector<int> order = FrameRenderer::paintOrder(*mObject, true);
+    return key + FrameRenderer::layersKey(*mObject, mFrameNumber, order, 0, order.size() - 1) + onionKey();
+}
+
 // Identifies the onion frames renderPreLayers paints; a changed onion frame empties the cache.
 QVector<qint64> CanvasPainter::onionKey() const
 {
@@ -206,7 +219,7 @@ QVector<qint64> CanvasPainter::onionKey() const
         {
             KeyFrame* image = layer->getKeyFrameAt(n.frame);
             if (image == nullptr) { continue; }
-            key << n.frame;
+            key << n.frame << int(n.state) << qRound64(n.opacity * 1e6);
             if (layer->type() == Layer::BITMAP)
             {
                 auto* bitmap = static_cast<BitmapImage*>(image);

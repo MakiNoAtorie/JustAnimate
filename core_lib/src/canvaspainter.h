@@ -85,6 +85,8 @@ public:
 
     void setPaintSettings(const Object* object, int currentLayer, int frame, TiledBuffer* tilledBuffer);
     void paint(const QRect& blitRect);
+    /// What paint() puts on the canvas for this frame, without the frame number: frames with equal keys paint equal pixels.
+    QVector<qint64> frameKey() const;
     void paintCached(const QRect& blitRect);
     void resetLayerCache();
     int onionFramesTinted() const { return mOnionFramesTinted; }

@@ -25,10 +25,12 @@ GNU General Public License for more details.
 #include "mathutils.h"
 
 #include "bitmapimage.h"
+#include "camera.h"
 #include "brushpresets.h"
 #include "brushtool.h"
 #include "editor.h"
 #include "layerbitmap.h"
+#include "layercamera.h"
 #include "layermanager.h"
 #include "object.h"
 #include "pencildef.h"
@@ -319,6 +321,103 @@ TEST_CASE("ScribbleArea - a held frame repaints from the frame cache")
 
     StageProfiler::enabled() = profiling;
     StageProfiler::reset();
+}
+
+TEST_CASE("ScribbleArea - held frames share one cached frame")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(200, 200);
+    area->show(); // grab() on a hidden widget resizes it, which clears the cache
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    REQUIRE(layer->addNewKeyFrameAt(3)); // on 2s: frame 2 holds the key at 1
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-20, -20, 40, 40), Qt::NoPen, QBrush(Qt::red),
+                                              QPainter::CompositionMode_SourceOver, false);
+    area->onObjectLoaded();
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    editor->scrubTo(1);
+    const QImage first = area->grab().toImage();
+    const qsizetype oneFrame = area->frameCacheCostKb();
+    StageProfiler::reset();
+    editor->scrubTo(2);
+    CHECK(area->grab().toImage() == first);
+    CHECK(StageProfiler::calls(StageProfiler::Composite) == 0);
+    CHECK(area->frameCacheCostKb() == oneFrame);
+
+    // An edit on the held key reaches every frame that shares its image.
+    layer->getBitmapImageAtFrame(1)->drawRect(QRectF(-20, -20, 40, 40), Qt::NoPen, QBrush(Qt::blue),
+                                              QPainter::CompositionMode_Source, false);
+    area->onFrameModified(1);
+    editor->scrubTo(1);
+    CHECK(area->grab().toImage().pixelColor(100, 100) == QColor(Qt::blue));
+    editor->scrubTo(2);
+    CHECK(area->grab().toImage().pixelColor(100, 100) == QColor(Qt::blue));
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
+}
+
+TEST_CASE("ScribbleArea - a frame shared from the cache matches its own paint")
+{
+    const SettingsGuard settings({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_TYPE, SETTING_ONION_PREV_FRAMES_NUM,
+                                   SETTING_ONION_NEXT_FRAMES_NUM, SETTING_ONION_FALLOFF });
+    TestSession s;
+    LayerCamera* camera = s.object->addNewCameraLayer();
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(300, 200);
+    area->show();
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    // Keys on 4s; the camera moves across the holds.
+    for (int f : { 1, 5, 9 })
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f));
+        layer->getBitmapImageAtFrame(f)->drawRect(QRectF(-80 + f * 10, -20, 40, 40), Qt::NoPen, QBrush(Qt::black),
+                                                  QPainter::CompositionMode_SourceOver, false);
+    }
+    REQUIRE(camera->addNewKeyFrameAt(9));
+    static_cast<Camera*>(camera->getKeyFrameAt(9))->translate(40, 0);
+    camera->setViewRect(QRect(-60, -40, 120, 80)); // its border shows inside the canvas
+
+    PreferenceManager* prefs = editor->preference();
+    for (const QString& type : { QString("relative"), QString("absolute") })
+    {
+        CAPTURE(type);
+        prefs->set<SETTING::PREV_ONION>(true);
+        prefs->set<SETTING::NEXT_ONION>(true);
+        prefs->set<SETTING::ONION_TYPE>(type);
+        prefs->set<SETTING::ONION_PREV_FRAMES_NUM>(2);
+        prefs->set<SETTING::ONION_NEXT_FRAMES_NUM>(2);
+        prefs->set<SETTING::ONION_FALLOFF>(1);
+        area->onObjectLoaded();
+        std::vector<QImage> fresh;
+        for (int f = 1; f <= 10; ++f)
+        {
+            editor->scrubTo(f);
+            area->onObjectLoaded(); // drops every cached frame
+            fresh.push_back(area->grab().toImage());
+        }
+        CHECK(fresh[5] != fresh[6]); // frames 6 and 7 hold the key at 5 while the camera moves
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            for (int f = 10; f >= 1; --f)
+            {
+                CAPTURE(pass, f);
+                editor->scrubTo(f);
+                CHECK(area->grab().toImage() == fresh[f - 1]);
+            }
+        }
+    }
 }
 
 TEST_CASE("ScribbleArea - a 48-frame loop repaints from the frame cache from the second pass")

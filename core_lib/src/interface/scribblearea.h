@@ -99,6 +99,7 @@ public:
     /// Rendered-frame cache limit in KB: 240 viewport frames, at most a quarter of RAM, at least 100 MB.
     static qsizetype frameCacheLimitKb(QSize devicePx, qint64 ramBytes);
     qsizetype frameCacheLimitKb() const { return mFrameCache.maxCost(); }
+    qsizetype frameCacheCostKb() const { return mFrameCache.totalCost(); }
 
     /** Update frame.
      * calls update() behind the scene and update cache if necessary */
@@ -230,6 +231,8 @@ private:
     void invalidateAllCache();
     /// Stores mCanvas as the canvas of rame.
     void cacheCanvas(int frame);
+    QVector<qint64> frameKey() const;
+    void clearFrameCache();
 
     /** invalidate cache for dirty keyframes. */
     void invalidateCacheForDirtyFrames();
@@ -312,7 +315,8 @@ private:
 
     QPolygonF mOriginalPolygonF = QPolygonF();
 
-    QCache<int, QImage> mFrameCache; ///< composited frames by frame number, cost in KB
+    QCache<QVector<qint64>, QImage> mFrameCache; ///< composited frames by content (frameKey): held frames share one, cost in KB
+    QHash<int, QVector<qint64>> mFrameKeys;       ///< the frameKey each cached frame number showed
     std::optional<QTransform> mFrameCacheView; ///< the view mFrameCache was drawn with; empty when unknown
     QRect mModifiedArea; ///< see setModifiedArea; empty means the whole canvas
 

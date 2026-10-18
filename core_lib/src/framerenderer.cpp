@@ -122,6 +122,12 @@ QVector<qint64> layersKey(const Object& object, int frame, const QVector<int>& o
     return key;
 }
 
+void appendTransformKey(QVector<qint64>& key, const QTransform& t, bool withTranslation)
+{
+    key << qRound64(t.m11() * 1e6) << qRound64(t.m12() * 1e6) << qRound64(t.m21() * 1e6) << qRound64(t.m22() * 1e6);
+    if (withTranslation) { key << qRound64(t.dx() * 1e6) << qRound64(t.dy() * 1e6); }
+}
+
 TweenState applyTween(QPainter& painter, const Layer* layer, int frame, qreal fade)
 {
     const TweenState tween = layer->tweenStateAt(frame);

@@ -43,6 +43,8 @@ public:
 
     void paint(const QRect& blitRect);
     void paintCached(const QRect& blitRect);
+    /// What paint() draws for this frame, without the frame number: the camera views and their onion outlines.
+    QVector<qint64> frameKey() const;
 
     void setOnionSkinPainterOptions(const OnionSkinPainterOptions& options) { mOnionSkinOptions = options; }
     void preparePainter(const Object* object, int layerIndex, int frameIndex, const QTransform& transform, bool isPlaying, LayerVisibility layerVisibility, float relativeLayerOpacityThreshold, qreal viewScale);

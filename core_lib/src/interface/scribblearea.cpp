@@ -301,7 +301,7 @@ void ScribbleArea::invalidateAllCache()
 {
     if (currentTool()->isDrawingTool() && currentTool()->isActive()) { return; }
 
-    mFrameCache.clear();
+    clearFrameCache();
     invalidatePainterCaches();
     mEditor->layers()->currentLayer()->clearDirtyFrames();
 
@@ -326,14 +326,14 @@ void ScribbleArea::invalidateCacheForFrame(int frameNumber)
             start = std::min(start, key->pos());
         }
     }
-    const QList<int> cached = mFrameCache.keys();
+    const QList<int> cached = mFrameKeys.keys();
     for (int frame : cached)
     {
         if (frame < start) continue;
         const bool held = frame == frameNumber || std::any_of(holds.begin(), holds.end(), [frame](const auto& h) {
             return h.first->getLastKeyFrameAtPosition(frame) == h.second;
         });
-        if (held) mFrameCache.remove(frame);
+        if (held) { mFrameCache.remove(mFrameKeys.take(frame)); }
     }
 }
 
@@ -437,13 +437,14 @@ void ScribbleArea::onViewChanged()
     if (currentTool()->isDrawingTool() && currentTool()->isActive())
     {
         // The painter caches stay for the stroke; the frame cache holds the old view.
-        mFrameCache.clear();
+        clearFrameCache();
         mFrameCacheView.reset();
         return;
     }
     const QTransform view = mEditor->view()->getView();
     const int frame = mEditor->currentFrame();
-    const QImage* shown = mFrameCache.object(frame);
+    const auto shownKey = mFrameKeys.constFind(frame);
+    const QImage* shown = shownKey != mFrameKeys.cend() ? mFrameCache.object(*shownKey) : nullptr;
     const std::optional<QTransform> old = std::exchange(mFrameCacheView, view);
     // A pan by exactly whole device pixels shifts the cached canvas and renders only the strips it exposes.
     // Rotated draws do not shift pixel for pixel. An unchanged view is a request to redraw everything.
@@ -457,7 +458,7 @@ void ScribbleArea::onViewChanged()
         return;
     }
     mCanvas = *shown;
-    mFrameCache.clear();
+    clearFrameCache();
     mFrameCacheView = *old * QTransform::fromTranslate(step.x() / mDevicePixelRatio, step.y() / mDevicePixelRatio);
     QRegion exposed = scrollImage(mCanvas, step);
     // Onion tints outline the canvas edges: the old edge lines are drawn again too.
@@ -474,10 +475,29 @@ void ScribbleArea::onViewChanged()
     updateFrame();
 }
 
+// Call after the painters were prepared for frame (drawCanvas does).
 void ScribbleArea::cacheCanvas(int frame)
 {
+    const QVector<qint64> key = frameKey();
     const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
-    mFrameCache.insert(frame, new QImage(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
+    mFrameCache.insert(key, new QImage(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
+    mFrameKeys.insert(frame, key);
+    // Frames whose image the cache evicted keep only their key: drop those keys.
+    if (mFrameKeys.size() > 2 * mFrameCache.count() + 64)
+    {
+        mFrameKeys.removeIf([this](const std::pair<const int&, QVector<qint64>&>& it) { return !mFrameCache.contains(it.second); });
+    }
+}
+
+QVector<qint64> ScribbleArea::frameKey() const
+{
+    return mCanvasPainter.frameKey() + mCameraPainter.frameKey();
+}
+
+void ScribbleArea::clearFrameCache()
+{
+    mFrameCache.clear();
+    mFrameKeys.clear();
 }
 
 void ScribbleArea::onLayerChanged()
@@ -979,7 +999,7 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
     mEditor->view()->setCanvasSize(size());
 
     // Every cached frame has the old size.
-    mFrameCache.clear();
+    clearFrameCache();
     mFrameCache.setMaxCost(frameCacheLimitKb(mCanvas.size(), physicalRamBytes()));
     invalidatePainterCaches();
     mCanvasPainter.reset();
@@ -1055,7 +1075,7 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
     if (!currentTool()->isActive())
     {
         // --- we retrieve the canvas from the cache; we create it if it doesn't exist
-        // The frame cache is keyed by frame: onion skins and the camera differ inside a hold. A transformed or in-between frame skips it (CanvasPainter caches by content).
+        // The frame cache is keyed by content, so held frames share one image. A transformed or in-between frame skips it (CanvasPainter caches by content).
         bool anyKey = false;
         bool transformed = !mShiftAndTraceOffsets.isEmpty();
         for (int i = 0; i < mEditor->object()->getLayerCount() && !transformed; ++i)
@@ -1072,9 +1092,13 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         }
         else
         {
-            if (const QImage* cached = mFrameCache.object(currentFrame))
+            prepCanvas(currentFrame);
+            prepCameraPainter(currentFrame);
+            const QVector<qint64> key = frameKey();
+            if (const QImage* cached = mFrameCache.object(key))
             {
-                mCanvas = *cached;
+                mCanvas = *cached; // a held frame shares the image of the frame it holds
+                mFrameKeys.insert(currentFrame, key);
             }
             else
             {

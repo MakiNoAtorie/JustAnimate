@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include "transform.h"
 
 #include "painterutils.h"
+#include "framerenderer.h"
 
 CameraPainter::CameraPainter(QImage& canvas) : mCanvas(canvas)
 {
@@ -65,6 +66,25 @@ void CameraPainter::preparePainter(const Object* object,
     mLayerVisibility = layerVisibility;
     mRelativeLayerOpacityThreshold = relativeLayerOpacityThreshold;
     mViewScale = viewScale;
+}
+
+QVector<qint64> CameraPainter::frameKey() const
+{
+    QVector<qint64> key{ mCurrentLayerIndex, int(mLayerVisibility), mIsPlaying, mObject->data()->paperTemplate().on };
+    for (int i = 0; i < mObject->getLayerCount(); ++i)
+    {
+        const Layer* layer = mObject->getLayer(i);
+        if (layer->type() != Layer::CAMERA) { continue; }
+        const auto* camera = static_cast<const LayerCamera*>(layer);
+        key << i << camera->visible();
+        FrameRenderer::appendTransformKey(key, camera->getViewAtFrame(mFrameIndex));
+        for (const OnionSkinSubPainter::Neighbour& n : mOnionSkinPainter.neighbours(camera, mOnionSkinOptions, mFrameIndex))
+        {
+            key << int(n.state) << n.frame;
+            FrameRenderer::appendTransformKey(key, camera->getViewAtFrame(n.frame));
+        }
+    }
+    return key;
 }
 
 void CameraPainter::paint(const QRect& blitRect)
