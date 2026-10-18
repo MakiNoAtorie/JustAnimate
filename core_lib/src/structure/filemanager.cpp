@@ -522,8 +522,8 @@ Status FileManager::writeProjectFiles(const Object* object, const QString& sFile
     }
     dd.collect(stKeyFrames.details());
 
-    // Written after the frame files, by writeFiles.
-    const QByteArray mainXml = mainXmlBytes(object);
+    // Written after the frame files, by writeFiles. A failed frame write leaves its file name unset: no XML then.
+    const QByteArray mainXml = stKeyFrames.ok() ? mainXmlBytes(object) : QByteArray();
     filesToZip.append(sMainXMLFile);
 
     Status stPalette = writePalette(object, sDataFolder, filesToZip);
