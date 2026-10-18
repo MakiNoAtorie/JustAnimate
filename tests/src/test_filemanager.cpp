@@ -1246,6 +1246,7 @@ TEST_CASE("FileManager copies unchanged entries from the previous archive", "[Fi
             QFile f(file1);
             REQUIRE(f.open(QFile::WriteOnly));
             f.write(QByteArray(saved1.size(), 'x'));
+            REQUIRE(f.flush()); // a write flushed after setFileTime sets a new time on Unix
             REQUIRE(f.setFileTime(time1, QFileDevice::FileModificationTime));
         }
         BitmapImage red(QRect(0, 0, 8, 8), QColor(Qt::red));
