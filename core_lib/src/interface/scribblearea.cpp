@@ -26,7 +26,6 @@ GNU General Public License for more details.
 #include <QKeySequence>
 #include <QPainterPath>
 #include <QtMath>
-#include <QPixmapCache>
 #include <QTimer>
 
 #include "basetool.h"
@@ -56,6 +55,37 @@ GNU General Public License for more details.
 #include "viewmanager.h"
 #include "selectionmanager.h"
 #include "overlaymanager.h"
+
+#ifdef Q_OS_WIN
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+namespace
+{
+qint64 physicalRamBytes()
+{
+#ifdef Q_OS_WIN
+    MEMORYSTATUSEX status;
+    status.dwLength = sizeof(status);
+    return GlobalMemoryStatusEx(&status) ? static_cast<qint64>(status.ullTotalPhys) : 0;
+#else
+    const long pages = sysconf(_SC_PHYS_PAGES);
+    const long pageSize = sysconf(_SC_PAGESIZE);
+    return pages > 0 && pageSize > 0 ? qint64(pages) * pageSize : 0;
+#endif
+}
+}
+
+qsizetype ScribbleArea::frameCacheLimitKb(QSize devicePx, qint64 ramBytes)
+{
+    const qint64 floorKb = 100 * 1024;
+    const qint64 frameKb = qint64(devicePx.width()) * devicePx.height() * 4 / 1024;
+    return static_cast<qsizetype>(qBound(floorKb, frameKb * 240, std::max(floorKb, ramBytes / 4 / 1024)));
+}
 
 ScribbleArea::ScribbleArea(QWidget* parent) : QWidget(parent),
     mCanvasPainter(mCanvas),
@@ -119,9 +149,6 @@ bool ScribbleArea::init()
     setTabletTracking(true); // tablet tracking first added in 5.9
 
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
-
-    QPixmapCache::setCacheLimit(100 * 1024); // unit is kb, so it's 100MB cache
-    mPixmapCacheKeys.clear();
 
     return true;
 }
@@ -279,8 +306,7 @@ void ScribbleArea::invalidateAllCache()
 {
     if (currentTool()->isDrawingTool() && currentTool()->isActive()) { return; }
 
-    QPixmapCache::clear();
-    mPixmapCacheKeys.clear();
+    mFrameCache.clear();
     invalidatePainterCaches();
     mEditor->layers()->currentLayer()->clearDirtyFrames();
 
@@ -305,26 +331,14 @@ void ScribbleArea::invalidateCacheForFrame(int frameNumber)
             start = std::min(start, key->pos());
         }
     }
-    auto it = mPixmapCacheKeys.lowerBound(static_cast<unsigned int>(start));
-    while (it != mPixmapCacheKeys.end())
+    const QList<int> cached = mFrameCache.keys();
+    for (int frame : cached)
     {
-        const int frame = static_cast<int>(it.key());
+        if (frame < start) continue;
         const bool held = frame == frameNumber || std::any_of(holds.begin(), holds.end(), [frame](const auto& h) {
             return h.first->getLastKeyFrameAtPosition(frame) == h.second;
         });
-        if (held)
-        {
-            QPixmapCache::remove(it.value());
-            it = mPixmapCacheKeys.erase(it);
-        }
-        else if (frame > frameNumber)
-        {
-            break; // holds are contiguous: none reaches past this frame
-        }
-        else
-        {
-            ++it;
-        }
+        if (held) mFrameCache.remove(frame);
     }
 }
 
@@ -890,8 +904,8 @@ void ScribbleArea::resizeEvent(QResizeEvent* event)
     mEditor->view()->setCanvasSize(size());
 
     // Every cached frame has the old size.
-    QPixmapCache::clear();
-    mPixmapCacheKeys.clear();
+    mFrameCache.clear();
+    mFrameCache.setMaxCost(frameCacheLimitKb(mCanvas.size(), physicalRamBytes()));
     invalidatePainterCaches();
     mCanvasPainter.reset();
     mCameraPainter.reset();
@@ -983,17 +997,15 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
         }
         else
         {
-            auto cacheKeyIter = mPixmapCacheKeys.find(static_cast<unsigned>(currentFrame));
-
-            if (cacheKeyIter == mPixmapCacheKeys.end() || !QPixmapCache::find(cacheKeyIter.value(), &mCanvas))
+            if (const QPixmap* cached = mFrameCache.object(currentFrame))
             {
-                drawCanvas(currentFrame, event->rect());
-                mPixmapCacheKeys[static_cast<unsigned>(currentFrame)] = QPixmapCache::insert(mCanvas);
-                //qDebug() << "Repaint canvas!";
+                mCanvas = *cached;
             }
             else
             {
-                // Simply use the cached canvas from PixmapCache
+                drawCanvas(currentFrame, event->rect());
+                const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
+                mFrameCache.insert(currentFrame, new QPixmap(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
             }
         }
     }

@@ -29,7 +29,8 @@ GNU General Public License for more details.
 #include <QPoint>
 #include <QStringList>
 #include <QWidget>
-#include <QPixmapCache>
+#include <QCache>
+#include <QPixmap>
 
 #include "movemode.h"
 #include "pencildef.h"
@@ -93,6 +94,10 @@ public:
     bool makeInvisible() const { return mMakeInvisible; }
 
     QPointF getCentralPoint();
+
+    /// Rendered-frame cache limit in KB: 240 viewport frames, at most a quarter of RAM, at least 100 MB.
+    static qsizetype frameCacheLimitKb(QSize devicePx, qint64 ramBytes);
+    qsizetype frameCacheLimitKb() const { return mFrameCache.maxCost(); }
 
     /** Update frame.
      * calls update() behind the scene and update cache if necessary */
@@ -302,8 +307,7 @@ private:
 
     QPolygonF mOriginalPolygonF = QPolygonF();
 
-    // Pixmap Cache keys
-    QMap<unsigned int, QPixmapCache::Key> mPixmapCacheKeys;
+    QCache<int, QPixmap> mFrameCache; ///< composited frames by frame number, cost in KB
 
     // debug
     QLoggingCategory mLog{ "ScribbleArea" };

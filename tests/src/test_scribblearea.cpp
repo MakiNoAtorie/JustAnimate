@@ -15,6 +15,7 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QApplication>
+#include <QPixmapCache>
 #include <QTabletEvent>
 #include <QWheelEvent>
 #include <QTemporaryDir>
@@ -316,6 +317,72 @@ TEST_CASE("ScribbleArea - a held frame repaints from the frame cache")
 
     StageProfiler::enabled() = profiling;
     StageProfiler::reset();
+}
+
+TEST_CASE("ScribbleArea - a 48-frame loop repaints from the frame cache from the second pass")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    QPixmapCache::setCacheLimit(12345);
+    area->init();
+    CHECK(QPixmapCache::cacheLimit() == 12345); // the frame cache keeps its own limit
+    QPixmapCache::setCacheLimit(10240);         // Qt's default
+    area->resize(1280, 720);
+    area->show(); // grab() on a hidden widget resizes it, which clears the cache
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    const int frames = 48;
+    for (int f = 1; f <= frames; ++f)
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f));
+        layer->getBitmapImageAtFrame(f)->drawRect(QRectF(-300 + f * 10, -100, 60, 60), Qt::NoPen, QBrush(Qt::red),
+                                                  QPainter::CompositionMode_SourceOver, false);
+    }
+    area->onObjectLoaded();
+
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    std::vector<QImage> firstPass;
+    for (int f = 1; f <= frames; ++f)
+    {
+        editor->scrubTo(f);
+        firstPass.push_back(area->grab().toImage());
+    }
+    StageProfiler::reset();
+    for (int f = 1; f <= frames; ++f)
+    {
+        editor->scrubTo(f);
+        CAPTURE(f);
+        CHECK(area->grab().toImage() == firstPass[f - 1]); // a cached frame matches its composite
+    }
+    CHECK(StageProfiler::calls(StageProfiler::Composite) == 0);
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
+}
+
+TEST_CASE("ScribbleArea - the frame cache limit follows RAM and the viewport")
+{
+    const qint64 gb = qint64(1) << 30;
+    const qsizetype frame1080Kb = 1920 * 1080 * 4 / 1024;
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(1920, 1080), 64 * gb) == 240 * frame1080Kb);
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(1920, 1080), 1 * gb) == gb / 4 / 1024); // a quarter of RAM
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(3840, 2160), 64 * gb) > 240 * frame1080Kb);
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(100, 100), 64 * gb) == 100 * 1024);     // the old 100 MB floor
+    CHECK(ScribbleArea::frameCacheLimitKb(QSize(1920, 1080), 0) == 100 * 1024);         // RAM unknown
+
+    TestSession s;
+    s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    ScribbleArea* area = s.area.get();
+    area->init();
+    area->resize(640, 360);
+    area->show();
+    const qsizetype before = area->frameCacheLimitKb();
+    area->resize(1280, 720);
+    CHECK(area->frameCacheLimitKb() > before);
 }
 
 TEST_CASE("ScribbleArea - an edit on another layer's key repaints its held frames")

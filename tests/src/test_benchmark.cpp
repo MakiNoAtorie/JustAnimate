@@ -209,6 +209,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "draw top",     "stroke", cfg.strokes },
         { "scrub onion",  "frame",  cfg.frames },
         { "play blend",   "frame",  cfg.frames },
+        { "loop",         "frame",  2 * std::min(48, cfg.frames) },
     };
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
@@ -260,6 +261,28 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         REQUIRE(counter.paints == cfg.frames);
         s.editor->playback()->stop();
         REQUIRE(s.editor->currentFrame() == cfg.frames + 1);
+
+        // Loop: play the first 48 frames three times; passes 2 and 3 are timed (frame cache hits).
+        const int loopFrames = std::min(48, cfg.frames);
+        s.area->onObjectLoaded();
+        s.editor->playback()->play();
+        for (int pass = 0; pass < 3; ++pass)
+        {
+            if (pass == 1)
+            {
+                counter.paints = 0;
+                t.start();
+            }
+            s.editor->scrubTo(1);
+            for (int f = 1; f <= loopFrames; ++f)
+            {
+                s.area->repaint();
+                s.editor->scrubForward();
+            }
+        }
+        sc[9].ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(counter.paints == 2 * loopFrames);
+        s.editor->playback()->stop();
 
         t.start();
         drawStrokes(s, PENCIL, cfg.strokes);
@@ -575,7 +598,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 9);
+    REQUIRE(sc.size() == 10);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);
