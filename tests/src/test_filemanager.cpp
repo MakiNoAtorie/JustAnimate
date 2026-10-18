@@ -27,6 +27,8 @@ GNU General Public License for more details.
 #include <QDirIterator>
 #include <QDomDocument>
 #include <QFile>
+#include <QSemaphore>
+#include <QThreadPool>
 #include "qminiz.h"
 #include "beziercurve.h"
 #include "blendmode.h"
@@ -1852,4 +1854,42 @@ TEST_CASE("Frame pool: held and onion Drawings unload when far and the pool coun
         loaded += b->memoryUsage();
     }
     CHECK(s.object->framePoolMemory() == loaded);
+}
+
+TEST_CASE("Frame pool: a background read queued before a save moves the Drawing gives it its own pixels")
+{
+    QTemporaryDir dir;
+    const QString path = dir.filePath("swap.pclx");
+    FileManager fm;
+    {
+        Object object;
+        object.init();
+        LayerBitmap* layer = object.addNewBitmapLayer();
+        layer->addNewKeyFrameAt(2);
+        layer->getBitmapImageAtFrame(1)->drawRect(QRectF(0, 0, 10, 10), Qt::NoPen, Qt::red, QPainter::CompositionMode_SourceOver, false);
+        layer->getBitmapImageAtFrame(2)->drawRect(QRectF(0, 0, 10, 10), Qt::NoPen, Qt::blue, QPainter::CompositionMode_SourceOver, false);
+        REQUIRE(fm.save(&object, path).ok());
+    }
+    std::unique_ptr<Object> object(fm.load(path));
+    REQUIRE(object);
+    auto* layer = static_cast<LayerBitmap*>(object->getLayer(0));
+    BitmapImage* red = layer->getBitmapImageAtFrame(1);
+    BitmapImage* blue = layer->getBitmapImageAtFrame(2);
+    REQUIRE_FALSE(red->isLoaded());
+
+    // Hold every worker, so the queued read runs only after the save has moved the files.
+    QSemaphore release;
+    const int workers = parallelWorkerCount();
+    for (int i = 0; i < workers; ++i) { workerPool()->start([&release] { release.acquire(); }); }
+    red->loadFileAsync();
+
+    REQUIRE(layer->swapKeyFrames(1, 2));
+    red->setModified(false); // moved, not painted
+    blue->setModified(false);
+    QStringList moved;
+    REQUIRE(layer->presave(object->dataDir(), moved).ok());
+    release.release(workers);
+
+    CHECK(qRed(red->image()->pixel(5, 5)) == 255);
+    CHECK(qBlue(blue->image()->pixel(5, 5)) == 255);
 }

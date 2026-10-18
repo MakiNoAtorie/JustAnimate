@@ -150,7 +150,7 @@ void BitmapImage::loadFile()
 {
     if (!fileName().isEmpty() && !isLoaded())
     {
-        if (mPendingLoad.valid())
+        if (mPendingLoad.valid() && mPendingPath == fileName())
         {
             mImage = mPendingLoad.get();
         }
@@ -171,6 +171,7 @@ void BitmapImage::loadFileAsync()
     if (fileName().isEmpty() || isLoaded() || mPendingLoad.valid()) { return; }
     auto promise = std::make_shared<std::promise<QImage>>();
     mPendingLoad = promise->get_future().share();
+    mPendingPath = fileName();
     workerPool()->start([promise, path = fileName()] { promise->set_value(readImageFile(path)); });
 }
 

@@ -217,6 +217,7 @@ protected:
 private:
     QImage mImage;
     std::shared_future<QImage> mPendingLoad; // from loadFileAsync(); reset on load, unload and write
+    QString mPendingPath; // the file mPendingLoad reads: a save can move the Drawing to another file
     QRect mBounds{0, 0, 0, 0};
 
     /** @see isMinimallyBounded() */
