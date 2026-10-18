@@ -101,8 +101,9 @@ struct Scenario
     std::vector<double> ms;
 };
 
-// Builds the project in memory (not timed) and saves it; saveMs gets the time of the save.
-QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs)
+// Builds the project in memory (not timed) and saves it; saveMs gets the time of the save,
+// resaveMs the time of a second save with one frame modified.
+QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs, double& resaveMs)
 {
     std::unique_ptr<Object> object(new Object);
     object->init();
@@ -128,6 +129,12 @@ QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs
     const Status st = fm.save(object.get(), path);
     saveMs = t.nsecsElapsed() / 1e6;
     REQUIRE(st.ok());
+
+    object->getLayer(1)->setModified(1, true);
+    t.start();
+    const Status resave = fm.save(object.get(), path);
+    resaveMs = t.nsecsElapsed() / 1e6;
+    REQUIRE(resave.ok());
     return path;
 }
 
@@ -210,13 +217,15 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "scrub onion",  "frame",  cfg.frames },
         { "play blend",   "frame",  cfg.frames },
         { "loop",         "frame",  2 * std::min(48, cfg.frames) },
+        { "save one",     "file",   1 },
     };
     QString path;
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
-        double ms = 0;
-        path = createProject(dir.path(), cfg, ms);
+        double ms = 0, resaveMs = 0;
+        path = createProject(dir.path(), cfg, ms, resaveMs);
         sc[0].ms.push_back(ms);
+        sc[10].ms.push_back(resaveMs);
     }
 
     for (int rep = 0; rep < cfg.reps; ++rep)
@@ -598,7 +607,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 10);
+    REQUIRE(sc.size() == 11);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

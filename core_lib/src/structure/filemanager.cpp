@@ -25,6 +25,8 @@ GNU General Public License for more details.
 #include <filesystem>
 #include <QDebug>
 #include <QDir>
+#include <QDirIterator>
+#include <QHash>
 #include <QVersionNumber>
 #include "qminiz.h"
 #include "emergencysave.h"
@@ -34,6 +36,47 @@ GNU General Public License for more details.
 #include "layersound.h"
 #include "soundclip.h"
 #include "util.h"
+
+namespace
+{
+struct FileStamp
+{
+    qint64 size = -1;
+    QDateTime time;
+    bool operator==(const FileStamp& o) const { return size == o.size && time == o.time; }
+};
+
+FileStamp stampOf(const QFileInfo& info) { return { info.size(), info.lastModified() }; }
+
+// What an archive was written from: the PNG frames of its working folder, as they were then.
+struct ArchiveBaseline
+{
+    QString workingDir;
+    FileStamp archive;
+    QHash<QString, FileStamp> frames;
+};
+
+// Read and written only inside FileManager::save, which runs one at a time.
+// shortcut: entries of closed projects stay until exit; drop them on close if memory matters.
+QHash<QString, ArchiveBaseline>& archiveBaselines()
+{
+    static QHash<QString, ArchiveBaseline> baselines;
+    return baselines;
+}
+
+// Keyed by path relative to the working folder, the entry names of the archive.
+QHash<QString, FileStamp> frameStamps(const QString& workingDir, const QString& dataFolder)
+{
+    QHash<QString, FileStamp> stamps;
+    const QDir base(workingDir);
+    for (QDirIterator it(dataFolder, { "*.png" }, QDir::Files); it.hasNext();)
+    {
+        it.next();
+        stamps.insert(base.relativeFilePath(it.filePath()), stampOf(it.fileInfo()));
+    }
+    return stamps;
+}
+}
 
 FileManager::FileManager(QObject* parent) : QObject(parent)
 {
@@ -379,9 +422,26 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     const QString sTmpFile = sFileName + ".tmp";
     QFile::remove(sTmpFile);
 
-    dd << "Miniz: Zipping...";
+    // A frame whose file has the size and time it had when the target archive was written is
+    // still that entry: copy it from there instead of reading the file again.
+    const QString archiveKey = QFileInfo(sFileName).absoluteFilePath();
+    const QHash<QString, FileStamp> stamps = frameStamps(sTempWorkingFolder, sDataFolder);
+    QSet<QString> unchanged;
+    const auto baseline = archiveBaselines().constFind(archiveKey);
+    if (baseline != archiveBaselines().cend() && baseline->workingDir == sTempWorkingFolder &&
+        baseline->archive == stampOf(QFileInfo(sFileName)))
+    {
+        for (auto it = stamps.cbegin(); it != stamps.cend(); ++it)
+        {
+            const auto was = baseline->frames.constFind(it.key());
+            if (was != baseline->frames.cend() && *was == it.value()) unchanged.insert(it.key());
+        }
+    }
+
+    dd << QString("Miniz: Zipping, %1 entries copied from the previous archive...").arg(unchanged.size());
     Status stMiniz = runArchiveJob([&](const MiniZ::Progress& progress) {
-        return MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx", progress);
+        return MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx", progress,
+                                     sFileName, unchanged);
     });
     if (!stMiniz.ok())
     {
@@ -406,6 +466,7 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("Internal Error"),
                       tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(sFileName));
     }
+    archiveBaselines().insert(archiveKey, { sTempWorkingFolder, stampOf(QFileInfo(sFileName)), stamps });
 
     progressForward();
 

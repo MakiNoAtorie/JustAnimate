@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - The rendered-frame cache is sized from RAM and the canvas size and no longer shares Qt's pixmap cache, so looped playback repaints from it after the first pass (#275).
+- Save stores PNG frames without compressing them again and copies unchanged frames from the previous archive, so a save costs what changed (#282).
 - Single-image export asks once before it replaces a file; brush scatter places the same dabs on macOS as on Windows and Linux (#217).
 - Every preference is read and written through its typed table row; the untyped accessors and the runtime type check are gone (#272).
 - Pen, Pencil, Brush, Shape and Polyline vector curves commit through the stroke buffer, mapped into the key's space in one place (#269).

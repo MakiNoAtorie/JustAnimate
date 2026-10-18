@@ -16,6 +16,7 @@ GNU General Public License for more details.
 */
 #include "layerbitmap.h"
 
+#include <filesystem>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
@@ -167,6 +168,13 @@ Status LayerBitmap::presave(const QString& sDataFolder)
         if (!QFile::rename(b->fileName(), dest))
             return fail("rename", b->fileName(), dest);
         b->setFileName(dest);
+        // A moved file keeps its size and time; a new time keeps FileManager::save from
+        // taking it for the unchanged frame that was saved at dest before.
+        std::error_code touchError;
+        std::filesystem::last_write_time(QFileInfo(dest).filesystemFilePath(),
+                                         std::filesystem::file_time_type::clock::now(), touchError);
+        if (touchError)
+            return fail("touch", dest, dest);
     }
 
     return Status::OK;

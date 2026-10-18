@@ -1150,6 +1150,163 @@ TEST_CASE("FileManager write errors fail the save", "[FileManager]")
     }
 }
 
+namespace
+{
+struct ZipEntry { bool found = false; int method = -1; QByteArray data; };
+
+ZipEntry readZipEntry(const QString& zipPath, const QString& name)
+{
+    ZipEntry e;
+    mz_zip_archive zip;
+    mz_zip_zero_struct(&zip);
+    if (!mz_zip_reader_init_file(&zip, zipPath.toUtf8().constData(), 0)) return e;
+    const int index = mz_zip_reader_locate_file(&zip, name.toUtf8().constData(), nullptr, 0);
+    mz_zip_archive_file_stat stat;
+    if (index >= 0 && mz_zip_reader_file_stat(&zip, index, &stat))
+    {
+        size_t size = 0;
+        void* p = mz_zip_reader_extract_to_heap(&zip, index, &size, 0);
+        e = { p != nullptr, stat.m_method, QByteArray(static_cast<const char*>(p), static_cast<int>(size)) };
+        mz_free(p);
+    }
+    mz_zip_reader_end(&zip);
+    return e;
+}
+
+QMap<QString, QByteArray> unzipAll(const QString& zipPath, const QString& dir)
+{
+    REQUIRE(MiniZ::uncompressFolder(zipPath, dir + "/").ok());
+    QMap<QString, QByteArray> files;
+    for (QDirIterator it(dir, QDir::Files, QDirIterator::Subdirectories); it.hasNext();)
+    {
+        QFile f(it.next());
+        REQUIRE(f.open(QFile::ReadOnly));
+        files[QDir(dir).relativeFilePath(f.fileName())] = f.readAll();
+    }
+    return files;
+}
+
+// Bitmap layer with frames 1..count, each an 8x8 fill, so every PNG has the same size.
+LayerBitmap* addFilledFrames(Object* obj, int count, QRgb (*color)(int))
+{
+    LayerBitmap* layer = obj->addNewBitmapLayer();
+    for (int f = 1; f <= count; ++f)
+    {
+        if (f > 1) REQUIRE(layer->addNewKeyFrameAt(f));
+        BitmapImage fill(QRect(0, 0, 8, 8), QColor::fromRgba(color(f)));
+        layer->getBitmapImageAtFrame(f)->paste(&fill);
+    }
+    return layer;
+}
+
+QString zipName(const Object* obj, const QString& file)
+{
+    return QDir(obj->workingDir()).relativeFilePath(file);
+}
+}
+
+TEST_CASE("FileManager stores PNG entries without compression", "[FileManager][SaveCopy]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    LayerBitmap* layer = addFilledFrames(obj.get(), 2, [](int f) { return qRgba(f * 90, 20, 200, 255); });
+    FileManager fm;
+    const QString path = testDir.filePath("stored.pclx");
+    REQUIRE(fm.save(obj.get(), path).ok());
+
+    const ZipEntry png = readZipEntry(path, zipName(obj.get(), layer->getBitmapImageAtFrame(1)->fileName()));
+    REQUIRE(png.found);
+    REQUIRE(png.method == 0);
+    REQUIRE(readZipEntry(path, PFF_XML_FILE_NAME).method == MZ_DEFLATED);
+}
+
+TEST_CASE("FileManager copies unchanged entries from the previous archive", "[FileManager][SaveCopy]")
+{
+    QTemporaryDir testDir("PENCIL_TEST_XXXXXXXX");
+    REQUIRE(testDir.isValid());
+    auto colorAt = [](int f) { return qRgba(f * 60, 255 - f * 40, 30, 255); };
+    std::unique_ptr<Object> obj(new Object);
+    obj->init();
+    LayerBitmap* layer = addFilledFrames(obj.get(), 3, colorAt);
+    FileManager fm;
+    const QString path = testDir.filePath("copy.pclx");
+    REQUIRE(fm.save(obj.get(), path).ok());
+
+    SECTION("An unchanged frame comes from the previous archive, not from the working folder")
+    {
+        // Same size and time, other bytes: only a copy from the archive keeps the saved bytes.
+        const QString file1 = layer->getBitmapImageAtFrame(1)->fileName();
+        const QByteArray saved1 = readZipEntry(path, zipName(obj.get(), file1)).data;
+        REQUIRE_FALSE(saved1.isEmpty());
+        const QDateTime time1 = QFileInfo(file1).lastModified();
+        {
+            QFile f(file1);
+            REQUIRE(f.open(QFile::WriteOnly));
+            f.write(QByteArray(saved1.size(), 'x'));
+            REQUIRE(f.setFileTime(time1, QFileDevice::FileModificationTime));
+        }
+        BitmapImage red(QRect(0, 0, 8, 8), QColor(Qt::red));
+        layer->getBitmapImageAtFrame(2)->paste(&red);
+        REQUIRE(fm.save(obj.get(), path).ok());
+
+        REQUIRE(readZipEntry(path, zipName(obj.get(), file1)).data == saved1);
+        QFile file2(layer->getBitmapImageAtFrame(2)->fileName());
+        REQUIRE(file2.open(QFile::ReadOnly));
+        REQUIRE(readZipEntry(path, zipName(obj.get(), file2.fileName())).data == file2.readAll());
+
+        SECTION("Another archive is written from the working folder")
+        {
+            const QString other = testDir.filePath("other.pclx");
+            REQUIRE(fm.save(obj.get(), other).ok());
+            REQUIRE(readZipEntry(other, zipName(obj.get(), file1)).data == QByteArray(saved1.size(), 'x'));
+        }
+    }
+
+    SECTION("Swapped frames with the same size and time are not copied")
+    {
+        const QString file1 = layer->getBitmapImageAtFrame(1)->fileName();
+        const QString file2 = layer->getBitmapImageAtFrame(2)->fileName();
+        REQUIRE(QFileInfo(file1).size() == QFileInfo(file2).size());
+        const QDateTime time = QFileInfo(file1).lastModified();
+        for (const QString& file : { file1, file2 })
+        {
+            QFile f(file);
+            REQUIRE(f.open(QFile::Append));
+            REQUIRE(f.setFileTime(time, QFileDevice::FileModificationTime));
+        }
+        REQUIRE(fm.save(obj.get(), path).ok()); // the baseline now holds equal sizes and times
+        REQUIRE(layer->swapKeyFrames(1, 2));
+        REQUIRE(fm.save(obj.get(), path).ok());
+
+        FileManager reader;
+        std::unique_ptr<Object> reloaded(reader.load(path));
+        REQUIRE(reloaded);
+        auto loaded = static_cast<LayerBitmap*>(reloaded->findLayerById(layer->id()));
+        REQUIRE(loaded->getBitmapImageAtFrame(1)->image()->pixel(4, 4) == colorAt(2));
+        REQUIRE(loaded->getBitmapImageAtFrame(2)->image()->pixel(4, 4) == colorAt(1));
+    }
+
+    SECTION("An archive built by copying opens identical to a full write")
+    {
+        BitmapImage red(QRect(0, 0, 8, 8), QColor(Qt::red));
+        layer->getBitmapImageAtFrame(3)->paste(&red);
+        REQUIRE(fm.save(obj.get(), path).ok());
+        const QString full = testDir.filePath("full.pclx");
+        REQUIRE(fm.save(obj.get(), full).ok());
+        REQUIRE(unzipAll(path, testDir.filePath("a")) == unzipAll(full, testDir.filePath("b")));
+
+        FileManager reader;
+        std::unique_ptr<Object> reloaded(reader.load(path));
+        REQUIRE(reloaded);
+        auto loaded = static_cast<LayerBitmap*>(reloaded->findLayerById(layer->id()));
+        REQUIRE(loaded->getBitmapImageAtFrame(1)->image()->pixel(4, 4) == colorAt(1));
+        REQUIRE(loaded->getBitmapImageAtFrame(2)->image()->pixel(4, 4) == colorAt(2));
+        REQUIRE(loaded->getBitmapImageAtFrame(3)->image()->pixel(4, 4) == qRgba(255, 0, 0, 255));
+    }
+}
+
 TEST_CASE("Empty Sound Frames")
 {
     SECTION("Invalid src value")

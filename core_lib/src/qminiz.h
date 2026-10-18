@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #ifndef QMINIZ_H
 #define QMINIZ_H
 
+#include <QSet>
 #include <QString>
 #include <functional>
 #include "miniz.h"
@@ -28,8 +29,11 @@ namespace MiniZ
     // progress(done, total) runs before each entry: compressFolder calls it on its own thread,
     // uncompressFolder on its extract workers, so it must be thread-safe.
     using Progress = std::function<void(int done, int total)>;
+    // Entries named in copyFromPrevious (paths relative to srcFolderPath) are copied as they are from
+    // previousZipPath; the others are read from their files. PNG entries are stored, not deflated.
     Status compressFolder(QString zipFilePath, QString srcFolderPath, const QStringList& fileList, QString mimetype,
-                          const Progress& progress = {});
+                          const Progress& progress = {}, const QString& previousZipPath = {},
+                          const QSet<QString>& copyFromPrevious = {});
     Status uncompressFolder(QString zipFilePath, QString destPath, const Progress& progress = {});
 }
 #endif
