@@ -58,23 +58,44 @@ every scrub and play frame; Windows and Linux only).
 
 ## Baseline
 
-Recorded 2026-10-13 on the v0.1 integration tip. Release
-build, Windows 11, AMD Ryzen 5 9600X, MSVC 19.51, Qt 6.8.3 offscreen
-platform, no other load. Always compare before/after on the same machine.
+Recorded 2026-10-18 on the v1.8 integration tip (c194fb4). Release
+build, Windows 11, AMD Ryzen 5 9600X, MSVC, Qt 6.8.3 offscreen platform,
+no other load. `master` before v1.8 read 191.5 MB peak RAM; the frame
+cache (#275) now keeps up to 240 viewed frames. Always compare
+before/after on the same machine, peak RAM included.
 
 ```
 JustAnimate benchmark: 500 frames x 10 bitmap layers (+camera), 1280x720 canvas, 20 strokes per draw, 3 reps
 scenario      median ms     min ms     max ms     median per
-open             4411.0     4381.1     4424.7  4410.96 ms/file
-scrub            1925.8     1868.2     1931.0     3.85 ms/frame
-play              869.8      865.5     1063.2     1.74 ms/frame
-draw pencil      1102.1     1076.2     1351.3    55.10 ms/stroke
-draw brush       1268.4     1211.1     1430.3    63.42 ms/stroke
+save             5715.9     5697.3     5991.9  5715.93 ms/file
+open             1648.9     1553.9     1728.5  1648.86 ms/file
+scrub            1319.5     1306.6     1361.9     2.64 ms/frame
+play             1210.6     1191.5     1281.3     2.42 ms/frame
+draw pencil      1212.6     1208.0     1275.8    60.63 ms/stroke
+draw brush       1633.4     1487.9     1675.4    81.67 ms/stroke
+draw top         1639.1     1398.8     1639.6    81.96 ms/stroke
+scrub onion      1521.4     1519.1     1604.0     3.04 ms/frame
+play blend       2773.7     2761.2     2795.1     5.55 ms/frame
+loop               18.1       18.0       20.5     0.19 ms/frame
+save one          454.3      454.0      484.5   454.29 ms/file
+export          10614.8    10314.1    11325.8    21.23 ms/frame
+timeline           14.4       13.8       21.7     0.72 ms/stroke
+far jump          165.3      161.4      169.7    16.53 ms/jump
+working set      1245.2     1213.4     1525.3     2.49 ms/frame
+draw top onion     1738.6     1709.8     1761.8    86.93 ms/stroke
+autosave ui       260.7      250.8      304.9   260.72 ms/file
+autosave          522.7      493.6      625.8   522.68 ms/file
+draw 4K          1511.9     1498.5     1628.8    75.59 ms/stroke
+pan onion          65.2       63.8       66.1     1.30 ms/event
+erase 4K         1993.9     1776.3     2021.8    99.69 ms/stroke
+peak RAM during scrub and play: 955.7 MB
+working set after the 3s onion scrub: 1003.6 MB
+draw top onion, per pen release: 1.0 layer draws, 0.0 cell renders
+working set after the draw 4K strokes: 189.2 MB
 ```
 
-`open` is file extraction: about 4.3 s of it writes the 5003 archive entries
-to the working folder (about 0.85 ms per file on Windows). Since #147 the
-entries are extracted on up to 8 threads, about 3 times faster.
+`open` is mostly file extraction: it writes the 5003 archive entries to the
+working folder, on up to 8 threads since #147.
 
 ## Brush replay
 

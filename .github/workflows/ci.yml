@@ -21,9 +21,11 @@ jobs:
         run: |
           if git ls-files -z '*.cpp' '*.h' | LC_ALL=C xargs -0 grep -l $'\xEF\xBB\xBF'; then exit 1; fi
           if git grep -n 'ponytail:' -- '*.cpp' '*.h'; then exit 1; fi
-      - name: Every test file has a TEST_CASE; no private Qt headers outside external/
+      - name: Every test file has a TEST_CASE; no private Qt headers outside external/; pool tasks in tests capture by value
         run: |
           if git grep -L TEST_CASE -- 'tests/src/test_*.cpp' | grep .; then exit 1; fi
+          # A pool task outlives its test: a [&] capture waits on the test's dead locals (use PoolHold).
+          if git grep -nE 'workerPool\(\)->start\(\[&' -- 'tests/'; then exit 1; fi
           if git grep -nE '#include\s*[<"](qpa/|private/|[^>"]*_p\.h)' -- '*.cpp' '*.h' ':!core_lib/src/external'; then exit 1; fi
       - name: ChangeLog has clean UTF-8 and no entry inside a heading
         run: bash tools/check-changelog.sh

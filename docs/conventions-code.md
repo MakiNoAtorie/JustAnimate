@@ -61,7 +61,7 @@ Rules for every code change, read before you edit code. Same limits as
 - New app files go in `app/app.cmake` only. A new `ToolType` goes before
   `TOOL_TYPE_COUNT` with a `BaseTool::TypeName`, a `StatusBar` icon and an
   `initGroups` entry.
-- Speed-ups: Release `benchmark` numbers in the commit. Caches match
+- Speed-ups: caches match
   `CanvasPainter::paint` pixel for pixel and clear on
   modification signals; reuse `LayerCellCache`/`layersKey`; output-changing
   settings join `invalidateAllCache`. A cache that survives a scrub is keyed

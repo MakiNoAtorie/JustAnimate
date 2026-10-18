@@ -21,6 +21,8 @@ GNU General Public License for more details.
 
 #include <algorithm>
 #include <cstring>
+#include <string>
+#include <set>
 #include <cstdio>
 #include <random>
 #include <vector>
@@ -769,9 +771,12 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 21);
+    // Each row records once and has its own name; rows append without a count to keep in step.
+    std::set<std::string> names;
     for (const Scenario& s : sc)
     {
+        CAPTURE(s.name);
+        REQUIRE(names.insert(s.name).second);
         REQUIRE(s.ms.size() == 1);
         REQUIRE(s.ms[0] >= 0.0);
     }

@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include <memory>
 #include <vector>
 #include <QHash>
+#include <QSemaphore>
+#include <QThreadPool>
 #include <QSettings>
 #include <QVariant>
 
@@ -28,8 +30,28 @@ GNU General Public License for more details.
 #include "pencildef.h"
 #include "scribblearea.h"
 #include "pencilsettings.h"
+#include "util.h"
 
 /// Puts the given QSettings keys back as they were (value or absent) at scope exit.
+// Parks every worker of the shared pool until release(). The workers have left before it is destroyed,
+// so no worker waits on a semaphore of a finished test, and a failed REQUIRE never blocks the pool.
+class PoolHold
+{
+public:
+    PoolHold()
+    {
+        for (int i = 0; i < mWorkers; ++i) { workerPool()->start([go = mGo, left = mLeft] { go->acquire(); left->release(); }); }
+    }
+    ~PoolHold() { release(); mLeft->acquire(mWorkers); }
+    void release() { if (!mReleased) { mGo->release(mWorkers); mReleased = true; } }
+
+private:
+    const int mWorkers = parallelWorkerCount();
+    std::shared_ptr<QSemaphore> mGo = std::make_shared<QSemaphore>();
+    std::shared_ptr<QSemaphore> mLeft = std::make_shared<QSemaphore>();
+    bool mReleased = false;
+};
+
 class SettingsGuard
 {
 public:

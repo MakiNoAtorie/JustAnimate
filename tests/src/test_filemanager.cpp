@@ -1859,24 +1859,6 @@ TEST_CASE("Frame pool: held and onion Drawings unload when far and the pool coun
     CHECK(s.object->framePoolMemory() == loaded);
 }
 
-// Parks every worker of the shared pool until release(). The workers have left before it is destroyed,
-// so no worker waits on a semaphore of a finished test, and a failed REQUIRE never blocks the pool.
-class PoolHold
-{
-public:
-    PoolHold()
-    {
-        for (int i = 0; i < mWorkers; ++i) { workerPool()->start([go = mGo, left = mLeft] { go->acquire(); left->release(); }); }
-    }
-    ~PoolHold() { release(); mLeft->acquire(mWorkers); }
-    void release() { if (!mReleased) { mGo->release(mWorkers); mReleased = true; } }
-
-private:
-    const int mWorkers = parallelWorkerCount();
-    std::shared_ptr<QSemaphore> mGo = std::make_shared<QSemaphore>();
-    std::shared_ptr<QSemaphore> mLeft = std::make_shared<QSemaphore>();
-    bool mReleased = false;
-};
 
 TEST_CASE("Frame pool: a background read queued before a save moves the Drawing gives it its own pixels")
 {

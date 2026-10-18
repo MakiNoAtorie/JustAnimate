@@ -10,6 +10,7 @@ Copy this file into your scratchpad, fill the two placeholders, and point every 
 - Read the ticket, then its comments (`gh issue view <n> --comments`): a "Decision" or "Agent Brief" there wins over the body. Read `CLAUDE.md` and the conventions doc (with its milestone homes section) before you code.
 - Start the branch on the integration tip: `git checkout -B <branch> <integration branch>`. Use PowerShell for git commands.
 - Build with the Skill tool `tdd`. Run local checks only; never push.
+- Add the ticket's benchmark scenario or counter and run it in `[BenchmarkSmoke]`; take no timings. The orchestrator runs one quiet before/after benchmark once every ticket has landed.
 - Run every new test red on the old code before you write the fix; copy its failing line (`file(line)` and the assertion, or the compile error) for the report. A refactor's parity test passes on the old code by design: report it as "green on old code (parity)" with one mutation that turns it red.
 - An acceptance criterion of the form "no X remains" is proved by an `rg` over `app/` and `core_lib/`: quote the command and its empty result in the report.
 - List every change a user can see (texts, prompts, dialogs, defaults) in the report, even when the ticket allows it.

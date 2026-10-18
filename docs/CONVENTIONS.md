@@ -21,6 +21,8 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `tools/lsan.supp`.
 - Windows: `tools\build-test.cmd ["test name" | [tag]]` runs the CI
   source guards and the suite offscreen.
+- A red CI run: `bash tools/ci-failures.sh [run id]` prints the failed
+  checks, the seed and, after a crash, the test that ran before it.
 - Keep each file's line endings (`git ls-files --eol`); Git Bash `sed -i`
   drops CRLF. Commit with `git commit -F <file>` (UTF-8, no BOM).
   Stage files by name: the tree can hold the user's untracked files.
@@ -42,6 +44,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   `grab()` on a shown area (offscreen glyphs are boxes); sizes compare
   to a `sizeHint` (styles differ by OS). Timing: `QEvent::setTimestamp`, no sleeps. `Status` in `((...))`.
 - Tests write files only under their own `QTemporaryDir`.
+- A test that parks pool workers uses `PoolHold` (`testfixture.h`).
+- A skip-if-unchanged path (cache, archive copy) is tested with an input
+  whose content changes while its size and time stay the same.
 - Fixtures are stack objects or `unique_ptr`; every `new` QObject in app
   code gets a parent.
 - No modal dialog in a test path or on the command line; a UI
@@ -49,6 +54,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   fails its test after 2 s (watchdog in `tests/src/main.cpp`).
 - A test that crashes a child on purpose sets `SEM_NOGPFAULTERRORBOX`
   on Windows.
+- Speed-ups carry Release `benchmark` numbers: in the commit for a lone
+  ticket; for a parallel milestone, one quiet run of `master` against the
+  integration tip, in its PR.
 - Benchmark rows append to the `sc` table and `docs/benchmarks.md`,
   record through `row("<name>")` and run in `[BenchmarkSmoke]`. Counters
   are `StageProfiler` stages appended before `StageCount`; tests read
@@ -56,7 +64,9 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
 - Golden values change only in a commit that means to change output.
 - Saved XML: compare attributes sorted (Qt 6.4/6.5 QDom writes them in
   hash order). Render golden hashes keep a column per
-  platform or Qt version that rasterises differently.
+  platform or Qt version that rasterises differently; for a version you
+  cannot build (CI runs Qt 6.4 and 6.5.3), take the hash CI prints with
+  `CAPTURE`.
 - A test that needs the app's connections builds `TestSession`, never
   its own session struct; event filters go on after `start()`.
 
