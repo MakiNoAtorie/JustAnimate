@@ -418,7 +418,44 @@ void ScribbleArea::onFrameModified(int frameNumber)
 
 void ScribbleArea::onViewChanged()
 {
-    invalidateAllCache();
+    if (currentTool()->isDrawingTool() && currentTool()->isActive())
+    {
+        mFrameCacheView.reset(); // the cache is kept while drawing, so its view is unknown
+        return;
+    }
+    const QTransform view = mEditor->view()->getView();
+    const int frame = mEditor->currentFrame();
+    const QPixmap* shown = mFrameCache.object(frame);
+    const std::optional<QTransform> old = std::exchange(mFrameCacheView, view);
+    // A pan by exactly whole device pixels shifts the cached canvas and renders only the strips it exposes.
+    // Scaled and rotated draws do not shift pixel for pixel. An unchanged view is a request to redraw everything.
+    const QPointF moved = old ? QPointF(view.dx() - old->dx(), view.dy() - old->dy()) * mDevicePixelRatio : QPointF();
+    const QPoint step = moved.toPoint();
+    const bool pan = shown && old && shown->size() == mCanvas.size() && !step.isNull() && moved == QPointF(step)
+                     && view.type() <= QTransform::TxTranslate && old->type() <= QTransform::TxTranslate;
+    if (!pan)
+    {
+        invalidateAllCache();
+        return;
+    }
+    mCanvas = *shown;
+    mFrameCache.clear();
+    mFrameCacheView = *old * QTransform::fromTranslate(step.x() / mDevicePixelRatio, step.y() / mDevicePixelRatio);
+    QRegion exposed;
+    mCanvas.scroll(step.x(), step.y(), mCanvas.rect(), &exposed);
+    // Onion tints outline the canvas edges: the old edge lines are drawn again too.
+    const QRect was(step, mCanvas.size());
+    exposed += QRegion(QRect(was.left(), 0, 1, mCanvas.height())) + QRegion(QRect(was.right(), 0, 1, mCanvas.height()))
+             + QRegion(QRect(0, was.top(), mCanvas.width(), 1)) + QRegion(QRect(0, was.bottom(), mCanvas.width(), 1));
+    exposed &= mCanvas.rect();
+    invalidatePainterCaches(); // the camera image and the layer cells hold the old view
+    for (const QRect& r : exposed)
+    {
+        drawCanvas(frame, QRectF(QPointF(r.topLeft()) / mDevicePixelRatio, QSizeF(r.size()) / mDevicePixelRatio).toAlignedRect());
+    }
+    const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
+    mFrameCache.insert(frame, new QPixmap(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
+    updateFrame();
 }
 
 void ScribbleArea::onLayerChanged()

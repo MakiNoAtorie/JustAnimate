@@ -338,12 +338,7 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     bitmapImage->loadFile(); // Critical! force the BitmapImage to load the image
 
     Q_UNUSED(blitRect) // cached whole; the painter clips
-    if (mOnionCacheView != mViewTransform)
-    {
-        mOnionCache.clear();
-        mOnionCacheView = mViewTransform;
-    }
-    // Everything tintOnionSkinFrame reads; QImage::cacheKey changes on every write to the image.
+    // Everything the tint reads; QImage::cacheKey changes on every write to the image.
     QColor tint = Qt::transparent;
     if (nFrame < mFrameNumber) { tint = mOnionSkinPainterOptions.prevColor; }
     else if (nFrame > mFrameNumber) { tint = mOnionSkinPainterOptions.nextColor; }
@@ -351,39 +346,54 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     const qreal opacity = tween.opacity - (1.0 - painter.opacity());
     const QPoint topLeft = bitmapImage->topLeft();
     const QTransform canvasTransform = onionTransform(layer, nFrame);
+    // The view's translation is not in the key: a pan moves the cached pixmap by whole pixels.
     const QVector<qint64> key{ bitmapImage->image()->cacheKey(), topLeft.x(), topLeft.y(), colorize,
                                colorize ? qint64(tint.rgba64()) : 0, colorize ? qRound64(opacity * 1e6) : 0,
                                qRound64(canvasTransform.m11() * 1e6), qRound64(canvasTransform.m12() * 1e6),
                                qRound64(canvasTransform.m21() * 1e6), qRound64(canvasTransform.m22() * 1e6),
-                               qRound64(canvasTransform.dx() * 1e6), qRound64(canvasTransform.dy() * 1e6) };
+                               qRound64(canvasTransform.dx() * 1e6), qRound64(canvasTransform.dy() * 1e6),
+                               qRound64(mViewTransform.m11() * 1e6), qRound64(mViewTransform.m12() * 1e6),
+                               qRound64(mViewTransform.m21() * 1e6), qRound64(mViewTransform.m22() * 1e6) };
 
-    OnionFrame frame;
+    painter.setWorldMatrixEnabled(false);
+    const QRect canvasRect(QPoint(), mOnionSkinPixmap.deviceIndependentSize().toSize());
+    const QTransform world = canvasTransform * mViewTransform;
+    const QRect bounds = world.mapRect(QRectF(bitmapImage->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1);
+    const QRect shown = bounds & canvasRect;
+    if (shown.isEmpty()) { return; }
+
+    // A pan by exactly whole pixels moves the cached pixmap. Only unscaled draws shift pixel for pixel, and the tint
+    // outlines the canvas edges, so a frame that touches an edge is tinted again.
+    const QPointF view(mViewTransform.dx(), mViewTransform.dy());
     if (const OnionFrame* cached = mOnionCache.object(key))
     {
-        frame = *cached;
-    }
-    else
-    {
-        // Outside the image the onion pixmap stays transparent, so only its bounds are rendered.
-        const QRect canvasRect(QPoint(), mOnionSkinPixmap.deviceIndependentSize().toSize());
-        const QTransform world = canvasTransform * mViewTransform;
-        const QRect r = world.mapRect(QRectF(bitmapImage->bounds())).toAlignedRect().adjusted(-1, -1, 1, 1) & canvasRect;
-        if (!r.isEmpty())
+        const QPointF moved = view - cached->view;
+        const QPoint step = moved.toPoint();
+        const QRect drawn(cached->pos, cached->pixmap.deviceIndependentSize().toSize());
+        const QRect inner = canvasRect.adjusted(1, 1, -1, -1);
+        const bool shifts = world.type() <= QTransform::TxTranslate && moved == QPointF(step)
+                            && inner.contains(drawn) && inner.contains(shown);
+        const QRect at = drawn.translated(step);
+        if ((moved.isNull() || shifts) && at.contains(shown))
         {
-            QPainter onionSkinPainter;
-            initializePainter(onionSkinPainter, mOnionSkinPixmap, r);
-            onionSkinPainter.setWorldTransform(world);
-            onionSkinPainter.drawImage(topLeft, *bitmapImage->image());
-            tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
-            onionSkinPainter.end();
-            const qreal dpr = mOnionSkinPixmap.devicePixelRatio();
-            frame = { mOnionSkinPixmap.copy(QRectF(QPointF(r.topLeft()) * dpr, QSizeF(r.size()) * dpr).toAlignedRect()), r.topLeft() };
-            ++mOnionFramesTinted;
+            painter.drawPixmap(at.topLeft(), cached->pixmap);
+            return;
         }
-        mOnionCache.insert(key, new OnionFrame(frame), qMax(1, frame.pixmap.width() * frame.pixmap.height() * 4));
     }
-    painter.setWorldMatrixEnabled(false);
-    if (!frame.pixmap.isNull()) { painter.drawPixmap(frame.pos, frame.pixmap); }
+
+    StageScope stage(StageProfiler::OnionTint);
+    // Outside the image the onion pixmap stays transparent, so only its bounds are rendered.
+    QPainter onionSkinPainter;
+    initializePainter(onionSkinPainter, mOnionSkinPixmap, shown);
+    onionSkinPainter.setWorldTransform(world);
+    onionSkinPainter.drawImage(topLeft, *bitmapImage->image());
+    tintOnionSkinFrame(painter, onionSkinPainter, nFrame, colorize, tween.opacity);
+    onionSkinPainter.end();
+    const qreal dpr = mOnionSkinPixmap.devicePixelRatio();
+    const QPixmap pixmap = mOnionSkinPixmap.copy(QRectF(QPointF(shown.topLeft()) * dpr, QSizeF(shown.size()) * dpr).toAlignedRect());
+    ++mOnionFramesTinted;
+    mOnionCache.insert(key, new OnionFrame{ pixmap, shown.topLeft(), view }, qMax(1, pixmap.width() * pixmap.height() * 4));
+    painter.drawPixmap(shown.topLeft(), pixmap);
 }
 
 void CanvasPainter::paintVectorOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize)

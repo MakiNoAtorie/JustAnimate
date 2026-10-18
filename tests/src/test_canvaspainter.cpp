@@ -254,3 +254,40 @@ TEST_CASE("Onion skin: a scrub back reuses the tinted onion frames", "[CanvasPai
     freshPainter.paint(kCanvas);
     CHECK(canvas.toImage() == fresh.toImage());
 }
+
+TEST_CASE("Onion skin: a pure pan reuses the tinted onion frames and a zoom tints them again", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object = onionFrames();
+    const QRect wide(0, 0, 400, 300); // every onion frame inside the canvas, before and after the pan
+    // Unscaled, a pan reuses the frames; scaled and rotated, a pan tints them again.
+    for (const QTransform& view : kOnionViews)
+    {
+        const bool unscaled = view.type() <= QTransform::TxTranslate;
+        QPixmap canvas(wide.size());
+        CanvasPainter painter(canvas);
+        setUpOnion(painter, object.get(), view, true);
+        painter.paint(wide);
+        const int tinted = painter.onionFramesTinted();
+        REQUIRE(tinted == 4);
+
+        const auto matchesFresh = [&](const QTransform& v) {
+            QPixmap fresh(wide.size());
+            CanvasPainter freshPainter(fresh);
+            setUpOnion(freshPainter, object.get(), v, true);
+            freshPainter.paint(wide);
+            return canvas.toImage() == fresh.toImage();
+        };
+        const QTransform panned = view * QTransform::fromTranslate(11, -7);
+        painter.setViewTransform(panned, panned.inverted());
+        painter.paint(wide);
+        const int afterPan = painter.onionFramesTinted();
+        CHECK(afterPan == (unscaled ? tinted : 2 * tinted));
+        CHECK(matchesFresh(panned));
+
+        const QTransform zoomed = panned * QTransform::fromScale(1.25, 1.25);
+        painter.setViewTransform(zoomed, zoomed.inverted());
+        painter.paint(wide);
+        CHECK(painter.onionFramesTinted() == afterPan + tinted);
+        CHECK(matchesFresh(zoomed));
+    }
+}

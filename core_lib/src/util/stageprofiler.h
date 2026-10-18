@@ -26,6 +26,7 @@ public:
         DrawingLoad,
         LayerDraw,
         CellRender,
+        OnionTint,
         StageCount
     };
 
@@ -51,6 +52,7 @@ public:
             "drawing load",
             "layer draw",
             "cell render",
+            "onion tint",
         };
         for (int i = 0; i < StageCount; ++i)
             std::fprintf(out, "stage %-13s %8llu calls %10.2f ms\n", names[i],

@@ -261,6 +261,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "autosave ui",  "file",   1 },
         { "autosave",     "file",   1 },
         { "draw 4K",      "stroke", cfg.strokes },
+        { "pan onion",    "event",  50 },
     };
     // Rows after "play blend" are found by name, so tickets append rows without renumbering.
     auto row = [&sc](const char* name) -> Scenario& {
@@ -381,6 +382,23 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             t.start();
             drawStrokes(s, PENCIL, cfg.strokes, &onionRelease);
             row("draw top onion").ms.push_back(t.nsecsElapsed() / 1e6);
+
+            // Hand-tool pan steps with the onion skin on: each shifts the canvas and renders the exposed strips.
+            const QMetaObject::Connection panned =
+                QObject::connect(s.editor->view(), &ViewManager::viewChanged, s.area.get(), &ScribbleArea::onViewChanged);
+            s.editor->tools()->setCurrentTool(HAND);
+            s.editor->scrubTo(3);
+            s.area->repaint();
+            counter.paints = 0;
+            t.start();
+            for (int i = 0; i < 50; ++i)
+            {
+                s.editor->view()->panByScreen(QPointF(i % 10 < 5 ? 7 : -7, 3));
+                s.area->repaint();
+            }
+            row("pan onion").ms.push_back(t.nsecsElapsed() / 1e6);
+            REQUIRE(counter.paints == 50);
+            QObject::disconnect(panned);
         }
 
         // Play again with every bitmap layer above the bottom one blended (multiply, screen, overlay, add).
@@ -745,7 +763,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 19);
+    REQUIRE(sc.size() == 20);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

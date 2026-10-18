@@ -162,10 +162,9 @@ private:
     bool mPostLayersPixmapCacheValid = false;
     QVector<int> mPaintOrder; // FrameRenderer::paintOrder with Rough layers
 
-    // Tinted bitmap onion frames, cropped to their bounds, keyed by content; another view empties it.
-    struct OnionFrame { QPixmap pixmap; QPoint pos; };
+    // Tinted bitmap onion frames, cropped to their bounds, keyed by content and the view's scale and rotation.
+    struct OnionFrame { QPixmap pixmap; QPoint pos; QPointF view; }; // pos holds for the view translation view
     QCache<QVector<qint64>, OnionFrame> mOnionCache{ 64 << 20 }; // cost in bytes
-    QTransform mOnionCacheView;
     int mOnionFramesTinted = 0;
 
     // There's a considerable amount of overhead in simply allocating a QPointF on the fly.

@@ -696,3 +696,67 @@ TEST_CASE("ScribbleArea - the grid follows its setting at once")
     editor->preference()->set<SETTING::GRID>(true);
     CHECK(area->grab().toImage() == on);
 }
+
+TEST_CASE("ScribbleArea - a pan with onion skin shifts the canvas and renders only the exposed strips")
+{
+    const SettingsGuard settings({ SETTING_PREV_ONION, SETTING_NEXT_ONION, SETTING_ONION_RED, SETTING_ONION_BLUE });
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    ViewManager* view = editor->view();
+    QObject::connect(view, &ViewManager::viewChanged, area, &ScribbleArea::onViewChanged);
+    area->init();
+    area->resize(400, 300);
+    area->show();
+    for (int f = 1; f <= 5; ++f)
+    {
+        if (f > 1) { REQUIRE(layer->addNewKeyFrameAt(f)); }
+        layer->getBitmapImageAtFrame(f)->drawEllipse(QRectF(-180 + f * 40, -70 + f * 10, 120, 90), QPen(Qt::black, 3),
+                                                     QBrush(QColor(60 + f * 30, 180, 90)), QPainter::CompositionMode_SourceOver, true);
+    }
+    PreferenceManager* prefs = editor->preference();
+    prefs->set<SETTING::PREV_ONION>(true);
+    prefs->set<SETTING::NEXT_ONION>(true);
+    prefs->set<SETTING::ONION_RED>(true);
+    prefs->set<SETTING::ONION_BLUE>(true);
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(HAND);
+    editor->scrubTo(3);
+    area->onObjectLoaded();
+    area->grab();
+
+    const auto fresh = [&] { area->onObjectLoaded(); return area->grab().toImage(); };
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    view->panByScreen(QPointF(13, -7));
+    const QImage panned = area->grab().toImage();
+    CHECK(StageProfiler::calls(StageProfiler::OnionTint) == 0);
+    StageProfiler::enabled() = profiling;
+    CHECK(panned == fresh());
+
+    // Zoomed or rotated, a pan renders the whole canvas and stays pixel-exact.
+    view->scale(1.5);
+    area->grab();
+    view->panByScreen(QPointF(-9, 18));
+    const QImage zoomed = area->grab().toImage();
+    CHECK(zoomed == fresh());
+    view->rotate(30);
+    area->grab();
+    view->panByScreen(QPointF(6, -4));
+    const QImage turned = area->grab().toImage();
+    CHECK(turned == fresh());
+    view->rotate(0);
+    view->scale(1.0);
+    area->grab();
+
+    // A change made without a signal shows only in the strip the pan exposes.
+    layer->getBitmapImageAtFrame(3)->drawRect(QRectF(-2000, -2000, 4000, 4000), Qt::NoPen, QBrush(Qt::red),
+                                              QPainter::CompositionMode_SourceOver, false);
+    view->panByScreen(QPointF(10, 0));
+    const QImage shifted = area->grab().toImage();
+    CHECK(shifted.pixelColor(3, 150) == QColor(Qt::red));
+    CHECK(shifted.pixelColor(200, 150) != QColor(Qt::red));
+}

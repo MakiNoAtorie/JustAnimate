@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include <ctime>
 #include <deque>
 #include <memory>
+#include <optional>
 
 #include <QColor>
 #include <QMap>
@@ -310,6 +311,7 @@ private:
     QPolygonF mOriginalPolygonF = QPolygonF();
 
     QCache<int, QPixmap> mFrameCache; ///< composited frames by frame number, cost in KB
+    std::optional<QTransform> mFrameCacheView; ///< the view mFrameCache was drawn with; empty when unknown
     QRect mModifiedArea; ///< see setModifiedArea; empty means the whole canvas
 
     // The preference parts of the paint options; settingUpdated refreshes them so a paint reads no preference.
