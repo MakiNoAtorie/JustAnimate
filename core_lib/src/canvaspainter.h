@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #ifndef CANVASPAINTER_H
 #define CANVASPAINTER_H
 
+#include <functional>
 #include <memory>
 #include <QBitArray>
 #include <QCache>
@@ -119,8 +120,12 @@ private:
 
     void paintTransformedSelection(QPainter& painter, BitmapImage* bitmapImage, const QRect& selection, const QTransform& keyView);
 
-    void paintBitmapOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
-    void paintVectorOnionSkinFrame(QPainter& painter, const QRect& blitRect, Layer* layer, int nFrame, bool colorize);
+    void paintBitmapOnionSkinFrame(QPainter& painter, Layer* layer, int nFrame, bool colorize);
+    void paintVectorOnionSkinFrame(QPainter& painter, Layer* layer, int nFrame, bool colorize);
+    /// Draws the tinted onion frame cached under key, or renders, tints and caches it.
+    /// bounds hold what render paints, in Drawing coordinates; pad is in device pixels.
+    void paintOnionFrame(QPainter& painter, const Layer* layer, int nFrame, bool colorize, QVector<qint64> key,
+                         const QRectF& bounds, int pad, const std::function<void(QPainter&)>& render);
     void tintOnionSkinFrame(QPainter& painter, QPainter& onionSkinPainter, int nFrame, bool colorize, qreal frameOpacity);
     /// The onion frame's canvas transform: its tween, then its Shift and Trace offset.
     QTransform onionTransform(const Layer* layer, int nFrame) const;
@@ -164,7 +169,7 @@ private:
     bool mPostLayersPixmapCacheValid = false;
     QVector<int> mPaintOrder; // FrameRenderer::paintOrder with Rough layers
 
-    // Tinted bitmap onion frames, cropped to their bounds, keyed by content and the view's scale and rotation.
+    // Tinted onion frames, cropped to their bounds, keyed by content and the view's scale and rotation.
     struct OnionFrame { QPixmap pixmap; QPoint pos; QPointF view; }; // pos holds for the view translation view
     QCache<QVector<qint64>, OnionFrame> mOnionCache{ 64 << 20 }; // cost in bytes
     int mOnionFramesTinted = 0;

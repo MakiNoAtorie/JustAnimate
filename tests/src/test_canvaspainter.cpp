@@ -21,7 +21,9 @@ GNU General Public License for more details.
 #include "bitmapimage.h"
 #include "canvaspainter.h"
 #include "layerbitmap.h"
+#include "layervector.h"
 #include "object.h"
+#include "vectorimage.h"
 
 namespace
 {
@@ -291,4 +293,123 @@ TEST_CASE("Onion skin: a pure pan reuses the tinted onion frames and a zoom tint
         CHECK(painter.onionFramesTinted() == afterPan + tinted);
         CHECK(matchesFresh(zoomed));
     }
+}
+
+namespace
+{
+
+// One vector layer, keyframes 1-5: a filled square and a pressure stroke each; frame 5 crosses the right canvas edge.
+std::unique_ptr<Object> vectorOnionFrames()
+{
+    std::unique_ptr<Object> object(new Object);
+    object->init();
+    LayerVector* layer = object->addNewVectorLayer();
+    for (int f = 1; f <= 5; ++f)
+    {
+        layer->addNewKeyFrameAt(f);
+        VectorImage* image = layer->getVectorImageAtFrame(f);
+        const qreal x = -160 + f * 50;
+        const qreal y = -80 + f * 12;
+        BezierCurve square(QList<QPointF>{ QPointF(x, y), QPointF(x + 90, y), QPointF(x + 90, y + 70), QPointF(x, y + 70), QPointF(x, y) }, false);
+        square.setWidth(3);
+        image->addCurve(square, 1.0, false);
+        image->selectAll();
+        image->fillSelectedPath(f % 3 + 1);
+        image->deselectAll();
+        BezierCurve stroke(QList<QPointF>{ QPointF(x, y + 90), QPointF(x + 50, y + 75), QPointF(x + 110, y + 100) },
+                           QList<qreal>{ 0.2, 1.0, 0.5 }, 0.5);
+        stroke.setWidth(8);
+        stroke.setVariableWidth(true);
+        stroke.setColorNumber(f % 3 + 2);
+        image->addCurve(stroke, 1.0, false);
+    }
+    layer->getVectorImageAtFrame(2)->setOpacity(0.7);
+    return object;
+}
+
+QImage freshOnion(const Object* object, const QTransform& view, bool colorize)
+{
+    QPixmap canvas(kCanvas.size());
+    CanvasPainter painter(canvas);
+    setUpOnion(painter, object, view, colorize);
+    painter.paint(kCanvas);
+    return canvas.toImage();
+}
+
+} // namespace
+
+// Hash of these vector onion renders before vector onion frames were cached.
+TEST_CASE("Onion skin: vector onion frames render as before", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object = vectorOnionFrames();
+    QCryptographicHash all(QCryptographicHash::Sha1);
+    for (bool colorize : { true, false })
+    {
+        for (const QTransform& view : kOnionViews)
+        {
+            QPixmap canvas(kCanvas.size());
+            CanvasPainter painter(canvas);
+            setUpOnion(painter, object.get(), view, colorize);
+            painter.paint(kCanvas);
+            const QImage full = canvas.toImage();
+            all.addData(sha1(full));
+
+            painter.resetLayerCache();
+            painter.paintCached(QRect(10, 10, 40, 40));
+            painter.paintCached(QRect(240, 50, 60, 100));
+            painter.paintCached(kCanvas);
+            CHECK(canvas.toImage() == full);
+        }
+    }
+    const std::string hash = all.result().toHex().toStdString();
+    CAPTURE(hash);
+#ifdef Q_OS_MACOS
+    // shortcut: placeholder macOS hash (macOS rasterises antialiased paths differently); copy the captured value from CI.
+    CHECK(hash == "macOS hash not recorded yet");
+#else
+    CHECK(hash == "1a82d3eb51e9e80f57d4f840b393c1fd11a94b21");
+#endif
+}
+
+TEST_CASE("Onion skin: vector onion frames stay cached until their Drawing or the palette changes", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object = vectorOnionFrames();
+    REQUIRE(object->getColorCount() > 4);
+    QPixmap canvas(kCanvas.size());
+    CanvasPainter painter(canvas);
+    setUpOnion(painter, object.get(), kOnionViews[0], true);
+    painter.paint(kCanvas);
+    const QImage before = canvas.toImage();
+    REQUIRE(painter.onionFramesTinted() == 4);
+
+    painter.resetLayerCache(); // as on every scrub
+    painter.paint(kCanvas);
+    CHECK(painter.onionFramesTinted() == 4);
+    CHECK(canvas.toImage() == before);
+
+    // No resetLayerCache(): the below-layers cell key holds the vector Drawing's modification stamp.
+    BezierCurve line(QList<QPointF>{ QPointF(-120, 60), QPointF(-40, 80) }, false);
+    line.setWidth(4);
+    static_cast<LayerVector*>(object->getLayer(0))->getVectorImageAtFrame(2)->addCurve(line, 1.0, false);
+    painter.paintCached(kCanvas);
+    CHECK(painter.onionFramesTinted() == 5);
+    CHECK(canvas.toImage() != before);
+    CHECK(canvas.toImage() == freshOnion(object.get(), kOnionViews[0], true));
+
+    // Uncolourised onion frames show the palette colours.
+    setUpOnion(painter, object.get(), kOnionViews[0], false);
+    painter.paint(kCanvas);
+    const QImage plain = canvas.toImage();
+    object->setColor(3, QColor(250, 20, 20)); // palette-exempt: drawing data
+    painter.paintCached(kCanvas);
+    CHECK(canvas.toImage() != plain);
+    CHECK(canvas.toImage() == freshOnion(object.get(), kOnionViews[0], false));
+
+    // A pure pan moves the cached frames; frames 4 and 5 reach the right canvas edge, so they are tinted again.
+    const int tinted = painter.onionFramesTinted();
+    const QTransform panned = kOnionViews[0] * QTransform::fromTranslate(11, -7);
+    painter.setViewTransform(panned, panned.inverted());
+    painter.paint(kCanvas);
+    CHECK(painter.onionFramesTinted() == tinted + 2);
+    CHECK(canvas.toImage() == freshOnion(object.get(), panned, false));
 }

@@ -18,6 +18,7 @@ GNU General Public License for more details.
 
 #include <cmath>
 #include <limits>
+#include <utility>
 #include <QImage>
 #include <QFile>
 #include <QFileInfo>
@@ -619,7 +620,7 @@ void VectorImage::select(QRectF rectangle)
         bool b = rectangle.contains(mArea[i].mPath.boundingRect());
         setAreaSelected(i, b);
     }
-    modification();
+    touchStamp(); // selection only: not an edit
 }
 
 /**
@@ -635,7 +636,7 @@ void VectorImage::setSelected(int curveNumber, bool YesOrNo)
 
     if (YesOrNo)
         mSelectionRect |= mCurves[curveNumber].getBoundingRect();
-    modification();
+    touchStamp(); // selection only: not an edit
 }
 
 /**
@@ -651,7 +652,7 @@ void VectorImage::setSelected(int curveNumber, int vertexNumber, bool YesOrNo)
     QPointF vertex = getVertex(curveNumber, vertexNumber);
     if (YesOrNo) mSelectionRect |= QRectF(vertex.x(), vertex.y(), 0.0, 0.0);
 
-    modification();
+    touchStamp(); // selection only: not an edit
 }
 
 /**
@@ -699,7 +700,7 @@ void VectorImage::setAreaSelected(int areaNumber, bool YesOrNo)
 {
     mArea[areaNumber].setSelected(YesOrNo);
     if (YesOrNo) mSelectionRect |= mArea[areaNumber].mPath.boundingRect();
-    modification();
+    touchStamp(); // selection only: not an edit
 }
 
 /**
@@ -831,6 +832,7 @@ void VectorImage::selectAll()
         setSelected(i, true);
     }
     mSelectionTransformation.reset();
+    touchStamp(); // selection only: not an edit
 }
 
 /**
@@ -863,7 +865,7 @@ void VectorImage::deselectAll()
     }
     mSelectionRect = QRectF(0, 0, 0, 0);
     mSelectionTransformation.reset();
-    modification();
+    touchStamp(); // selection only: not an edit
 }
 
 /**
@@ -891,6 +893,21 @@ QRectF VectorImage::getBoundsOfTransformedCurves() const
     return bounds;
 }
 
+QRectF VectorImage::paintBounds() const
+{
+    // A cubic stays inside its control points; a pen adds at most half its width.
+    QRectF bounds;
+    for (const BezierCurve& stored : mCurves)
+    {
+        BezierCurve curve = stored.isPartlySelected() ? stored.transformed(mSelectionTransformation) : stored;
+        QRectF rect = curve.getSimplePath().controlPointRect();
+        if (curve.getVariableWidth()) { rect |= curve.getStrokedPath().controlPointRect(); }
+        const qreal radius = curve.getWidth() / 2;
+        bounds |= rect.adjusted(-radius, -radius, radius, radius);
+    }
+    return bounds;
+}
+
 /**
  * @brief VectorImage::calculateSelectionRect
  */
@@ -911,7 +928,7 @@ void VectorImage::calculateSelectionRect()
 void VectorImage::setSelectionTransformation(QTransform transform)
 {
     mSelectionTransformation = transform;
-    modification();
+    touchStamp(); // selection only: not an edit
 }
 
 /**
@@ -1180,6 +1197,7 @@ void VectorImage::removeColor(int index)
             mCurves[i].decreaseColorNumber();
         }
     }
+    modification();
 }
 
 void VectorImage::moveColor(int start, int end)
@@ -1192,6 +1210,7 @@ void VectorImage::moveColor(int start, int end)
      {
          if (mCurves[i].getColorNumber() == start) mCurves[i].setColorNumber(end);
      }
+     modification();
 }
 
 void VectorImage::remapColors(const QMap<int, int>& mapping)
@@ -1204,6 +1223,7 @@ void VectorImage::remapColors(const QMap<int, int>& mapping)
     {
         curve.setColorNumber(mapping.value(curve.getColorNumber(), curve.getColorNumber()));
     }
+    modification();
 }
 
 /**
@@ -1232,9 +1252,11 @@ void VectorImage::paintImage(QPainter& painter,
     // --- draw filled areas ----
     if (!simplified)
     {
+        // Area paths follow their curves; every curve change calls modification().
+        const bool curvesChanged = std::exchange(mAreasStamp, stamp()) != stamp();
         for (int i = 0; i < mArea.size(); i++)
         {
-            updateArea(mArea[i]); // to do: if selected
+            if (curvesChanged) { updateArea(mArea[i]); }
 
             // --- fill areas ---- //
             QColor color = object.getColor(mArea[i].mColorNumber).color;
@@ -1261,7 +1283,7 @@ void VectorImage::paintImage(QPainter& painter,
     }
 
     // ---- draw curves ----
-    for (BezierCurve curve : mCurves)
+    for (BezierCurve& curve : mCurves)
     {
         curve.drawPath(painter, object, mSelectionTransformation, simplified, showThinCurves);
         painter.setClipping(false);

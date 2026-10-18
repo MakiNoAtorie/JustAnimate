@@ -84,9 +84,13 @@ public:
     int length() const { return mLength; }
     void setLength(int len) { mLength = len; }
 
-    void modification() { mIsModified = true; }
-    void setModified(bool b) { mIsModified = b; }
+    void modification() { mIsModified = true; mStamp = nextStamp(); }
+    void setModified(bool b) { mIsModified = b; if (b) { mStamp = nextStamp(); } }
     bool isModified() const { return mIsModified; }
+    /** Changes on every modification; no two keys share one, so it can key a cache like QImage::cacheKey. */
+    qint64 stamp() const { return mStamp; }
+    /** Changes the stamp only: for state that changes the pixels but is not saved, such as the selection. */
+    void touchStamp() { mStamp = nextStamp(); }
 
     /** With tween on, the frames this key holds interpolate its state to the next key's. */
     bool tween() const { return mTween; }
@@ -138,9 +142,12 @@ protected:
     void notifyLoaded();
 
 private:
+    static qint64 nextStamp();
+
     int mFrame = -1;
     int mLength = 1;
     bool mIsModified = true;
+    qint64 mStamp = nextStamp(); // a copy gets its own
     bool mTween = false;
     CameraEasingType mTweenEasing = CameraEasingType::LINEAR;
     TweenState mTweenState;

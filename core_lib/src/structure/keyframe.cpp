@@ -17,8 +17,16 @@ GNU General Public License for more details.
 
 #include "keyframe.h"
 
+#include <atomic>
+
 #include "attributes.h"
 
+
+qint64 KeyFrame::nextStamp()
+{
+    static std::atomic<qint64> last{ 0 };
+    return ++last;
+}
 
 KeyFrame::KeyFrame()
 {
@@ -52,6 +60,7 @@ KeyFrame& KeyFrame::operator=(const KeyFrame& k2)
     mFrame = k2.mFrame;
     mLength = k2.mLength;
     mIsModified = k2.mIsModified;
+    mStamp = nextStamp();
     mAttachedFileName = k2.mAttachedFileName;
     copyKeyAttributes(k2, *this);
     // intentionally not copying event listeners

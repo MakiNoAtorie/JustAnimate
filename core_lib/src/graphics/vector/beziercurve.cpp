@@ -433,9 +433,9 @@ void BezierCurve::drawPath(QPainter& painter, const Object& object, QTransform t
 {
     QColor color = object.getColor(colorNumber).color;
 
-    BezierCurve myCurve;
-    if (isPartlySelected()) { myCurve = (transformed(transformation)); }
-    else { myCurve = *this; }
+    BezierCurve transformedCurve;
+    if (isPartlySelected()) { transformedCurve = transformed(transformation); }
+    BezierCurve& myCurve = isPartlySelected() ? transformedCurve : *this;
 
     if ( variableWidth && !simplified && !invisible)
     {

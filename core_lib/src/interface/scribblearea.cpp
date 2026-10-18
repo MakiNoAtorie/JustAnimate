@@ -394,12 +394,6 @@ void ScribbleArea::onFrameModified(int frameNumber)
     if (mPrefs->get<SETTING::PREV_ONION>() || mPrefs->get<SETTING::NEXT_ONION>()) {
         invalidateOnionSkinsCacheAround(frameNumber);
         mCameraPainter.resetCache();
-        // Bitmap onion frames are in the below-layers cell key; vector ones have no content key yet (#289).
-        const Object* object = mEditor->object();
-        for (int i = 0; i < object->getLayerCount(); ++i)
-        {
-            if (object->getLayer(i)->type() == Layer::VECTOR) { mCanvasPainter.resetLayerCache(); break; }
-        }
     }
     invalidateCacheForFrame(frameNumber);
 
