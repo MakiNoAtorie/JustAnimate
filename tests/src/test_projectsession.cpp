@@ -282,3 +282,64 @@ TEST_CASE("ProjectSession: a saved project heads the recent files once")
     CHECK(project.recentFiles().isEmpty());
     CHECK(shown.isEmpty());
 }
+
+TEST_CASE("ProjectSession: the count autosave runs in the background and a failed one keeps the previous file", "[ProjectSession]")
+{
+    TestSession session;
+    session.object->addNewBitmapLayer();
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    ProjectSession project(editor, nullptr);
+
+    QTemporaryDir dir;
+    REQUIRE(dir.isValid());
+    const QString path = dir.filePath("project.pclx");
+    REQUIRE(project.saveAs(path).ok());
+    auto bytes = [&path] {
+        QFile file(path);
+        return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+    };
+    const QByteArray previous = bytes();
+    REQUIRE_FALSE(previous.isEmpty());
+
+    int progress = 0;
+    int saved = 0;
+    int failed = 0;
+    QObject::connect(&project, &ProjectSession::progress, [&] { progress++; });
+    QObject::connect(&project, &ProjectSession::saved, [&] { saved++; });
+    QObject::connect(&project, &ProjectSession::saveFailed, [&] { failed++; });
+    drawStroke(editor);
+
+    SECTION("It shows no progress dialog and the user draws while it runs")
+    {
+        REQUIRE(project.autoSave());
+        CHECK(progress == 0);
+        drawStroke(editor);
+        REQUIRE(project.finishBackgroundSave().ok());
+        CHECK(saved == 1);
+        CHECK(failed == 0);
+        // The stroke drawn during the save is not in the file.
+        CHECK(project.isDirty());
+    }
+    SECTION("A clean result once nothing changed during the save")
+    {
+        REQUIRE(project.autoSave());
+        REQUIRE(project.finishBackgroundSave().ok());
+        CHECK_FALSE(project.isDirty());
+    }
+    SECTION("A failed archive keeps the previous file and the project dirty")
+    {
+        // The archive is written to <path>.tmp: a folder there makes the worker fail.
+        REQUIRE(QDir().mkpath(path + ".tmp"));
+        REQUIRE(project.autoSave());
+        CHECK_FALSE(project.finishBackgroundSave().ok());
+        CHECK(failed == 1);
+        CHECK(saved == 0);
+        CHECK(bytes() == previous);
+        CHECK(project.isDirty());
+        // The next save after the failure writes the whole project.
+        REQUIRE(QDir(path + ".tmp").removeRecursively());
+        REQUIRE(project.saveAs(path).ok());
+        CHECK_FALSE(project.isDirty());
+    }
+}

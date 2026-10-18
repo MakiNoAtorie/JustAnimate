@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #include <QDir>
 #include <QFileInfo>
+#include <QMetaObject>
 #include <QSettings>
 
 #include "autosaverbytime.h"
@@ -38,6 +39,12 @@ ProjectSession::ProjectSession(Editor* editor, QObject* parent) : QObject(parent
     connect(timer, &AutosaverByTime::timeout, this, &ProjectSession::autoSaveTick);
 }
 
+ProjectSession::~ProjectSession()
+{
+    // The worker posts to this object before the future is ready.
+    if (mBackgroundSave.valid()) { mBackgroundSave.wait(); }
+}
+
 bool ProjectSession::isDirty() const
 {
     return mEditor->undoRedo()->hasUnsavedChanges();
@@ -45,6 +52,7 @@ bool ProjectSession::isDirty() const
 
 Status ProjectSession::open(const QString& path)
 {
+    finishBackgroundSave();
     int value = 0;
     int maximum = 100;
     emit progress(Task::Open, value, maximum);
@@ -66,6 +74,7 @@ Status ProjectSession::open(const QString& path)
 
 Status ProjectSession::load(const QString& path)
 {
+    finishBackgroundSave();
     return mEditor->openObject(path, [](int) {}, [](int) {});
 }
 
@@ -83,6 +92,7 @@ Status ProjectSession::save()
 Status ProjectSession::saveAs(const QString& path)
 {
     if (path.isEmpty()) { return Status::CANCELED; }
+    finishBackgroundSave();
 
     int value = 0;
     int maximum = 100;
@@ -121,6 +131,7 @@ Status ProjectSession::saveAs(const QString& path)
 
 bool ProjectSession::maybeSave()
 {
+    finishBackgroundSave();
     if (!isDirty()) { return true; }
 
     switch (askSaveChanges ? askSaveChanges() : SaveChoice::Cancel)
@@ -139,22 +150,68 @@ bool ProjectSession::close()
 
 bool ProjectSession::autoSave()
 {
-    if (!mEditor->object()->filePath().isEmpty())
+    const QString path = mEditor->object()->filePath();
+    if (path.isEmpty())
     {
-        return save().ok();
+        emit autoSaveSkipped();
+        return false;
     }
-    emit autoSaveSkipped();
-    return false;
+    // Legacy .pcl goes through save(), which asks for a .pclx path.
+    if (QFileInfo(path).suffix().compare(PFF_BIG_LETTER_EXTENSION, Qt::CaseInsensitive) != 0) { return save().ok(); }
+    // The next count saves the edits made while this one runs.
+    if (mBackgroundSave.valid()) { return false; }
+
+    mEditor->prepareSave();
+    mBackgroundPath = path;
+    mBackgroundPoint = mEditor->undoRedo()->savePoint();
+    // An unrecorded change made while the archive is written sets it again, and keeps the project dirty.
+    mBackgroundWasModified = mEditor->object()->isModified();
+    mEditor->object()->setModified(false);
+
+    FileManager fm;
+    mBackgroundSave = fm.saveInBackground(mEditor->object(), path, [this]
+    {
+        QMetaObject::invokeMethod(this, [this] { finishBackgroundSave(); }, Qt::QueuedConnection);
+    });
+    mSkippedSoundClips = fm.skippedSoundClips();
+    // The working folder could not be written: no worker runs.
+    if (mBackgroundSave.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+    {
+        return finishBackgroundSave().ok();
+    }
+    return true;
+}
+
+Status ProjectSession::finishBackgroundSave()
+{
+    if (!mBackgroundSave.valid()) { return Status::OK; }
+    const Status st = mBackgroundSave.get();
+    if (!st.ok())
+    {
+        if (mBackgroundWasModified) { mEditor->object()->setModified(true); }
+        emit saveFailed(st);
+        return st;
+    }
+    if (mEditor->undoRedo()->savePoint() == mBackgroundPoint && !mEditor->object()->isModified())
+    {
+        mEditor->undoRedo()->markSaved();
+    }
+    mEditor->clearTemporary();
+    remember(mBackgroundPath);
+    emit saved(mBackgroundPath);
+    return st;
 }
 
 Status ProjectSession::autoSaveTick()
 {
+    finishBackgroundSave();
     FileManager fm;
     return fm.writeToWorkingFolder(mEditor->object());
 }
 
 bool ProjectSession::recover()
 {
+    finishBackgroundSave();
     FileManager fm;
     for (const QString& folder : fm.searchForUnsavedProjects())
     {

@@ -20,6 +20,8 @@ GNU General Public License for more details.
 
 
 #include <functional>
+#include <future>
+#include <memory>
 #include <QObject>
 #include <QString>
 #include <QDomElement>
@@ -43,6 +45,9 @@ public:
 
     Object* load(const QString& sFilenNme);
     Status  save(const Object*, const QString& sFileName);
+    // Writes the modified frames, main.xml and the palette now, then zips and renames on the worker pool.
+    // done() runs on the worker before the future is ready. The Object is not read after the call.
+    std::future<Status> saveInBackground(const Object*, const QString& sFileName, const std::function<void()>& done);
     Status  writeToWorkingFolder(const Object*);
 
     Status error() const { return mError; }
@@ -76,6 +81,9 @@ private:
     void handleOpenProjectError(Status::ErrorCode, const DebugDetails&);
 
     void progressForward();
+    struct PendingArchive;
+    // Checks the path and writes the working folder; on OK, archive zips it into the target.
+    Status writeProjectFiles(const Object*, const QString& sFileName, std::shared_ptr<PendingArchive>& archive);
     // Runs job(progress) on a worker thread and emits progress here until it is done.
     Status runArchiveJob(const std::function<Status(const std::function<void(int, int)>&)>& job);
 

@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include <QDir>
 #include <QDirIterator>
 #include <QHash>
+#include <QThreadPool>
 #include <QVersionNumber>
 #include "qminiz.h"
 #include "emergencysave.h"
@@ -295,7 +296,56 @@ bool FileManager::isArchiveFormat(const QString& fileName) const
     return true;
 }
 
+// The archive step of a save: zip the working folder into <target>.tmp, then rename it over the target.
+// It reads files only, never the Object, so it runs on any thread. It holds the save lock until destroyed.
+struct FileManager::PendingArchive
+{
+    DebugDetails dd;
+    std::shared_ptr<void> lock;
+    QString target;
+    QString workingDir;
+    QString dataFolder;
+    QStringList files;
+    QHash<QString, FileStamp> stamps;
+
+    Status zip(const MiniZ::Progress& progress);
+    Status publish();
+};
+
 Status FileManager::save(const Object* object, const QString& sFileName)
+{
+    std::shared_ptr<PendingArchive> archive;
+    Status st = writeProjectFiles(object, sFileName, archive);
+    if (!st.ok()) return st;
+    st = runArchiveJob([&archive](const MiniZ::Progress& progress) { return archive->zip(progress); });
+    if (st.ok()) st = archive->publish();
+    progressForward();
+    return st;
+}
+
+std::future<Status> FileManager::saveInBackground(const Object* object, const QString& sFileName,
+                                                  const std::function<void()>& done)
+{
+    auto result = std::make_shared<std::promise<Status>>();
+    std::future<Status> future = result->get_future();
+    std::shared_ptr<PendingArchive> archive;
+    const Status st = writeProjectFiles(object, sFileName, archive);
+    if (!st.ok())
+    {
+        result->set_value(st);
+        return future;
+    }
+    workerPool()->start([result, archive, done]() mutable {
+        Status archived = archive->zip({});
+        if (archived.ok()) archived = archive->publish();
+        archive.reset(); // releases the save lock before the result is visible
+        if (done) done();
+        result->set_value(archived);
+    });
+    return future;
+}
+
+Status FileManager::writeProjectFiles(const Object* object, const QString& sFileName, std::shared_ptr<PendingArchive>& archive)
 {
     DebugDetails dd;
     dd << "\n[Project SAVE diagnostics]\n";
@@ -322,6 +372,7 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     }
 
     // Progress handlers process events, so a timer can start a save while one runs on the same working folder.
+    // The lock lives until the archive job is done or dropped, on whatever thread runs it.
     static std::atomic<bool> sSaving{false};
     if (sSaving.exchange(true))
     {
@@ -330,7 +381,7 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("Save in Progress"),
                       tr("Another save is still running. Please try again when it is done."));
     }
-    OnScopeExit(sSaving = false);
+    const std::shared_ptr<void> saveLock(nullptr, [](void*) { sSaving = false; });
 
     const int totalCount = object->totalKeyFrameCount();
     mMaxProgressValue = totalCount + 5;
@@ -417,19 +468,25 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("An internal error occurred. The project could not be saved."));
     }
 
+    archive = std::make_shared<PendingArchive>();
+    *archive = { dd, saveLock, sFileName, sTempWorkingFolder, sDataFolder, filesToZip, {} };
+    return Status::OK;
+}
+
+Status FileManager::PendingArchive::zip(const MiniZ::Progress& progress)
+{
     // Write the archive next to the target and only replace the original
     // once the new file is complete, so a failed save never corrupts it.
-    const QString sTmpFile = sFileName + ".tmp";
+    const QString sTmpFile = target + ".tmp";
     QFile::remove(sTmpFile);
 
     // A frame whose file has the size and time it had when the target archive was written is
     // still that entry: copy it from there instead of reading the file again.
-    const QString archiveKey = QFileInfo(sFileName).absoluteFilePath();
-    const QHash<QString, FileStamp> stamps = frameStamps(sTempWorkingFolder, sDataFolder);
+    stamps = frameStamps(workingDir, dataFolder);
     QSet<QString> unchanged;
-    const auto baseline = archiveBaselines().constFind(archiveKey);
-    if (baseline != archiveBaselines().cend() && baseline->workingDir == sTempWorkingFolder &&
-        baseline->archive == stampOf(QFileInfo(sFileName)))
+    const auto baseline = archiveBaselines().constFind(QFileInfo(target).absoluteFilePath());
+    if (baseline != archiveBaselines().cend() && baseline->workingDir == workingDir &&
+        baseline->archive == stampOf(QFileInfo(target)))
     {
         for (auto it = stamps.cbegin(); it != stamps.cend(); ++it)
         {
@@ -439,10 +496,8 @@ Status FileManager::save(const Object* object, const QString& sFileName)
     }
 
     dd << QString("Miniz: Zipping, %1 entries copied from the previous archive...").arg(unchanged.size());
-    Status stMiniz = runArchiveJob([&](const MiniZ::Progress& progress) {
-        return MiniZ::compressFolder(sTmpFile, sTempWorkingFolder, filesToZip, "application/x-pencil2d-pclx", progress,
-                                     sFileName, unchanged);
-    });
+    Status stMiniz = MiniZ::compressFolder(sTmpFile, workingDir, files, "application/x-pencil2d-pclx",
+                                           progress, target, unchanged);
     if (!stMiniz.ok())
     {
         QFile::remove(sTmpFile);
@@ -453,38 +508,33 @@ Status FileManager::save(const Object* object, const QString& sFileName)
                       tr("An internal error occurred. The project could not be saved."));
     }
     dd << "Miniz: Zip file saved successfully";
+    return Status::OK;
+}
 
+Status FileManager::PendingArchive::publish()
+{
     // Replaces the original in one step (atomic on POSIX, MoveFileEx on Windows).
+    const QString sTmpFile = target + ".tmp";
     std::error_code renameError;
     std::filesystem::rename(QFileInfo(sTmpFile).filesystemFilePath(),
-                            QFileInfo(sFileName).filesystemFilePath(), renameError);
+                            QFileInfo(target).filesystemFilePath(), renameError);
     if (renameError)
     {
         QFile::remove(sTmpFile);
-        dd << QString("Error: Unable to rename %1 to %2: %3").arg(sTmpFile, sFileName, QString::fromStdString(renameError.message()));
+        dd << QString("Error: Unable to rename %1 to %2: %3").arg(sTmpFile, target, QString::fromStdString(renameError.message()));
         return Status(Status::FAIL, dd,
                       tr("Internal Error"),
-                      tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(sFileName));
+                      tr("Failed to replace \"%1\". Please make sure you have sufficient permissions.").arg(target));
     }
-    archiveBaselines().insert(archiveKey, { sTempWorkingFolder, stampOf(QFileInfo(sFileName)), stamps });
-
-    progressForward();
-
-    if (!saveOk)
-    {
-        return Status(Status::FAIL, dd,
-                      tr("Internal Error"),
-                      tr("An internal error occurred. The project may not have been saved successfully."));
-    }
+    archiveBaselines().insert(QFileInfo(target).absoluteFilePath(), { workingDir, stampOf(QFileInfo(target)), stamps });
 
     // A manual save is newer than any autosave: recovery must not go back to one.
-    const QString autosave = QDir(object->workingDir()).filePath(PFF_AUTOSAVE_FILE_NAME);
-    if (!object->workingDir().isEmpty() && QFileInfo(sFileName) != QFileInfo(autosave))
+    const QString autosave = QDir(workingDir).filePath(PFF_AUTOSAVE_FILE_NAME);
+    if (!workingDir.isEmpty() && QFileInfo(target) != QFileInfo(autosave))
     {
         EmergencySave::clearCompletedAutosave();
         QFile::remove(autosave);
     }
-
     return Status::OK;
 }
 

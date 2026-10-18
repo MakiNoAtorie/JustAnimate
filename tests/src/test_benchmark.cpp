@@ -48,6 +48,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "playbackmanager.h"
 #include "preferencemanager.h"
+#include "projectsession.h"
 #include "scribblearea.h"
 #include "stageprofiler.h"
 #include "stroketool.h"
@@ -255,6 +256,8 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "far jump",     "jump",   10 },
         { "working set",  "frame",  cfg.frames },
         { "draw top onion", "stroke", cfg.strokes },
+        { "autosave ui",  "file",   1 },
+        { "autosave",     "file",   1 },
     };
     // Rows after "play blend" are found by name, so tickets append rows without renumbering.
     auto row = [&sc](const char* name) -> Scenario& {
@@ -405,6 +408,17 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         const Status exported = Exporter::run(*s.editor->object(), seq);
         row("export").ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(exported.ok());
+
+        // Count autosave after one stroke on a saved copy: the time the UI is blocked, then until the file is done.
+        ProjectSession project(s.editor.get(), nullptr);
+        REQUIRE(project.saveAs(dir.filePath("autosave-bench.pclx")).ok());
+        drawStrokes(s, PENCIL, 1);
+        t.start();
+        REQUIRE(project.autoSave());
+        row("autosave ui").ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(project.finishBackgroundSave().ok());
+        row("autosave").ms.push_back(t.nsecsElapsed() / 1e6);
+
         // Timeline after a stroke end: the Drawing's frameModified, then a timeline paint.
         TimeLine timeline(nullptr);
         timeline.setEditor(s.editor.get());
@@ -716,7 +730,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 16);
+    REQUIRE(sc.size() == 18);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

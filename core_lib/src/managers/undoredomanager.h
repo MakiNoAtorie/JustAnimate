@@ -74,6 +74,8 @@ public:
 
     /** Marks the current state as saved. Call only after the file was written successfully. */
     void markSaved();
+    /** The undo state now: it changes with each push, undo and redo. */
+    QPair<int, int> savePoint() const { return { mUndoStack.index(), mPushCount }; }
 
     /** Number of Edits open now. */
     int pendingStateCount() const { return static_cast<int>(mSaveStates.size()); }
