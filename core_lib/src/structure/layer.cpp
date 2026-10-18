@@ -95,6 +95,14 @@ void Layer::foreachKeyFrame(std::function<void(KeyFrame*)> action) const
     }
 }
 
+void Layer::foreachKeyFrameIn(int from, int to, const std::function<void(KeyFrame*)>& action) const
+{
+    for (auto it = mKeyFrames.lower_bound(to); it != mKeyFrames.end() && it->first >= from; ++it)
+    {
+        action(it->second);
+    }
+}
+
 QList<KeyFrame*> Layer::linkedKeys(const KeyFrame* key) const
 {
     QList<KeyFrame*> result;

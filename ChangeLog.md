@@ -8,6 +8,7 @@ the original Pencil2D history is kept below for reference.
 - The rendered-frame cache is sized from RAM and the canvas size and no longer shares Qt's pixmap cache, so looped playback repaints from it after the first pass (#275).
 - Save stores PNG frames without compressing them again and copies unchanged frames from the previous archive, so a save costs what changed (#282).
 - Image sequence export encodes frames on all cores while the next frames render, and movie export renders the next frame while ffmpeg reads the last (#284).
+- The timeline draws only the keys in view, and a stroke repaints one column instead of every cell of every layer (#276).
 - Single-image export asks once before it replaces a file; brush scatter places the same dabs on macOS as on Windows and Linux (#217).
 - Every preference is read and written through its typed table row; the untyped accessors and the runtime type check are gone (#272).
 - Pen, Pencil, Brush, Shape and Polyline vector curves commit through the stroke buffer, mapped into the key's space in one place (#269).

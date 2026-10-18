@@ -25,13 +25,16 @@ GNU General Public License for more details.
 #include <QDoubleSpinBox>
 #include <QFontMetrics>
 #include <QFormLayout>
+#include <QHash>
 #include <QLineEdit>
 #include <QKeyEvent>
 #include <QPainter>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSettings>
 #include <QTimer>
 #include <QDebug>
+#include <vector>
 
 #include "attributes.h"
 #include "camerapropertiesdialog.h"
@@ -44,6 +47,7 @@ GNU General Public License for more details.
 #include "playbackmanager.h"
 #include "preferencemanager.h"
 #include "soundclip.h"
+#include "stageprofiler.h"
 #include "timeline.h"
 
 #include "cellmenus.h"
@@ -216,6 +220,43 @@ void TimeLineCells::updateContent()
     update();
 }
 
+void TimeLineCells::onFrameModified(int frameNumber)
+{
+    // Key adds, removals and links come with the same signal as a pixel edit.
+    if (mRedrawContent || mCache == nullptr || visibleKeysHash() != mDrawnKeysHash)
+    {
+        updateContent();
+        return;
+    }
+    updateFrame(frameNumber);
+}
+
+void TimeLineCells::foreachVisibleKey(const Layer* layer, const std::function<void(KeyFrame*)>& action) const
+{
+    // A sound clip spans many cells; sound layers have few keys.
+    if (layer->type() == Layer::SOUND) { layer->foreachKeyFrame(action); return; }
+    // The key before the view can draw a tween line into it.
+    const KeyFrame* before = layer->getLastKeyFrameAtPosition(mFrameOffset - 1);
+    const int first = before && before->pos() < mFrameOffset ? before->pos() : mFrameOffset;
+    layer->foreachKeyFrameIn(first, mFrameOffset + (width() - mOffsetX) / mFrameSize + 2, action);
+}
+
+size_t TimeLineCells::visibleKeysHash() const
+{
+    const Object* object = mEditor->object();
+    size_t seed = qHash(object->getLayerCount());
+    for (int i = 0; i < object->getLayerCount(); ++i)
+    {
+        const Layer* layer = object->getLayer(i);
+        seed = qHashMulti(seed, layer->id());
+        foreachVisibleKey(layer, [&](KeyFrame* key) {
+            seed = qHashMulti(seed, key->pos(), key->length(), int(key->mark()), key->tween(),
+                              layer->isLinked(key), layer->isFrameSelected(key->pos()));
+        });
+    }
+    return seed;
+}
+
 bool TimeLineCells::didDetachLayer() const {
     return abs(mMouseMoveY) > mLayerDetachThreshold;
 }
@@ -238,6 +279,7 @@ void TimeLineCells::showFrameMenu(QPoint pos)
 
 void TimeLineCells::drawContent()
 {
+    StageScope stage(StageProfiler::TimelineContent);
     if (mCache == nullptr)
     {
         mCache = new QPixmap(size());
@@ -258,12 +300,29 @@ void TimeLineCells::drawContent()
 
     const int widgetWidth = width();
 
-    // Draw non-current layers
+    // Row geometry once per redraw, as getLayerY and isLayerFolded per row are quadratic in the layer count.
     const Object* object = mEditor->object();
     Q_ASSERT(object != nullptr);
-    for (int i = 0; i < object->getLayerCount(); i++)
+    const int layerCount = object->getLayerCount();
+    QHash<int, int> groupTop; // group id to its top layer index
+    for (int i = 0; i < layerCount; ++i)
     {
-        if (i == mEditor->layers()->currentLayerIndex() || object->isLayerFolded(i))
+        if (const int group = object->getLayer(i)->groupId()) { groupTop[group] = i; }
+    }
+    std::vector<int> rowY(layerCount);
+    std::vector<bool> folded(layerCount);
+    for (int i = layerCount - 1, row = 0; i >= 0; --i)
+    {
+        rowY[i] = mOffsetY + (row - mLayerOffset) * mLayerHeight;
+        const LayerGroup* group = object->findLayerGroup(object->getLayer(i)->groupId());
+        folded[i] = group && group->collapsed && groupTop.value(group->id) != i;
+        if (!folded[i]) { ++row; }
+    }
+
+    // Draw non-current layers
+    for (int i = 0; i < layerCount; i++)
+    {
+        if (i == mEditor->layers()->currentLayerIndex() || folded[i])
         {
             continue;
         }
@@ -271,7 +330,7 @@ void TimeLineCells::drawContent()
 
         if (layeri != nullptr)
         {
-            const int layerY = getLayerY(i);
+            const int layerY = rowY[i];
             switch (mType)
             {
             case TIMELINE_CELL_TYPE::Tracks:
@@ -371,9 +430,10 @@ void TimeLineCells::drawContent()
     {
         paintTicks(painter, palette);
 
-        for (int i = 0; i < object->getLayerCount(); i++) {
-            paintSelectedFrames(painter, object->getLayer(i), i);
+        for (int i = 0; i < layerCount; i++) {
+            paintSelectedFrames(painter, object->getLayer(i), rowY[i]);
         }
+        mDrawnKeysHash = visibleKeysHash();
     }
     mRedrawContent = false;
 }
@@ -495,9 +555,11 @@ void TimeLineCells::paintFrames(QPainter& painter, QColor trackCol, const Layer*
 
     int recHeight = height - 4;
 
-    const QList<int> selectedFrames = layer->getSelectedFramesByPos();
-    layer->foreachKeyFrame([&](KeyFrame* key)
+    const QList<int> selectedList = layer->getSelectedFramesByPos();
+    const QSet<int> selectedFrames(selectedList.cbegin(), selectedList.cend());
+    foreachVisibleKey(layer, [&](KeyFrame* key)
     {
+        StageScope keyStage(StageProfiler::TimelineKey);
         int framePos = key->pos();
         int recWidth = standardWidth;
         int recLeft = getFrameX(framePos) - recWidth;
@@ -624,17 +686,22 @@ void TimeLineCells::paintHighlightedFrame(QPainter& painter, int framePos, int r
     painter.restore();
 }
 
-void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, const int layerIndex) const
+void TimeLineCells::paintSelectedFrames(QPainter& painter, const Layer* layer, int layerY) const
 {
     int mouseX = mMouseMoveX;
     int posUnderCursor = getFrameNumber(mMousePressX);
     int standardWidth = mFrameSize - 2;
     int recWidth = standardWidth;
     int recHeight = mLayerHeight - 4;
-    int recTop = getLayerY(layerIndex) + 1;
+    int recTop = layerY + 1;
+    // Keys out of view draw nothing, unless a move hovers them into it; a sound clip spans many cells.
+    const int firstVisible = mFrameOffset;
+    const int lastVisible = mFrameOffset + (width() - mOffsetX) / mFrameSize + 2;
+    const bool all = mGesture.isMoving() || layer->type() == Layer::SOUND;
 
     painter.save();
     for (int framePos : layer->getSelectedFramesByPos()) {
+        if (!all && (framePos < firstVisible || framePos > lastVisible)) { continue; }
 
         KeyFrame* key = layer->getKeyFrameAt(framePos);
         if (key->length() > 1)

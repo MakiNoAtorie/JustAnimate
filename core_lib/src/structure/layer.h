@@ -161,6 +161,8 @@ public:
     KeyFrame *getKeyFrameWhichCovers(int frameNumber) const;
 
     void foreachKeyFrame(std::function<void(KeyFrame*)>) const;
+    /// The keys at positions from..to, last first like foreachKeyFrame.
+    void foreachKeyFrameIn(int from, int to, const std::function<void(KeyFrame*)>& action) const;
 
     /// The other keys of this layer linked to `key` (Linked Drawing, GLOSSARY.md).
     QList<KeyFrame*> linkedKeys(const KeyFrame* key) const;

@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #define TIMELINECELLS_H
 
 #include "frameeditgesture.h"
+#include <functional>
 #include <QString>
 #include <QWidget>
 #include "layercamera.h"
@@ -85,6 +86,8 @@ signals:
 public slots:
     void updateContent();
     void updateFrame(int frameNumber);
+    /** Redraws the cells only when a key in view came, went or changed; a pixel edit repaints one column. */
+    void onFrameModified(int frameNumber);
     void hScrollChange(int);
     void vScrollChange(int);
     void onScrollingVerticallyStopped();
@@ -117,6 +120,9 @@ private:
 
     bool trackScrubber();
     void drawContent();
+    /** Calls action on each key whose cell or tween line can reach the frames in view, last first. */
+    void foreachVisibleKey(const Layer* layer, const std::function<void(KeyFrame*)>& action) const;
+    size_t visibleKeysHash() const;
     void paintTicks(QPainter& painter, const QPalette& palette) const;
     void paintOnionSkin(QPainter& painter) const;
     void paintLayerGutter(QPainter& painter) const;
@@ -125,7 +131,7 @@ private:
     void paintWaveform(QPainter& painter, const SoundClip* clip, int recTop, int recHeight, int frameSize) const;
     void paintCurrentFrameBorder(QPainter& painter, int recLeft, int recTop, int recWidth, int recHeight) const;
     void paintFrameCursorOnCurrentLayer(QPainter& painter, int recTop, int recWidth, int recHeight) const;
-    void paintSelectedFrames(QPainter& painter, const Layer* layer, const int layerIndex) const;
+    void paintSelectedFrames(QPainter& painter, const Layer* layer, int layerY) const;
     void paintLabel(QPainter& painter, const Layer* layer, int x, int y, int height, int width, bool selected, LayerVisibility layerVisibility) const;
     void paintSelection(QPainter& painter, int x, int y, int width, int height) const;
     void paintHighlightedFrame(QPainter& painter, int framePos, int recTop, int recWidth, int recHeight) const;
@@ -145,6 +151,7 @@ private:
 
     QPixmap* mCache = nullptr;
     bool mRedrawContent = false;
+    size_t mDrawnKeysHash = 0; // visibleKeysHash() at the last drawContent
     bool mDrawFrameNumber = true;
     bool mbShortScrub = false;
     int mFrameLength = 1;

@@ -52,6 +52,7 @@ GNU General Public License for more details.
 #include "stageprofiler.h"
 #include "stroketool.h"
 #include "testfixture.h"
+#include "timeline.h"
 #include "tiledbuffer.h"
 #include "toolmanager.h"
 #include "viewmanager.h"
@@ -221,6 +222,7 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "loop",         "frame",  2 * std::min(48, cfg.frames) },
         { "save one",     "file",   1 },
         { "export",       "frame",  cfg.frames },
+        { "timeline",     "stroke", cfg.strokes },
     };
     // Rows after "play blend" are found by name, so tickets append rows without renumbering.
     auto row = [&sc](const char* name) -> Scenario& {
@@ -363,6 +365,20 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         const Status exported = Exporter::run(*s.editor->object(), seq);
         row("export").ms.push_back(t.nsecsElapsed() / 1e6);
         REQUIRE(exported.ok());
+        // Timeline after a stroke end: the Drawing's frameModified, then a timeline paint.
+        TimeLine timeline(nullptr);
+        timeline.setEditor(s.editor.get());
+        timeline.initUI();
+        timeline.resize(1280, 300);
+        timeline.show(); // a hidden widget gets a resize, and so a full redraw, on every grab
+        timeline.grab();
+        t.start();
+        for (int i = 0; i < cfg.strokes; ++i)
+        {
+            emit s.editor->frameModified(1);
+            timeline.grab();
+        }
+        row("timeline").ms.push_back(t.nsecsElapsed() / 1e6);
     }
     return sc;
 }
@@ -625,7 +641,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 12);
+    REQUIRE(sc.size() == 13);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);
