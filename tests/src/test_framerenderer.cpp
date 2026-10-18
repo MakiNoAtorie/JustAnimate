@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "bitmapimage.h"
 #include "blendmode.h"
 #include "camera.h"
+#include "canvaspainter.h"
 #include "framerenderer.h"
 #include "layerbitmap.h"
 #include "layercamera.h"
@@ -31,6 +32,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "pagewriter.h"
 #include "paperpainter.h"
+#include "tiledbuffer.h"
 #include "objectdata.h"
 #include "vectorimage.h"
 #include "welcomehelper.h"
@@ -46,13 +48,14 @@ LayerBitmap* square(Object* object, const QRectF& rect, QColor color)
 }
 
 // One layer per rule: hidden, Rough, tween, blend mode, a translucent group, a vector stroke; the camera pans and zooms.
-std::unique_ptr<Object> everyRule()
+// wholePixels keeps every transform to whole-pixel moves (no rotation or zoom) and makes the Rough layer plain.
+std::unique_ptr<Object> everyRule(bool wholePixels = false)
 {
     std::unique_ptr<Object> object(new Object);
     object->init();
     square(object.get(), QRectF(-40, -30, 80, 60), QColor(90, 160, 220));
     square(object.get(), QRectF(-10, -10, 20, 20), Qt::green)->setVisible(false);
-    square(object.get(), QRectF(0, 0, 30, 30), Qt::black)->setRough(true);
+    square(object.get(), QRectF(0, 0, 30, 30), Qt::black)->setRough(!wholePixels);
 
     LayerBitmap* tweened = square(object.get(), QRectF(-25, -5, 10, 10), Qt::red);
     tweened->addNewKeyFrameAt(5);
@@ -61,7 +64,7 @@ std::unique_ptr<Object> everyRule()
     tweened->getKeyFrameAt(1)->setTween(true);
     TweenState end;
     end.tx = 30;
-    end.rot = 45;
+    end.rot = wholePixels ? 0 : 45;
     end.opacity = 0.5;
     tweened->getKeyFrameAt(5)->setTweenState(end);
 
@@ -80,7 +83,7 @@ std::unique_ptr<Object> everyRule()
     camera->setViewRect(QRect(-40, -30, 80, 60));
     if (!camera->keyExists(1)) { camera->addNewKeyFrameAt(1); }
     camera->getCameraAtFrame(1)->translate(5, -3);
-    camera->getCameraAtFrame(1)->scale(1.25);
+    if (!wholePixels) { camera->getCameraAtFrame(1)->scale(1.25); }
     return object;
 }
 
@@ -115,6 +118,55 @@ TEST_CASE("The export adapter keeps the golden pixels of every layer rule", "[Fr
 #else
         CHECK(sha1(image).toStdString() == std::string(c.hash));
 #endif
+    }
+}
+
+// Screen-only effects left out of the fixture: the Rough layer is a plain layer (the screen shows Rough layers
+// tinted, export leaves them out); moves are whole pixels (the screen samples images without smoothing or
+// antialiasing, export smooths them); layer visibility is ALL (no relative opacity); no onion skin, paper,
+// outlines or thin lines; the canvas is transparent with antialiasing on, as a transparent export.
+TEST_CASE("The screen adapter with caches cold and warm paints the export adapter pixels", "[FrameRenderer]")
+{
+    auto object = everyRule(true);
+    const LayerCamera* camera = object->getLayersByType<LayerCamera>().front();
+    const QSize size = camera->getViewSize();
+    const QRect full(QPoint(), size);
+    TiledBuffer buffer; // empty: nothing is being drawn
+
+    for (int frame : { 1, 3 })
+    {
+        FrameRenderer::ExportOptions exportOptions;
+        exportOptions.size = size;
+        exportOptions.transparency = true;
+        const QImage exported = FrameRenderer::renderForExport(*object, frame, *camera, exportOptions);
+        const QTransform view = camera->getViewAtFrame(frame) * QTransform::fromTranslate(size.width() / 2, size.height() / 2);
+
+        for (int current = 0; current < object->getLayerCount(); ++current)
+        {
+            if (object->getLayer(current)->type() == Layer::CAMERA) { continue; }
+            for (bool fastAbove : { false, true })
+            {
+                CAPTURE(frame, current, fastAbove);
+                QPixmap canvas(size);
+                CanvasPainter painter(canvas);
+                painter.setViewTransform(view, view.inverted());
+                CanvasPainterOptions options;
+                options.bAntiAlias = true;
+                options.eLayerVisibility = LayerVisibility::ALL;
+                options.bFastLayersAbove = fastAbove;
+                painter.setOptions(options);
+                painter.setPaintSettings(object.get(), current, frame, &buffer);
+
+                painter.paint(full);
+                CHECK(sha1(canvas.toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied)).toStdString() == sha1(exported).toStdString());
+
+                // Warm: the cells filled by small updates, then a cached full paint.
+                painter.paintCached(QRect(5, 5, 20, 20));
+                painter.paintCached(QRect(40, 20, 30, 30));
+                painter.paintCached(full);
+                CHECK(sha1(canvas.toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied)).toStdString() == sha1(exported).toStdString());
+            }
+        }
     }
 }
 

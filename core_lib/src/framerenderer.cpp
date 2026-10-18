@@ -28,6 +28,99 @@ GNU General Public License for more details.
 
 namespace FrameRenderer
 {
+QVector<int> paintOrder(const Object& object, bool rough)
+{
+    QVector<int> roughLayers;
+    QVector<int> others;
+    for (int i = 0; i < object.getLayerCount(); ++i)
+    {
+        if (!object.getLayer(i)->isRough()) { others.append(i); }
+        else if (rough) { roughLayers.append(i); }
+    }
+    return roughLayers + others;
+}
+
+void paintLayers(const Object& object, const QVector<int>& order, int first, int last, QPainter& painter,
+                 const LayerPainter& paintLayer)
+{
+    for (int p = first; p <= last; ++p)
+    {
+        Layer* layer = object.getLayer(order[p]);
+        const LayerGroup* group = object.findLayerGroup(layer->groupId());
+        if (group == nullptr || group->opacity >= 1.0)
+        {
+            if (object.isLayerVisible(layer)) { paintLayer(painter, order[p]); }
+            continue;
+        }
+        if (layer->isRough())
+        {
+            if (group->visible && object.isLayerVisible(layer)) { painter.setOpacity(group->opacity); paintLayer(painter, order[p]); }
+            painter.setOpacity(1.0);
+            continue;
+        }
+        const int start = p;
+        p = qMin(groupRange(object, order, p).second, last);
+        if (!group->visible || group->opacity <= 0.0) { continue; }
+        drawWithOpacity(painter, group->opacity, [&](QPainter& groupPainter) {
+            for (int g = start; g <= p; ++g)
+            {
+                groupPainter.setOpacity(1.0);
+                if (object.isLayerVisible(object.getLayer(order[g]))) { paintLayer(groupPainter, order[g]); }
+            }
+        });
+    }
+}
+
+QPair<int, int> groupRange(const Object& object, const QVector<int>& order, int pos)
+{
+    const Layer* layer = object.getLayer(order[pos]);
+    const LayerGroup* group = object.findLayerGroup(layer->groupId());
+    if (group == nullptr || group->opacity >= 1.0 || layer->isRough()) { return { pos, pos }; }
+    auto inGroup = [&](int p) {
+        const Layer* l = object.getLayer(order[p]);
+        return l->groupId() == group->id && !l->isRough();
+    };
+    int first = pos;
+    int last = pos;
+    while (first > 0 && inGroup(first - 1)) { --first; }
+    while (last < order.size() - 1 && inGroup(last + 1)) { ++last; }
+    return { first, last };
+}
+
+QVector<qint64> layersKey(const Object& object, int frame, const QVector<int>& order, int first, int last)
+{
+    QVector<qint64> key;
+    for (int p = first; p <= last; ++p)
+    {
+        Layer* layer = object.getLayer(order[p]);
+        KeyFrame* keyFrame = layer->getLastKeyFrameAtPosition(frame);
+        const LayerGroup* group = object.findLayerGroup(layer->groupId());
+        const bool visible = object.isLayerVisible(layer);
+        key << qint64(quintptr(layer)) << visible << int(layer->blendMode()) << layer->isRough() << qint64(quintptr(keyFrame))
+            << qRound64((group ? group->opacity : 1.0) * 1e6);
+        if (!visible || keyFrame == nullptr) { continue; }
+        if (layer->type() == Layer::BITMAP)
+        {
+            auto* image = static_cast<BitmapImage*>(keyFrame);
+            const QPoint topLeft = image->topLeft();
+            // QImage::cacheKey changes on every write to the image.
+            key << topLeft.x() << topLeft.y() << image->image()->cacheKey();
+        }
+        const TweenState tween = layer->tweenStateAt(frame);
+        key << qRound64(tween.tx * 1e6) << qRound64(tween.ty * 1e6) << qRound64(tween.rot * 1e6) << qRound64(tween.scale * 1e6)
+            << qRound64(tween.opacity * 1e6);
+    }
+    return key;
+}
+
+TweenState applyTween(QPainter& painter, const Layer* layer, int frame, qreal fade)
+{
+    const TweenState tween = layer->tweenStateAt(frame);
+    painter.setOpacity(tween.opacity - fade);
+    painter.setTransform(tween.transform(), true);
+    return tween;
+}
+
 void paint(const Object& object, int frame, QPainter& painter, const Options& options)
 {
     object.updateActiveFrames(frame);
@@ -45,11 +138,9 @@ void paint(const Object& object, int frame, QPainter& painter, const Options& op
         painter.setWorldMatrixEnabled(true);
     }
 
-    auto paintLayer = [&](QPainter& target, Layer* layer)
+    auto paintLayer = [&](QPainter& target, int index)
     {
-        // Rough layers show only on the canvas.
-        if (!object.isLayerVisible(layer) || layer->isRough()) { return; }
-
+        Layer* layer = object.getLayer(index);
         std::function<void(QPainter&)> paintKey;
         if (layer->type() == Layer::BITMAP)
         {
@@ -69,30 +160,16 @@ void paint(const Object& object, int frame, QPainter& painter, const Options& op
             }
         }
         if (!paintKey) { return; }
-        const TweenState tween = layer->tweenStateAt(frame);
         target.save();
-        target.setOpacity(tween.opacity);
-        target.setTransform(tween.transform(), true);
+        applyTween(target, layer, frame);
         if (layer->blendMode() == BlendMode::Normal) { paintKey(target); }
         else { drawBlendedLayer(target, layer->blendMode(), paintKey); }
         target.restore();
     };
 
-    for (int i = 0; i < object.getLayerCount(); ++i)
-    {
-        const LayerGroup* group = object.findLayerGroup(object.getLayer(i)->groupId());
-        if (group == nullptr || group->opacity >= 1.0)
-        {
-            paintLayer(painter, object.getLayer(i));
-            continue;
-        }
-        const int first = i;
-        i = object.layerGroupRange(group->id).second;
-        if (!group->visible || group->opacity <= 0.0) { continue; }
-        drawWithOpacity(painter, group->opacity, [&](QPainter& p) {
-            for (int j = first; j <= i; ++j) { paintLayer(p, object.getLayer(j)); }
-        });
-    }
+    // Rough layers show only on the canvas.
+    const QVector<int> order = paintOrder(object, false);
+    paintLayers(object, order, 0, order.size() - 1, painter, paintLayer);
 }
 
 QImage renderForExport(const Object& object, int frame, const QTransform& view, QSize cameraSize, const ExportOptions& options)
