@@ -41,6 +41,8 @@ public:
     void paintVectorStroke(Layer *layer);
 
 private:
+    void drawPen(QPointF point, qreal width);
+
     QPointF mLastBrushPoint;
     QPointF mMouseDownPoint;
 };

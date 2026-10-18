@@ -27,7 +27,7 @@ before you edit `dabtool.*`, `smudgetool.*`, `tiledbuffer.*`, `stroketool.*`,
   `spacedDabOpacity` is one dab's alpha, `1-(1-a)^(spacing/width)`, so
   spacing does not change darkness; flow per dab with pressure off is full
   flow, as before v0.3. Wash mode is per stroke
-  (`ScribbleArea::setWashOpacity` on every press); with wash off the
+  (`TiledBuffer::setWashOpacity` on every press); with wash off the
   SourceOver loop is unchanged.
 
 ## Smudge

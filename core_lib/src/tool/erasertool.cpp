@@ -49,14 +49,11 @@ void EraserTool::loadSettings()
 
 void EraserTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
-    mScribbleArea->drawBrush(point,
-                             width,
-                             get(ToolProperty::Feather),
-                             Qt::white,
-                             opacity,
-                             get(ToolProperty::FeatherEnabled),
-                             get(ToolProperty::AntiAliasingEnabled) == ON,
-                             tip);
+    // Without feather the dab is solid and ignores opacity.
+    const bool feather = get(ToolProperty::FeatherEnabled);
+    const QColor dabColor = Qt::white; // palette-exempt: only the eraser dab's alpha counts
+    mBuffer.dab(point, width, feather ? get(ToolProperty::Feather) : 0, dabColor, feather ? opacity : 1.0,
+                get(ToolProperty::AntiAliasingEnabled) == ON, tip);
 }
 
 QPen EraserTool::vectorPreviewPen()
@@ -79,7 +76,7 @@ void EraserTool::removeVectorPaint()
     Layer* layer = mEditor->layers()->currentLayer();
     if (layer->type() == Layer::VECTOR)
     {
-        mScribbleArea->clearDrawingBuffer();
+        mBuffer.clear();
         VectorImage* vectorImage = static_cast<LayerVector*>(layer)->getLastVectorImageAtFrame(mEditor->currentFrame());
         if (vectorImage == nullptr) { return; } // Can happen if the first frame is deleted while drawing
         // Clear the area containing the last point

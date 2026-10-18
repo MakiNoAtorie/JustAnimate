@@ -475,7 +475,7 @@ void CanvasPainter::paintCurrentVectorFrame(QPainter& painter, const QRect& blit
     QPainter currentVectorPainter;
     initializePainter(currentVectorPainter, mCurrentLayerPixmap, blitRect);
 
-    const bool isDrawing = mTiledBuffer->isValid();
+    const bool isDrawing = mTiledBuffer && mTiledBuffer->isValid();
 
     if (mRenderTransform) {
         vectorImage->setSelectionTransformation(mSelectionTransform);

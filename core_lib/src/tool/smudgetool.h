@@ -42,6 +42,7 @@ protected:
     void finishVectorStroke(Layer*) override {}
     // The prediction line shows the front colour, which a smudge does not paint.
     bool showsPrediction() const override { return false; }
+    StrokeBuffer::Mode bufferMode() const override { return StrokeBuffer::Mode::Smudge; }
 
 private:
     QPointF offsetFromPressPos();

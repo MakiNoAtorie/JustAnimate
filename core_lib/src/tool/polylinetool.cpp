@@ -75,7 +75,7 @@ void PolylineTool::clearToolData()
     emit isActiveChanged(POLYLINE, false);
 
     // Clear the in-progress polyline from the bitmap buffer.
-    mScribbleArea->clearDrawingBuffer();
+    mBuffer.clear();
     mScribbleArea->updateFrame();
 }
 
@@ -267,7 +267,13 @@ void PolylineTool::drawPolyline(QList<QPointF> points, QPointF endPoint)
             }
         }
 
-        mScribbleArea->drawPolyline(tempPath, pen, get(ToolProperty::AntiAliasingEnabled));
+        // Repaint the previous line's bounds too, so no part of it stays on screen.
+        const QRect before = mEditor->view()->mapCanvasToScreen(mBuffer.tiles().bounds()).toRect();
+        mBuffer.begin(layer, mEditor->currentFrame(), bufferMode());
+        mBuffer.tiles().drawPath(tempPath, pen, Qt::NoBrush, QPainter::CompositionMode_SourceOver,
+                                 get(ToolProperty::AntiAliasingEnabled));
+        const QRect after = mEditor->view()->mapCanvasToScreen(tempPath.boundingRect()).toRect();
+        mScribbleArea->update((before | after).adjusted(-1, -1, 1, 1));
     }
 }
 
@@ -311,7 +317,7 @@ void PolylineTool::endPolyline(QList<QPointF> points)
         drawPolyline(points, points.last());
     }
 
-    mScribbleArea->endStroke();
+    commitBuffer();
     mEditor->setModified(mEditor->layers()->currentLayerIndex(), mEditor->currentFrame());
     drawing.commit();
     step.commit();

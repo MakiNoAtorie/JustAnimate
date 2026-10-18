@@ -55,7 +55,7 @@ void PencilTool::strokeStarted()
 
 void PencilTool::drawDab(QPointF point, qreal width, qreal opacity, const BrushTip& tip)
 {
-    mScribbleArea->drawPencil(point, width, get(ToolProperty::Feather), mEditor->color()->frontColor(), opacity, tip);
+    mBuffer.dab(point, width, get(ToolProperty::Feather), mEditor->color()->frontColor(), opacity, false, tip);
 }
 
 QPen PencilTool::vectorPreviewPen()
@@ -74,7 +74,7 @@ void PencilTool::paintVectorStroke(Layer* layer)
         return;
 
     // Clear the temporary pixel path
-    mScribbleArea->clearDrawingBuffer();
+    mBuffer.clear();
     qreal tol = mScribbleArea->getCurveSmoothing() / mEditor->view()->scaling();
 
     BezierCurve curve(mStrokePoints, mStrokePressures, tol);

@@ -103,6 +103,13 @@ void PenTool::pointerReleaseEvent(PointerEvent *event)
     StrokeTool::pointerReleaseEvent(event);
 }
 
+void PenTool::drawPen(QPointF point, qreal width)
+{
+    // Source, not SourceOver, so overlapping dabs do not add up.
+    mBuffer.tiles().drawBrush(point, width, Qt::NoPen, QBrush(mEditor->color()->frontColor(), Qt::SolidPattern),
+                              QPainter::CompositionMode_Source, get(ToolProperty::AntiAliasingEnabled));
+}
+
 // draw a single paint dab at the given location
 void PenTool::paintAt(QPointF point)
 {
@@ -113,10 +120,7 @@ void PenTool::paintAt(QPointF point)
         qreal brushWidth = get(ToolProperty::Width) * pressure;
         mCurrentWidth = brushWidth;
 
-        mScribbleArea->drawPen(point,
-                               brushWidth,
-                               mEditor->color()->frontColor(),
-                               get(ToolProperty::AntiAliasingEnabled));
+        drawPen(point, brushWidth);
     }
 }
 
@@ -147,10 +151,7 @@ void PenTool::drawStroke()
         for (int i = 0; i < steps; i++)
         {
             QPointF point = mLastBrushPoint + (i + 1) * brushStep * (getCurrentPoint() - mLastBrushPoint) / distance;
-            mScribbleArea->drawPen(point,
-                                   brushWidth,
-                                   mEditor->color()->frontColor(),
-                                   get(ToolProperty::AntiAliasingEnabled));
+            drawPen(point, brushWidth);
 
             if (i == (steps - 1))
             {
@@ -173,7 +174,7 @@ void PenTool::drawStroke()
         {
             QPainterPath path(p[0]);
             path.cubicTo(p[1], p[2], p[3]);
-            mScribbleArea->drawPath(path, pen, Qt::NoBrush, QPainter::CompositionMode_Source);
+            drawScreenPath(path, pen);
         }
     }
 }
@@ -184,7 +185,7 @@ void PenTool::paintVectorStroke(Layer* layer)
         return;
 
     // Clear the temporary pixel path
-    mScribbleArea->clearDrawingBuffer();
+    mBuffer.clear();
     qreal tol = mScribbleArea->getCurveSmoothing() / mEditor->view()->scaling();
 
     BezierCurve curve(mStrokePoints, mStrokePressures, tol);

@@ -38,6 +38,7 @@ protected:
     QPen vectorPreviewPen() override;
     void finishVectorStroke(Layer* layer) override;
     bool showsPrediction() const override { return false; }
+    StrokeBuffer::Mode bufferMode() const override { return StrokeBuffer::Mode::Erase; }
 };
 
 #endif // ERASERTOOL_H

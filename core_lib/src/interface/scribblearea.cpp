@@ -87,6 +87,8 @@ bool ScribbleArea::init()
             connect(tool, &StrokeTool::propertyChanged, this, [this](int id) {
                 if (id == StrokeToolProperties::WIDTH_VALUE) { update(); }
             });
+            connect(&tool->buffer().tiles(), &TiledBuffer::tileUpdated, this, &ScribbleArea::onTileUpdated);
+            connect(&tool->buffer().tiles(), &TiledBuffer::tileCreated, this, &ScribbleArea::onTileCreated);
         }
     }
 
@@ -101,9 +103,6 @@ bool ScribbleArea::init()
 
     connect(mEditor->select(), &SelectionManager::selectionChanged, this, &ScribbleArea::onSelectionChanged);
     connect(mEditor->select(), &SelectionManager::needDeleteSelection, this, &ScribbleArea::deleteSelection);
-
-    connect(&mTiledBuffer, &TiledBuffer::tileUpdated, this, &ScribbleArea::onTileUpdated);
-    connect(&mTiledBuffer, &TiledBuffer::tileCreated, this, &ScribbleArea::onTileCreated);
 
     mMouseFilterTimer->setInterval(50);
 
@@ -911,58 +910,6 @@ void ScribbleArea::showNote(const QString& text)
     update();
 }
 
-void ScribbleArea::paintBitmapBuffer()
-{
-    LayerBitmap* layer = static_cast<LayerBitmap*>(mEditor->layers()->currentLayer());
-    Q_ASSERT(layer);
-    Q_ASSERT(layer->type() == Layer::BITMAP);
-
-    int frameNumber = mEditor->currentFrame();
-
-    // If there is no keyframe at or before the current position,
-    // just return (since we have nothing to paint on).
-    if (layer->getLastKeyFrameAtPosition(frameNumber) == nullptr)
-    {
-        updateFrame();
-        return;
-    }
-
-    BitmapImage* targetImage = currentBitmapImage(layer);
-    if (targetImage != nullptr)
-    {
-        // The stroke is drawn in canvas space; map it into the space of the key.
-        targetImage->paste(&mTiledBuffer, bufferCompositionMode(), layer->tweenStateAt(frameNumber).transform().inverted());
-    }
-
-    QRect rect = mEditor->view()->mapCanvasToScreen(mTiledBuffer.bounds()).toRect();
-
-    update(rect);
-
-    layer->setModified(frameNumber, true);
-    mTiledBuffer.clear();
-}
-
-QPainter::CompositionMode ScribbleArea::bufferCompositionMode() const
-{
-    Layer* layer = mEditor->layers()->currentLayer();
-    const bool lockAlpha = layer && layer->type() == Layer::BITMAP && static_cast<LayerBitmap*>(layer)->lockAlpha();
-    switch (mEditor->tools()->currentTool()->type())
-    {
-    case ToolType::ERASER:
-        return lockAlpha ? QPainter::CompositionMode_Destination : QPainter::CompositionMode_DestinationOut;
-    // Smudge tiles hold the layer pixels they change.
-    case ToolType::SMUDGE:
-        return lockAlpha ? QPainter::CompositionMode_SourceAtop : QPainter::CompositionMode_Source;
-    default:
-        return lockAlpha ? QPainter::CompositionMode_SourceAtop : QPainter::CompositionMode_SourceOver;
-    }
-}
-
-void ScribbleArea::clearDrawingBuffer()
-{
-    mTiledBuffer.clear();
-}
-
 void ScribbleArea::handleDrawingOnEmptyFrame()
 {
     auto layer = mEditor->layers()->currentLayer();
@@ -1277,7 +1224,10 @@ void ScribbleArea::prepCanvas(int frame)
     o.eLayerVisibility = mLayerVisibility;
     o.fLayerVisibilityThreshold = mPrefs->getFloat(SETTING::LAYER_VISIBILITY_THRESHOLD);
     o.scaling = mEditor->view()->scaling();
-    o.cmBufferBlendMode = bufferCompositionMode();
+    // A Stroke tool's buffer shows over the current layer as it will commit.
+    auto* strokeTool = dynamic_cast<StrokeTool*>(currentTool());
+    StrokeBuffer* buffer = strokeTool ? &strokeTool->buffer() : nullptr;
+    if (buffer) { o.cmBufferBlendMode = buffer->compositionMode(); }
 
     mCanvasPainter.setOnionSkinOptions(onionSkinOptions());
     mCanvasPainter.setShiftAndTraceOffsets(mShiftAndTraceOffsets);
@@ -1288,7 +1238,7 @@ void ScribbleArea::prepCanvas(int frame)
     mCanvasPainter.setViewTransform(vm->getView(), vm->getViewInverse());
     mCanvasPainter.setTransformedSelection(sm->mySelectionRect().toRect(), sm->selectionTransform());
 
-    mCanvasPainter.setPaintSettings(object, mEditor->layers()->currentLayerIndex(), frame, &mTiledBuffer);
+    mCanvasPainter.setPaintSettings(object, mEditor->layers()->currentLayerIndex(), frame, buffer ? &buffer->tiles() : nullptr);
 }
 
 void ScribbleArea::drawCanvas(int frame, QRect rect)
@@ -1299,71 +1249,6 @@ void ScribbleArea::drawCanvas(int frame, QRect rect)
     StageScope stage(StageProfiler::Composite);
     mCanvasPainter.paint(rect);
     mCameraPainter.paint(rect);
-}
-
-void ScribbleArea::drawPath(QPainterPath path, QPen pen, QBrush brush, QPainter::CompositionMode cm)
-{
-    mTiledBuffer.drawPath(mEditor->view()->mapScreenToCanvas(path), pen, brush, cm, mPrefs->isOn(SETTING::ANTIALIAS));
-}
-
-void ScribbleArea::drawPen(QPointF thePoint, qreal brushWidth, QColor fillColor, bool useAA)
-{
-    // We use Source as opposed to SourceOver here to avoid the dabs being added on top of each other
-    mTiledBuffer.drawBrush(thePoint, brushWidth, Qt::NoPen, QBrush(fillColor, Qt::SolidPattern), QPainter::CompositionMode_Source, useAA);
-}
-
-void ScribbleArea::drawPencil(QPointF thePoint, qreal brushWidth, qreal fixedBrushFeather, QColor fillColor, qreal opacity, const BrushTip& tip)
-{
-    drawBrush(thePoint, brushWidth, fixedBrushFeather, fillColor, opacity, true, false, tip);
-}
-
-void ScribbleArea::drawBrush(QPointF thePoint, qreal brushWidth, qreal mOffset, QColor fillColor, qreal opacity, bool usingFeather, bool useAA, const BrushTip& tip)
-{
-    // Without feather the dab is solid fillColor and ignores opacity.
-    mTiledBuffer.drawDab(thePoint, brushWidth, usingFeather ? mOffset : 0, fillColor, usingFeather ? opacity : 1.0, useAA, tip);
-}
-
-void ScribbleArea::smudgeDab(QPointF point, qreal width, qreal feather, QColor color, qreal opacity, const BrushTip& tip,
-                             const SmudgeSettings& smudge)
-{
-    if (!mTiledBuffer.isSmudging())
-    {
-        Layer* layer = mEditor->layers()->currentLayer();
-        BitmapImage* image = currentBitmapImage(layer);
-        if (image == nullptr) return; // the first frame can be deleted while drawing
-        // Dabs land in canvas space, so the source is the key as drawn there.
-        BitmapImage source = image->mapped(layer->tweenStateAt(mEditor->currentFrame()).transform());
-        mTiledBuffer.setSmudgeSource(*source.image(), source.topLeft());
-    }
-    mTiledBuffer.smudgeDab(point, width, feather, color, opacity, false, tip, smudge);
-}
-
-void ScribbleArea::drawPolyline(QPainterPath path, QPen pen, bool useAA)
-{
-    BlitRect blitRect;
-
-    // In order to clear what was previously dirty, we need to include the previous buffer bound
-    // this ensures that we won't see stroke artifacts
-    blitRect.extend(mEditor->view()->mapCanvasToScreen(mTiledBuffer.bounds()).toRect());
-
-    QRect updateRect = mEditor->view()->mapCanvasToScreen(path.boundingRect()).toRect();
-    // Now extend with the new path bounds mapped to the local coordinate
-    blitRect.extend(updateRect);
-
-    mTiledBuffer.clear();
-    mTiledBuffer.drawPath(path, pen, Qt::NoBrush, QPainter::CompositionMode_SourceOver, useAA);
-
-    // And update only the affected area
-    update(blitRect.adjusted(-1, -1, 1, 1));
-}
-
-void ScribbleArea::endStroke()
-{
-    if (mEditor->layers()->currentLayer()->type() == Layer::BITMAP) {
-        paintBitmapBuffer();
-    }
-
-    onFrameModified(mEditor->currentFrame());
 }
 
 void ScribbleArea::flipSelection(bool flipVertical)

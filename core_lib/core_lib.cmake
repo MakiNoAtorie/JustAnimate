@@ -91,6 +91,7 @@ set(CORE_LIB_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokesnapper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokebuffer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.h
@@ -208,6 +209,7 @@ set(CORE_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokeinterpolator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokesnapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/brushpresets.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/strokebuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/stroketool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/toolproperties.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/src/tool/transformtool.cpp

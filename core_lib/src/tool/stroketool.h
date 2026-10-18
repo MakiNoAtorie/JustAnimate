@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "preferencesdef.h"
 #include "strokeinterpolator.h"
 #include "edit.h"
+#include "strokebuffer.h"
 
 #include "canvascursorpainter.h"
 #include "radialoffsettool.h"
@@ -57,6 +58,9 @@ public:
     void endStroke();
     /** Ends the stroke's undo step; without commit it records only the Drawing added for the stroke. */
     void endStrokeEdit(bool commit);
+
+    /// The stroke the canvas shows over the current layer.
+    StrokeBuffer& buffer() { return mBuffer; }
 
     bool leavingThisTool() override;
     bool enteringThisTool() override;
@@ -110,6 +114,11 @@ protected:
     /// The outline of one dab of the base width and tip at a canvas point.
     QPainterPath brushOutline(const QPointF& point) const;
 
+    /// Writes the buffer into the current bitmap Drawing and repaints it.
+    void commitBuffer();
+    /// Draws a vector stroke preview, given in screen space, into the buffer.
+    void drawScreenPath(const QPainterPath& path, const QPen& pen);
+
     /// Sets smoothing from an old None/Simple/Strong stabilizer level.
     void setLegacySmoothing(int level);
     /// Maps the old LineStabilization setting once, while the tool has no SmoothingMode yet.
@@ -136,6 +145,8 @@ protected:
     /// "old" Pencil behaviour).
     /// Returns true by default.
     virtual bool emptyFrameActionEnabled();
+    /// How this tool's strokes land on a bitmap layer.
+    virtual StrokeBuffer::Mode bufferMode() const { return StrokeBuffer::Mode::Paint; }
 
     bool mCanvasCursorEnabled = true; // false while the pointer is off the canvas
     bool mOutlineStyle = true; // SETTING::CURSOR_STYLE is CURSOR_BRUSH_OUTLINE
@@ -152,6 +163,7 @@ protected:
     // The step joins a Drawing added for the stroke; the inner Edit records the stroke itself.
     std::optional<Edit> mStrokeStep;
     std::optional<Edit> mStrokeEdit;
+    StrokeBuffer mBuffer;
     ToolProperties mProperties;
 
 private:

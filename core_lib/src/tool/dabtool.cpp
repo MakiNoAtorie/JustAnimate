@@ -54,7 +54,7 @@ void DabTool::pointerPressEvent(PointerEvent* event)
     startStroke(event->inputType());
     mPressureCurve = PressureCurve::fromString(pressureCurve().isEmpty() ? mEditor->preference()->getString(SETTING::PRESSURE_CURVE)
                                                                          : pressureCurve());
-    mScribbleArea->setWashOpacity(get(ToolProperty::WashEnabled) ? get(ToolProperty::Opacity) / 100 : 1.0);
+    mBuffer.tiles().setWashOpacity(get(ToolProperty::WashEnabled) ? get(ToolProperty::Opacity) / 100 : 1.0);
     mSpeedToSize = get(ToolProperty::SpeedToSize) / 100.0;
     mTiltToSize = get(ToolProperty::TiltToSize) / 100.0;
     mTiltToAngle = get(ToolProperty::TiltToAngle) / 100.0;
@@ -354,7 +354,7 @@ void DabTool::drawStroke()
         {
             QPainterPath path(p[0]);
             path.cubicTo(p[1], p[2], p[3]);
-            mScribbleArea->drawPath(path, pen, Qt::NoBrush, QPainter::CompositionMode_Source);
+            drawScreenPath(path, pen);
         }
     }
 }

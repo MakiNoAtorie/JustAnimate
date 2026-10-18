@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Undo records only through Edit: the raw snapshot, record and macro calls are private to it (#258).
+- Bitmap strokes commit through the Stroke tool's own stroke buffer, which holds the eraser and smudge composition; the canvas no longer crashes painting a vector layer without a buffer (#268).
 - Tools, canvas edits and menu commands record undo through one scoped Edit; an Edit left open by a lost pointer release ends cleanly after a project load (#257).
 - The X-sheet's Exposure edge and link drags run through the timeline's frame-edit gesture; Move Frame Forward and Backward can be undone (#265).
 - Timeline click select, box select and frame move run through one frame-edit gesture, driven by layer and frame instead of pixels (#264).

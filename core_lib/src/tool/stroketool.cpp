@@ -190,6 +190,7 @@ void StrokeTool::startStroke(PointerEvent::InputType inputType)
 
     mCurrentInputType = inputType;
     mStrokeEdit.emplace(mEditor->edit(mEditor->layers()->currentLayer(), mEditor->currentFrame(), typeName()));
+    mBuffer.begin(mEditor->layers()->currentLayer(), mEditor->currentFrame(), bufferMode());
 
     disableCoalescing();
 }
@@ -226,9 +227,22 @@ void StrokeTool::endStroke()
     enableCoalescing();
 
     mEditor->setModified(mEditor->currentLayerIndex(), mEditor->currentFrame());
-    mScribbleArea->endStroke();
+    commitBuffer();
 
     endStrokeEdit(true);
+}
+
+void StrokeTool::drawScreenPath(const QPainterPath& path, const QPen& pen)
+{
+    mBuffer.tiles().drawPath(mEditor->view()->mapScreenToCanvas(path), pen, Qt::NoBrush, QPainter::CompositionMode_Source,
+                             mEditor->preference()->isOn(SETTING::ANTIALIAS));
+}
+
+void StrokeTool::commitBuffer()
+{
+    const QRect changed = mBuffer.commit();
+    mScribbleArea->update(mEditor->view()->mapCanvasToScreen(changed).toRect());
+    mScribbleArea->onFrameModified(mEditor->currentFrame());
 }
 
 void StrokeTool::endStrokeEdit(bool commit)
