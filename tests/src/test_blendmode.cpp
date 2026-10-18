@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "layerbitmap.h"
 #include "layermanager.h"
 #include "object.h"
+#include "stageprofiler.h"
 #include "testfixture.h"
 #include "undoredomanager.h"
 
@@ -162,6 +163,27 @@ TEST_CASE("A blend layer composites over the layers below on export", "[BlendMod
         painter.end();
         CHECK(image.pixel(30, 30) == expected(mode));
     }
+}
+
+TEST_CASE("A blend layer on export blends into the image without copies", "[BlendMode]")
+{
+    const bool profiling = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    for (BlendMode mode : kModes)
+    {
+        auto object = twoLayers(mode);
+        StageProfiler::reset();
+        QImage image(60, 60, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        painter.setWorldTransform(QTransform::fromTranslate(30, 30));
+        FrameRenderer::paint(*object, 1, painter, { true, false });
+        painter.end();
+        CHECK(StageProfiler::calls(StageProfiler::BlendCopy) == 0);
+        CHECK(image.pixel(30, 30) == expected(mode));
+    }
+    StageProfiler::enabled() = profiling;
+    StageProfiler::reset();
 }
 
 TEST_CASE("The layer blend mode is saved in the project", "[BlendMode]")

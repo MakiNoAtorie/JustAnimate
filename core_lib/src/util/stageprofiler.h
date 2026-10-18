@@ -12,7 +12,19 @@
 class StageProfiler
 {
 public:
-    enum Stage { InputEvent, DabMask, Composite, BufferPaste, PaintEvent, TimelineContent, TimelineKey, StageCount };
+    // Append new stages before StageCount, one per line, with their name in names[].
+    enum Stage
+    {
+        InputEvent,
+        DabMask,
+        Composite,
+        BufferPaste,
+        PaintEvent,
+        TimelineContent,
+        TimelineKey,
+        BlendCopy,
+        StageCount
+    };
 
     static bool& enabled()
     {
@@ -24,7 +36,16 @@ public:
 
     static void report(std::FILE* out = stdout)
     {
-        static const char* const names[StageCount] = { "input", "dab mask", "composite", "buffer paste", "canvas update", "timeline", "timeline key" };
+        static const char* const names[StageCount] = {
+            "input",
+            "dab mask",
+            "composite",
+            "buffer paste",
+            "canvas update",
+            "timeline",
+            "timeline key",
+            "blend copy",
+        };
         for (int i = 0; i < StageCount; ++i)
             std::fprintf(out, "stage %-13s %8llu calls %10.2f ms\n", names[i],
                          static_cast<unsigned long long>(stats()[i].calls), stats()[i].ns / 1e6);
