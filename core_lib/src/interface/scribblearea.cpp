@@ -428,11 +428,11 @@ void ScribbleArea::onViewChanged()
     const QPixmap* shown = mFrameCache.object(frame);
     const std::optional<QTransform> old = std::exchange(mFrameCacheView, view);
     // A pan by exactly whole device pixels shifts the cached canvas and renders only the strips it exposes.
-    // Scaled and rotated draws do not shift pixel for pixel. An unchanged view is a request to redraw everything.
+    // Rotated draws do not shift pixel for pixel. An unchanged view is a request to redraw everything.
     const QPointF moved = old ? QPointF(view.dx() - old->dx(), view.dy() - old->dy()) * mDevicePixelRatio : QPointF();
     const QPoint step = moved.toPoint();
     const bool pan = shown && old && shown->size() == mCanvas.size() && !step.isNull() && moved == QPointF(step)
-                     && view.type() <= QTransform::TxTranslate && old->type() <= QTransform::TxTranslate;
+                     && view.m12() == 0 && view.m21() == 0 && view.m11() == old->m11() && view.m22() == old->m22() && old->m12() == 0 && old->m21() == 0;
     if (!pan)
     {
         invalidateAllCache();

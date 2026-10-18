@@ -99,6 +99,9 @@ signals:
 private:
     void updateViewTransforms();
     void onCurrentFrameChanged();
+    QPointF panInCanvas() const;
+    /// Moves the whole pixels of mScreenPan into mTranslation.
+    void foldPan();
 
     QTransform mView;
     QTransform mViewInverse;
@@ -107,6 +110,7 @@ private:
     QTransform mCentre;
 
     QPointF mTranslation = QPointF();
+    QPointF mScreenPan; ///< panByScreen offsets not folded into mTranslation yet; the view uses its rounded value
     qreal mScaling = 1.0;
     qreal mRotation = 0.0;
 

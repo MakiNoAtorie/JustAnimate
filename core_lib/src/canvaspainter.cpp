@@ -362,7 +362,7 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
     const QRect shown = bounds & canvasRect;
     if (shown.isEmpty()) { return; }
 
-    // A pan by exactly whole pixels moves the cached pixmap. Only unscaled draws shift pixel for pixel, and the tint
+    // A pan by exactly whole pixels moves the cached pixmap. Only unrotated draws shift pixel for pixel, and the tint
     // outlines the canvas edges, so a frame that touches an edge is tinted again.
     const QPointF view(mViewTransform.dx(), mViewTransform.dy());
     if (const OnionFrame* cached = mOnionCache.object(key))
@@ -371,7 +371,7 @@ void CanvasPainter::paintBitmapOnionSkinFrame(QPainter& painter, const QRect& bl
         const QPoint step = moved.toPoint();
         const QRect drawn(cached->pos, cached->pixmap.deviceIndependentSize().toSize());
         const QRect inner = canvasRect.adjusted(1, 1, -1, -1);
-        const bool shifts = world.type() <= QTransform::TxTranslate && moved == QPointF(step)
+        const bool shifts = world.m12() == 0 && world.m21() == 0 && moved == QPointF(step)
                             && inner.contains(drawn) && inner.contains(shown);
         const QRect at = drawn.translated(step);
         if ((moved.isNull() || shifts) && at.contains(shown))

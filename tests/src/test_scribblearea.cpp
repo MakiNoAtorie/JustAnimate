@@ -737,11 +737,15 @@ TEST_CASE("ScribbleArea - a pan with onion skin shifts the canvas and renders on
     StageProfiler::enabled() = profiling;
     CHECK(panned == fresh());
 
-    // Zoomed or rotated, a pan renders the whole canvas and stays pixel-exact.
-    view->scale(1.5);
+    // Zoomed, a pan shifts too; rotated, it renders the whole canvas. Both stay pixel-exact.
+    view->scale(1.25);
     area->grab();
-    view->panByScreen(QPointF(-9, 18));
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    view->panByScreen(QPointF(-9, 17));
     const QImage zoomed = area->grab().toImage();
+    CHECK(StageProfiler::calls(StageProfiler::OnionTint) == 0);
+    StageProfiler::enabled() = profiling;
     CHECK(zoomed == fresh());
     view->rotate(30);
     area->grab();

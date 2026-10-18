@@ -8,6 +8,7 @@ the original Pencil2D history is kept below for reference.
 - A canvas repaint reads no preference and walks no frames, and flipping the pen to its eraser end keeps the cached frame (#287).
 - A pan at 100% zoom shifts the canvas and draws only the uncovered strips, and keeps the tinted onion frames; the onion cache is kept per zoom and rotation (#280).
 - Long strokes cost less: the canvas draws only the stroke tiles it repaints, a Drawing grows only to the painted pixels, the eraser trims the empty border without a scan of the whole Drawing, and frames load in one pass less (#288).
+- A pan at any zoom without rotation shifts the canvas and draws only the uncovered strips, and keeps the tinted onion frames; the onion cache is kept per zoom and rotation (#280).
 - A pen lift repaints only the stroke's area; with onion skin on, the layers below and the onion frames stay cached unless an onion frame changed (#278).
 - The autosave after a number of changes writes the archive in the background with no progress dialog, so you can keep drawing; a failed autosave keeps the previous file (#283).
 - Move tool drags are lighter: a Transform key drag marks the project modified once on release, and a selection drag repaints only the old and new selection areas (#285).

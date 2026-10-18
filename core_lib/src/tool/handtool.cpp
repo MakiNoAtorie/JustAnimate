@@ -101,9 +101,7 @@ void HandTool::transformView(Qt::KeyboardModifiers keyMod, const QPointF& pos, Q
 
     if (isTranslate)
     {
-        QPointF d = viewMgr->mapScreenToCanvas(pos) - viewMgr->mapScreenToCanvas(mLastPixel);
-        QPointF offset = viewMgr->translation() + d;
-        viewMgr->translate(offset);
+        viewMgr->panByScreen(pos - mLastPixel);
     }
     else if (isRotate)
     {
