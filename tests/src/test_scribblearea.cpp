@@ -764,3 +764,50 @@ TEST_CASE("ScribbleArea - a pan with onion skin shifts the canvas and renders on
     CHECK(shifted.pixelColor(3, 150) == QColor(Qt::red));
     CHECK(shifted.pixelColor(200, 150) != QColor(Qt::red));
 }
+
+TEST_CASE("ScribbleArea - a view change during a stroke leaves no frame cached with the old view")
+{
+    TestSession s;
+    LayerBitmap* layer = s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    Editor* editor = s.editor.get();
+    ScribbleArea* area = s.area.get();
+    ViewManager* view = editor->view();
+    QObject::connect(view, &ViewManager::viewChanged, area, &ScribbleArea::onViewChanged);
+    QObject::connect(editor, &Editor::frameModified, area, &ScribbleArea::onFrameModified);
+    area->init();
+    area->resize(400, 300);
+    area->show();
+    for (int f = 1; f <= 3; ++f)
+    {
+        if (f > 1) { REQUIRE(layer->addNewKeyFrameAt(f)); }
+        layer->getBitmapImageAtFrame(f)->drawEllipse(QRectF(-180 + f * 40, -70 + f * 10, 120, 90), QPen(Qt::black, 3),
+                                                     QBrush(Qt::darkGreen), QPainter::CompositionMode_SourceOver, true);
+    }
+    for (int i = 0; i < 100 && !area->windowHandle()->isExposed(); ++i) { QApplication::processEvents(); }
+    REQUIRE(area->windowHandle()->isExposed());
+    editor->layers()->setCurrentLayer(layer);
+    editor->tools()->setCurrentTool(PENCIL);
+    area->onObjectLoaded();
+    editor->scrubTo(2);
+    area->grab(); // frame 2 enters the cache
+    editor->scrubTo(3);
+    area->grab();
+
+    const QPointF from = view->mapCanvasToScreen(QPointF(-30, 40));
+    mouse(area, QEvent::MouseButtonPress, from, Qt::LeftButton);
+    mouse(area, QEvent::MouseMove, from + QPointF(10, 0), Qt::LeftButton);
+    area->repaint();
+    REQUIRE(editor->tools()->currentTool()->isActive());
+    view->panByScreen(QPointF(40, 25));
+    mouse(area, QEvent::MouseMove, from + QPointF(20, 0), Qt::LeftButton);
+    mouse(area, QEvent::MouseButtonRelease, from + QPointF(30, 0), Qt::NoButton);
+    QApplication::processEvents();
+
+    const auto fresh = [&] { area->onObjectLoaded(); return area->grab().toImage(); };
+    const QImage drawn = area->grab().toImage();
+    CHECK(drawn == fresh());
+    editor->scrubTo(2);
+    const QImage other = area->grab().toImage();
+    CHECK(other == fresh());
+}

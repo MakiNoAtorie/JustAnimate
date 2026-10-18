@@ -407,7 +407,9 @@ void ScribbleArea::onFrameModified(int frameNumber)
         const auto onion = OnionSkinSubPainter().neighbours(layer, onionSkinOptions(), frameNumber);
         onlyArea = std::none_of(onion.begin(), onion.end(), [key](const auto& n) { return n.frame == key->pos(); });
     }
-    if (onlyArea) { update(area); }
+    // After a view change in a stroke, the canvas outside the area still has the old view.
+    if (!mFrameCacheView) { update(); }
+    else if (onlyArea) { update(area); }
     else { updateFrame(); }
 }
 
@@ -434,7 +436,9 @@ void ScribbleArea::onViewChanged()
 {
     if (currentTool()->isDrawingTool() && currentTool()->isActive())
     {
-        mFrameCacheView.reset(); // the cache is kept while drawing, so its view is unknown
+        // The painter caches stay for the stroke; the frame cache holds the old view.
+        mFrameCache.clear();
+        mFrameCacheView.reset();
         return;
     }
     const QTransform view = mEditor->view()->getView();
@@ -1069,7 +1073,9 @@ void ScribbleArea::paintEvent(QPaintEvent* event)
             }
             else
             {
-                drawCanvas(currentFrame, event->rect());
+                // The cache keeps only whole canvases of one view: with the view unknown, draw all of it.
+                drawCanvas(currentFrame, mFrameCacheView ? event->rect() : rect());
+                mFrameCacheView = mEditor->view()->getView();
                 const qint64 costKb = qint64(mCanvas.width()) * mCanvas.height() * mCanvas.depth() / 8 / 1024;
                 mFrameCache.insert(currentFrame, new QImage(mCanvas), static_cast<qsizetype>(std::max<qint64>(1, costKb)));
             }
