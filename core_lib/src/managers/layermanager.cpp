@@ -978,7 +978,7 @@ static void shiftFramesAfter(LayerManager* layers, Editor* editor, Layer* layer,
     for (auto it = selected.crbegin(); it != selected.crend(); ++it)
     {
         const int pos = *it > position ? *it + offset : *it;
-        if (layer->keyExists(pos)) { layer->setFrameSelected(pos, true); }
+        if (layer->keyExists(pos)) { LayerManager::setFrameSelected(layer, pos, true); }
     }
 }
 
@@ -1039,6 +1039,18 @@ bool LayerManager::changeExposure(int frame, int delta)
     notifyAnimationLengthChanged();
     emit editor()->framesModified();
     return true;
+}
+
+bool LayerManager::moveKeyFrame(int frame, int offset)
+{
+    Layer* layer = currentLayer();
+    if (layer == nullptr || editor()->refuses(layer)) { return false; }
+    Edit edit = editor()->edit(layer, tr("Move Frame"));
+    const bool moved = layer->moveKeyFrame(frame, offset);
+    if (moved) { edit.commit(); }
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+    return moved;
 }
 
 bool LayerManager::linkDrawing(int from, int to)

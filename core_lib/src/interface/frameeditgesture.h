@@ -22,8 +22,9 @@ class Editor;
 /// What the press hit: no track (Empty), a cell of a track, a Drawing's Exposure edge or a Drawing to link.
 enum class FrameHit { Empty, Cell, ExposureEdge, Link };
 
-/** One mouse gesture on the frame cells: click select, box select or frame move.
- *  Views map pixels to (layer index, frame) and paint; a move ends in one LayerManager call, one undo step. */
+/** One mouse gesture on the frame cells: click select, box select, frame move, Exposure edge drag or link drag.
+ *  Views map pixels to (layer index, frame, hit) and paint; an edit ends in one LayerManager call, one undo step.
+ *  ExposureEdge: frame is the last frame of the Exposure. Link: frame holds the Drawing to link. */
 class FrameEditGesture
 {
 public:
@@ -34,11 +35,16 @@ public:
     void release();
 
     bool isMoving() const { return mMoving; }
+    /// The hit of the gesture in progress, Empty when none.
+    FrameHit hit() const { return mActive ? mHit : FrameHit::Empty; }
+    int startFrame() const { return mStartFrame; }
+    int lastFrame() const { return mLastFrame; }
 
 private:
     Editor* mEditor;
     Qt::KeyboardModifiers mModifiers;
     bool mActive = false;
+    FrameHit mHit = FrameHit::Empty;
     int mLayer = 0;
     int mStartFrame = 0;
     int mLastFrame = 0;

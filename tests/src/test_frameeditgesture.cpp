@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QIcon>
 
+#include "actioncommands.h"
 #include "editor.h"
 #include "frameeditgesture.h"
 #include "layerbitmap.h"
@@ -116,5 +117,75 @@ TEST_CASE("FrameEditGesture moves the selected Drawings in one undo step", "[Fra
     undo->trigger();
     REQUIRE(keyPositions(bottom) == QList<int>({ 1, 3 }));
     REQUIRE(keyPositions(top) == QList<int>({ 1, 3 }));
+    REQUIRE_FALSE(undo->isEnabled());
+}
+
+TEST_CASE("FrameEditGesture Exposure edge drag changes the Exposure in one undo step", "[FrameEditGesture]")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(3);
+    layer->addNewKeyFrameAt(5);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    FrameEditGesture gesture(editor);
+
+    gesture.press(0, 2, FrameHit::ExposureEdge, Qt::NoModifier); // the right edge of Drawing 1
+    gesture.drag(0, 4);
+    gesture.release();
+    REQUIRE(keyPositions(layer) == QList<int>({ 1, 5, 7 }));
+
+    undo->trigger();
+    REQUIRE(keyPositions(layer) == QList<int>({ 1, 3, 5 }));
+    REQUIRE_FALSE(undo->isEnabled());
+}
+
+TEST_CASE("FrameEditGesture link drag makes a Linked Drawing in one undo step", "[FrameEditGesture]")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(3);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+    FrameEditGesture gesture(editor);
+
+    gesture.press(0, 4, FrameHit::Link, Qt::AltModifier); // held from Drawing 3
+    gesture.drag(0, 8);
+    gesture.release();
+    REQUIRE(keyPositions(layer) == QList<int>({ 1, 3, 8 }));
+    REQUIRE(layer->isLinked(layer->getKeyFrameAt(3)));
+
+    undo->trigger();
+    REQUIRE(keyPositions(layer) == QList<int>({ 1, 3 }));
+    REQUIRE_FALSE(undo->isEnabled());
+}
+
+TEST_CASE("Move Frame Forward and Backward each record one undo step", "[FrameEditGesture]")
+{
+    TestSession session;
+    LayerBitmap* layer = session.object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(3);
+    REQUIRE(session.start());
+    Editor* editor = session.editor.get();
+    editor->layers()->setCurrentLayer(layer);
+    editor->scrubTo(3);
+    ActionCommands commands(nullptr);
+    commands.setCore(editor);
+    QObject parent;
+    QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+
+    commands.moveFrameForward();
+    REQUIRE(keyPositions(layer) == QList<int>({ 1, 4 }));
+    commands.moveFrameBackward();
+    REQUIRE(keyPositions(layer) == QList<int>({ 1, 3 }));
+
+    undo->trigger();
+    REQUIRE(keyPositions(layer) == QList<int>({ 1, 4 }));
+    undo->trigger();
+    REQUIRE(keyPositions(layer) == QList<int>({ 1, 3 }));
     REQUIRE_FALSE(undo->isEnabled());
 }

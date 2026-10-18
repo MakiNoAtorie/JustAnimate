@@ -487,8 +487,8 @@ TEST_CASE("UndoRedoManager: undo/redo of frame operations")
     };
     auto select = [&](std::initializer_list<int> positions)
     {
-        layer->deselectAll();
-        for (int pos : positions) { layer->setFrameSelected(pos, true); }
+        LayerManager::deselectFrames(layer);
+        for (int pos : positions) { LayerManager::setFrameSelected(layer, pos, true); }
     };
 
     QObject parent;
@@ -688,7 +688,7 @@ TEST_CASE("UndoRedoManager: box-select across layers and move the frames as one 
 
     SECTION("A frame in the way on one layer moves nothing")
     {
-        top->setFrameSelected(8, true);
+        LayerManager::setFrameSelected(top, 8, true);
         REQUIRE_FALSE(layers->moveSelectedFrames(4));
         REQUIRE(frames() == before);
         REQUIRE_FALSE(undoAction->isEnabled());
@@ -777,7 +777,7 @@ TEST_CASE("UndoRedoManager: ripple insert and delete shift the later frames of t
 
     SECTION("Delete keeps the frame selection on the moved frames")
     {
-        layers->currentLayer()->setFrameSelected(8, true);
+        LayerManager::setFrameSelected(layers->currentLayer(), 8, true);
         editor->scrubTo(6);
         REQUIRE(layers->rippleRemoveFrame());
         CHECK(layers->currentLayer()->selectedKeyFramesPositions() == QList<int>({ 7 }));
@@ -1189,7 +1189,7 @@ TEST_CASE("UndoRedoManager - moving a sound clip moves the lip-sync markers insi
     QAction* undoAction = editor->undoRedo()->createUndoAction(&parent, QIcon());
     QAction* redoAction = editor->undoRedo()->createRedoAction(&parent, QIcon());
 
-    sound->setFrameSelected(2, true);
+    LayerManager::setFrameSelected(sound, 2, true);
     REQUIRE(editor->layers()->moveSelectedFrames(5));
     CHECK(markers() == after);
     CHECK(data->markers().keys() == QList<int>{ 3 });

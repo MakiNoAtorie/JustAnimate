@@ -181,9 +181,7 @@ private:
     int mFlashTicks = 0;
 
     FrameEditGesture mGesture;
-    int mExposureEdge = 0; // the frame whose right edge is being dragged, or 0
     int mRangeDragStart = 0; // ruler frame where a Shift-drag loop range started, or 0
-    int mLinkFrom = 0; // the key being Alt-dragged to make a Linked Drawing, or 0
 
     int mFramePosMoveX = 0;
     int mLayerPosMoveY = 0;

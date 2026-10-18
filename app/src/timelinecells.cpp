@@ -952,11 +952,11 @@ void TimeLineCells::paintEvent(QPaintEvent*)
             }
         }
 
-        if (mExposureEdge > 0)
+        if (mGesture.hit() == FrameHit::ExposureEdge)
         {
             // The new end of the Exposure being dragged.
-            const KeyFrame* key = currentLayer->getLastKeyFrameAtPosition(mExposureEdge);
-            const int x = getFrameX(qMax(key ? key->pos() : 1, mFramePosMoveX));
+            const KeyFrame* key = currentLayer->getLastKeyFrameAtPosition(mGesture.startFrame());
+            const int x = getFrameX(qMax(key ? key->pos() : 1, mGesture.lastFrame()));
             painter.fillRect(x - 1, getLayerY(mEditor->currentLayerIndex()), 3, mLayerHeight, palette.color(QPalette::Highlight));
         }
 
@@ -1048,15 +1048,14 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
     mEndY = event->pos().y();
 
     mLastFrameNumber = frameNumber;
-    mLinkFrom = 0;
     mGesture.press(-1, frameNumber, FrameHit::Empty, Qt::NoModifier);
 
     primaryButton = event->button();
 
-    mExposureEdge = event->button() == Qt::LeftButton && event->modifiers() == Qt::NoModifier ? exposureEdgeAt(event->pos()) : 0;
-    if (mExposureEdge > 0)
+    const int exposureEdge = event->button() == Qt::LeftButton && event->modifiers() == Qt::NoModifier ? exposureEdgeAt(event->pos()) : 0;
+    if (exposureEdge > 0)
     {
-        mEditor->layers()->setCurrentLayer(layerNumber);
+        mGesture.press(layerNumber, exposureEdge, FrameHit::ExposureEdge, Qt::NoModifier);
         return;
     }
 
@@ -1100,7 +1099,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
             else if (mEditor->currentLayerIndex() != layerNumber)
             {
                 mEditor->layers()->setCurrentLayer(layerNumber);
-                mEditor->layers()->currentLayer()->deselectAll();
+                LayerManager::deselectFrames(mEditor->layers()->currentLayer());
             }
             if (event->pos().x() >= 15 && event->button() == Qt::RightButton)
             {
@@ -1155,8 +1154,7 @@ void TimeLineCells::mousePressEvent(QMouseEvent* event)
                     if (event->modifiers() == Qt::AltModifier && event->button() == Qt::LeftButton &&
                         currentLayer->isPaintable() && currentLayer->keyExists(frameNumber))
                     {
-                        mEditor->layers()->setCurrentLayer(layerNumber);
-                        mLinkFrom = frameNumber;
+                        mGesture.press(layerNumber, frameNumber, FrameHit::Link, event->modifiers());
                     }
                     else if (event->button() == Qt::LeftButton)
                     {
@@ -1225,8 +1223,9 @@ void TimeLineCells::mouseMoveEvent(QMouseEvent* event)
             update();
             emit offsetChanged(mFrameOffset);
         }
-        else if (mExposureEdge > 0)
+        else if (mGesture.hit() == FrameHit::ExposureEdge)
         {
+            mGesture.drag(mCurrentLayerNumber, mFramePosMoveX);
             update();
         }
         else if (mRangeDragStart > 0)
@@ -1280,21 +1279,8 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
 
     if (mType == TIMELINE_CELL_TYPE::Tracks && mCurrentLayerNumber != -1 && primaryButton != Qt::MiddleButton)
     {
-        if (mLinkFrom > 0)
-        {
-            mEditor->layers()->linkDrawing(mLinkFrom, frameNumber);
-            updateContent();
-        }
-        else if (mExposureEdge > 0)
-        {
-            mEditor->layers()->changeExposure(mExposureEdge, frameNumber - mExposureEdge);
-            updateContent();
-        }
-        else
-        {
-            mGesture.release();
-            updateContent();
-        }
+        mGesture.release();
+        updateContent();
     }
     if (mType == TIMELINE_CELL_TYPE::Layers && !mScrollingVertically && layerNumber != mStartLayerNumber && mStartLayerNumber != -1 && layerNumber != -1)
     {
@@ -1313,9 +1299,7 @@ void TimeLineCells::mouseReleaseEvent(QMouseEvent* event)
     primaryButton = Qt::NoButton;
     mEndY = mStartY;
     mTimeLine->scrubbing = false;
-    mExposureEdge = 0;
     mRangeDragStart = 0;
-    mLinkFrom = 0;
 }
 
 void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
@@ -1342,7 +1326,7 @@ void TimeLineCells::mouseDoubleClickEvent(QMouseEvent* event)
 
             // The release event will toggle the frame on again, so we make sure it gets
             // deselected now instead.
-            layer->setFrameSelected(frameNumber, true);
+            LayerManager::setFrameSelected(layer, frameNumber, true);
         }
         else if (mType == TIMELINE_CELL_TYPE::Layers && event->pos().x() >= kLayerNameLeft)
         {

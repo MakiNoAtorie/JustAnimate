@@ -150,6 +150,15 @@ public:
      *  Deselects the frames of every other layer. The bounds can be in any order. */
     void selectFrames(int fromLayer, int toLayer, int fromFrame, int toFrame);
     void deselectAllFrames();
+    // The only way into a layer's frame selection. Selection is not an edit: these record nothing.
+    static void setFrameSelected(Layer* layer, int frame, bool selected) { layer->setFrameSelected(frame, selected); }
+    static void toggleFrameSelected(Layer* layer, int frame, bool allowMultiple = false) { layer->toggleFrameSelected(frame, allowMultiple); }
+    static void extendSelectionTo(Layer* layer, int frame) { layer->extendSelectionTo(frame); }
+    static void selectAllFramesAfter(Layer* layer, int frame) { layer->selectAllFramesAfter(frame); }
+    static bool selectConnectedFrames(Layer* layer, int frame) { return layer->newSelectionOfConnectedFrames(frame); }
+    static void deselectFrames(Layer* layer) { layer->deselectAll(); }
+    /** Moves the current layer's keyframe at `frame` by `offset`, swapping with a keyframe there. One undo step. */
+    bool moveKeyFrame(int frame, int offset);
     /** Moves the selected frames of every layer by `offset` as one undo step.
      *  Stops at frame 1. Moves nothing and returns false when a frame is in the way on any layer. */
     bool moveSelectedFrames(int offset);

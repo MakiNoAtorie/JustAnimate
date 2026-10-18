@@ -779,14 +779,14 @@ void ActionCommands::exposeSelectedFrames(int value, bool hold)
     KeyFrame* key = currentLayer->getLastKeyFrameAtPosition(mEditor->currentFrame());
     if (!hasSelectedFrames) {
         if (key == nullptr) { return; }
-        currentLayer->setFrameSelected(key->pos(), true);
+        LayerManager::setFrameSelected(currentLayer, key->pos(), true);
     }
 
     mEditor->layers()->setExposureForSelectedFrames(value, hold);
     emit mEditor->updateTimeLine();
 
     if (!hasSelectedFrames) {
-        currentLayer->setFrameSelected(key->pos(), false);
+        LayerManager::setFrameSelected(currentLayer, key->pos(), false);
     }
 }
 
@@ -908,29 +908,12 @@ void ActionCommands::duplicateKey()
 
 void ActionCommands::moveFrameForward()
 {
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer)
-    {
-        if (layer->moveKeyFrame(mEditor->currentFrame(), 1))
-        {
-            mEditor->scrubForward();
-        }
-    }
-    mEditor->layers()->notifyAnimationLengthChanged();
-    emit mEditor->framesModified();
+    if (mEditor->layers()->moveKeyFrame(mEditor->currentFrame(), 1)) { mEditor->scrubForward(); }
 }
 
 void ActionCommands::moveFrameBackward()
 {
-    Layer* layer = mEditor->layers()->currentLayer();
-    if (layer)
-    {
-        if (layer->moveKeyFrame(mEditor->currentFrame(), -1))
-        {
-            mEditor->scrubBackward();
-        }
-    }
-    emit mEditor->framesModified();
+    if (mEditor->layers()->moveKeyFrame(mEditor->currentFrame(), -1)) { mEditor->scrubBackward(); }
 }
 
 Status ActionCommands::addNewBitmapLayer()

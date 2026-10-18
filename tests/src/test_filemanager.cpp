@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "vectorimage.h"
 #include "layersound.h"
 #include "layercamera.h"
+#include "layermanager.h"
 #include "camera.h"
 #include "soundclip.h"
 #include "playbackmanager.h"
@@ -640,7 +641,7 @@ TEST_CASE("FileManager File-saving")
 
         // 3. Move those unloaded frames around
         for (int i = 100; i < 150; ++i)
-            layer->setFrameSelected(i, true);
+            LayerManager::setFrameSelected(layer, i, true);
 
         layer->moveSelectedFrames(-55);
         fm.save(o2, animationPath);

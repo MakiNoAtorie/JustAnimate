@@ -319,7 +319,7 @@ void Editor::pasteToFrames()
     Q_ASSERT(!clipboardFrames.empty());
     Layer* currentLayer = layers()->currentLayer();
 
-    currentLayer->deselectAll();
+    LayerManager::deselectFrames(currentLayer);
 
     int newPositionOffset = mFrame - clipboardFrames.cbegin()->first;
     for (auto it = clipboardFrames.cbegin(); it != clipboardFrames.cend(); ++it)
@@ -331,7 +331,7 @@ void Editor::pasteToFrames()
         if (keyFrameNewPos != nullptr) {
 
             // Select and move any frames that may come into contact with the new position
-            currentLayer->newSelectionOfConnectedFrames(newPosition);
+            LayerManager::selectConnectedFrames(currentLayer, newPosition);
             currentLayer->moveSelectedFrames(1);
         }
 
@@ -346,7 +346,7 @@ void Editor::pasteToFrames()
             sound()->loadSound(soundClip, soundClip->fileName());
         }
 
-        currentLayer->setFrameSelected(key->pos(), true);
+        LayerManager::setFrameSelected(currentLayer, key->pos(), true);
     }
 
     layers()->notifyAnimationLengthChanged();
@@ -867,7 +867,7 @@ void Editor::deselectAll() const
     }
 
     if (layer->hasAnySelectedFrames()) {
-        layer->deselectAll();
+        LayerManager::deselectFrames(layer);
         emit updateTimeLine();
     }
 }

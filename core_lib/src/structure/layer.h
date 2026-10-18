@@ -173,23 +173,7 @@ public:
 
     void setModified(int position, bool isModified) const;
 
-    // Handle selection
     bool isFrameSelected(int position) const;
-    void setFrameSelected(int position, bool isSelected);
-    void toggleFrameSelected(int position, bool allowMultiple = false);
-    void extendSelectionTo(int position);
-    void selectAllFramesAfter(int position);
-
-    /** Make a selection from specified position until a blank spot appears
-     *  The search is only looking forward, e.g.
-     *  @code
-     *  |123| 4 5
-     *   ^
-     *   pos/search from
-     *  @endcode
-     *  @param position the current position
-     */
-    bool newSelectionOfConnectedFrames(int position);
 
     /** Changes the hold of each selected keyframe (the frames up to the next keyframe) and moves the later keyframes.
      * @param value Frames to add (above 0) or subtract (below 0); with `hold`, the new hold length. A hold is at least 1.
@@ -200,8 +184,6 @@ public:
      * @return true if all frames were successfully reversed, otherwise will return false.
      */
     bool reverseOrderOfSelection();
-
-    void deselectAll();
 
     bool moveSelectedFrames(int offset);
 
@@ -241,6 +223,16 @@ protected:
     bool loadKey(KeyFrame*);
 
 private:
+    // Frame selection changes only through LayerManager.
+    friend class LayerManager;
+    void setFrameSelected(int position, bool isSelected);
+    void toggleFrameSelected(int position, bool allowMultiple = false);
+    void extendSelectionTo(int position);
+    void selectAllFramesAfter(int position);
+    /** Selects from `position` forward until the first empty frame. */
+    bool newSelectionOfConnectedFrames(int position);
+    void deselectAll();
+
     void removeFromSelectionList(int position);
 
     LAYER_TYPE meType = UNDEFINED;

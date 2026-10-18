@@ -52,8 +52,8 @@ TEST_CASE("Create inbetweens fills the empty frames between two vector Drawings"
     session.start();
     Editor* editor = session.editor.get();
     editor->layers()->setCurrentLayer(layer);
-    layer->setFrameSelected(1, true);
-    layer->setFrameSelected(5, true);
+    LayerManager::setFrameSelected(layer, 1, true);
+    LayerManager::setFrameSelected(layer, 5, true);
     QObject parent;
     QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
     QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
@@ -100,8 +100,8 @@ TEST_CASE("Create inbetweens follows the easing", "[Inbetweens]")
     session.start();
     Editor* editor = session.editor.get();
     editor->layers()->setCurrentLayer(layer);
-    layer->setFrameSelected(1, true);
-    layer->setFrameSelected(5, true);
+    LayerManager::setFrameSelected(layer, 1, true);
+    LayerManager::setFrameSelected(layer, 5, true);
 
     REQUIRE(editor->layers()->createInbetweens(CameraEasingType::INQUAD).ok());
 
@@ -127,15 +127,15 @@ TEST_CASE("Create inbetweens refuses different stroke counts and bitmap layers",
     QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
 
     editor->layers()->setCurrentLayer(vector);
-    vector->setFrameSelected(1, true);
-    vector->setFrameSelected(5, true);
+    LayerManager::setFrameSelected(vector, 1, true);
+    LayerManager::setFrameSelected(vector, 5, true);
     CHECK_FALSE(editor->layers()->createInbetweens(CameraEasingType::LINEAR).ok());
     CHECK(messages == 1);
     CHECK(vector->keyFrameCount() == 2);
 
     editor->layers()->setCurrentLayer(bitmap);
-    bitmap->setFrameSelected(1, true);
-    bitmap->setFrameSelected(5, true);
+    LayerManager::setFrameSelected(bitmap, 1, true);
+    LayerManager::setFrameSelected(bitmap, 5, true);
     CHECK_FALSE(editor->layers()->createInbetweens(CameraEasingType::LINEAR).ok());
     CHECK(messages == 2);
     CHECK(bitmap->keyFrameCount() == 2);

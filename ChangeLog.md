@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - Tools, canvas edits and menu commands record undo through one scoped Edit; an Edit left open by a lost pointer release ends cleanly after a project load (#257).
+- The X-sheet's Exposure edge and link drags run through the timeline's frame-edit gesture; Move Frame Forward and Backward can be undone (#265).
 - Timeline click select, box select and frame move run through one frame-edit gesture, driven by layer and frame instead of pixels (#264).
 - Movie and GIF export, from the menu or the command line, run through the same core exporter (#274).
 - The canvas paints its layers through the frame renderer rules, pinned to the export pixels by a parity test (#261).

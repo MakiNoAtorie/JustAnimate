@@ -23,6 +23,7 @@ GNU General Public License for more details.
 
 #include "cellmenus.h"
 #include "editor.h"
+#include "frameeditgesture.h"
 #include "keyframe.h"
 #include "layer.h"
 #include "layermanager.h"
@@ -46,7 +47,7 @@ bool isTimesheetLayout(Editor* editor) { return editor->preference()->getInt(SET
 class XSheetCells : public QAbstractScrollArea
 {
 public:
-    XSheetCells(Editor* editor, QWidget* parent) : QAbstractScrollArea(parent), mEditor(editor)
+    XSheetCells(Editor* editor, QWidget* parent) : QAbstractScrollArea(parent), mEditor(editor), mGesture(editor)
     {
         viewport()->setMouseTracking(true);
         verticalScrollBar()->setSingleStep(kRow);
@@ -136,22 +137,25 @@ protected:
         const int layerIndex = layerAt(event->pos());
         if (event->button() != Qt::LeftButton || layerIndex < 0) { return; }
         mEditor->layers()->setCurrentLayer(layerIndex);
-        mExposureEnd = event->modifiers() == Qt::NoModifier ? exposureEndAt(event->pos()) : 0;
-        mDragTo = mExposureEnd;
+        const int exposureEnd = event->modifiers() == Qt::NoModifier ? exposureEndAt(event->pos()) : 0;
         const Layer* layer = mEditor->object()->getLayer(layerIndex);
         const int frame = frameAt(event->pos().y());
         const bool link = event->modifiers() == Qt::AltModifier && layer->isPaintable() && layer->getLastKeyFrameAtPosition(frame);
-        mLinkFrom = link ? frame : 0;
-        mScrubbing = mExposureEnd == 0 && mLinkFrom == 0;
-        if (mScrubbing) { mEditor->scrubTo(frameAt(event->pos().y())); }
+        if (exposureEnd > 0) { mGesture.press(layerIndex, exposureEnd, FrameHit::ExposureEdge, event->modifiers()); }
+        else if (link) { mGesture.press(layerIndex, frame, FrameHit::Link, event->modifiers()); }
+        else
+        {
+            mScrubbing = true;
+            mEditor->scrubTo(frame);
+        }
     }
 
     void mouseMoveEvent(QMouseEvent* event) override
     {
         const int frame = frameAt(event->pos().y());
-        if (mExposureEnd > 0)
+        if (mGesture.hit() != FrameHit::Empty)
         {
-            mDragTo = frame;
+            mGesture.drag(layerAt(event->pos()), frame);
             viewport()->update();
         }
         else if (mScrubbing) { mEditor->scrubTo(frame); }
@@ -159,12 +163,9 @@ protected:
         else { viewport()->unsetCursor(); }
     }
 
-    void mouseReleaseEvent(QMouseEvent* event) override
+    void mouseReleaseEvent(QMouseEvent*) override
     {
-        if (mExposureEnd > 0) { mEditor->layers()->changeExposure(mExposureEnd, mDragTo - mExposureEnd); }
-        if (mLinkFrom > 0) { mEditor->layers()->linkDrawing(mLinkFrom, frameAt(event->pos().y())); }
-        mExposureEnd = 0;
-        mLinkFrom = 0;
+        mGesture.release();
         mScrubbing = false;
         viewport()->update();
     }
@@ -223,10 +224,10 @@ protected:
             }
         }
 
-        if (mExposureEnd > 0 && column >= 0)
+        if (mGesture.hit() == FrameHit::ExposureEdge && column >= 0)
         {
-            const KeyFrame* key = object->getLayer(currentLayer)->getLastKeyFrameAtPosition(mExposureEnd);
-            const QRect end = cellRect(currentLayer, qMax(key ? key->pos() : 1, mDragTo));
+            const KeyFrame* key = object->getLayer(currentLayer)->getLastKeyFrameAtPosition(mGesture.startFrame());
+            const QRect end = cellRect(currentLayer, qMax(key ? key->pos() : 1, mGesture.lastFrame()));
             painter.fillRect(end.left(), end.bottom() - 1, kColumn, 3, pal.color(QPalette::Highlight));
         }
 
@@ -297,9 +298,7 @@ private:
     }
 
     Editor* mEditor;
-    int mExposureEnd = 0; // the frame whose bottom edge is being dragged, or 0
-    int mDragTo = 0;
-    int mLinkFrom = 0; // the frame of the Drawing being Alt-dragged to link it, or 0
+    FrameEditGesture mGesture; // Exposure edge and link drags
     bool mScrubbing = false;
 };
 

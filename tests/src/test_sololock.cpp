@@ -151,11 +151,11 @@ TEST_CASE("A lock-all layer refuses edits with a status message", "[SoloLock]")
     refused("exposure", [&] { CHECK_FALSE(editor->layers()->changeExposure(1, 1)); });
     refused("insert frame", [&] { CHECK_FALSE(editor->layers()->rippleInsertFrame()); });
     refused("delete frame", [&] { CHECK_FALSE(editor->layers()->rippleRemoveFrame()); });
-    layer->setFrameSelected(3, true);
+    LayerManager::setFrameSelected(layer, 3, true);
     refused("move frames", [&] { CHECK_FALSE(editor->layers()->moveSelectedFrames(2)); });
     refused("remove frames", [&] { editor->removeSelectedKeyFrames("Remove"); });
     refused("set exposure", [&] { editor->layers()->setExposureForSelectedFrames(2, false); });
-    layer->deselectAll();
+    LayerManager::deselectFrames(layer);
     refused("eraser stroke", [&] {
         editor->tools()->setCurrentTool(ERASER);
         const QPointF from = editor->view()->mapCanvasToScreen(QPointF(-20, 0));
