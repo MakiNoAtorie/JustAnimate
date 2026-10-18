@@ -420,26 +420,6 @@ void UndoRedoManager::recordAttribute(AttributeId id, int layerId, int frame, co
     pushCommand(new AttributeCommand(id, layerId, frame, before, after, editor()));
 }
 
-void UndoRedoManager::recordLayerBlendMode(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description)
-{
-    pushCommand(new LayerBlendModeCommand(layerId, oldMode, newMode, description, editor()));
-}
-
-void UndoRedoManager::recordLayerRough(int layerId, bool rough, const QString& description)
-{
-    pushCommand(new LayerRoughCommand(layerId, rough, description, editor()));
-}
-
-void UndoRedoManager::recordPaperTemplate(const PaperTemplate& before, const PaperTemplate& after, const QString& description)
-{
-    pushCommand(new PaperTemplateCommand(before, after, description, editor()));
-}
-
-void UndoRedoManager::recordSceneLength(int oldLength, int newLength, const QString& description)
-{
-    pushCommand(new SceneLengthCommand(oldLength, newLength, description, editor()));
-}
-
 void UndoRedoManager::recordMarkers(int layerId, const QMap<int, FrameMarker>& before, const QString& description)
 {
     pushCommand(new MarkersCommand(layerId, before, object()->data()->markers(layerId), description, editor()));
@@ -453,16 +433,6 @@ void UndoRedoManager::recordCameraSize(int layerId, QRect before, QRect after, c
 void UndoRedoManager::recordKeyFrameOpacities(int layerId, const QMap<int, qreal>& before, const QMap<int, qreal>& after, const QString& description)
 {
     pushCommand(new KeyFrameOpacityCommand(layerId, before, after, description, editor()));
-}
-
-void UndoRedoManager::recordLayerTimesheet(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description)
-{
-    pushCommand(new LayerTimesheetCommand(layerId, oldColumn, newColumn, description, editor()));
-}
-
-void UndoRedoManager::recordLayerStoryboard(int layerId, bool storyboard, const QString& description)
-{
-    pushCommand(new LayerStoryboardCommand(layerId, storyboard, description, editor()));
 }
 
 void UndoRedoManager::recordLayerArrangement(const LayerArrangement& before, const QString& description)

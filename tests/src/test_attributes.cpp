@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #include "layersound.h"
 #include "layervector.h"
 #include "object.h"
+#include "objectdata.h"
 #include "testfixture.h"
 #include "undoredomanager.h"
 
@@ -83,6 +84,14 @@ QVariant otherValue(const AttributeDescriptor& row, const QVariant& current)
     {
         PanelFields p = current.value<PanelFields>();
         p.scene += "1";
+        p.notes += "a & <b>";
+        return QVariant::fromValue(p);
+    }
+    if (current.canConvert<PaperTemplate>())
+    {
+        PaperTemplate p = current.value<PaperTemplate>();
+        p.on = !p.on;
+        p.title += "Cut 12";
         p.notes += "a & <b>";
         return QVariant::fromValue(p);
     }
@@ -398,4 +407,57 @@ TEST_CASE("Setting an attribute to its current value records nothing", "[Attribu
 
     editor->layers()->setAttribute(layer, AttributeId::LockAlpha, false);
     CHECK_FALSE(editor->undoRedo()->hasUnsavedChanges());
+}
+
+TEST_CASE("The table has a row for every project attribute", "[Attributes]")
+{
+    for (AttributeId id : { AttributeId::SceneLength, AttributeId::PaperTemplate })
+    {
+        CHECK(attribute(id).id == id);
+        CHECK(attribute(id).scope == AttributeScope::Project);
+    }
+}
+
+TEST_CASE("Every project attribute row round-trips through set save load undo and redo", "[Attributes]")
+{
+    for (const AttributeDescriptor& row : attributeTable())
+    {
+        if (row.scope != AttributeScope::Project) { continue; }
+        DYNAMIC_SECTION(row.xmlName)
+        {
+            QTemporaryDir dir;
+            REQUIRE(dir.isValid());
+            TestSession session;
+            session.object->addNewCameraLayer();
+            session.start();
+            Editor* editor = session.editor.get();
+            QObject parent;
+            QAction* undo = editor->undoRedo()->createUndoAction(&parent, QIcon());
+            QAction* redo = editor->undoRedo()->createRedoAction(&parent, QIcon());
+
+            const QVariant start = row.get(*session.object);
+            CHECK(start == row.defaultValue);
+            const QVariant value = otherValue(row, start);
+            REQUIRE(value.isValid());
+
+            editor->layers()->setProjectAttribute(row.id, value);
+            CHECK(row.get(*session.object) == value);
+            // The undo texts from before the table.
+            const QHash<AttributeId, QString> oldText = { { AttributeId::SceneLength, "Project Length" },
+                                                          { AttributeId::PaperTemplate, "Paper Template" } };
+            CHECK(undo->text().endsWith(" " + oldText.value(row.id, "?")));
+
+            const QString path = dir.filePath("project.pclx");
+            FileManager fm;
+            REQUIRE(fm.save(session.object, path).ok());
+            std::unique_ptr<Object> loaded(fm.load(path));
+            REQUIRE(loaded != nullptr);
+            CHECK(row.get(*loaded) == value);
+
+            undo->trigger();
+            CHECK(row.get(*session.object) == start);
+            redo->trigger();
+            CHECK(row.get(*session.object) == value);
+        }
+    }
 }

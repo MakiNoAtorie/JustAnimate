@@ -511,12 +511,26 @@ bool LayerManager::setSceneLength(int length)
 {
     const int old = object()->sceneLength();
     if (length < 0 || length > MaxFramesBound || length == old) { return false; }
-    object()->setSceneLength(length);
-    editor()->undoRedo()->recordSceneLength(old, length, tr("Project Length"));
-    object()->modification();
-    notifyAnimationLengthChanged();
-    emit editor()->updateTimeLine();
+    setProjectAttribute(AttributeId::SceneLength, length);
     return true;
+}
+
+void LayerManager::setProjectAttribute(AttributeId id, const QVariant& value)
+{
+    const AttributeDescriptor& row = attribute(id);
+    if (row.scope != AttributeScope::Project) { return; }
+    const QVariant before = row.get(*object());
+    if (before == value) { return; }
+    row.set(*object(), value);
+    editor()->undoRedo()->recordAttribute(id, 0, 0, before, value);
+    notifyProjectChanged();
+}
+
+void LayerManager::notifyProjectChanged()
+{
+    notifyAnimationLengthChanged();
+    emit editor()->framesModified();
+    emit editor()->updateTimeLine();
 }
 
 void LayerManager::setCameraSize(LayerCamera* layer, QSize size)

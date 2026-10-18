@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include <QTemporaryDir>
 
 #include "object.h"
+#include "attributes.h"
 #include "vectorimage.h"
 #include "bitmapimage.h"
 #include "soundclip.h"
@@ -1044,7 +1045,7 @@ void Editor::setPaperTemplate(const PaperTemplate& paper)
         if (step.*field == paper.*field) { return; }
         PaperTemplate next = step;
         next.*field = paper.*field;
-        mUndoRedoManager->recordPaperTemplate(step, next, tr("Paper Template"));
+        mUndoRedoManager->recordAttribute(AttributeId::PaperTemplate, 0, 0, QVariant::fromValue(step), QVariant::fromValue(next));
         step = next;
     };
     record(&PaperTemplate::on);

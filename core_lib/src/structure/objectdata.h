@@ -20,6 +20,7 @@ GNU General Public License for more details.
 
 #include <QColor>
 #include <QMap>
+#include <QMetaType>
 #include <QString>
 #include <QTransform>
 #include "pencildef.h"
@@ -47,6 +48,7 @@ struct PaperTemplate
     }
     bool operator!=(const PaperTemplate& o) const { return !(*this == o); }
 };
+Q_DECLARE_METATYPE(PaperTemplate)
 
 class ObjectData
 {

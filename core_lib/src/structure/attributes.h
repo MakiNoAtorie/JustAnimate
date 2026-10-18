@@ -23,6 +23,7 @@ GNU General Public License for more details.
 
 class QDomElement;
 class KeyFrame;
+class Object;
 
 /// Table order; the values index the table.
 enum class AttributeId
@@ -41,6 +42,8 @@ enum class AttributeId
     Tween, // a KeyTween
     PanelFields,
     LinkedTo, // the link id; saved as the linkedTo file name by Layer::writeLinks
+    SceneLength,
+    PaperTemplate, // a PaperTemplate; set keeps the current Timesheet values
 };
 
 enum class AttributeScope { Layer, Drawing, Project };
@@ -62,12 +65,16 @@ struct AttributeDescriptor
     void (*writeXml)(QDomElement& elem, const QVariant& value) = nullptr; // a row with several XML attributes; nullptr: one, xmlName
     QVariant (*readXml)(const QDomElement& elem) = nullptr; // invalid: the row is not read from this element
     const char* (*undoTextSourceFor)(const QVariant& after) = nullptr; // nullptr: undoTextSource for every value
+    QVariant (*getProjectValue)(const Object& object) = nullptr; // Project rows only
+    void (*setProjectValue)(Object& object, const QVariant& value) = nullptr; // Project rows only
 
     bool appliesTo(Layer::LAYER_TYPE type) const { return appliesToType(type); }
     /// The undo text of setting the row to `after`; an invalid `after` gives the row's base text.
     QString undoText(const QVariant& after = QVariant()) const;
     QVariant get(const Layer* layer, const KeyFrame* key = nullptr) const { return getValue(layer, key); }
     void set(Layer* layer, KeyFrame* key, const QVariant& value) const { setValue(layer, key, value); }
+    QVariant get(const Object& object) const { return getProjectValue(object); }
+    void set(Object& object, const QVariant& value) const { setProjectValue(object, value); }
 };
 
 const std::vector<AttributeDescriptor>& attributeTable();

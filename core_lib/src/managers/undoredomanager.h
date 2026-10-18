@@ -43,7 +43,6 @@ class SoundClip;
 class KeyFrame;
 class UndoRedoCommand;
 struct LayerArrangement;
-struct PaperTemplate;
 enum class AttributeId;
 struct FrameMarker;
 
@@ -191,15 +190,6 @@ public:
 
     /** Records one attribute table edit. `frame` is the key position for a Drawing row, else 0. */
     void recordAttribute(AttributeId id, int layerId, int frame, const QVariant& before, const QVariant& after);
-    /** Records that the blend mode of the layer with the given id changed from oldMode. */
-    void recordLayerBlendMode(int layerId, BlendMode oldMode, BlendMode newMode, const QString& description);
-    /** Records that the layer with the given id became Rough (or stopped being Rough). */
-    void recordLayerRough(int layerId, bool rough, const QString& description);
-    /** Records that the Paper template changed from before to after. */
-    void recordPaperTemplate(const PaperTemplate& before, const PaperTemplate& after, const QString& description);
-    void recordLayerTimesheet(int layerId, TimesheetColumn oldColumn, TimesheetColumn newColumn, const QString& description);
-    void recordLayerStoryboard(int layerId, bool storyboard, const QString& description);
-    void recordSceneLength(int oldLength, int newLength, const QString& description);
     /** Records that the markers of `layerId` (0: global) changed from `before` to the current set */
     void recordMarkers(int layerId, const QMap<int, FrameMarker>& before, const QString& description);
     /** Records that the view rect of camera layer `layerId` changed from `before` to `after` */

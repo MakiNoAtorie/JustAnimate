@@ -73,6 +73,10 @@ public:
     /** Sets a Drawing-level row on the Drawing shown at `frame`. One undo step.
      *  Returns false when nothing changes: no Drawing at `frame`, the same value, or a refused edit. */
     bool setKeyAttribute(Layer* layer, int frame, AttributeId id, const QVariant& value);
+    /** Sets a project row of the attribute table. One undo step; nothing when the value is unchanged. */
+    void setProjectAttribute(AttributeId id, const QVariant& value);
+    /** Tells the views that a project row changed. */
+    void notifyProjectChanged();
     /** Sets how the layer composites over the layers below it. One undo step. */
     void setBlendMode(Layer* layer, BlendMode mode);
     void setRough(Layer* layer, bool rough);

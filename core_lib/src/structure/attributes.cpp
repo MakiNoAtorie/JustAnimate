@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include <QDomElement>
 
 #include "layerbitmap.h"
+#include "object.h"
+#include "objectdata.h"
 
 namespace
 {
@@ -171,6 +173,25 @@ const std::vector<AttributeDescriptor> kTable = {
       false, nullptr, nullptr,
       [](QDomElement&, const QVariant&) {},
       [](const QDomElement&) { return QVariant(); } },
+    // Object and FileManager save the project rows.
+    { AttributeId::SceneLength, AttributeScope::Project, "length", 0,
+      QT_TRANSLATE_NOOP("Attributes", "Project Length"), nullptr, nullptr, nullptr,
+      false, nullptr, nullptr, nullptr, nullptr, nullptr,
+      [](const Object& object) -> QVariant { return object.sceneLength(); },
+      [](Object& object, const QVariant& v) { object.setSceneLength(v.toInt()); } },
+    { AttributeId::PaperTemplate, AttributeScope::Project, "paperTemplate", QVariant::fromValue(PaperTemplate()),
+      QT_TRANSLATE_NOOP("Attributes", "Paper Template"), nullptr, nullptr, nullptr,
+      false, nullptr, nullptr, nullptr, nullptr, nullptr,
+      [](const Object& object) -> QVariant { return QVariant::fromValue(object.data()->paperTemplate()); },
+      [](Object& object, const QVariant& v) {
+          // The Timesheet values are export memory, not undoable edits: keep the current ones.
+          const PaperTemplate& current = object.data()->paperTemplate();
+          PaperTemplate next = v.value<PaperTemplate>();
+          next.sheetScene = current.sheetScene;
+          next.sheetShot = current.sheetShot;
+          next.sheetAnimator = current.sheetAnimator;
+          object.data()->setPaperTemplate(next);
+      } },
 };
 
 QString toXml(const AttributeDescriptor& row, const QVariant& value)
