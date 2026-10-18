@@ -148,9 +148,18 @@ void BitmapImage::loadFile()
 {
     if (!fileName().isEmpty() && !isLoaded())
     {
-        mImage = mPendingLoad.valid() ? mPendingLoad.get() : readImageFile(fileName());
+        if (mPendingLoad.valid())
+        {
+            mImage = mPendingLoad.get();
+        }
+        else
+        {
+            StageScope stage(StageProfiler::DrawingLoad); // a decode on the calling thread
+            mImage = readImageFile(fileName());
+        }
         mBounds.setSize(mImage.size());
         mMinBound = false;
+        notifyLoaded();
     }
     mPendingLoad = {};
 }

@@ -48,8 +48,7 @@ public:
 
     /** Loads the backing image data from disk and into memory if it exists but hasn't been loaded yet */
     void loadFile() override;
-    /** Starts reading the backing file on a worker thread; the next loadFile() takes the result */
-    void loadFileAsync();
+    void loadFileAsync() override;
 
     /** Unloads the image data from memory if there's valid backing data on disk and the latest state has been stored */
     void unloadFile() override;

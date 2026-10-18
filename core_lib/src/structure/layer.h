@@ -31,6 +31,7 @@ GNU General Public License for more details.
 #include "keyframe.h"
 
 class KeyFrame;
+class ActiveFramePool;
 struct TweenState;
 class Status;
 
@@ -163,6 +164,8 @@ public:
     void foreachKeyFrame(std::function<void(KeyFrame*)>) const;
     /// The keys at positions from..to, last first like foreachKeyFrame.
     void foreachKeyFrameIn(int from, int to, const std::function<void(KeyFrame*)>& action) const;
+    /** The pool watches every key of this layer, now and when a key is added, so it sees every load */
+    void setFramePool(ActiveFramePool* pool);
 
     /// The other keys of this layer linked to `key` (Linked Drawing, GLOSSARY.md).
     QList<KeyFrame*> linkedKeys(const KeyFrame* key) const;
@@ -254,6 +257,7 @@ private:
 
     std::map<int, KeyFrame*, std::greater<int>> mKeyFrames;
     std::vector<std::unique_ptr<KeyFrame>>* mRemovedKeySink = nullptr;
+    ActiveFramePool* mFramePool = nullptr;
 
     // We need to keep track of selected frames ordered by last selected
     // and by position.

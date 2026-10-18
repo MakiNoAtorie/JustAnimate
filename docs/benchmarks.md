@@ -43,6 +43,8 @@ save is timed, 3 times over. Then, 3 times over, each in a fresh editor and
 | save one | `FileManager::save` again with one frame modified: unchanged frames are copied from the previous archive |
 | export | `Exporter::run` of frames 1–500 as a 1920×1080 PNG sequence, layers still blended |
 | timeline | 20 times: `frameModified` on frame 1 (a stroke end), then a paint of a 1280x300 timeline |
+| far jump | 10 jumps between the first and the last frame + repaint, caches cleared before each |
+| working set | `scrubTo(f)` + repaint for frames 1–500 on a second project with a key every 3 frames, onion skin on both sides; the resident set after it is printed |
 
 The table prints median, min and max over the 3 runs, and the median per
 frame or stroke. A last line prints the peak RAM (working set, sampled after

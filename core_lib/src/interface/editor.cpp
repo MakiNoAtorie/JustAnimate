@@ -904,12 +904,9 @@ void Editor::scrubTo(int frame)
     {
         emit updateTimeLineCached(); // needs to update the timeline to update onion skin positions
     }
-    if (mPlaybackManager && mPlaybackManager->isPlaying())
-    {
-        // Far below the pool's 50-frame unload distance, so preloaded frames stay until drawn.
-        mObject->preloadFrames(frame, 12);
-    }
     mObject->updateActiveFrames(frame);
+    // Read-ahead both ways, far below the pool's 50-frame unload distance, so preloaded frames stay until drawn.
+    mObject->preloadFrames(std::max(1, frame - 12), 25);
     emit scrubbed(frame);
 }
 

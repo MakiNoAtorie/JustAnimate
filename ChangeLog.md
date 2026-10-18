@@ -11,6 +11,7 @@ the original Pencil2D history is kept below for reference.
 - The timeline draws only the keys in view, and a stroke repaints one column instead of every cell of every layer (#276).
 - Thin brushes draw faster: a pointer move repaints the canvas once, and the Eraser and Smudge read their settings once per stroke (#277).
 - Export blends a blend-mode layer straight into the frame image, without copies of the frame (#286).
+- A timeline jump decodes only the shown Drawings at once and reads nearby ones in the background; held and onion Drawings unload when far away (#279).
 - Single-image export asks once before it replaces a file; brush scatter places the same dabs on macOS as on Windows and Linux (#217).
 - Every preference is read and written through its typed table row; the untyped accessors and the runtime type check are gone (#272).
 - Pen, Pencil, Brush, Shape and Polyline vector curves commit through the stroke buffer, mapped into the key's space in one place (#269).

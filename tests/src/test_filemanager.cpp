@@ -47,6 +47,7 @@ GNU General Public License for more details.
 #include "soundclip.h"
 #include "playbackmanager.h"
 #include "testfixture.h"
+#include "stageprofiler.h"
 
 #include <memory>
 #include <random>
@@ -1446,9 +1447,9 @@ TEST_CASE("Playback loads frames ahead of the playhead and keeps edits on the ne
     // Edit a preloaded frame while playing: the next loop shows the edit, not the file on disk.
     BitmapImage* edited = layer->getBitmapImageAtFrame(8);
     edited->drawRect(QRectF(4, 4, 4, 4), QPen(Qt::blue), QBrush(Qt::blue), QPainter::CompositionMode_SourceOver, false);
-    for (int f = 2; f <= 9; ++f)
+    for (int f = 2; f <= 12; ++f)
         s.editor->scrubTo(f);
-    REQUIRE(ahead->isLoaded()); // entered the pool's window
+    REQUIRE(ahead->isLoaded()); // shown: it takes the worker's result
     REQUIRE(ahead->pixel(5, 5) == qRgb(255, 0, 0));
     for (int f = 10; f <= frames; ++f)
         s.editor->scrubTo(f);
@@ -1754,4 +1755,79 @@ TEST_CASE("A saved fixture project writes the main.xml of the format before v1.7
     INFO(canonical.toStdString());
     // Golden from master before v1.7 (5a1a584).
     CHECK(QCryptographicHash::hash(canonical.toUtf8(), QCryptographicHash::Sha1).toHex().toStdString() == "5360d849a3c02c451685bbf48fc969abe123e44c");
+}
+
+namespace
+{
+// Saves bitmap layers with a Drawing at each of `keys` and loads them back: every Drawing is unloaded, with a file.
+Object* savedDrawings(const QString& path, int layers, const std::vector<int>& keys)
+{
+    FileManager fm;
+    {
+        Object object;
+        object.init();
+        object.addNewCameraLayer();
+        for (int l = 0; l < layers; ++l)
+        {
+            LayerBitmap* layer = object.addNewBitmapLayer();
+            for (int k : keys)
+            {
+                layer->addNewKeyFrameAt(k);
+                layer->getBitmapImageAtFrame(k)->drawRect(QRectF(0, 0, 10, 10), Qt::NoPen, Qt::red,
+                                                          QPainter::CompositionMode_SourceOver, false);
+            }
+        }
+        REQUIRE(fm.save(&object, path).ok());
+    }
+    return fm.load(path);
+}
+}
+
+TEST_CASE("Frame pool: a far jump decodes only the shown Drawing of each layer on the calling thread")
+{
+    QTemporaryDir dir;
+    std::vector<int> keys;
+    for (int f = 1; f <= 200; ++f) { keys.push_back(f); }
+    TestSession s(savedDrawings(dir.filePath("jump.pclx"), 2, keys));
+    REQUIRE(s.object);
+    REQUIRE(s.start());
+
+    const bool wasOn = StageProfiler::enabled();
+    StageProfiler::enabled() = true;
+    StageProfiler::reset();
+    s.editor->scrubTo(150);
+    const auto decodes = StageProfiler::calls(StageProfiler::DrawingLoad);
+    StageProfiler::enabled() = wasOn;
+
+    CHECK(decodes <= 2);
+    CHECK(static_cast<LayerBitmap*>(s.object->getLayer(1))->getBitmapImageAtFrame(150)->isLoaded());
+    CHECK(static_cast<LayerBitmap*>(s.object->getLayer(2))->getBitmapImageAtFrame(150)->isLoaded());
+}
+
+TEST_CASE("Frame pool: held and onion Drawings unload when far and the pool counts every loaded Drawing")
+{
+    QTemporaryDir dir;
+    TestSession s(savedDrawings(dir.filePath("held.pclx"), 1, { 1, 100, 200, 300 }));
+    REQUIRE(s.object);
+    REQUIRE(s.start());
+    auto* layer = static_cast<LayerBitmap*>(s.object->getLayer(1));
+
+    for (int f : { 50, 150, 250 })
+    {
+        s.editor->scrubTo(f);
+        // What the canvas painter loads: the held Drawing and the next onion Drawing.
+        static_cast<BitmapImage*>(layer->getLastKeyFrameAtPosition(f))->image();
+        layer->getBitmapImageAtFrame(layer->getNextKeyFramePosition(f))->image();
+    }
+    s.editor->scrubTo(400);
+
+    quint64 loaded = 0;
+    for (int k : { 1, 100, 200, 300 })
+    {
+        BitmapImage* b = layer->getBitmapImageAtFrame(k);
+        INFO("Drawing " << k);
+        CHECK(b->isLoaded() == (k == 300));
+        loaded += b->memoryUsage();
+    }
+    CHECK(s.object->framePoolMemory() == loaded);
 }

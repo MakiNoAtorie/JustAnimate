@@ -30,43 +30,38 @@ ActiveFramePool::~ActiveFramePool()
     clear();
 }
 
-void ActiveFramePool::put(KeyFrame* key)
+void ActiveFramePool::put(KeyFrame* key, bool now)
 {
     if (key == nullptr)
         return;
 
     Q_ASSERT(key->pos() > 0);
 
-    key->loadFile();
-
-    auto it = mCacheFramesMap.find(key);
-    const bool keyExistsInPool = (it != mCacheFramesMap.end());
-    if (keyExistsInPool)
-    {
-        // move the keyframe to the front of the list, if the key already exists in frame pool
-        mCacheFramesList.erase(it->second);
-    }
-    mCacheFramesList.push_front(key);
-    mCacheFramesMap[key] = mCacheFramesList.begin();
-
-    key->addEventListener(this);
-
-    if (!keyExistsInPool)
-    {
-        mTotalUsedMemory += key->memoryUsage();
-    }
-
+    watch(key);
+    if (now)
+        key->loadFile();
+    else
+        key->loadFileAsync();
+    touch(key);
     discardLeastUsedFrames();
+}
+
+void ActiveFramePool::watch(KeyFrame* key)
+{
+    if (mWatched.insert(key).second)
+        key->addEventListener(this);
 }
 
 void ActiveFramePool::clear()
 {
-    for (KeyFrame* key : mCacheFramesList)
+    for (KeyFrame* key : mWatched)
     {
         key->removeEventListner(this);
     }
+    mWatched.clear();
     mCacheFramesList.clear();
     mCacheFramesMap.clear();
+    mTotalUsedMemory = 0;
 }
 
 void ActiveFramePool::resize(quint64 memoryBudget)
@@ -77,12 +72,6 @@ void ActiveFramePool::resize(quint64 memoryBudget)
     discardLeastUsedFrames();
 }
 
-bool ActiveFramePool::isFrameInPool(KeyFrame* key)
-{
-    auto it = mCacheFramesMap.find(key);
-    return (it != mCacheFramesMap.end());
-}
-
 void ActiveFramePool::setMinFrameCount(size_t frameCount)
 {
     mMinFrameCount = frameCount;
@@ -90,64 +79,56 @@ void ActiveFramePool::setMinFrameCount(size_t frameCount)
 
 void ActiveFramePool::unloadFramesFarFrom(int frame, int distance)
 {
+    mPlayhead = frame;
     for (auto it = mCacheFramesList.begin(); it != mCacheFramesList.end();)
     {
-        KeyFrame* key = *it;
-        if (std::abs(key->pos() - frame) <= distance)
+        KeyFrame* key = *it++;
+        if (std::abs(mCacheFramesMap[key].usedAt - frame) > distance)
         {
-            ++it;
-            continue;
+            key->unloadFile(); // keeps frames with unsaved changes loaded
+            forget(key);
         }
-        key->unloadFile(); // keeps frames with unsaved changes loaded
-        key->removeEventListner(this);
-        mCacheFramesMap.erase(key);
-        it = mCacheFramesList.erase(it);
     }
-    recalcuateTotalUsedMemory();
 }
 
 void ActiveFramePool::onKeyFrameDestroy(KeyFrame* key)
 {
-    auto it = mCacheFramesMap.find(key);
-    if (it != mCacheFramesMap.end())
-    {
-        mCacheFramesList.erase(it->second);
-        mCacheFramesMap.erase(it);
+    mWatched.erase(key);
+    forget(key); // the stored size: memoryUsage() is not safe in the KeyFrame's destructor
+}
 
-        // Just recalculate the total usage
-        // Not safe to call key->memoryUsage() here cuz it's in the KeyFrame's destructor
-        recalcuateTotalUsedMemory();
-    }
+void ActiveFramePool::onKeyFrameLoaded(KeyFrame* key)
+{
+    touch(key);
+}
+
+void ActiveFramePool::touch(KeyFrame* key)
+{
+    forget(key);
+    mCacheFramesList.push_front(key);
+    Entry& e = mCacheFramesMap[key];
+    e.it = mCacheFramesList.begin();
+    e.bytes = key->memoryUsage();
+    e.usedAt = mPlayhead;
+    mTotalUsedMemory += e.bytes;
+}
+
+void ActiveFramePool::forget(KeyFrame* key)
+{
+    auto found = mCacheFramesMap.find(key);
+    if (found == mCacheFramesMap.end())
+        return;
+    mTotalUsedMemory -= found->second.bytes;
+    mCacheFramesList.erase(found->second.it);
+    mCacheFramesMap.erase(found);
 }
 
 void ActiveFramePool::discardLeastUsedFrames()
 {
     while ((mTotalUsedMemory > mMemoryBudgetInBytes) && (mCacheFramesList.size() > mMinFrameCount))
     {
-        list_iterator_t last = mCacheFramesList.end();
-        last--;
-
-        KeyFrame* lastKeyFrame = *last;
-        unloadFrame(lastKeyFrame);
-
-        mCacheFramesMap.erase(lastKeyFrame);
-        mCacheFramesList.pop_back();
-
-        lastKeyFrame->removeEventListner(this);
-    }
-}
-
-void ActiveFramePool::unloadFrame(KeyFrame* key)
-{
-    mTotalUsedMemory -= key->memoryUsage();
-    key->unloadFile();
-}
-
-void ActiveFramePool::recalcuateTotalUsedMemory()
-{
-    mTotalUsedMemory = 0;
-    for (KeyFrame* key : mCacheFramesList)
-    {
-        mTotalUsedMemory += key->memoryUsage();
+        KeyFrame* last = mCacheFramesList.back();
+        last->unloadFile();
+        forget(last);
     }
 }

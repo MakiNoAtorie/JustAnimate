@@ -120,6 +120,8 @@ public:
     virtual KeyFrame* clone() const { return nullptr; }
     /** Loads the backing file into memory if it exists, otherwise it does nothing */
     virtual void loadFile() {}
+    /** Starts loading the backing file on a worker thread; the next loadFile() takes the result */
+    virtual void loadFileAsync() {}
 
     /** Unloads the data from memory in order to save memory. This will only work if a backing file exists
      *  and the latest keyframe data has been saved to disk, eg. `isModified` is false */
@@ -130,6 +132,10 @@ public:
     virtual bool isLoaded() const { return false; }
 
     virtual quint64 memoryUsage() { return 0; }
+
+protected:
+    /** Tells the listeners that the backing file is now in memory */
+    void notifyLoaded();
 
 private:
     int mFrame = -1;
@@ -171,6 +177,7 @@ class KeyFrameEventListener
 {
 public:
     virtual void onKeyFrameDestroy(KeyFrame*) = 0;
+    virtual void onKeyFrameLoaded(KeyFrame*) {}
 };
 
 Q_DECLARE_METATYPE(KeyTween)

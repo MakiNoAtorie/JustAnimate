@@ -68,8 +68,10 @@ namespace
 
 // Highest resident set seen by sampleRam(); 0 on platforms without a reading.
 quint64 peakRamBytes = 0;
+// Resident set after the "working set" scrub.
+quint64 workingSetBytes = 0;
 
-void sampleRam()
+quint64 ramBytes()
 {
     quint64 rss = 0;
 #if defined(Q_OS_WIN)
@@ -85,7 +87,12 @@ void sampleRam()
         std::fclose(f);
     }
 #endif
-    peakRamBytes = std::max(peakRamBytes, rss);
+    return rss;
+}
+
+void sampleRam()
+{
+    peakRamBytes = std::max(peakRamBytes, ramBytes());
 }
 
 struct BenchConfig
@@ -105,8 +112,8 @@ struct Scenario
 };
 
 // Builds the project in memory (not timed) and saves it; saveMs gets the time of the save,
-// resaveMs the time of a second save with one frame modified.
-QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs, double& resaveMs)
+// resaveMs the time of a second save with one frame modified. A key every `step` frames.
+QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs, double& resaveMs, int step = 1)
 {
     std::unique_ptr<Object> object(new Object);
     object->init();
@@ -115,7 +122,7 @@ QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs
     {
         LayerBitmap* layer = object->addNewBitmapLayer();
         const QColor color = QColor::fromHsv((l * 36) % 360, 160, 220);
-        for (int f = 1; f <= cfg.frames; ++f)
+        for (int f = 1; f <= cfg.frames; f += step)
         {
             layer->addNewKeyFrameAt(f);
             const QRectF r(-400 + (f * 7 + l * 60) % 700, -250 + l * 50, 100, 100);
@@ -125,7 +132,7 @@ QString createProject(const QString& dir, const BenchConfig& cfg, double& saveMs
     }
     object->data()->setCurrentLayer(1);
 
-    const QString path = dir + "/benchmark.pclx";
+    const QString path = dir + QString("/benchmark-%1.pclx").arg(step);
     FileManager fm;
     QElapsedTimer t;
     t.start();
@@ -223,6 +230,8 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         { "save one",     "file",   1 },
         { "export",       "frame",  cfg.frames },
         { "timeline",     "stroke", cfg.strokes },
+        { "far jump",     "jump",   10 },
+        { "working set",  "frame",  cfg.frames },
     };
     // Rows after "play blend" are found by name, so tickets append rows without renumbering.
     auto row = [&sc](const char* name) -> Scenario& {
@@ -236,6 +245,8 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
         sc[0].ms.push_back(ms);
         row("save one").ms.push_back(resaveMs);
     }
+    double holdsMs = 0, holdsResaveMs = 0;
+    const QString holdsPath = createProject(dir.path(), cfg, holdsMs, holdsResaveMs, 3); // 3s: most shown Drawings are held
 
     for (int rep = 0; rep < cfg.reps; ++rep)
     {
@@ -379,6 +390,37 @@ std::vector<Scenario> runBenchmark(const BenchConfig& cfg)
             timeline.grab();
         }
         row("timeline").ms.push_back(t.nsecsElapsed() / 1e6);
+
+        // Far jump: between the first and the last frame, caches cleared, so each jump loads from disk.
+        counter.paints = 0;
+        t.start();
+        for (int j = 0; j < 10; ++j)
+        {
+            s.area->onObjectLoaded();
+            s.editor->scrubTo(j % 2 ? 1 : cfg.frames);
+            s.area->repaint();
+        }
+        row("far jump").ms.push_back(t.nsecsElapsed() / 1e6);
+        REQUIRE(counter.paints == 10);
+
+        {
+            // Working set: scrub the 3s project with onion skin on both sides, then read the resident set.
+            const SettingsGuard guard({ SETTING_PREV_ONION, SETTING_NEXT_ONION });
+            s.editor->preference()->set<SETTING::PREV_ONION>(true);
+            s.editor->preference()->set<SETTING::NEXT_ONION>(true);
+            REQUIRE(s.editor->openObject(holdsPath, [](int) {}, [](int) {}).ok());
+            s.area->onObjectLoaded();
+            counter.paints = 0;
+            t.start();
+            for (int f = 1; f <= cfg.frames; ++f)
+            {
+                s.editor->scrubTo(f);
+                s.area->repaint();
+            }
+            row("working set").ms.push_back(t.nsecsElapsed() / 1e6);
+            REQUIRE(counter.paints == cfg.frames);
+            workingSetBytes = ramBytes();
+        }
     }
     return sc;
 }
@@ -396,6 +438,7 @@ void printResults(const BenchConfig& cfg, std::vector<Scenario>& sc)
                     median / s.units, s.unit);
     }
     std::printf("peak RAM during scrub and play: %.1f MB\n", peakRamBytes / (1024.0 * 1024.0));
+    std::printf("working set after the 3s onion scrub: %.1f MB\n", workingSetBytes / (1024.0 * 1024.0));
     std::fflush(stdout);
 }
 
@@ -641,7 +684,7 @@ TEST_CASE("Benchmark smoke: every scenario runs on a tiny project", "[BenchmarkS
 
     std::vector<Scenario> sc = runBenchmark(cfg);
 
-    REQUIRE(sc.size() == 13);
+    REQUIRE(sc.size() == 15);
     for (const Scenario& s : sc)
     {
         REQUIRE(s.ms.size() == 1);

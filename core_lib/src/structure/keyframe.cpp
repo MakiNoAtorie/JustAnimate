@@ -67,6 +67,14 @@ void KeyFrame::addEventListener(KeyFrameEventListener* listener)
     }
 }
 
+void KeyFrame::notifyLoaded()
+{
+    for (KeyFrameEventListener* listener : mEventListeners)
+    {
+        listener->onKeyFrameLoaded(this);
+    }
+}
+
 void KeyFrame::removeEventListner(KeyFrameEventListener* listener)
 {
     auto it = std::find(mEventListeners.begin(), mEventListeners.end(), listener);

@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <QFile>
 #include <QSet>
 #include "attributes.h"
+#include "activeframepool.h"
 #include "keyframe.h"
 #include "util.h"
 
@@ -101,6 +102,14 @@ void Layer::foreachKeyFrameIn(int from, int to, const std::function<void(KeyFram
     {
         action(it->second);
     }
+}
+
+void Layer::setFramePool(ActiveFramePool* pool)
+{
+    if (pool == mFramePool) { return; }
+    mFramePool = pool;
+    if (!pool) { return; }
+    for (auto pair : mKeyFrames) { pool->watch(pair.second); }
 }
 
 QList<KeyFrame*> Layer::linkedKeys(const KeyFrame* key) const
@@ -309,6 +318,7 @@ bool Layer::addKeyFrame(int position, KeyFrame* pKeyFrame)
 
     pKeyFrame->setPos(position);
     mKeyFrames.emplace(position, pKeyFrame);
+    if (mFramePool) { mFramePool->watch(pKeyFrame); }
     markFrameAsDirty(position);
     return true;
 }
@@ -448,6 +458,7 @@ bool Layer::loadKey(KeyFrame* pKey)
         mKeyFrames.erase(it);
     }
     mKeyFrames.emplace(pKey->pos(), pKey);
+    if (mFramePool) { mFramePool->watch(pKey); }
     return true;
 }
 

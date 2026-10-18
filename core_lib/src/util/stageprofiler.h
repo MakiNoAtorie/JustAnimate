@@ -23,6 +23,7 @@ public:
         TimelineContent,
         TimelineKey,
         BlendCopy,
+        DrawingLoad,
         StageCount
     };
 
@@ -45,6 +46,7 @@ public:
             "timeline",
             "timeline key",
             "blend copy",
+            "drawing load",
         };
         for (int i = 0; i < StageCount; ++i)
             std::fprintf(out, "stage %-13s %8llu calls %10.2f ms\n", names[i],

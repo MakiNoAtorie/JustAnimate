@@ -220,6 +220,8 @@ public:
     /** Starts reading the bitmap keyframes in [frame, frame + count) of visible layers on worker threads, without blocking */
     void preloadFrames(int frame, int count) const;
     void setActiveFramePoolSize(int sizeInMB);
+    /** Bytes of the Drawings the frame pool holds */
+    quint64 framePoolMemory() const;
 
 private:
     int getMaxLayerID();

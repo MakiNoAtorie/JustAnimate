@@ -963,20 +963,20 @@ void Object::updateActiveFrames(int frame) const
 
     const int minFrameCount = getLayerCount() * (endFrame - beginFrame);
     mActiveFramePool->setMinFrameCount(minFrameCount);
+    // Frames this far away reload from disk on demand; the budget alone keeps whole projects in RAM.
+    mActiveFramePool->unloadFramesFarFrom(frame, 50);
 
     for (Layer* layer : mLayers)
     {
-        if (layer->visible())
+        layer->setFramePool(mActiveFramePool.get());
+        if (!layer->visible()) { continue; }
+        // Only the shown Drawing blocks; the neighbours load on worker threads.
+        mActiveFramePool->put(layer->getLastKeyFrameAtPosition(frame), true);
+        for (int k = beginFrame; k < endFrame; ++k)
         {
-            for (int k = beginFrame; k < endFrame; ++k)
-            {
-                KeyFrame* key = layer->getKeyFrameAt(k);
-                mActiveFramePool->put(key);
-            }
+            mActiveFramePool->put(layer->getKeyFrameAt(k), false);
         }
     }
-    // Frames this far away reload from disk on demand; the budget alone keeps whole projects in RAM.
-    mActiveFramePool->unloadFramesFarFrom(frame, 50);
 }
 
 void Object::preloadFrames(int frame, int count) const
@@ -988,9 +988,14 @@ void Object::preloadFrames(int frame, int count) const
         {
             // Does not block: the frame takes the result when it is drawn or enters the pool.
             // A loaded frame is skipped, so an edit is never replaced by the file on disk.
-            if (KeyFrame* key = layer->getKeyFrameAt(k)) { static_cast<BitmapImage*>(key)->loadFileAsync(); }
+            mActiveFramePool->put(layer->getKeyFrameAt(k), false);
         }
     }
+}
+
+quint64 Object::framePoolMemory() const
+{
+    return mActiveFramePool->usedMemory();
 }
 
 void Object::setActiveFramePoolSize(int sizeInMB)
