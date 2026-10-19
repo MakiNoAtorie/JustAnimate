@@ -1276,18 +1276,8 @@ void MainWindow2::switchToWorkspace(const QString& name)
 
 void MainWindow2::newObject()
 {
-    auto object = new Object();
-    object->init();
-
-    // default layers
-    object->addNewCameraLayer();
-    object->addNewBitmapLayer();
-    // Layers are counted bottom up
-    // 0 - Camera Layer
-    // 1 - Bitmap Layer
-    object->data()->setCurrentLayer(1);
-
-    mEditor->setObject(object);
+    mEditor->setObject(Welcome::newObjectFromTemplate(Welcome::templateIndex("Anime 1080p")));
+    mEditor->setFps(mEditor->playback()->fps());
 
     closeDialogs();
 

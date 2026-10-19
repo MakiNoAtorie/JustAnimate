@@ -8,7 +8,9 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QListWidget>
+#include "editor.h"
 #include "layercamera.h"
+#include "mainwindow2.h"
 #include "object.h"
 #include "objectdata.h"
 #include "preferencemanager.h"
@@ -148,4 +150,16 @@ TEST_CASE("Welcome checkbox hides the screen and picks the startup choice", "[We
 
     CHECK(Welcome::hiddenStartupAction(true) == STARTUP_LAST_PROJECT);
     CHECK(Welcome::hiddenStartupAction(false) == STARTUP_DEFAULT_PRESET);
+}
+
+TEST_CASE("A new window starts with the Anime 1080p template", "[Welcome]")
+{
+    MainWindow2 window;
+    Editor* editor = window.findChild<Editor*>();
+    REQUIRE(editor);
+    const Object* object = editor->object();
+    auto cameras = object->getLayersByType<LayerCamera>();
+    REQUIRE(cameras.size() == 1);
+    CHECK(cameras.front()->getViewSize() == QSize(1920, 1080));
+    CHECK(object->data()->getFrameRate() == 24);
 }
