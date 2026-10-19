@@ -8,6 +8,7 @@ the original Pencil2D history is kept below for reference.
 - The manual has a Getting started chapter: install, the Welcome screen, a tour of the main window, Layouts, Command search, theme and Accent colour, and a first animation from a new project to an exported movie (#298).
 - The user manual has a Brushes and tablet chapter: dab settings, tips, grain, smoothing, smudge, brush presets, radial menus and tablet setup, with screenshots (#300).
 
+- The user manual has a Drawing tools chapter: the Tool column and Tool groups, every drawing, fill, select and View tool, the Brush outline, Ruler, Snap to Perspective and canvas wheel navigation, with screenshots from the screenshot pipeline (#299).
 - Help > User Manual opens the manual installed with the app, with no network, and the online manual when none is installed; Windows, macOS and Linux packages carry the HTML manual (#297).
 - The manual shows screenshots of the real main window: the `screenshots` build target makes them from a demo project before the `manual` target builds, and they are not kept in git (#296).
 - The user manual source is in `docs/manual`; the `manual` build target makes HTML pages, one Markdown file and a PDF from it, and fails on a broken link, a missing image or a duplicate heading (#295).
