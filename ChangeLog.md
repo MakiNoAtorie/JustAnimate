@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The manual has an Exporting chapter: movie presets, GIF palette and dither, images, image sequences, sprite sheets, ranges, overwrite and cancel, command-line export with exit codes, and what Rough layers and the Paper template leave out (#307).
 - The manual has a Sound and lip-sync chapter: importing sound, waveforms, sound scrub, lip-sync markers, sound in loops and export, and missing sound files (#304).
 - The user manual has a Saving and safety chapter: Save and Save As, .pclx and legacy .pcl, the unsaved-changes prompt, undo and redo, the two autosaves, crash recovery, and how Pencil2D opens JustAnimate files, with screenshots (#306).
 - The manual has an Anime workflow chapter: Anime templates, the Paper template and Title block, the Genga palette, Timesheet columns, Storyboard layers and the Storyboard Panel, and Export Timesheet, Storyboard and On Paper, with screenshots (#305).
