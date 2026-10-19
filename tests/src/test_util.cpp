@@ -240,6 +240,7 @@ TEST_CASE("manualUrl opens the installed manual, else the online manual", "[util
     REQUIRE(root.isValid());
     // The macOS and Linux paths go up one folder; keep them inside root.
     const QString appDir = root.filePath("bin");
+    REQUIRE(QDir().mkpath(appDir)); // The OS resolves "bin/.." only when bin exists.
 
     SECTION("no installed manual gives the online URL")
     {
