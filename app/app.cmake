@@ -341,6 +341,7 @@ if(UNIX AND NOT APPLE)
     
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/app/data/hicolor/
             DESTINATION share/icons/hicolor)
+    set(MANUAL_DESTINATION share/justanimate/manual)
 
     if(JUSTANIMATE_FFMPEG)
         install(PROGRAMS ${JUSTANIMATE_FFMPEG} DESTINATION bin/plugins RENAME ffmpeg)
@@ -350,12 +351,14 @@ else()
     if(APPLE)
         install(TARGETS pencil2d BUNDLE DESTINATION .)
         set(FFMPEG_DESTINATION JustAnimate.app/Contents/MacOS/plugins)
+        set(MANUAL_DESTINATION JustAnimate.app/Contents/Resources/manual)
     else()
         set(CMAKE_INSTALL_BINDIR .)  # read by the Qt deploy script below
         install(TARGETS pencil2d RUNTIME DESTINATION .)
         set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
         include(InstallRequiredSystemLibraries)  # app-local MSVC runtime DLLs
         set(FFMPEG_DESTINATION plugins)
+        set(MANUAL_DESTINATION manual)
     endif()
 
     if(JUSTANIMATE_FFMPEG)
@@ -373,6 +376,10 @@ else()
         install(CODE "execute_process(COMMAND codesign --force --deep --sign - \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/JustAnimate.app\" COMMAND_ERROR_IS_FATAL ANY)")
     endif()
 endif()
+
+# The built HTML manual (target `manual`) ships with every package; a tree without it installs without it.
+install(DIRECTORY ${CMAKE_BINARY_DIR}/manual/ DESTINATION ${MANUAL_DESTINATION} OPTIONAL
+        FILES_MATCHING PATTERN "*.html" PATTERN "manual.css" PATTERN "images/*.png")
 
 # Regenerates every packaged icon from app/data/icons/justanimate.svg:
 #   cmake --build build --target make_icons && build/make_icons .

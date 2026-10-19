@@ -27,6 +27,7 @@ class QStandardItem;
 class QStandardItemModel;
 class QLabel;
 class QLineEdit;
+class QMessageBox;
 class PreferenceManager;
 
 namespace Ui
@@ -44,6 +45,8 @@ public:
     ~ShortcutsPage() override;
     // Shows only the actions whose name matches query (all for an empty query). Returns true when one matches.
     bool filter(const QString& query);
+    // Gives the conflict question its texts and buttons; the manual's shot shows the same box.
+    static void setUpConflictBox(QMessageBox& box, const QString& keys, const QString& usedBy);
 
 private slots:
     void tableItemClicked(const QModelIndex&);

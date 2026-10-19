@@ -5,6 +5,21 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- The manual has an Exporting chapter: movie presets, GIF palette and dither, images, image sequences, sprite sheets, ranges, overwrite and cancel, command-line export with exit codes, and what Rough layers and the Paper template leave out (#307).
+- The manual has a Preferences and reference chapter: every Preferences page with its defaults, preference search, shortcut conflict warnings, a table of the default keyboard shortcuts and a glossary, with screenshots (#308).
+- The manual has a Sound and lip-sync chapter: importing sound, waveforms, sound scrub, lip-sync markers, sound in loops and export, and missing sound files (#304).
+- The user manual has a Saving and safety chapter: Save and Save As, .pclx and legacy .pcl, the unsaved-changes prompt, undo and redo, the two autosaves, crash recovery, and how Pencil2D opens JustAnimate files, with screenshots (#306).
+- The manual has an Anime workflow chapter: Anime templates, the Paper template and Title block, the Genga palette, Timesheet columns, Storyboard layers and the Storyboard Panel, and Export Timesheet, Storyboard and On Paper, with screenshots (#305).
+- The manual has a Layers chapter: layer types, add, rename, duplicate, delete and undo, groups and group opacity, blend modes, Lock Transparency, Rough layers, Alt+click solo, lock-all and the refused-edit notices (#301).
+- The user manual has an Animating chapter: onion skin, Shift and Trace, Flip, playback, play-around and the loop range, Transform Key and tweens, Create Inbetweens, the camera layer and peg bar alignment, with screenshots from the screenshot pipeline (#303).
+- The manual has a Getting started chapter: install, the Welcome screen, a tour of the main window, Layouts, Command search, theme and Accent colour, and a first animation from a new project to an exported movie (#298).
+- The user manual has a Timeline and X-sheet chapter: Drawings and Exposure, ripple edits, Exposure commands, Marks, Markers, Linked Drawings, the X-sheet and the Timesheet layout, with screenshots (#302).
+- The user manual has a Brushes and tablet chapter: dab settings, tips, grain, smoothing, smudge, brush presets, radial menus and tablet setup, with screenshots (#300).
+
+- The user manual has a Drawing tools chapter: the Tool column and Tool groups, every drawing, fill, select and View tool, the Brush outline, Ruler, Snap to Perspective and canvas wheel navigation, with screenshots from the screenshot pipeline (#299).
+- Help > User Manual opens the manual installed with the app, with no network, and the online manual when none is installed; Windows, macOS and Linux packages carry the HTML manual (#297).
+- The manual shows screenshots of the real main window: the `screenshots` build target makes them from a demo project before the `manual` target builds, and they are not kept in git (#296).
+- The user manual source is in `docs/manual`; the `manual` build target makes HTML pages, one Markdown file and a PDF from it, and fails on a broken link, a missing image or a duplicate heading (#295).
 - Each session writes a log (version, OS and Qt first; the last 10 are kept, a crash adds a "crashed" line), and Help > Export Log... saves this session's log and the previous one to attach to a bug report.
 - Layout: the default Layout docks Brush presets (with Tools in a tab) and Tool settings on the left, and colours on the right.
 - The Alt eyedropper ends when Alt is released, also on Windows where the menu bar takes the release, and Tool settings keep showing the chosen tool while a key holds another tool.

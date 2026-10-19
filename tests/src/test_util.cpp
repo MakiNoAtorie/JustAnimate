@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include "util.h"
+#include "appinfo.h"
 
 #include <QDir>
 #include <QFile>
@@ -23,6 +24,7 @@ GNU General Public License for more details.
 #include <QString>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
+#include <QUrl>
 #include <QThread>
 
 #include <atomic>
@@ -230,4 +232,29 @@ TEST_CASE("parallelFor runs every index once on several capped workers", "[Paral
     for (const auto& r : runs) REQUIRE(r == 1);
     REQUIRE(peak <= workers);
     if (workers > 1) REQUIRE(peak >= 2);
+}
+
+TEST_CASE("manualUrl opens the installed manual, else the online manual", "[util]")
+{
+    QTemporaryDir root;
+    REQUIRE(root.isValid());
+    // The macOS and Linux paths go up one folder; keep them inside root.
+    const QString appDir = root.filePath("bin");
+    REQUIRE(QDir().mkpath(appDir)); // The OS resolves "bin/.." only when bin exists.
+
+    SECTION("no installed manual gives the online URL")
+    {
+        REQUIRE(manualUrl(appDir) == QUrl(APP_ONLINE_MANUAL_URL));
+    }
+
+    SECTION("an installed index.html gives its file URL")
+    {
+        const QString index = installedManualIndex(appDir);
+        REQUIRE(QDir().mkpath(QFileInfo(index).absolutePath()));
+        QFile file(index);
+        REQUIRE(file.open(QIODevice::WriteOnly));
+        file.close();
+
+        REQUIRE(manualUrl(appDir) == QUrl::fromLocalFile(QDir::cleanPath(index)));
+    }
 }

@@ -95,6 +95,10 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/test_accessibility.cpp
 )
 
+# Manual screenshots: one shot file per chapter (docs/CONVENTIONS.md, v1.9 homes).
+file(GLOB TEST_SCREENSHOT_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/src/screenshots/*.cpp)
+list(APPEND TEST_SOURCES ${TEST_SCREENSHOT_SOURCES})
+
 # The whole app minus its entry point, so tests can build MainWindow2.
 set(TEST_ALL_APP_SOURCES ${APP_HEADERS} ${APP_SOURCES} ${APP_RESOURCES})
 list(REMOVE_ITEM TEST_ALL_APP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/app/src/main.cpp)
@@ -120,6 +124,7 @@ target_include_directories(pencil2d_tests PRIVATE
     ${CORE_LIB_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/core_lib/ui
     ${CMAKE_CURRENT_SOURCE_DIR}/app/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/src
 )
 
 # App headers rely on the precompiled header for their Qt includes.

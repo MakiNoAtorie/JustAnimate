@@ -78,6 +78,7 @@ endif()
 include(core_lib/core_lib.cmake)
 include(app/app.cmake)
 include(tests/tests.cmake)
+include(docs/manual/manual.cmake)
 
 # Packages (cpack): NSIS installer + ZIP on Windows, DMG on macOS; Linux uses an AppImage built in CI
 set(CPACK_PACKAGE_VENDOR "JustAnimate")

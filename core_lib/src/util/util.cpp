@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 */
 #include "util.h"
+#include "appinfo.h"
 #include <QAbstractSpinBox>
 #include <QDebug>
 #include <QApplication>
@@ -26,6 +27,26 @@ GNU General Public License for more details.
 #include <QStandardPaths>
 #include <QThread>
 #include <QThreadPool>
+
+QString installedManualIndex(const QString& appDir)
+{
+#if defined(Q_OS_MACOS)
+    return appDir + "/../Resources/manual/index.html";
+#elif defined(Q_OS_WIN)
+    return appDir + "/manual/index.html";
+#else
+    return appDir + "/../share/justanimate/manual/index.html";
+#endif
+}
+
+QUrl manualUrl(const QString& appDir)
+{
+    const QString index = installedManualIndex(appDir);
+    if (QFileInfo::exists(index)) {
+        return QUrl::fromLocalFile(QDir::cleanPath(index));
+    }
+    return QUrl(APP_ONLINE_MANUAL_URL);
+}
 
 static inline bool clipLineToEdge(qreal& t0, qreal& t1, qreal p, qreal q)
 {

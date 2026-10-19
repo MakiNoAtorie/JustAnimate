@@ -23,6 +23,11 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   source guards and the suite offscreen.
 - A red CI run: `bash tools/ci-failures.sh [run id]` prints the failed
   checks, the seed and, after a crash, the test that ran before it.
+- Manual: `cmake --build build --target manual` writes the HTML pages,
+  `JustAnimate-manual.md` and `.pdf` into `build/manual` (Pandoc; the PDF
+  also needs Typst on `PATH` at configure time). `docs/manual/links.lua`
+  fails the build on a broken chapter link, a missing image or a duplicate
+  heading ID. Link to a chapter as `[Text](05-timeline-and-xsheet.md#exposure)`.
 - Keep each file's line endings (`git ls-files --eol`); Git Bash `sed -i`
   drops CRLF. Commit with `git commit -F <file>` (UTF-8, no BOM).
   Stage files by name: the tree can hold the user's untracked files.
@@ -81,3 +86,16 @@ Read `docs/conventions-code.md` before you edit code.
   (`tools/check-changelog.sh` guards it). Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
+
+## Manual
+
+- One chapter per `docs/manual/NN-slug.md`, one `#` H1 each. Prefix
+  heading IDs with the chapter slug (`{#layers-overview}`): IDs are unique
+  across chapters. Describe what the app does; an app bug goes in an issue.
+- Shots: `tests/src/screenshots/shots_<slug>.cpp`, one per chapter. Add a
+  shot: one `SECTION` after `ShotWindow shot;` that calls
+  `saveShot(widget, "<slug>-<shot>")`, plus one `images/<slug>-<shot>.png`
+  reference; every shot is referenced. A helper two shot files need goes
+  in `screenshots.h`. Shoot the app's real menus and dialogs, never a copy.
+- A shot resets every preference it sets. Synthetic tablet clicks send a
+  `TabletMove` before the release, with `button == Qt::LeftButton`.
