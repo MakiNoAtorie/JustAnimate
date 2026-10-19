@@ -87,27 +87,15 @@ Read `docs/conventions-code.md` before you edit code.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
 
-## v1.9 homes
+## Manual
 
-- Manual source: `docs/manual/`. Chapters, one per ticket:
-  `00-index.md` (#295), `01-getting-started.md` (#298),
-  `02-drawing-tools.md` (#299), `03-brushes-and-tablet.md` (#300),
-  `04-layers.md` (#301), `05-timeline-and-xsheet.md` (#302),
-  `06-animating.md` (#303), `07-sound-and-lip-sync.md` (#304),
-  `08-anime-workflow.md` (#305), `09-saving-and-safety.md` (#306),
-  `10-exporting.md` (#307), `11-preferences-and-reference.md` (#308).
-  #295 creates `00-index.md` and a skeleton `01-getting-started.md`.
-- Chapter link: `[Exposure](05-timeline-and-xsheet.md#exposure)`. Heading
-  IDs are unique across all chapters; prefix a generic heading with an
-  explicit ID, such as `## Overview {#layers-overview}`.
-- Shots: one file per chapter, `tests/src/screenshots/shots_<slug>.cpp`
-  (`shots_getting_started.cpp` ... `shots_preferences_and_reference.cpp`).
-  #296 creates and registers all eleven, empty except Getting started.
-  A chapter ticket edits only its own shot file.
-  Add a shot: one `SECTION("<shot>")` after `ShotWindow shot;` (the main window,
-  demo project, Light theme; `screenshots.h`) that sets up the scene and calls
-  `saveShot(widget, "<chapter slug>-<shot>")`, plus one image reference.
-  `cmake --build build --target screenshots` writes them to `build/manual/images`.
-- Shot PNG name: `<chapter slug>-<shot>.png`, such as
-  `getting-started-main-window.png`; chapters reference `images/<name>`.
-- Online manual URL (#297): `APP_REPO_URL "/blob/master/docs/manual/00-index.md"`.
+- One chapter per `docs/manual/NN-slug.md`, one `#` H1 each. Prefix
+  heading IDs with the chapter slug (`{#layers-overview}`): IDs are unique
+  across chapters. Describe what the app does; an app bug goes in an issue.
+- Shots: `tests/src/screenshots/shots_<slug>.cpp`, one per chapter. Add a
+  shot: one `SECTION` after `ShotWindow shot;` that calls
+  `saveShot(widget, "<slug>-<shot>")`, plus one `images/<slug>-<shot>.png`
+  reference; every shot is referenced. A helper two shot files need goes
+  in `screenshots.h`. Shoot the app's real menus and dialogs, never a copy.
+- A shot resets every preference it sets. Synthetic tablet clicks send a
+  `TabletMove` before the release, with `button == Qt::LeftButton`.
