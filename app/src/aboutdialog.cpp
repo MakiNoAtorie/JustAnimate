@@ -38,7 +38,7 @@ AboutDialog::~AboutDialog()
     delete ui;
 }
 
-void AboutDialog::init()
+QStringList AboutDialog::systemInfo()
 {
     QStringList devText;
 
@@ -71,6 +71,12 @@ void AboutDialog::init()
         devText << QString("Compile-Time Qt Version: %1").arg(QT_VERSION_STR)
                 << QString("Runtime Qt Version: %1").arg(qVersion());
     }
+    return devText;
+}
+
+void AboutDialog::init()
+{
+    const QStringList devText = systemInfo();
     ui->devInfoText->setText(devText.join("<br>"));
 
     QPushButton* copyToClipboardButton = new QPushButton(tr("Copy to clipboard", "Copy system info from About Dialog"));

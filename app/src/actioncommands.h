@@ -109,6 +109,7 @@ public:
     void reportbug();
     void checkForUpdates();
     void openTemporaryDirectory();
+    void exportLog();
     void about();
 
 private:

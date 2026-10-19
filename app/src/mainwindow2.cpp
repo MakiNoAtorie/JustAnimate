@@ -705,6 +705,7 @@ void MainWindow2::createMenus()
     connect(ui->actionWebsite, &QAction::triggered, mCommands, &ActionCommands::website);
     connect(ui->actionCheck_for_Updates, &QAction::triggered, mCommands, &ActionCommands::checkForUpdates);
     connect(ui->actionReport_Bug, &QAction::triggered, mCommands, &ActionCommands::reportbug);
+    connect(ui->actionExport_Log, &QAction::triggered, mCommands, &ActionCommands::exportLog);
     connect(ui->actionOpen_Temporary_Directory, &QAction::triggered, mCommands, &ActionCommands::openTemporaryDirectory);
     connect(ui->actionAbout, &QAction::triggered, mCommands, &ActionCommands::about);
 

@@ -15,6 +15,9 @@ GNU General Public License for more details.
 
 */
 
+#include <QDir>
+#include <QStandardPaths>
+#include "aboutdialog.h"
 #include "emergencysave.h"
 #include "log.h"
 #include "pencil2d.h"
@@ -33,6 +36,8 @@ int main(int argc, char* argv[])
     EmergencySave::install();
 
     Pencil2D app(argc, argv);
+    startSessionLog(QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath("logs"),
+                    AboutDialog::systemInfo());
 
     switch (app.handleCommandLineOptions().code())
     {

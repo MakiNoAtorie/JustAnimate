@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "object.h"
 #include "bitmapimage.h"
 #include "layerbitmap.h"
+#include "log.h"
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
 #endif
@@ -67,6 +68,7 @@ int crashAfterAutosave(bool thenSave)
     if (thenSave && !fm.save(obj, savedProjectPath(obj->workingDir())).ok())
         return 2;
 
+    startSessionLog(QDir(obj->workingDir()).filePath("logs"), { "child" });
     std::fputs(qPrintable(obj->workingDir()), stdout);
     std::fflush(stdout);
 
@@ -95,6 +97,15 @@ TEST_CASE("A crash after an autosave leaves it recoverable on next start", "[Eme
     const QString workingDir = QString::fromLocal8Bit(child.readAllStandardOutput()).trimmed();
     REQUIRE_FALSE(workingDir.isEmpty());
     const QString projectName = QDir(workingDir).dirName();
+
+    // The session log ends with the crash line.
+    const QDir logs(QDir(workingDir).filePath("logs"));
+    const QStringList logNames = logs.entryList({ "session-*.log" }, QDir::Files);
+    REQUIRE(logNames.size() == 1);
+    QFile log(logs.filePath(logNames.first()));
+    REQUIRE(log.open(QIODevice::ReadOnly));
+    REQUIRE(log.readAll().endsWith("crashed\n"));
+    log.close();
 
     // The temp folder is wiped before the next start (reboot, OS cleanup).
     REQUIRE(QDir(workingDir).removeRecursively());

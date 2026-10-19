@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #pragma once
 #include<QLoggingCategory>
+#include<QStringList>
 
 
 /**
@@ -42,3 +43,16 @@ GNU General Public License for more details.
 #endif
 
 void initCategoryLogging();
+
+/** Write every Qt message to a new session log in `dir` as well as to the
+ *  previous handler. `header` lines go first. Keeps the newest `keep` logs.
+ *  Returns the log's path, or an empty string when it cannot be opened. */
+QString startSessionLog(const QString& dir, const QStringList& header, int keep = 10);
+/// Restore the previous handler and close the log.
+void stopSessionLog();
+/// The current session log, empty when none is open.
+QString sessionLogPath();
+/// Write the current log, then the previous session's, to `target`.
+bool exportSessionLogs(const QString& target);
+/// Append a "crashed" line. Only system calls: safe in a crash handler.
+void writeCrashLine();

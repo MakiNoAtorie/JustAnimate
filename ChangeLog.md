@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Each session writes a log (version, OS and Qt first; the last 10 are kept, a crash adds a "crashed" line), and Help > Export Log... saves this session's log and the previous one to attach to a bug report.
 - Layout: the default Layout docks Brush presets (with Tools in a tab) and Tool settings on the left, and colours on the right.
 - The Alt eyedropper ends when Alt is released, also on Windows where the menu bar takes the release, and Tool settings keep showing the chosen tool while a key holds another tool.
 - The canvas blends a blend-mode layer straight into its image, without copies of the view (#286).

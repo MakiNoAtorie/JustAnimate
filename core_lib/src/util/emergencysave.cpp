@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <QStandardPaths>
 #include <QString>
 #include "fileformat.h"
+#include "log.h"
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
@@ -131,6 +132,7 @@ void publishOnce()
     if (gEntered.test_and_set()) { return; }
     const int active = gActive.load();
     if (active >= 0) { publish(gSlots[active]); }
+    writeCrashLine();
 }
 
 extern "C" void onFatalSignal(int sig)

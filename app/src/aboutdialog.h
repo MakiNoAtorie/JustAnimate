@@ -31,6 +31,8 @@ public:
     explicit AboutDialog(QWidget* parent);
     ~AboutDialog();
     void init();
+    /// Version, OS and Qt lines, for the About box and the session log.
+    static QStringList systemInfo();
 
 private:
     Ui::AboutDialog* ui = nullptr;
