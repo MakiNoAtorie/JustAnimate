@@ -2,7 +2,8 @@ Benchmarks {#benchmarks}
 ==========
 
 The benchmark (ROADMAP 1.1) is the baseline every optimization is measured
-against. Keep a speed-up only if it is clearly outside run-to-run noise
+against. For a comparison with Pencil2D, see
+[benchmarks-vs-pencil2d.md](benchmarks-vs-pencil2d.md). Keep a speed-up only if it is clearly outside run-to-run noise
 (about ±10 %), and put the before/after numbers in the commit message.
 
 ## Run it
