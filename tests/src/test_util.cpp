@@ -236,22 +236,24 @@ TEST_CASE("parallelFor runs every index once on several capped workers", "[Paral
 
 TEST_CASE("manualUrl opens the installed manual, else the online manual", "[util]")
 {
-    QTemporaryDir appDir;
-    REQUIRE(appDir.isValid());
+    QTemporaryDir root;
+    REQUIRE(root.isValid());
+    // The macOS and Linux paths go up one folder; keep them inside root.
+    const QString appDir = root.filePath("bin");
 
     SECTION("no installed manual gives the online URL")
     {
-        REQUIRE(manualUrl(appDir.path()) == QUrl(APP_ONLINE_MANUAL_URL));
+        REQUIRE(manualUrl(appDir) == QUrl(APP_ONLINE_MANUAL_URL));
     }
 
     SECTION("an installed index.html gives its file URL")
     {
-        const QString index = installedManualIndex(appDir.path());
+        const QString index = installedManualIndex(appDir);
         REQUIRE(QDir().mkpath(QFileInfo(index).absolutePath()));
         QFile file(index);
         REQUIRE(file.open(QIODevice::WriteOnly));
         file.close();
 
-        REQUIRE(manualUrl(appDir.path()) == QUrl::fromLocalFile(index));
+        REQUIRE(manualUrl(appDir) == QUrl::fromLocalFile(QDir::cleanPath(index)));
     }
 }
