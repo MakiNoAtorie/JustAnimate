@@ -7,6 +7,7 @@ the original Pencil2D history is kept below for reference.
 
 - The manual has a Layers chapter: layer types, add, rename, duplicate, delete and undo, groups and group opacity, blend modes, Lock Transparency, Rough layers, Alt+click solo, lock-all and the refused-edit notices (#301).
 - The manual has a Getting started chapter: install, the Welcome screen, a tour of the main window, Layouts, Command search, theme and Accent colour, and a first animation from a new project to an exported movie (#298).
+- The user manual has a Timeline and X-sheet chapter: Drawings and Exposure, ripple edits, Exposure commands, Marks, Markers, Linked Drawings, the X-sheet and the Timesheet layout, with screenshots (#302).
 - The user manual has a Brushes and tablet chapter: dab settings, tips, grain, smoothing, smudge, brush presets, radial menus and tablet setup, with screenshots (#300).
 
 - The user manual has a Drawing tools chapter: the Tool column and Tool groups, every drawing, fill, select and View tool, the Brush outline, Ruler, Snap to Perspective and canvas wheel navigation, with screenshots from the screenshot pipeline (#299).
