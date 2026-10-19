@@ -73,8 +73,7 @@ namespace
 std::function<bool(const QString&)> confirmOverwrite(QWidget* parent)
 {
     return [parent](const QString& path) {
-        return QMessageBox::question(parent, APP_NAME,
-                   ActionCommands::tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(path))) == QMessageBox::Yes;
+        return QMessageBox::question(parent, APP_NAME, ActionCommands::overwriteQuestion(path)) == QMessageBox::Yes;
     };
 }
 
@@ -92,6 +91,20 @@ std::vector<std::pair<QString, QSize>> camerasInfo(Editor* editor)
     return info;
 }
 } // namespace
+
+QString ActionCommands::overwriteQuestion(const QString& path)
+{
+    return tr("%1 already exists. Replace it?").arg(QDir::toNativeSeparators(path));
+}
+
+void ActionCommands::setUpMovieProgress(QProgressDialog& progress)
+{
+    progress.setLabelText(tr("Exporting movie..."));
+    progress.setCancelButtonText(tr("Abort"));
+    progress.setRange(0, 1000);
+    hideQuestionMark(progress);
+    progress.setWindowModality(Qt::WindowModal);
+}
 
 ActionCommands::ActionCommands(QWidget* parent) : QObject(parent)
 {
@@ -339,9 +352,8 @@ Status ActionCommands::exportMovie(bool isGif)
     QStringList skippedClips;
     request.skippedClips = [&skippedClips](const QStringList& clips) { skippedClips = clips; };
 
-    QProgressDialog progress(tr("Exporting movie..."), tr("Abort"), 0, 1000, mParent);
-    hideQuestionMark(progress);
-    progress.setWindowModality(Qt::WindowModal);
+    QProgressDialog progress(mParent);
+    setUpMovieProgress(progress);
     progress.show();
 
     const Status st = Exporter::run(*mEditor->object(), request, [&progress](int done, int total) {

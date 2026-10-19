@@ -26,6 +26,7 @@ GNU General Public License for more details.
 
 template<typename T> class QList;
 class QActionGroup;
+class QMessageBox;
 class QProgressDialog;
 class QToolBar;
 class Object;
@@ -71,6 +72,9 @@ public:
     ~MainWindow2() override;
 
     Editor* mEditor = nullptr;
+
+    // Gives the restore question its texts and buttons; the manual's shot shows the same box.
+    static void setUpRecoverBox(QMessageBox& box, const QString& projectName);
 
 public slots:
     void updateSaveState();

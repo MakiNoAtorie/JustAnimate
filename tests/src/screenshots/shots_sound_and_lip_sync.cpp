@@ -16,9 +16,6 @@ GNU General Public License for more details.
 
 #include <QApplication>
 #include <QDockWidget>
-#include <QLabel>
-#include <QListWidget>
-#include <QMainWindow>
 #include <QMenu>
 #include <QMessageBox>
 #include <QScrollArea>
@@ -26,7 +23,6 @@ GNU General Public License for more details.
 #include <QPushButton>
 #include <QSpinBox>
 #include <QCheckBox>
-#include <QTimer>
 #include <QToolBar>
 
 #include "cellmenus.h"
@@ -35,31 +31,11 @@ GNU General Public License for more details.
 #include "layermanager.h"
 #include "object.h"
 #include "objectdata.h"
+#include "preferencesdialog.h"
 #include "screenshots.h"
 
 namespace
 {
-Layer* voiceLayer(Editor* editor)
-{
-    for (int i = 0; i < editor->object()->getLayerCount(); ++i)
-    {
-        if (editor->object()->getLayer(i)->name() == "Voice") { return editor->object()->getLayer(i); }
-    }
-    FAIL("No Voice layer");
-    return nullptr;
-}
-
-// Makes the Timeline tall enough to show every layer row, and shows it.
-QDockWidget* tallTimeline(QWidget* window)
-{
-    auto* dock = window->findChild<QDockWidget*>("TimeLine");
-    REQUIRE(dock);
-    dock->raise();
-    static_cast<QMainWindow*>(window)->resizeDocks({ dock }, { 300 }, Qt::Vertical);
-    QApplication::processEvents();
-    return dock;
-}
-
 // The playback controls: Play, Loop, Range, Sound on/off and Sound scrub on/off.
 QToolBar* controls(QWidget* window)
 {
@@ -80,17 +56,12 @@ QToolBar* controls(QWidget* window)
 TEST_CASE("Manual screenshots: Sound and lip sync", "[.screenshots]")
 {
     ShotWindow shot;
-    Layer* voice = voiceLayer(shot.editor);
+    Layer* voice = layerNamed(shot.editor, "Voice");
     shot.editor->layers()->setCurrentLayer(voice);
 
     SECTION("import-menu")
     {
-        auto* menu = shot.window.findChild<QMenu*>("menuImport");
-        REQUIRE(menu);
-        menu->popup(QPoint(40, 40));
-        QApplication::processEvents();
-        saveShot(menu, "sound-and-lip-sync-import-menu");
-        menu->close();
+        saveMenu(shot.window.findChild<QMenu*>("menuImport"), "sound-and-lip-sync-import-menu");
     }
 
     SECTION("waveform")
@@ -111,15 +82,7 @@ TEST_CASE("Manual screenshots: Sound and lip sync", "[.screenshots]")
 
     SECTION("scrub-preference")
     {
-        shot.window.preferences();
-        QDialog* prefs = nullptr;
-        for (QDialog* d : shot.window.findChildren<QDialog*>())
-        {
-            if (d->windowTitle() == "Preferences") { prefs = d; }
-        }
-        REQUIRE(prefs);
-        prefs->findChild<QListWidget*>("contentsWidget")->setCurrentRow(2);
-        QApplication::processEvents();
+        PreferencesDialog* prefs = openPreferences(shot.window, 2);
         for (auto* area : prefs->findChildren<QScrollArea*>())
         {
             area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
@@ -141,12 +104,7 @@ TEST_CASE("Manual screenshots: Sound and lip sync", "[.screenshots]")
     SECTION("marker-menu")
     {
         tallTimeline(&shot.window);
-        QTimer::singleShot(0, [] {
-            auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
-            REQUIRE(menu);
-            saveShot(menu, "sound-and-lip-sync-marker-menu");
-            menu->close();
-        });
+        whenMenuOpens([](QMenu* menu) { saveShot(menu, "sound-and-lip-sync-marker-menu"); });
         CellMenus::showMarkerMenu(shot.editor, voice->id(), 5, QPoint(300, 300));
     }
 

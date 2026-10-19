@@ -101,7 +101,7 @@ The **Sound on/off** button in the playback controls turns all sound on or off. 
 
 ![The playback controls with Loop and a playback range from frame 5 to frame 17](images/sound-and-lip-sync-loop.png)
 
-Use the **Loop** button to repeat the playback. Use the **Range** box, and the start and end boxes next to it, to play only some frames.
+Use the **Loop** button to repeat the playback. Use the **Range** box, and the start and end boxes next to it, to play only some frames. See [Play-around and the loop range](06-animating.md#animating-range).
 
 - When the playback loops, the sound restarts on the first frame of the loop. It does not continue from the end of the last turn.
 - A clip that starts after the first frame of the range starts when the playback reaches it. A clip that is already running at the first frame starts from the correct place in its sound.

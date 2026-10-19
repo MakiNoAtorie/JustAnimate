@@ -17,11 +17,9 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QApplication>
 #include <QDockWidget>
-#include <QLabel>
 #include <QMenu>
 #include <QPainterPath>
 #include <QScrollBar>
-#include <QTimer>
 
 #include "bitmapimage.h"
 #include "cellmenus.h"
@@ -43,28 +41,6 @@ GNU General Public License for more details.
 
 namespace
 {
-QDockWidget* panel(ShotWindow& shot, const char* name, QSize size)
-{
-    auto* dock = shot.window.findChild<QDockWidget*>(name);
-    REQUIRE(dock);
-    dock->setFloating(true);
-    dock->resize(size);
-    dock->show();
-    dock->raise();
-    QApplication::processEvents();
-    return dock;
-}
-
-Layer* layerNamed(Editor* editor, const QString& name)
-{
-    for (int i = 0; i < editor->object()->getLayerCount(); ++i)
-    {
-        if (editor->object()->getLayer(i)->name() == name) { return editor->object()->getLayer(i); }
-    }
-    FAIL("No layer named " << name.toStdString());
-    return nullptr;
-}
-
 PaperTemplate titleBlock()
 {
     PaperTemplate paper;
@@ -81,10 +57,7 @@ PaperTemplate titleBlock()
 // A page of an export, scaled to a width that suits the manual.
 void savePage(const PageSpec& spec, const PagePaintFn& paint, int page, const QString& name)
 {
-    QLabel label;
-    label.setPixmap(QPixmap::fromImage(renderPage(spec, paint, page)).scaledToWidth(spec.orientation == QPageLayout::Landscape ? 900 : 640, Qt::SmoothTransformation));
-    label.resize(label.pixmap(Qt::ReturnByValue).size());
-    saveShot(&label, name);
+    savePicture(QPixmap::fromImage(renderPage(spec, paint, page)).scaledToWidth(spec.orientation == QPageLayout::Landscape ? 900 : 640, Qt::SmoothTransformation), name);
 }
 
 void makeStoryboard(ShotWindow& shot)
@@ -144,16 +117,14 @@ TEST_CASE("Manual screenshots: Anime workflow", "[.screenshots]")
     {
         shot.editor->object()->loadBuiltinPalette(1);
         shot.editor->color()->setColorNumber(0);
-        QDockWidget* palette = panel(shot, "ColorPalette", QSize(300, 260));
+        QDockWidget* palette = floatPanel(&shot.window, "ColorPalette", QSize(300, 260));
         saveShot(palette, "anime-workflow-genga-palette");
     }
 
     SECTION("timesheet-menu")
     {
         Layer* line = layerNamed(shot.editor, "Line");
-        QTimer::singleShot(0, [=] {
-            auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
-            REQUIRE(menu);
+        whenMenuOpens([](QMenu* menu) {
             for (QAction* a : menu->actions())
             {
                 if (a->menu() && a->text() == "Timesheet Column")
@@ -163,7 +134,6 @@ TEST_CASE("Manual screenshots: Anime workflow", "[.screenshots]")
                     a->menu()->close();
                 }
             }
-            menu->close();
         });
         CellMenus::showLayerMenu(shot.editor, line, QPoint(300, 300));
     }
@@ -172,10 +142,8 @@ TEST_CASE("Manual screenshots: Anime workflow", "[.screenshots]")
     {
         SettingsGuard layout({ SETTING_XSHEET_LAYOUT });
         shot.editor->layers()->setTimesheetColumn(layerNamed(shot.editor, "Line"), TimesheetColumn::InbetweenA);
-        QDockWidget* xsheet = panel(shot, "XSheet", QSize(900, 420));
-        auto* toggle = shot.window.findChild<QAction*>("actionXSheetTimesheet");
-        REQUIRE(toggle);
-        toggle->setChecked(true);
+        QDockWidget* xsheet = floatPanel(&shot.window, "XSheet", QSize(900, 420));
+        actionNamed(&shot.window, "actionXSheetTimesheet")->setChecked(true);
         for (QScrollBar* bar : xsheet->findChildren<QScrollBar*>())
         {
             if (bar->orientation() == Qt::Vertical) { bar->setValue(0); }
@@ -186,7 +154,7 @@ TEST_CASE("Manual screenshots: Anime workflow", "[.screenshots]")
     SECTION("storyboard")
     {
         makeStoryboard(shot);
-        saveShot(panel(shot, "Storyboard", QSize(700, 240)), "anime-workflow-storyboard");
+        saveShot(floatPanel(&shot.window, "Storyboard", QSize(700, 240)), "anime-workflow-storyboard");
     }
 
     SECTION("export-paper")

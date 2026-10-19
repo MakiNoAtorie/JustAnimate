@@ -14,10 +14,7 @@ GNU General Public License for more details.
 */
 #include "catch.hpp"
 
-#include <QAction>
 #include <QApplication>
-#include <QLabel>
-#include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
@@ -35,28 +32,6 @@ GNU General Public License for more details.
 
 namespace
 {
-QAction* action(ShotWindow& shot, const char* name)
-{
-    auto* found = shot.window.findChild<QAction*>(name);
-    REQUIRE(found);
-    return found;
-}
-
-// A popup menu is its own window: grab it into a label.
-void saveMenu(ShotWindow& shot, const char* menuName, const QString& name)
-{
-    auto* menu = shot.window.findChild<QMenu*>(menuName);
-    REQUIRE(menu);
-    menu->popup(QPoint(20, 20));
-    QApplication::processEvents();
-    const QPixmap picture = menu->grab();
-    menu->hide();
-    QLabel label;
-    label.setPixmap(picture);
-    label.resize(picture.size() / picture.devicePixelRatio());
-    saveShot(&label, name);
-}
-
 // One undoable stroke: Undo turns on in the Edit menu.
 void drawStroke(ShotWindow& shot)
 {
@@ -84,7 +59,7 @@ TEST_CASE("Manual screenshots: Saving and safety", "[.screenshots]")
     SECTION("file-menu")
     {
         ShotWindow shot;
-        saveMenu(shot, "menuFile", "saving-and-safety-file-menu");
+        saveMenu(shot.window.findChild<QMenu*>("menuFile"), "saving-and-safety-file-menu");
     }
 
     SECTION("legacy-pcl")
@@ -112,7 +87,7 @@ TEST_CASE("Manual screenshots: Saving and safety", "[.screenshots]")
             grabbed = true;
             box->reject();
         });
-        action(shot, "actionNew")->trigger();
+        actionNamed(&shot.window, "actionNew")->trigger();
         CHECK(grabbed);
     }
 
@@ -129,29 +104,20 @@ TEST_CASE("Manual screenshots: Saving and safety", "[.screenshots]")
         painter.drawPixmap(0, 0, unsaved);
         painter.drawPixmap(0, unsaved.height() / unsaved.devicePixelRatio(), saved);
         painter.end();
-        QLabel label;
-        label.setPixmap(both);
-        label.resize(both.size() / both.devicePixelRatio());
-        saveShot(&label, "saving-and-safety-unsaved-indicator");
+        savePicture(both, "saving-and-safety-unsaved-indicator");
     }
 
     SECTION("edit-menu")
     {
         ShotWindow shot;
         drawStroke(shot);
-        saveMenu(shot, "menuEdit", "saving-and-safety-edit-menu");
+        saveMenu(shot.window.findChild<QMenu*>("menuEdit"), "saving-and-safety-edit-menu");
     }
 
     SECTION("autosave")
     {
         ShotWindow shot;
-        shot.window.preferences();
-        auto* prefs = shot.window.findChild<PreferencesDialog*>();
-        REQUIRE(prefs);
-        auto* pages = prefs->findChild<QListWidget*>("contentsWidget");
-        REQUIRE(pages);
-        pages->setCurrentRow(1);
-        QApplication::processEvents();
+        PreferencesDialog* prefs = openPreferences(shot.window, 1);
         saveShot(prefs, "saving-and-safety-autosave");
         prefs->close();
     }
@@ -159,14 +125,9 @@ TEST_CASE("Manual screenshots: Saving and safety", "[.screenshots]")
     SECTION("recovery")
     {
         ShotWindow shot;
-        // The app shows this box from a private member: same texts, built here and never exec()ed.
+        // The app's own box set-up, shown here and never exec()ed.
         QMessageBox box(&shot.window);
-        box.setWindowTitle("Restore project");
-        box.setIconPixmap(QPixmap(":/icons/logo.png"));
-        box.setText("<h4>Restore Project?</h4>JustAnimate didn't close correctly. Would you like to restore the project?");
-        box.setInformativeText("<b>Ball</b>");
-        box.setStandardButtons(QMessageBox::Open | QMessageBox::Discard | QMessageBox::Cancel);
-        box.setDefaultButton(QMessageBox::Cancel);
+        MainWindow2::setUpRecoverBox(box, "Ball");
         box.show();
         QApplication::processEvents();
         saveShot(&box, "saving-and-safety-recovery");
@@ -175,7 +136,7 @@ TEST_CASE("Manual screenshots: Saving and safety", "[.screenshots]")
     SECTION("import-layers")
     {
         ShotWindow shot;
-        action(shot, "actionImportLayers_from_pclx")->trigger();
+        actionNamed(&shot.window, "actionImportLayers_from_pclx")->trigger();
         QDialog* dialog = nullptr;
         for (QWidget* w : QApplication::topLevelWidgets())
         {

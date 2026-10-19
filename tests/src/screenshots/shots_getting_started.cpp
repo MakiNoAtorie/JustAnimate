@@ -15,8 +15,8 @@ GNU General Public License for more details.
 #include "catch.hpp"
 
 #include <QAction>
-#include <QDockWidget>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMenuBar>
 #include <QPainterPath>
 #include <QTemporaryDir>
@@ -37,12 +37,14 @@ GNU General Public License for more details.
 
 namespace
 {
-QAction* actionNamed(QWidget* window, const QString& text)
+// Window > Layout actions have no objectName: their data is the Layout's untranslated name.
+QAction* layoutAction(QWidget* window, const QString& layout)
 {
     for (QAction* a : window->findChildren<QAction*>())
     {
-        if (a->text() == text) { return a; }
+        if (a->data().toString() == layout) { return a; }
     }
+    FAIL("No Layout action " << layout.toStdString());
     return nullptr;
 }
 
@@ -61,13 +63,6 @@ void newBallProject(Editor* editor, int count)
         layer->getBitmapImageAtFrame(frame)->drawPath(ball, pen, Qt::NoBrush, QPainter::CompositionMode_SourceOver, true);
     }
     editor->scrubTo(count > 0 ? 1 + 2 * (count - 1) : 1);
-}
-
-QDockWidget* panel(QWidget* window, const char* objectName)
-{
-    auto* dock = window->findChild<QDockWidget*>(objectName);
-    REQUIRE(dock);
-    return dock;
 }
 } // namespace
 
@@ -99,8 +94,7 @@ TEST_CASE("Manual screenshots: Getting started", "[.screenshots]")
 
     SECTION("tool-column")
     {
-        panel(&shot.window, "ToolBox")->raise();
-        saveShot(panel(&shot.window, "ToolBox"), "getting-started-tool-column");
+        saveShot(raisePanel(&shot.window, "ToolBox"), "getting-started-tool-column");
     }
 
     SECTION("command-bar")
@@ -112,27 +106,23 @@ TEST_CASE("Manual screenshots: Getting started", "[.screenshots]")
 
     SECTION("tool-settings")
     {
-        saveShot(panel(&shot.window, "ToolOption"), "getting-started-tool-settings");
+        saveShot(panelDock(&shot.window, "ToolOption"), "getting-started-tool-settings");
     }
 
     SECTION("timeline")
     {
-        saveShot(panel(&shot.window, "TimeLine"), "getting-started-timeline");
+        saveShot(panelDock(&shot.window, "TimeLine"), "getting-started-timeline");
     }
 
     SECTION("layout-draw")
     {
-        QAction* draw = actionNamed(&shot.window, "Draw");
-        REQUIRE(draw);
-        draw->trigger();
+        layoutAction(&shot.window, "Draw")->trigger();
         saveShot(&shot.window, "getting-started-layout-draw");
     }
 
     SECTION("layout-ink")
     {
-        QAction* ink = actionNamed(&shot.window, "Ink");
-        REQUIRE(ink);
-        ink->trigger();
+        layoutAction(&shot.window, "Ink")->trigger();
         saveShot(&shot.window, "getting-started-layout-ink");
     }
 
@@ -156,9 +146,7 @@ TEST_CASE("Manual screenshots: Getting started", "[.screenshots]")
 
     SECTION("preferences-appearance")
     {
-        shot.window.preferences();
-        auto* prefs = shot.window.findChild<PreferencesDialog*>();
-        REQUIRE(prefs);
+        PreferencesDialog* prefs = openPreferences(shot.window, 0);
         saveShot(prefs, "getting-started-preferences-appearance");
         prefs->close();
     }
@@ -166,15 +154,26 @@ TEST_CASE("Manual screenshots: Getting started", "[.screenshots]")
     SECTION("first-drawing")
     {
         newBallProject(shot.editor, 1);
-        panel(&shot.window, "ToolBox")->raise();
+        raisePanel(&shot.window, "ToolBox");
         saveShot(&shot.window, "getting-started-first-drawing");
     }
 
     SECTION("more-drawings")
     {
         newBallProject(shot.editor, 3);
-        panel(&shot.window, "ToolBox")->raise();
+        raisePanel(&shot.window, "ToolBox");
         saveShot(&shot.window, "getting-started-more-drawings");
+    }
+
+    SECTION("play")
+    {
+        newBallProject(shot.editor, 3);
+        saveShot(raisePanel(&shot.window, "TimeLine"), "getting-started-play");
+    }
+
+    SECTION("save")
+    {
+        saveMenu(shot.window.findChild<QMenu*>("menuFile"), "getting-started-save");
     }
 
     SECTION("export-movie")

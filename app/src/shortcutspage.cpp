@@ -62,6 +62,15 @@ ShortcutsPage::~ShortcutsPage() {
     delete ui;
 }
 
+void ShortcutsPage::setUpConflictBox(QMessageBox& box, const QString& keys, const QString& usedBy)
+{
+    box.setText( tr("Shortcut Conflict!"));
+    box.setInformativeText( tr("%1 is already used by \"%2\", overwrite?").arg(keys, usedBy) );
+    box.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    box.setDefaultButton(QMessageBox::No);
+    box.setIcon( QMessageBox::Warning );
+}
+
 bool ShortcutsPage::filter(const QString& query)
 {
     bool any = false;
@@ -116,11 +125,7 @@ void ShortcutsPage::keyCapLineEditTextChanged()
     if (!conflictCmd.isEmpty())
     {
         QMessageBox msgBox(this);
-        msgBox.setText( tr("Shortcut Conflict!"));
-        msgBox.setInformativeText( tr("%1 is already used by \"%2\", overwrite?").arg(keySequence.toString(QKeySequence::NativeText), getHumanReadableShortcutName(conflictCmd)) );
-        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-        msgBox.setDefaultButton(QMessageBox::No);
-        msgBox.setIcon( QMessageBox::Warning );
+        setUpConflictBox(msgBox, keySequence.toString(QKeySequence::NativeText), getHumanReadableShortcutName(conflictCmd));
 
         int result = msgBox.exec();
 

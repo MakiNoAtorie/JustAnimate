@@ -19,10 +19,8 @@ GNU General Public License for more details.
 #include <QComboBox>
 #include <QDockWidget>
 #include <QKeyEvent>
-#include <QLabel>
 #include <QMenu>
 #include <QPainter>
-#include <QTabletEvent>
 
 #include "cameracontextmenu.h"
 #include "cameratool.h"
@@ -53,54 +51,9 @@ struct AnimatingSettings
                          SETTING_INBETWEEN_EASING, "shortcuts/" CMD_FLIP_HOLD };
 };
 
-QWidget* panel(ShotWindow& shot, const char* name)
-{
-    auto* widget = shot.window.findChild<QWidget*>(name);
-    REQUIRE(widget);
-    return widget;
-}
-
-// A Panel behind a tab in the default Layout: show it before a grab.
-QWidget* raised(ShotWindow& shot, const char* name)
-{
-    QWidget* dock = panel(shot, name);
-    dock->show();
-    dock->raise();
-    QApplication::processEvents();
-    return dock;
-}
-
-// A Panel as its own window, sized so that no control hides behind a scroll bar.
-QWidget* floated(ShotWindow& shot, const char* name, QSize size)
-{
-    auto* dock = static_cast<QDockWidget*>(panel(shot, name));
-    dock->setFloating(true);
-    dock->resize(size);
-    dock->show();
-    QApplication::processEvents();
-    return dock;
-}
-
-Layer* layerNamed(ShotWindow& shot, const QString& name)
-{
-    Layer* layer = shot.editor->layers()->findLayerByName(name);
-    REQUIRE(layer);
-    return layer;
-}
-
-int indexOf(ShotWindow& shot, Layer* layer)
-{
-    for (int i = 0; i < shot.editor->layers()->count(); ++i)
-    {
-        if (shot.editor->layers()->getLayer(i) == layer) { return i; }
-    }
-    FAIL("layer not found");
-    return -1;
-}
-
 void goTo(ShotWindow& shot, const QString& layerName, int frame)
 {
-    shot.editor->layers()->setCurrentLayer(layerNamed(shot, layerName));
+    shot.editor->layers()->setCurrentLayer(layerNamed(shot.editor, layerName));
     shot.editor->scrubTo(frame);
     QApplication::processEvents();
 }
@@ -120,11 +73,7 @@ void setOnion(ShotWindow& shot, const QString& type, int before, int after)
 
 void tabletAt(ShotWindow& shot, QEvent::Type type, QPointF pos)
 {
-    ScribbleArea* area = shot.editor->getScribbleArea();
-    const bool down = type != QEvent::TabletRelease;
-    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos), down ? 0.7 : 0, 0, 0, 0, 0, 0,
-                   Qt::NoModifier, Qt::LeftButton, down ? Qt::LeftButton : Qt::NoButton);
-    QApplication::sendEvent(area, &e);
+    sendTablet(shot.editor->getScribbleArea(), type, { pos });
 }
 
 void key(ShotWindow& shot, QEvent::Type type, int code)
@@ -133,22 +82,18 @@ void key(ShotWindow& shot, QEvent::Type type, int code)
     QApplication::sendEvent(shot.editor->getScribbleArea(), &e);
 }
 
-void saveLabel(const QPixmap& picture, const QString& name)
+// A popup menu is its own window: the open `menu`, and its submenu `title` next to it, go into one picture.
+void saveMenuWithSubmenu(QMenu* menu, const QString& title, const QString& name)
 {
-    QLabel label;
-    label.setPixmap(picture);
-    label.resize(picture.size() / picture.devicePixelRatio());
-    saveShot(&label, name);
-}
-
-// A popup menu is its own window: a menu, and one submenu next to it, go into one picture.
-void saveMenuWithSubmenu(QMenu& menu, QMenu* submenu, const QString& name)
-{
-    menu.popup(QPoint(20, 20));
+    QMenu* submenu = nullptr;
+    for (QAction* action : menu->actions())
+    {
+        if (action->menu() && action->text() == title) { submenu = action->menu(); }
+    }
+    REQUIRE(submenu);
+    submenu->popup(menu->pos() + QPoint(menu->width() - 2, 0));
     QApplication::processEvents();
-    submenu->popup(menu.pos() + QPoint(menu.width() - 2, 0));
-    QApplication::processEvents();
-    const QPixmap first = menu.grab();
+    const QPixmap first = menu->grab();
     const QPixmap second = submenu->grab();
     const qreal ratio = first.devicePixelRatio();
     QPixmap picture(first.width() + second.width(), qMax(first.height(), second.height()));
@@ -159,8 +104,7 @@ void saveMenuWithSubmenu(QMenu& menu, QMenu* submenu, const QString& name)
     painter.drawPixmap(QPointF((first.width() - 2 * ratio) / ratio, 0), second);
     painter.end();
     submenu->hide();
-    menu.hide();
-    saveLabel(picture, name);
+    savePicture(picture, name);
 }
 } // namespace
 
@@ -173,14 +117,14 @@ TEST_CASE("Manual screenshots: Animating", "[.screenshots]")
     {
         ShotWindow shot;
         setOnion(shot, "absolute", 2, 2);
-        saveShot(floated(shot, "Onion Skin", { 300, 560 }), "animating-onion-panel");
+        saveShot(floatPanel(&shot.window, "Onion Skin", { 300, 560 }), "animating-onion-panel");
     }
 
     SECTION("onion-canvas")
     {
         ShotWindow shot;
         setOnion(shot, "absolute", 2, 2);
-        raised(shot, "Onion Skin");
+        raisePanel(&shot.window, "Onion Skin");
         goTo(shot, "Rough", 7);
         saveShot(&shot.window, "animating-onion-canvas");
     }
@@ -190,19 +134,20 @@ TEST_CASE("Manual screenshots: Animating", "[.screenshots]")
         ShotWindow shot;
         setOnion(shot, "marked", 2, 2);
         shot.editor->preference()->set<SETTING::ONION_MARKS>(MarkFilter({ Mark::Key }).toInt());
-        raised(shot, "Onion Skin");
+        raisePanel(&shot.window, "Onion Skin");
         goTo(shot, "Rough", 7);
         saveShot(&shot.window, "animating-onion-marked");
-        saveShot(floated(shot, "Onion Skin", { 300, 560 }), "animating-onion-marked-panel");
+        saveShot(floatPanel(&shot.window, "Onion Skin", { 300, 560 }), "animating-onion-marked-panel");
     }
 
     SECTION("onion-layer")
     {
         ShotWindow shot;
         setOnion(shot, "absolute", 2, 2);
-        shot.editor->switchOnionSkinOfLayer(indexOf(shot, layerNamed(shot, "Background")));
+        shot.editor->layers()->setCurrentLayer(layerNamed(shot.editor, "Background"));
+        shot.editor->switchOnionSkinOfLayer(shot.editor->currentLayerIndex());
         goTo(shot, "Rough", 7);
-        saveShot(floated(shot, "TimeLine", { 1500, 300 }), "animating-onion-layer");
+        saveShot(floatPanel(&shot.window, "TimeLine", { 1500, 300 }), "animating-onion-layer");
     }
 
     SECTION("shift-trace")
@@ -254,13 +199,13 @@ TEST_CASE("Manual screenshots: Animating", "[.screenshots]")
         PlaybackManager* playback = shot.editor->playback();
         playback->setLooping(true);
         playback->setPingPong(true);
-        for (auto* box : panel(shot, "TimeLine")->findChildren<QComboBox*>())
+        for (auto* box : panelDock(&shot.window, "TimeLine")->findChildren<QComboBox*>())
         {
             if (box->toolTip() == QCoreApplication::translate("TimeControls", "Playback speed")) { box->setCurrentIndex(2); }
         }
         playback->setSpeed(2.0);
         goTo(shot, "Rough", 7);
-        saveShot(floated(shot, "TimeLine", { 1500, 300 }), "animating-playback");
+        saveShot(floatPanel(&shot.window, "TimeLine", { 1500, 300 }), "animating-playback");
     }
 
     SECTION("loop-range")
@@ -270,7 +215,7 @@ TEST_CASE("Manual screenshots: Animating", "[.screenshots]")
         playback->setLoopRange(4, 10);
         playback->setPlayAroundFrames(3);
         goTo(shot, "Rough", 7);
-        saveShot(floated(shot, "TimeLine", { 1500, 300 }), "animating-loop-range");
+        saveShot(floatPanel(&shot.window, "TimeLine", { 1500, 300 }), "animating-loop-range");
     }
 
     SECTION("transform-key")
@@ -298,19 +243,19 @@ TEST_CASE("Manual screenshots: Animating", "[.screenshots]")
     SECTION("tween-menu")
     {
         ShotWindow shot;
-        QMenu menu;
-        QAction* toggle = menu.addAction(QCoreApplication::translate("CellMenus", "Tween to Next Key"));
-        toggle->setCheckable(true);
-        toggle->setChecked(true);
-        QMenu* easing = CellMenus::addEasingMenu(&menu, QCoreApplication::translate("CellMenus", "Tween Easing"),
-                                                 CameraEasingType::INOUTQUAD, [](CameraEasingType) {});
-        saveMenuWithSubmenu(menu, easing, "animating-tween-menu");
+        Layer* line = layerNamed(shot.editor, "Line");
+        goTo(shot, "Line", 1);
+        shot.editor->layers()->setKeyTween(1, true, CameraEasingType::INOUTQUAD, TweenState{ 0, 0, 0, 1, 1 });
+        whenMenuOpens([](QMenu* menu) {
+            saveMenuWithSubmenu(menu, QCoreApplication::translate("CellMenus", "Tween Easing"), "animating-tween-menu");
+        });
+        CellMenus::showCellMenu(shot.editor, line, 1, QPoint(20, 20));
     }
 
     SECTION("inbetweens")
     {
         ShotWindow shot;
-        Layer* line = layerNamed(shot, "Line");
+        Layer* line = layerNamed(shot.editor, "Line");
         shot.editor->layers()->setCurrentLayer(line);
         LayerManager::setFrameSelected(line, 1, true);
         LayerManager::setFrameSelected(line, 7, true);
@@ -325,11 +270,7 @@ TEST_CASE("Manual screenshots: Animating", "[.screenshots]")
         ShotWindow shot;
         QMenu menu;
         CellMenus::fillInbetweenEasingMenu(&menu, shot.editor, [](CameraEasingType) {});
-        menu.popup(QPoint(20, 20));
-        QApplication::processEvents();
-        const QPixmap picture = menu.grab();
-        menu.hide();
-        saveLabel(picture, "animating-inbetween-easing");
+        saveMenu(&menu, "animating-inbetween-easing");
     }
 
     SECTION("camera")
@@ -355,14 +296,11 @@ TEST_CASE("Manual screenshots: Animating", "[.screenshots]")
     {
         ShotWindow shot;
         goTo(shot, "Camera", 1);
-        CameraContextMenu menu(shot.editor, 1, static_cast<const LayerCamera*>(layerNamed(shot, "Camera")));
-        QMenu* transform = nullptr;
-        for (QAction* action : menu.actions())
-        {
-            if (action->menu() && action->text() == QCoreApplication::translate("CameraContextMenu", "Transform")) { transform = action->menu(); }
-        }
-        REQUIRE(transform);
-        saveMenuWithSubmenu(menu, transform, "animating-camera-menu");
+        CameraContextMenu menu(shot.editor, 1, static_cast<const LayerCamera*>(layerNamed(shot.editor, "Camera")));
+        menu.popup(QPoint(20, 20));
+        QApplication::processEvents();
+        saveMenuWithSubmenu(&menu, QCoreApplication::translate("CameraContextMenu", "Transform"), "animating-camera-menu");
+        menu.hide();
     }
 
     SECTION("pegbar")

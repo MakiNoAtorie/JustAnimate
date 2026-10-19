@@ -235,4 +235,5 @@ JustAnimate puts each layer in a column by these rules:
 To choose the column yourself, right-click the layer in the Timeline, then
 choose **Timesheet Column** and the column. The choice **From layer order** goes
 back to the rules above. To print a Timesheet on paper, use
-**File > Export > Timesheet...**.
+**File > Export > Timesheet...**. For the Timesheet in the anime workflow, see
+[Timesheet columns](08-anime-workflow.md#anime-timesheet).

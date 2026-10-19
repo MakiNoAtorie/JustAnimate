@@ -20,7 +20,7 @@ When you start JustAnimate without a project, the Welcome screen opens.
 
 The Welcome screen has these parts:
 
-- **Recent projects.** Click a project to open it. A project that was moved or deleted shows "(missing)" and you cannot open it. When you have no recent projects, this list is not shown.
+- **Recent projects.** Click a project to open it. Each project shows a small picture of the frame that was current when you saved it last in JustAnimate. A project without a Camera layer, or that you did not save in JustAnimate, shows only its name. A project that was moved or deleted shows "(missing)" and you cannot open it. When you have no recent projects, this list is not shown.
 - **New project.** Choose a template or a preset in the list, then click **New**. A template sets the size of the picture and the frames per second (fps), for example "Anime 720p (1280 x 720, 24 fps)". The templates are Anime 1080p, Anime 720p, HD 1080p, HD 720p, 4K UHD, Vertical 1080 x 1920, Square 1080 and GIF 480 x 480. Below the templates are Default and the presets that you saved. JustAnimate remembers the last template that you chose.
 - **Open...** Choose a project file in a folder.
 - **Cancel.** Close the Welcome screen.
@@ -70,7 +70,11 @@ You can also select a tool with the Tools menu or with its shortcut. For example
 
 ![The Tool settings Panel](images/getting-started-tool-settings.png)
 
-The Tool settings Panel shows the values of the current tool. The size (Width) and the Opacity are at the top. The other values depend on the tool. When you select a different tool, the Panel shows the values of that tool. In the default Layout, Tool settings is a column at the left. You can also dock it at the top as a one-row strip.
+The Tool settings Panel shows the values of the current tool. The size (Width)
+and the Opacity are at the top. The other values depend on the tool. When you
+select a different tool, the Panel shows the values of that tool. In the default
+Layout, Tool settings is a column at the left. You can also drag the Panel to
+the top of the main window. There it shows as a one-row strip.
 
 ### Panels on the right {#getting-started-right-panels}
 
@@ -174,11 +178,19 @@ Click the **Loop** button before you play to repeat the animation without a stop
 
 To check the motion by hand, move the playhead one frame at a time with the full stop (.) and the comma (,).
 
+![The Timeline with the three Drawings of the ball](images/getting-started-play.png)
+
+For the playback speed, the loop range and Flip, see [Animating](06-animating.md#animating-playback).
+
 ## Save the project {#getting-started-save}
 
 Choose File > Save (Ctrl+S). The first time, JustAnimate asks for a name and a folder. It saves the project as a `.pclx` file. Use File > Save As... (Ctrl+Shift+S) to save a copy with a different name.
 
 A saved project shows in the **Recent projects** list of the Welcome screen and in File > Open Recent.
+
+![The File menu with Save and Save As](images/getting-started-save.png)
+
+For the file formats, autosave and crash recovery, see [Saving and safety](09-saving-and-safety.md#saving-save).
 
 ## Export a movie {#getting-started-export-movie}
 

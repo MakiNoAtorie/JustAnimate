@@ -23,6 +23,8 @@ GNU General Public License for more details.
 #include <QProgressDialog>
 #include <QSpinBox>
 
+#include "actioncommands.h"
+#include "appinfo.h"
 #include "editor.h"
 #include "errordialog.h"
 #include "exportimagedialog.h"
@@ -63,12 +65,7 @@ TEST_CASE("Manual screenshots: Exporting", "[.screenshots]")
 
     SECTION("menu")
     {
-        auto* menu = shot.window.findChild<QMenu*>("menuExport");
-        REQUIRE(menu);
-        menu->popup(QPoint(40, 40));
-        QApplication::processEvents();
-        saveShot(menu, "exporting-menu");
-        menu->close();
+        saveMenu(shot.window.findChild<QMenu*>("menuExport"), "exporting-menu");
     }
 
     SECTION("movie-mp4")
@@ -163,7 +160,8 @@ TEST_CASE("Manual screenshots: Exporting", "[.screenshots]")
 
     SECTION("overwrite")
     {
-        QMessageBox box(QMessageBox::Question, "JustAnimate", "C:\\Animation\\ball.mp4 already exists. Replace it?",
+        // The box of QMessageBox::question with the app text, shown here and never exec()ed.
+        QMessageBox box(QMessageBox::Question, APP_NAME, ActionCommands::overwriteQuestion("C:/Animation/ball.mp4"),
                         QMessageBox::Yes | QMessageBox::No);
         box.show();
         QApplication::processEvents();
@@ -172,8 +170,8 @@ TEST_CASE("Manual screenshots: Exporting", "[.screenshots]")
 
     SECTION("progress")
     {
-        QProgressDialog progress("Exporting movie...", "Abort", 0, 1000, &shot.window);
-        progress.setWindowModality(Qt::WindowModal);
+        QProgressDialog progress(&shot.window);
+        ActionCommands::setUpMovieProgress(progress);
         progress.show();
         progress.setValue(400);
         saveShot(&progress, "exporting-progress");

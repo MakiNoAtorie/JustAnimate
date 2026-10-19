@@ -18,10 +18,8 @@ GNU General Public License for more details.
 
 #include <QApplication>
 #include <QCheckBox>
-#include <QLabel>
 #include <QPainter>
 #include <QMenu>
-#include <QTabletEvent>
 #include <QToolButton>
 #include <QWheelEvent>
 
@@ -46,11 +44,7 @@ QPointF onScreen(ShotWindow& shot, QPointF canvas) { return shot.editor->view()-
 
 void tabletAt(ShotWindow& shot, QEvent::Type type, QPointF pos, qreal pressure, Qt::KeyboardModifiers mods = {}, bool down = true)
 {
-    ScribbleArea* area = shot.editor->getScribbleArea();
-    const bool pressed = down && type != QEvent::TabletRelease;
-    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), pos, area->mapToGlobal(pos), pressed ? pressure : 0, 0, 0, 0, 0, 0,
-                   mods, (down || type == QEvent::TabletRelease) ? Qt::LeftButton : Qt::NoButton, pressed ? Qt::LeftButton : Qt::NoButton);
-    QApplication::sendEvent(area, &e);
+    sendTablet(shot.editor->getScribbleArea(), type, { pos, pressure }, mods, down);
 }
 
 void tablet(ShotWindow& shot, QEvent::Type type, QPointF canvas, qreal pressure, Qt::KeyboardModifiers mods = {}, bool down = true)
@@ -118,26 +112,13 @@ void useTool(ShotWindow& shot, ToolType type, const QColor& colour = QColor(30, 
 }
 
 // Tools is a tab behind Brush Presets in the default Layout; the shots show it.
-void showTools(ShotWindow& shot)
-{
-    auto* dock = shot.window.findChild<QWidget*>("ToolBox");
-    REQUIRE(dock);
-    dock->show();
-    dock->raise();
-}
+void showTools(ShotWindow& shot) { raisePanel(&shot.window, "ToolBox"); }
 
 void settle(ShotWindow& shot)
 {
     showTools(shot);
     shot.editor->getScribbleArea()->update();
     QApplication::processEvents();
-}
-
-QWidget* panel(ShotWindow& shot, const char* name)
-{
-    auto* widget = shot.window.findChild<QWidget*>(name);
-    REQUIRE(widget);
-    return widget;
 }
 
 // Each shot starts with the default Tool groups: a group button shows the tool used last.
@@ -163,7 +144,7 @@ TEST_CASE("Manual screenshots: Drawing tools", "[.screenshots]")
         ShotWindow shot;
         shot.editor->tools()->setCurrentTool(PENCIL);
         settle(shot);
-        saveShot(panel(shot, "ToolBox"), "drawing-tools-tool-column");
+        saveShot(panelDock(&shot.window, "ToolBox"), "drawing-tools-tool-column");
     }
 
     SECTION("tool-group")
@@ -174,7 +155,7 @@ TEST_CASE("Manual screenshots: Drawing tools", "[.screenshots]")
         auto* menu = shot.window.findChild<QMenu*>("ToolGroupMenu_CmdToolPencil");
         REQUIRE(menu);
         auto* button = shot.window.findChild<QToolButton*>("pencilButton");
-        QWidget* column = panel(shot, "ToolBox");
+        QWidget* column = panelDock(&shot.window, "ToolBox");
         showTools(shot);
         openMenu(menu, button);
         // The menu is its own window: paste it under the button in a grab of the Tool column.
@@ -184,10 +165,7 @@ TEST_CASE("Manual screenshots: Drawing tools", "[.screenshots]")
         painter.drawPixmap(at, menu->grab());
         painter.end();
         menu->hide();
-        QLabel label;
-        label.setPixmap(picture);
-        label.resize(picture.size() / picture.devicePixelRatio());
-        saveShot(&label, "drawing-tools-tool-group");
+        savePicture(picture, "drawing-tools-tool-group");
     }
 
     SECTION("pencil")
@@ -441,11 +419,7 @@ TEST_CASE("Manual screenshots: Drawing tools", "[.screenshots]")
     {
         FreshGroups fresh;
         ShotWindow shot;
-        auto* view = shot.window.findChild<QMenu*>("menuOverlays");
-        REQUIRE(view);
-        openMenu(view, &shot.window);
-        saveShot(view, "drawing-tools-overlays-menu");
-        view->hide();
+        saveMenu(shot.window.findChild<QMenu*>("menuOverlays"), "drawing-tools-overlays-menu");
     }
 
     SECTION("perspective")

@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QApplication>
 #include <QDockWidget>
-#include <QLabel>
 #include <QPainter>
 #include <QScrollBar>
 
@@ -31,20 +30,11 @@ GNU General Public License for more details.
 
 namespace
 {
-QDockWidget* panel(ShotWindow& shot, const char* name)
-{
-    auto* dock = shot.window.findChild<QDockWidget*>(name);
-    REQUIRE(dock);
-    // A docked Panel is too low to show all layers: float it at a set size.
-    dock->setFloating(true);
-    dock->resize(QByteArray(name) == "XSheet" ? QSize(700, 420) : QSize(1000, 290));
-    dock->raise();
-    QApplication::processEvents();
-    return dock;
-}
+// A docked Panel is too low to show all layers: float it at a set size.
+QDockWidget* xsheetPanel(ShotWindow& shot) { return floatPanel(&shot.window, "XSheet", QSize(700, 420)); }
 
 // The layer names and the first frames of the Timeline Panel, as they look now.
-QPixmap timeline(ShotWindow& shot) { return panel(shot, "TimeLine")->grab().copy(0, 56, 480, 150); }
+QPixmap timeline(ShotWindow& shot) { return floatPanel(&shot.window, "TimeLine", QSize(1000, 290))->grab().copy(0, 56, 480, 150); }
 
 void toTop(QDockWidget* xsheet)
 {
@@ -74,10 +64,7 @@ void saveRows(const QList<Row>& rows, const QString& name)
         y += labelHeight + r.pixmap.height() + pad;
     }
     p.end();
-    QLabel label;
-    label.setPixmap(out);
-    label.resize(out.size());
-    saveShot(&label, name);
+    savePicture(out, name);
 }
 
 int roughIndex(ShotWindow& shot) { return shot.editor->currentLayerIndex(); }
@@ -186,7 +173,7 @@ TEST_CASE("Manual screenshots: Timeline and X-sheet", "[.screenshots]")
     SECTION("link")
     {
         // The link bar shows well on the white cells of the X-sheet.
-        QDockWidget* xsheet = panel(shot, "XSheet");
+        QDockWidget* xsheet = xsheetPanel(shot);
         REQUIRE(shot.editor->layers()->linkDrawing(1, 11));
         shot.editor->scrubTo(14);
         toTop(xsheet);
@@ -196,7 +183,7 @@ TEST_CASE("Manual screenshots: Timeline and X-sheet", "[.screenshots]")
     SECTION("xsheet")
     {
         SettingsGuard layout({ SETTING_XSHEET_LAYOUT });
-        QDockWidget* xsheet = panel(shot, "XSheet");
+        QDockWidget* xsheet = xsheetPanel(shot);
         shot.editor->scrubTo(7);
         toTop(xsheet);
         saveShot(xsheet, "timeline-and-xsheet-xsheet");
@@ -205,11 +192,9 @@ TEST_CASE("Manual screenshots: Timeline and X-sheet", "[.screenshots]")
     SECTION("timesheet")
     {
         SettingsGuard layout({ SETTING_XSHEET_LAYOUT });
-        QDockWidget* xsheet = panel(shot, "XSheet");
+        QDockWidget* xsheet = xsheetPanel(shot);
         shot.editor->scrubTo(7);
-        auto* toggle = shot.window.findChild<QAction*>("actionXSheetTimesheet");
-        REQUIRE(toggle);
-        toggle->setChecked(true);
+        actionNamed(&shot.window, "actionXSheetTimesheet")->setChecked(true);
         toTop(xsheet);
         saveShot(xsheet, "timeline-and-xsheet-timesheet");
     }

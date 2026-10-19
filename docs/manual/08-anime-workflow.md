@@ -64,7 +64,7 @@ the camera moves. Each field you change is one step in the undo list.
 ![The View with the Paper template around the camera frame](images/anime-workflow-paper-template.png)
 
 The sheet is a guide for you while you draw. It does not show in the image and
-movie exports. Only [Export On Paper](#anime-export-paper) prints it. To hide the
+movie exports. Only [Export on Paper](#anime-export-paper) prints it. To hide the
 sheet, clear the box **Show the genga sheet around the camera frame**. The
 Title block stays in the project.
 
@@ -206,7 +206,7 @@ in seconds and frames. The page header shows PRODUCTION, from the TITLE of the
 Title block, and PAGE n / N. The export uses the first Storyboard layer of the
 project.
 
-## Export On Paper {#anime-export-paper}
+## Export on Paper {#anime-export-paper}
 
 Choose File > Export > On Paper... to print frames on the Paper template. Use it
 for the genga sheets that you give to the next person.
@@ -217,7 +217,7 @@ for the genga sheets that you give to the next person.
 4. Click **OK**.
 5. Enter a file name and choose **PDF** or **PNG pages**.
 
-![A page of Export On Paper](images/anime-workflow-export-paper.png)
+![A page of Export on Paper](images/anime-workflow-export-paper.png)
 
 Each page is one frame. It shows the Drawings of that frame in the sheet, with
 the Title block. The export prints the Paper template even when the sheet is
@@ -237,5 +237,5 @@ stay as they were.
 - **The Storyboard Panel says "No Storyboard layer yet".** Choose
   Layer > New Storyboard Layer, or click **Make current layer the Storyboard
   layer**.
-- **Export On Paper says to add a camera layer.** Choose Layer > New Camera Layer.
+- **Export on Paper says to add a camera layer.** Choose Layer > New Camera Layer.
   The pages show the frame of the camera.

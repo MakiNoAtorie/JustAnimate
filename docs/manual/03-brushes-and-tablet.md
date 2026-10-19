@@ -67,7 +67,8 @@ change it:
 4. Drag a point to move it. Double-click the line to add a point.
    Right-click a point to remove it.
 
-To go back to a straight line, click **Reset Pressure Curve**.
+To go back to a straight line, click **Reset Pressure Curve**. For the other
+settings of the Tools page, see [The Tools page](11-preferences-and-reference.md#prefs-tools).
 
 ![The pressure curve in the Tools page of the Preferences](images/brushes-and-tablet-pressure-curve.png)
 
@@ -331,6 +332,9 @@ Preferences... > General**:
   choice, try the other.
 - **Tablet high-resolution position** uses the sub-pixel position that the
   tablet reports. It gives smoother lines.
+
+For the defaults of these settings, see
+[Editing and the tablet](11-preferences-and-reference.md#prefs-general-editing).
 
 ![The tablet settings in the General page of the Preferences](images/brushes-and-tablet-tablet.png)
 

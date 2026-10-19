@@ -41,6 +41,8 @@ A Storyboard layer is a layer whose Drawings are the panels of a storyboard. The
 
 If the project has no Storyboard layer, the Storyboard Panel shows the button **Make current layer the Storyboard layer**.
 
+For the storyboard workflow and its export, see [The Storyboard layer and the Storyboard Panel](08-anime-workflow.md#anime-storyboard).
+
 ## Add, rename, duplicate and delete {#layers-edit}
 
 ### Add a layer {#layers-add}
@@ -84,7 +86,7 @@ JustAnimate does not delete these layers. The button and the menu item are not a
 
 ### Undo {#layers-undo}
 
-All of these changes are in the undo history. To go back, choose Edit > Undo (Ctrl+Z). One undo brings back a deleted layer with all its Drawings. One undo also removes a layer that you added or duplicated. Choose Edit > Redo to do the change again.
+All of these changes are in the undo history. To go back, choose Edit > Undo (Ctrl+Z). One undo brings back a deleted layer with all its Drawings. One undo also removes a layer that you added or duplicated. Choose Edit > Redo to do the change again. For more about the undo history, see [Undo and redo](09-saving-and-safety.md#saving-undo).
 
 ## Groups {#layers-groups}
 
@@ -102,6 +104,8 @@ To change a group, right-click the name of one of its layers. The menu has these
 - **Collapse Group** and **Expand Group.** Fold the group into one row, or open it again. You can also click the small arrow in front of the group name.
 - **Show Group.** Tick it to show the group. Clear it to hide the whole group. A hidden group shows "(hidden)" after its name.
 - **Group Opacity....** A box opens. Type a percent from 0 to 100 in **Opacity (%):** and click OK. The layers of the group are then shown as one picture at that opacity. The layers do not show through each other.
+
+![The menu of the Line layer, which is in the Ball group](images/layers-layer-menu.png)
 
 ![The Ball group collapsed, at 50 percent opacity](images/layers-group-collapsed.png)
 
@@ -151,7 +155,7 @@ To make a layer a Rough layer, right-click its name and choose **Rough Layer**. 
 
 ![A Rough layer under the clean layers](images/layers-rough.png)
 
-A Rough layer can be a Bitmap layer or a Vector layer. Use Marks to show which Drawings are the Keys, Breakdowns and Inbetweens of the rough motion.
+A Rough layer can be a Bitmap layer or a Vector layer. Use [Marks](05-timeline-and-xsheet.md#timeline-marks) to show which Drawings are the Keys, Breakdowns and Inbetweens of the rough motion.
 
 ## Solo a layer {#layers-solo}
 
@@ -167,6 +171,8 @@ Solo hides the Bitmap and Vector layers. It does not change Camera and Sound lay
 ## Lock a layer {#layers-lock-all}
 
 A locked layer cannot be changed. Click the **lock** toggle in the row. The lock icon is filled when the layer is locked. Click it again to unlock the layer.
+
+![The Rough layer is locked](images/layers-lock.png)
 
 A locked layer refuses all edits to its Drawings. This includes drawing, erasing, paste, clear, move and the change of the exposure.
 

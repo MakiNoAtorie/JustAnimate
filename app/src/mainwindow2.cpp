@@ -1855,20 +1855,25 @@ void MainWindow2::displayMessageBoxNoTitle(const QString& body)
     QMessageBox::information(this, nullptr, tr(qPrintable(body)), QMessageBox::Ok);
 }
 
-ProjectSession::RecoverChoice MainWindow2::askRecoverProject(const QString& recoverPath)
+void MainWindow2::setUpRecoverBox(QMessageBox& box, const QString& projectName)
 {
     QString caption = tr("Restore Project?");
     QString text = tr("JustAnimate didn't close correctly. Would you like to restore the project?");
 
+    hideQuestionMark(box); // Must be before setDefaultButton
+    box.setWindowTitle(tr("Restore project"));
+    box.setWindowModality(Qt::ApplicationModal);
+    box.setIconPixmap(QPixmap(":/icons/logo.png"));
+    box.setText(QString("<h4>%1</h4>%2").arg(caption, text));
+    box.setInformativeText(QString("<b>%1</b>").arg(projectName));
+    box.setStandardButtons(QMessageBox::Open | QMessageBox::Discard | QMessageBox::Cancel);
+    box.setDefaultButton(QMessageBox::Cancel);
+}
+
+ProjectSession::RecoverChoice MainWindow2::askRecoverProject(const QString& recoverPath)
+{
     QMessageBox msgBox(this);
-    hideQuestionMark(msgBox); // Must be before setDefaultButton
-    msgBox.setWindowTitle(tr("Restore project"));
-    msgBox.setWindowModality(Qt::ApplicationModal);
-    msgBox.setIconPixmap(QPixmap(":/icons/logo.png"));
-    msgBox.setText(QString("<h4>%1</h4>%2").arg(caption, text));
-    msgBox.setInformativeText(QString("<b>%1</b>").arg(retrieveProjectNameFromTempPath(recoverPath)));
-    msgBox.setStandardButtons(QMessageBox::Open | QMessageBox::Discard | QMessageBox::Cancel);
-    msgBox.setDefaultButton(QMessageBox::Cancel);
+    setUpRecoverBox(msgBox, retrieveProjectNameFromTempPath(recoverPath));
 
     switch (msgBox.exec())
     {

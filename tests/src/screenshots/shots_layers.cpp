@@ -17,9 +17,7 @@ GNU General Public License for more details.
 #include <QAction>
 #include <QApplication>
 #include <QDockWidget>
-#include <QMainWindow>
 #include <QMenu>
-#include <QTimer>
 #include <QToolButton>
 
 #include "attributes.h"
@@ -33,50 +31,10 @@ GNU General Public License for more details.
 
 namespace
 {
-int indexNamed(Editor* editor, const QString& name)
-{
-    for (int i = 0; i < editor->object()->getLayerCount(); ++i)
-    {
-        if (editor->object()->getLayer(i)->name() == name) { return i; }
-    }
-    FAIL("No layer named " << name.toStdString());
-    return -1;
-}
-
-Layer* layerNamed(Editor* editor, const QString& name) { return editor->object()->getLayer(indexNamed(editor, name)); }
-
-QAction* actionNamed(QWidget* window, const QString& text)
-{
-    for (QAction* a : window->findChildren<QAction*>())
-    {
-        if (a->text() == text) { return a; }
-    }
-    return nullptr;
-}
-
-QDockWidget* panel(QWidget* window, const char* objectName)
-{
-    auto* dock = window->findChild<QDockWidget*>(objectName);
-    REQUIRE(dock);
-    return dock;
-}
-
-// Makes the Timeline tall enough to show every layer row.
-QDockWidget* tallTimeline(QWidget* window)
-{
-    QDockWidget* dock = panel(window, "TimeLine");
-    dock->raise();
-    static_cast<QMainWindow*>(window)->resizeDocks({ dock }, { 300 }, Qt::Vertical);
-    QApplication::processEvents();
-    return dock;
-}
-
 // Opens the layer cell menu for `layer`, saves it (and the Blend Mode submenu when `blendName` is set), then closes it.
 void shootLayerMenu(Editor* editor, Layer* layer, const QString& menuName, const QString& blendName)
 {
-    QTimer::singleShot(0, [=] {
-        auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
-        REQUIRE(menu);
+    whenMenuOpens([=](QMenu* menu) {
         saveShot(menu, menuName);
         if (!blendName.isEmpty())
         {
@@ -90,7 +48,6 @@ void shootLayerMenu(Editor* editor, Layer* layer, const QString& menuName, const
                 }
             }
         }
-        menu->close();
     });
     CellMenus::showLayerMenu(editor, layer, QPoint(300, 300));
 }
@@ -116,17 +73,13 @@ TEST_CASE("Manual screenshots: Layers", "[.screenshots]")
             if (b->toolTip() == "Add Layer") { add = b; }
         }
         REQUIRE(add);
-        add->menu()->popup(add->mapToGlobal(QPoint(0, add->height())));
-        saveShot(add->menu(), "layers-add-menu");
-        add->menu()->close();
+        saveMenu(add->menu(), "layers-add-menu");
     }
 
     SECTION("rename")
     {
         layers->setCurrentLayer(layerNamed(shot.editor, "Voice"));
-        QAction* rename = actionNamed(&shot.window, "Rename Layer");
-        REQUIRE(rename);
-        rename->trigger();
+        actionNamed(&shot.window, "actionRename_Layer")->trigger();
         saveShot(tallTimeline(&shot.window), "layers-rename");
     }
 
@@ -163,8 +116,15 @@ TEST_CASE("Manual screenshots: Layers", "[.screenshots]")
 
     SECTION("solo")
     {
-        layers->toggleSolo(indexNamed(shot.editor, "Rough"));
+        layers->setCurrentLayer(layerNamed(shot.editor, "Rough"));
+        layers->toggleSolo(shot.editor->currentLayerIndex());
         saveShot(&shot.window, "layers-solo");
+    }
+
+    SECTION("lock")
+    {
+        layers->setAttribute(layerNamed(shot.editor, "Rough"), AttributeId::LockAll, true);
+        saveShot(tallTimeline(&shot.window), "layers-lock");
     }
 
     SECTION("locked-notice")
@@ -177,10 +137,6 @@ TEST_CASE("Manual screenshots: Layers", "[.screenshots]")
     SECTION("storyboard")
     {
         layers->setStoryboard(layerNamed(shot.editor, "Background"), true);
-        QDockWidget* board = panel(&shot.window, "Storyboard");
-        board->setFloating(true);
-        board->resize(640, 220);
-        board->show();
-        saveShot(board, "layers-storyboard");
+        saveShot(floatPanel(&shot.window, "Storyboard", QSize(640, 220)), "layers-storyboard");
     }
 }

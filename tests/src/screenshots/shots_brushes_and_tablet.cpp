@@ -19,21 +19,13 @@ GNU General Public License for more details.
 #include <algorithm>
 #include <cmath>
 
-#include <QAction>
 #include <QApplication>
-#include <QDialog>
 #include <QDockWidget>
-#include <QFile>
-#include <QFontDatabase>
 #include <QJsonObject>
-#include <QLabel>
-#include <QListWidget>
 #include <QPainter>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QPainterPath>
-#include <QPointingDevice>
-#include <QTabletEvent>
 #include <QTemporaryDir>
 #include <QtMath>
 
@@ -44,21 +36,14 @@ GNU General Public License for more details.
 #include "dabtool.h"
 #include "editor.h"
 #include "layerbitmap.h"
+#include "preferencesdialog.h"
 #include "scribblearea.h"
 #include "stroketool.h"
 #include "toolmanager.h"
 
 namespace
 {
-struct Pt
-{
-    QPointF pos;
-    qreal pressure = 1;
-    int tiltX = 0;
-    int tiltY = 0;
-    ulong time = 0;
-};
-using Path = QList<Pt>;
+using Path = QList<PenPoint>;
 
 // A horizontal wave; `pressure` maps 0..1 along the stroke to the pen pressure.
 Path wave(qreal amplitude, qreal (*pressure)(qreal), int stepMs = 8, int tiltX = 0, int tiltY = 0, int steps = 48)
@@ -85,20 +70,11 @@ Path line(QPointF from, QPointF to, int steps = 24)
     return path;
 }
 
-void send(PresetSampler& s, QEvent::Type type, const Pt& p)
-{
-    const Qt::MouseButtons buttons = (type == QEvent::TabletRelease) ? Qt::NoButton : Qt::LeftButton;
-    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), p.pos, s.area->mapToGlobal(p.pos), p.pressure, p.tiltX, p.tiltY,
-                   0, 0, 0, Qt::NoModifier, Qt::LeftButton, buttons);
-    e.setTimestamp(p.time);
-    QApplication::sendEvent(s.area.get(), &e);
-}
-
 void stroke(PresetSampler& s, const Path& path)
 {
-    send(s, QEvent::TabletPress, path.first());
-    for (int i = 1; i < path.size() - 1; ++i) { send(s, QEvent::TabletMove, path[i]); }
-    send(s, QEvent::TabletRelease, path.last());
+    sendTablet(s.area.get(), QEvent::TabletPress, path.first());
+    for (int i = 1; i < path.size() - 1; ++i) { sendTablet(s.area.get(), QEvent::TabletMove, path[i]); }
+    sendTablet(s.area.get(), QEvent::TabletRelease, path.last());
 }
 
 StrokeTool* useTool(PresetSampler& s, ToolType type, const QJsonObject& settings, const QString& tip = QString())
@@ -131,7 +107,7 @@ QImage render(PresetSampler& s, const QJsonObject& settings, const QList<Path>& 
 
 struct Cell { QString label; QImage image; };
 
-// A labelled grid of strips, saved as a shot through a QLabel.
+// A labelled grid of strips, saved as one shot.
 void saveFigure(const QList<Cell>& cells, int columns, const QString& name)
 {
     const int pad = 10, labelHeight = 20;
@@ -149,10 +125,7 @@ void saveFigure(const QList<Cell>& cells, int columns, const QString& name)
         p.drawImage(x, y + labelHeight, cells[i].image);
     }
     p.end();
-    QLabel label;
-    label.setPixmap(pixmap);
-    label.resize(pixmap.size());
-    saveShot(&label, name);
+    savePicture(pixmap, name);
 }
 
 QJsonObject base(QJsonObject extra = {})
@@ -183,53 +156,11 @@ QString makeStarTip(const QString& dir)
     return file;
 }
 
-// The offscreen platform has no fonts of its own: without one, every glyph is a box.
-struct ShotFont
-{
-    QFont previous = QApplication::font();
-    ShotFont()
-    {
-        for (const char* file : { "C:/Windows/Fonts/segoeui.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf" })
-        {
-            const int id = QFile::exists(file) ? QFontDatabase::addApplicationFont(file) : -1;
-            if (id >= 0)
-            {
-                QApplication::setFont(QFont(QFontDatabase::applicationFontFamilies(id).value(0), 9));
-                return;
-            }
-        }
-    }
-    ~ShotFont() { QApplication::setFont(previous); }
-};
-
-QWidget* panel(ShotWindow& shot, const char* name)
-{
-    auto* widget = shot.window.findChild<QWidget*>(name);
-    REQUIRE(widget);
-    return widget;
-}
-
-QDialog* openPreferences(ShotWindow& shot, int page)
-{
-    auto* action = shot.window.findChild<QAction*>("actionPreference");
-    REQUIRE(action);
-    action->trigger();
-    QApplication::processEvents();
-    QDialog* dialog = nullptr;
-    for (QDialog* d : shot.window.findChildren<QDialog*>())
-    {
-        if (d->windowTitle() == "Preferences") { dialog = d; }
-    }
-    REQUIRE(dialog);
-    dialog->findChild<QListWidget*>("contentsWidget")->setCurrentRow(page);
-    return dialog;
-}
 } // namespace
 
 // Shots for docs/manual/*-brushes-and-tablet.md. Each SECTION saves images/brushes-and-tablet-<shot>.png.
 TEST_CASE("Manual screenshots: Brushes and tablet", "[.screenshots]")
 {
-    ShotFont font;
     BrushPresets().addDefaults();
     ShotWindow shot;
     PresetSampler sampler(QColor(35, 35, 45));
@@ -239,10 +170,7 @@ TEST_CASE("Manual screenshots: Brushes and tablet", "[.screenshots]")
     SECTION("tool-settings")
     {
         shot.editor->tools()->setCurrentTool(BRUSH);
-        auto* dock = static_cast<QDockWidget*>(panel(shot, "ToolOption"));
-        dock->setFloating(true);
-        dock->resize(300, 780);
-        saveShot(dock, "brushes-and-tablet-tool-settings");
+        saveShot(floatPanel(&shot.window, "ToolOption", QSize(300, 780)), "brushes-and-tablet-tool-settings");
     }
 
     SECTION("spacing")
@@ -287,7 +215,7 @@ TEST_CASE("Manual screenshots: Brushes and tablet", "[.screenshots]")
 
     SECTION("pressure-curve")
     {
-        saveShot(openPreferences(shot, 3), "brushes-and-tablet-pressure-curve");
+        saveShot(openPreferences(shot.window, 3), "brushes-and-tablet-pressure-curve");
     }
 
     SECTION("pressure")
@@ -412,7 +340,7 @@ TEST_CASE("Manual screenshots: Brushes and tablet", "[.screenshots]")
     SECTION("presets-panel")
     {
         shot.editor->tools()->setCurrentTool(BRUSH);
-        saveShot(panel(shot, "BrushPresets"), "brushes-and-tablet-presets-panel");
+        saveShot(panelDock(&shot.window, "BrushPresets"), "brushes-and-tablet-presets-panel");
     }
 
     SECTION("preset-editor")
@@ -443,7 +371,7 @@ TEST_CASE("Manual screenshots: Brushes and tablet", "[.screenshots]")
 
     SECTION("tablet")
     {
-        QDialog* dialog = openPreferences(shot, 0);
+        PreferencesDialog* dialog = openPreferences(shot.window, 0);
         dialog->resize(800, 760);
         QApplication::processEvents();
         // The Editing group is at the end of the General page.

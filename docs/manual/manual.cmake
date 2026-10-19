@@ -17,6 +17,9 @@ if(WIN32)
     # The offscreen platform has no font database on Windows: without this, text draws as boxes.
     file(TO_CMAKE_PATH "$ENV{WINDIR}/Fonts" MANUAL_FONT_DIR)
     list(APPEND MANUAL_SHOT_ENV QT_QPA_FONTDIR=${MANUAL_FONT_DIR})
+    # Qt DLLs are not next to the test program: put the Qt bin folder on PATH, so the target runs from a plain shell.
+    string(REPLACE ";" "$<SEMICOLON>" MANUAL_PATH "$<TARGET_FILE_DIR:Qt6::Core>;$ENV{PATH}")
+    list(APPEND MANUAL_SHOT_ENV "PATH=${MANUAL_PATH}")
 endif()
 add_custom_target(screenshots
     COMMAND ${CMAKE_COMMAND} -E env ${MANUAL_SHOT_ENV} $<TARGET_FILE:pencil2d_tests> "[.screenshots]"

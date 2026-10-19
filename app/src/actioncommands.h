@@ -25,6 +25,7 @@ GNU General Public License for more details.
 class Editor;
 class QWidget;
 class ExportMovieDialog;
+class QProgressDialog;
 
 
 class ActionCommands : public QObject
@@ -36,6 +37,10 @@ public:
     virtual ~ActionCommands();
 
     void setCore(Editor* e) { mEditor = e; }
+
+    // The export texts the manual's shots show too.
+    static QString overwriteQuestion(const QString& path);
+    static void setUpMovieProgress(QProgressDialog& progress);
 
     // file
     Status importAnimatedImage();

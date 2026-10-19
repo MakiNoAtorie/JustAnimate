@@ -72,7 +72,8 @@ motion: **Key**, **Breakdown** or **Inbetween**. To set a Mark, put the
 playhead on a Drawing and choose **Animation > Mark**, then the Mark. The
 shortcuts are Alt+K for Key, Alt+B for Breakdown, Alt+I for Inbetween and
 Alt+0 for Clear Mark. The Timeline shows a diamond for a Key, a triangle
-for a Breakdown and a small dot for an Inbetween.
+for a Breakdown and a small dot for an Inbetween. See
+[Marks](05-timeline-and-xsheet.md#timeline-marks).
 
 In the Marked drawings mode the three check boxes **Key**, **Breakdown**
 and **Inbetween** turn on. Select the Marks that you want to see. In the

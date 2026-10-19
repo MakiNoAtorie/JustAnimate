@@ -23,10 +23,18 @@ GNU General Public License for more details.
 #include <QDataStream>
 #include <QDir>
 #include <QFile>
+#include <QDockWidget>
 #include <QImage>
+#include <QLabel>
+#include <QListWidget>
+#include <QMainWindow>
+#include <QMenu>
 #include <QPainterPath>
 #include <QPixmap>
+#include <QPointingDevice>
+#include <QTabletEvent>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QtMath>
 
 #include "beziercurve.h"
@@ -40,6 +48,7 @@ GNU General Public License for more details.
 #include "layersound.h"
 #include "layervector.h"
 #include "object.h"
+#include "preferencesdialog.h"
 #include "soundclip.h"
 #include "theme.h"
 #include "vectorimage.h"
@@ -244,6 +253,109 @@ QString saveShot(QWidget* widget, const QString& name, QString dir)
     const QString path = QDir(dir).filePath(name + ".png");
     REQUIRE(widget->grab().save(path));
     return path;
+}
+
+QString savePicture(const QPixmap& picture, const QString& name)
+{
+    QLabel label;
+    label.setPixmap(picture);
+    label.resize(picture.size() / picture.devicePixelRatio());
+    return saveShot(&label, name);
+}
+
+QString saveMenu(QMenu* menu, const QString& name)
+{
+    REQUIRE(menu);
+    menu->popup(QPoint(20, 20));
+    QApplication::processEvents();
+    const QPixmap picture = menu->grab();
+    menu->hide();
+    return savePicture(picture, name);
+}
+
+void whenMenuOpens(const std::function<void(QMenu*)>& use)
+{
+    QTimer::singleShot(0, [use] {
+        auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+        REQUIRE(menu);
+        use(menu);
+        menu->close();
+    });
+}
+
+QAction* actionNamed(QWidget* window, const char* objectName)
+{
+    auto* action = window->findChild<QAction*>(objectName);
+    INFO("No action " << objectName);
+    REQUIRE(action);
+    return action;
+}
+
+QDockWidget* panelDock(QWidget* window, const char* objectName)
+{
+    auto* dock = window->findChild<QDockWidget*>(objectName);
+    INFO("No Panel " << objectName);
+    REQUIRE(dock);
+    return dock;
+}
+
+QDockWidget* raisePanel(QWidget* window, const char* objectName)
+{
+    QDockWidget* dock = panelDock(window, objectName);
+    dock->show();
+    dock->raise();
+    QApplication::processEvents();
+    return dock;
+}
+
+QDockWidget* floatPanel(QWidget* window, const char* objectName, QSize size)
+{
+    QDockWidget* dock = panelDock(window, objectName);
+    dock->setFloating(true);
+    dock->resize(size);
+    dock->show();
+    dock->raise();
+    QApplication::processEvents();
+    return dock;
+}
+
+QDockWidget* tallTimeline(QWidget* window)
+{
+    QDockWidget* dock = raisePanel(window, "TimeLine");
+    static_cast<QMainWindow*>(window)->resizeDocks({ dock }, { 300 }, Qt::Vertical);
+    QApplication::processEvents();
+    return dock;
+}
+
+Layer* layerNamed(Editor* editor, const QString& name)
+{
+    Layer* layer = editor->layers()->findLayerByName(name);
+    INFO("No layer " << name.toStdString());
+    REQUIRE(layer);
+    return layer;
+}
+
+PreferencesDialog* openPreferences(MainWindow2& window, int page)
+{
+    window.preferences();
+    auto* prefs = window.findChild<PreferencesDialog*>();
+    REQUIRE(prefs);
+    auto* pages = prefs->findChild<QListWidget*>("contentsWidget");
+    REQUIRE(pages);
+    pages->setCurrentRow(page);
+    prefs->show();
+    QApplication::processEvents();
+    return prefs;
+}
+
+void sendTablet(QWidget* target, QEvent::Type type, const PenPoint& p, Qt::KeyboardModifiers mods, bool down)
+{
+    const bool pressed = down && type != QEvent::TabletRelease;
+    QTabletEvent e(type, QPointingDevice::primaryPointingDevice(), p.pos, target->mapToGlobal(p.pos), pressed ? p.pressure : 0,
+                   p.tiltX, p.tiltY, 0, 0, 0, mods, (down || type == QEvent::TabletRelease) ? Qt::LeftButton : Qt::NoButton,
+                   pressed ? Qt::LeftButton : Qt::NoButton);
+    if (p.time != 0) { e.setTimestamp(p.time); }
+    QApplication::sendEvent(target, &e);
 }
 
 TEST_CASE("A screenshot of the main window is a full-size picture", "[ScreenshotsSmoke]")

@@ -79,8 +79,8 @@ The **Canvas** group has two boxes.
 - **Tablet high-resolution position** uses the sub-pixel position that a
   graphics tablet reports. It is on by default.
 - **Tablet input API** is on Windows only. The choices are **WinTab** and
-  **Windows Ink**. The stored default is WinTab. See
-  [Where the window and the program differ](#prefs-differ).
+  **Windows Ink**. The default is WinTab. If there is no WinTab driver, the
+  list shows Windows Ink and the program uses Windows Ink.
 
 For more information on tablets, see
 [Tablet setup](03-brushes-and-tablet.md#brushes-tablet).
@@ -174,8 +174,8 @@ groups.
 - **Short scrub** changes the scrub mark in the Timeline. When it is on, the mark
   is short and covers only the frame ruler. When it is off, the mark runs down
   through all layers. It is off by default. You can also switch it when you
-  double-click the frame ruler. See
-  [Where the window and the program differ](#prefs-differ).
+  double-click the frame ruler. It does not change the sound. To set the
+  length of the sound, use [Sound scrub](#prefs-timeline-sound).
 
 ### Drawing {#prefs-timeline-drawing}
 
@@ -451,26 +451,6 @@ The Shortcuts page calls a Panel a "Window". Each key shows or hides one Panel.
 | Toggle Brush Presets Window Visibility | Ctrl+9 |
 | Toggle Storyboard Window Visibility | Ctrl+0 |
 
-## Where the window and the program differ {#prefs-differ}
-
-In a few places, what the Preferences window shows is not what the program does.
-This list gives the real behaviour.
-
-- **Short scrub.** The tooltip says that the box plays only a short piece of
-  sound while you scrub. This is wrong. The box only changes the height of the
-  scrub mark in the Timeline. To set the length of the sound, use **Sound
-  scrub**. The sound plays only when the Sound scrub button in the Timeline is
-  on.
-- **Enable autosave by number of modifications.** The tooltip says that the
-  program saves a backup. It does not. This method saves to the project file
-  itself. Only autosave by time writes a backup.
-- **Tablet input API.** The stored default is WinTab. If there is no WinTab
-  driver, the list shows Windows Ink, and the program uses Windows Ink.
-- **Rotation snap increment.** The tooltip names only the Move tool. The camera
-  tool uses the value too.
-- **Shortcut names.** The Shortcuts page says "Window" for a Panel, for
-  example "Toggle Tools Window Visibility".
-
 ## Glossary {#reference-glossary}
 
 These are the words that the program and this manual use for its interface and
@@ -483,7 +463,8 @@ Box, Palette and Timeline are Panels. Together they make one Layout.
   slider fill, the playhead and the keyboard focus. You choose it from a fixed
   list. See [Theme and Accent colour](01-getting-started.md#getting-started-theme-accent).
 - **Breakdown.** A Drawing that has the Mark Breakdown. It is the pose that
-  decides how the motion goes between two Keys.
+  decides how the motion goes between two Keys. See
+  [Marks](05-timeline-and-xsheet.md#timeline-marks).
 - **Brush outline.** The pointer over the canvas for a Stroke tool: the outline
   of the stroke that the tool makes, with a small cross at its centre. See
   [The Brush outline](02-drawing-tools.md#drawing-tools-brush-outline).
@@ -495,13 +476,19 @@ Box, Palette and Timeline are Panels. Together they make one Layout.
   next Drawing on that layer. A frame is a moment in time, not an image. See
   [Drawings and Exposure](05-timeline-and-xsheet.md#timeline-drawings-exposure).
 - **Exposure.** The number of frames that a Drawing stays on screen. A Drawing
-  "on 2s" has an Exposure of two frames.
+  "on 2s" has an Exposure of two frames. See
+  [Change an Exposure](05-timeline-and-xsheet.md#timeline-change-exposure).
 - **Flip.** To show Drawings one after another by hand, to check the motion
   while you draw. Scrubbing is different: it moves the playhead along the
   Timeline. See [Flip](06-animating.md#animating-flip).
+- **Genga palette.** A built-in palette with the four line colours of genga:
+  main, shadow, highlight and second shadow. See
+  [The Genga palette](08-anime-workflow.md#anime-genga-palette).
 - **Inbetween.** A Drawing that has the Mark Inbetween. It fills the motion
   between Keys and Breakdowns. The program makes a tween. You draw an Inbetween.
+  See [Create Inbetweens](06-animating.md#animating-inbetweens).
 - **Key.** A Drawing that has the Mark Key. It is a main pose of the motion.
+  See [Marks](05-timeline-and-xsheet.md#timeline-marks).
 - **Layout.** The arrangement of the Panels in the main window. You can switch
   between the Layouts Draw, Animate and Ink, and reset the current Layout. See
   [Layouts](01-getting-started.md#getting-started-layouts).
@@ -516,11 +503,18 @@ Box, Palette and Timeline are Panels. Together they make one Layout.
 - **Mirror.** To turn an image into its left-right or top-bottom reverse. Mirror
   View changes only how the canvas is shown. Mirror Selection changes the
   selected pixels or strokes.
-- **Palette.** A named list of colour swatches that belongs to a project.
+- **Palette.** A named list of colour swatches that belongs to a project. See
+  [The Genga palette](08-anime-workflow.md#anime-genga-palette).
 - **Panel.** A titled region of the main window that holds one group of
-  controls, such as the tools, the colours or the Timeline. A Panel is docked in
-  the main window unless you drag it out. Then it is floating. See
+  controls, such as the tools, the colours or the Timeline. A Panel is in the
+  main window until you drag it out. Then it is floating. See
   [The main window](01-getting-started.md#getting-started-main-window).
+- **Panel field.** A text field of a storyboard panel in the Storyboard Panel:
+  Scene, Cut, Notes or Audio. See
+  [The Storyboard layer and the Storyboard Panel](08-anime-workflow.md#anime-storyboard).
+- **Paper template.** The genga sheet: a white sheet with a margin and a Title
+  block, around the camera frame. It shows in the View and in Export on Paper.
+  See [The Paper template and the Title block](08-anime-workflow.md#anime-paper-template).
 - **Rough layer.** A layer for rough drawings. The program shows it tinted and
   faded under the other layers and never exports it. See
   [Rough layers](04-layers.md#layers-rough).
@@ -534,6 +528,13 @@ Box, Palette and Timeline are Panels. Together they make one Layout.
 - **Stroke tool.** A tool that changes the canvas along the path of the pointer:
   Pencil, Pen, Brush, Eraser and Smudge. See
   [The Stroke tools](02-drawing-tools.md#drawing-tools-stroke-tools).
+- **Timesheet.** The layout of the X-sheet that Japanese studios use, with fixed
+  Key, Dialogue, In-between and Camera columns. See
+  [The Timesheet layout](05-timeline-and-xsheet.md#timeline-timesheet) and
+  [Timesheet columns](08-anime-workflow.md#anime-timesheet).
+- **Title block.** The fields of the Paper template above the camera frame:
+  TITLE, ID, NAME, STATE, DATE and NOTES. See
+  [The Paper template and the Title block](08-anime-workflow.md#anime-paper-template).
 - **Tool column.** The Panel that shows one icon for each tool. Its title is
   "Tools". See [Tool column](01-getting-started.md#getting-started-tool-column).
 - **Tool group.** Tools that share one button in the Tool column. Press the
@@ -542,7 +543,8 @@ Box, Palette and Timeline are Panels. Together they make one Layout.
 - **Tool settings.** The Panel that shows the adjustable values of the current
   tool. See [Tool settings](01-getting-started.md#getting-started-tool-settings).
 - **View.** The pan, zoom, rotation and mirror through which the canvas shows. A
-  change to the View never changes the drawing.
+  change to the View never changes the drawing. See
+  [The View tools](02-drawing-tools.md#drawing-tools-view-tools).
 - **View tool.** A tool that changes only the View: Hand, Zoom and Rotate View.
   See [The View tools](02-drawing-tools.md#drawing-tools-view-tools).
 - **Welcome screen.** The screen that shows at start when no project is given. It
@@ -551,8 +553,3 @@ Box, Palette and Timeline are Panels. Together they make one Layout.
 - **X-sheet.** A Panel that shows the Timeline as a table, with one column for
   each layer and one row for each frame. See
   [The X-sheet](05-timeline-and-xsheet.md#timeline-xsheet).
-
-The words **Genga palette**, **Paper template**, **Title block**, **Timesheet**
-and **Panel field** are for the anime workflow. The
-[Timesheet](05-timeline-and-xsheet.md#timeline-timesheet) is the Japanese
-layout of the X-sheet.
