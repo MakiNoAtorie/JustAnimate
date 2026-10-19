@@ -23,6 +23,10 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 if(NOT DEFINED APP_VERSION)
     set(APP_VERSION "0.0.0.0")
 endif()
+# A release version must match the project version, so the package name, the About box and the tag agree.
+if(NOT APP_VERSION STREQUAL "0.0.0.0" AND NOT APP_VERSION MATCHES "^99\\.0\\.0" AND NOT APP_VERSION STREQUAL "${PROJECT_VERSION}.0")
+    message(FATAL_ERROR "APP_VERSION ${APP_VERSION} does not match the project version ${PROJECT_VERSION} (expected ${PROJECT_VERSION}.0)")
+endif()
 
 message(STATUS "App Version: ${APP_VERSION}")
 

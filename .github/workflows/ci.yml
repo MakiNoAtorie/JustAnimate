@@ -182,7 +182,12 @@ jobs:
         run: echo "FFMPEG=$PWD/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
 
       - name: Configure release
-        run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_FFMPEG="${{ env.FFMPEG }}"
+        shell: bash
+        # A v* tag stamps its version (v0.7.0 -> 0.7.0.0); other builds stay development builds (0.0.0.0).
+        run: |
+          version=()
+          [[ "$GITHUB_REF" == refs/tags/v* ]] && version=(-DAPP_VERSION="${GITHUB_REF_NAME#v}.0")
+          cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_FFMPEG="${{ env.FFMPEG }}" "${version[@]}"
 
       - name: Build release
         run: cmake --build build-release --target pencil2d manual  # packages carry the HTML manual
