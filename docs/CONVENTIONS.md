@@ -81,3 +81,24 @@ Read `docs/conventions-code.md` before you edit code.
   (`tools/check-changelog.sh` guards it). Follow-ups end `Refs #<n>`.
 - `ChangeLog.md` merges with the union driver; keep both lines when a hand
   merge still conflicts.
+
+## v1.9 homes
+
+- Manual source: `docs/manual/`. Chapters, one per ticket:
+  `00-index.md` (#295), `01-getting-started.md` (#298),
+  `02-drawing-tools.md` (#299), `03-brushes-and-tablet.md` (#300),
+  `04-layers.md` (#301), `05-timeline-and-xsheet.md` (#302),
+  `06-animating.md` (#303), `07-sound-and-lip-sync.md` (#304),
+  `08-anime-workflow.md` (#305), `09-saving-and-safety.md` (#306),
+  `10-exporting.md` (#307), `11-preferences-and-reference.md` (#308).
+  #295 creates `00-index.md` and a skeleton `01-getting-started.md`.
+- Chapter link: `[Exposure](05-timeline-and-xsheet.md#exposure)`. Heading
+  IDs are unique across all chapters; prefix a generic heading with an
+  explicit ID, such as `## Overview {#layers-overview}`.
+- Shots: one file per chapter, `tests/src/screenshots/shots_<slug>.cpp`
+  (`shots_getting_started.cpp` ... `shots_preferences_and_reference.cpp`).
+  #296 creates and registers all eleven, empty except Getting started.
+  A chapter ticket edits only its own shot file.
+- Shot PNG name: `<chapter slug>-<shot>.png`, such as
+  `getting-started-main-window.png`; chapters reference `images/<name>`.
+- Online manual URL (#297): `APP_REPO_URL "/blob/master/docs/manual/00-index.md"`.
