@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Help > User Manual opens the manual installed with the app, with no network, and the online manual when none is installed; Windows, macOS and Linux packages carry the HTML manual (#297).
 - The user manual source is in `docs/manual`; the `manual` build target makes HTML pages, one Markdown file and a PDF from it, and fails on a broken link, a missing image or a duplicate heading (#295).
 - Layout: the default Layout docks Brush presets (with Tools in a tab) and Tool settings on the left, and colours on the right.
 - The Alt eyedropper ends when Alt is released, also on Windows where the menu bar takes the release, and Tool settings keep showing the chosen tool while a key holds another tool.

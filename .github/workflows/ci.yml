@@ -96,6 +96,27 @@ jobs:
           sudo tar -xJf typst.tar.xz -C /usr/local/bin --strip-components=1 --wildcards '*/typst'
           pandoc --version | head -1 && typst --version
 
+      - name: Install Pandoc (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/jgm/pandoc/releases/download/3.9.0.2/pandoc-3.9.0.2-windows-x86_64.zip -OutFile pandoc.zip
+          $expected = 'C97542F2800F446E788D9F74237856D995421AD1BB3CC8324286840C5F272D3A'
+          $actual = (Get-FileHash -Algorithm SHA256 pandoc.zip).Hash
+          if ($actual -ne $expected) { throw "pandoc.zip SHA-256 mismatch: expected $expected, got $actual" }
+          Expand-Archive pandoc.zip -DestinationPath pandoc
+          "$PWD\pandoc\pandoc-3.9.0.2" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Install Pandoc (macOS)
+        if: runner.os == 'macOS'
+        timeout-minutes: 10
+        run: |
+          curl --retry 5 --retry-delay 15 --max-time 120 -fsSLo pandoc.zip https://github.com/jgm/pandoc/releases/download/3.9.0.2/pandoc-3.9.0.2-arm64-macOS.zip
+          echo "6e9eca844076bcbb599bbeebbba78a70f93b5307782b85c2c272872812c88875  pandoc.zip" | shasum -a 256 -c -
+          unzip -q pandoc.zip -d pandoc
+          echo "$PWD/pandoc/pandoc-3.9.0.2-arm64/bin" >> "$GITHUB_PATH"
+
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON
 
@@ -163,7 +184,7 @@ jobs:
         run: cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUSTANIMATE_WERROR=ON -DJUSTANIMATE_FFMPEG="${{ env.FFMPEG }}"
 
       - name: Build release
-        run: cmake --build build-release --target pencil2d
+        run: cmake --build build-release --target pencil2d manual  # packages carry the HTML manual
 
       - name: Package (Linux AppImage)
         if: runner.os == 'Linux'
@@ -196,6 +217,9 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           ./packages/JustAnimate-x86_64.AppImage --version
+          ./packages/JustAnimate-x86_64.AppImage --appimage-extract 'usr/share/justanimate/manual/*.html' >/dev/null
+          test -s squashfs-root/usr/share/justanimate/manual/index.html
+          ls squashfs-root/usr/share/justanimate/manual/images/*.png >/dev/null
           ./packages/JustAnimate-x86_64.AppImage tests/data/camera-path-test.pclx -o smoke.png
           test -s smoke0001.png  # one PNG per frame
 
@@ -205,6 +229,7 @@ jobs:
         run: |
           mkdir smoke-win && unzip -q packages/*.zip -d smoke-win
           ./smoke-win/*/justanimate.exe --version
+          test -s smoke-win/*/manual/index.html
           ./smoke-win/*/justanimate.exe tests/data/camera-path-test.pclx -o smoke.png
           test -s smoke0001.png
 
@@ -221,6 +246,7 @@ jobs:
           $dir = Join-Path $env:RUNNER_TEMP 'JustAnimate-installed'
           Run $installer @('/S', "/D=$dir")  # /D must be last and unquoted
           Run "$dir\justanimate.exe" @('--version')
+          if (-not (Test-Path "$dir\manual\index.html")) { throw 'the installer left no manual' }
           Run "$dir\justanimate.exe" @('tests/data/camera-path-test.pclx', '-o', 'smoke-installed.png')
           if (-not (Test-Path smoke-installed0001.png) -or (Get-Item smoke-installed0001.png).Length -eq 0) { throw 'the installed app exported nothing' }
 
@@ -238,6 +264,7 @@ jobs:
           ls "$PWD/smoke-mac/JustAnimate.app/Contents/Frameworks" || true
           codesign --verify --deep --verbose=2 "$PWD/smoke-mac/JustAnimate.app" || true
           "$app" --version
+          test -s "$PWD/smoke-mac/JustAnimate.app/Contents/Resources/manual/index.html"
           "$app" tests/data/camera-path-test.pclx -o smoke-dmg.png
           test -s smoke-dmg0001.png
           # The exited app can still hold the volume for a moment; cleanup never fails the step

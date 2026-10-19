@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #define UTIL_H
 
 #include <QString>
+#include <QUrl>
 #include <cstddef>
 #include <functional>
 #include <QtGlobal>
@@ -72,6 +73,11 @@ Container filter(const Container& container, Pred predicate) {
     }
     return result;
 }
+
+// Where the packages put the HTML manual, relative to the executable's folder.
+QString installedManualIndex(const QString& appDir);
+// The installed manual's index.html as a file URL, or the online manual when it is not installed.
+QUrl manualUrl(const QString& appDir);
 
 QString ffprobeLocation();
 QString ffmpegLocation();

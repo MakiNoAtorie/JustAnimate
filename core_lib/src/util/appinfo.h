@@ -34,6 +34,6 @@ GNU General Public License for more details.
 #define APP_NEW_ISSUE_URL   APP_REPO_URL "/issues/new"
 #define APP_RELEASES_URL    APP_REPO_URL "/releases"
 #define APP_RELEASES_FEED   APP_REPO_URL "/releases.atom"
-#define APP_DOCS_URL        APP_REPO_URL "#readme"
+#define APP_ONLINE_MANUAL_URL APP_REPO_URL "/blob/master/docs/manual/00-index.md"
 
 #endif // APPINFO_H

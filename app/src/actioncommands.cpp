@@ -1015,8 +1015,7 @@ void ActionCommands::resetAllTools()
 
 void ActionCommands::help()
 {
-    QString url = APP_DOCS_URL;
-    QDesktopServices::openUrl(QUrl(url));
+    QDesktopServices::openUrl(manualUrl(QApplication::applicationDirPath()));
 }
 
 void ActionCommands::website()
