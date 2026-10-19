@@ -23,6 +23,11 @@ cmake --build build -j2 --target pencil2d_tests 2>&1 | grep -E 'error|warning:|F
   source guards and the suite offscreen.
 - A red CI run: `bash tools/ci-failures.sh [run id]` prints the failed
   checks, the seed and, after a crash, the test that ran before it.
+- Manual: `cmake --build build --target manual` writes the HTML pages,
+  `JustAnimate-manual.md` and `.pdf` into `build/manual` (Pandoc; the PDF
+  also needs Typst on `PATH` at configure time). `docs/manual/links.lua`
+  fails the build on a broken chapter link, a missing image or a duplicate
+  heading ID. Link to a chapter as `[Text](05-timeline-and-xsheet.md#exposure)`.
 - Keep each file's line endings (`git ls-files --eol`); Git Bash `sed -i`
   drops CRLF. Commit with `git commit -F <file>` (UTF-8, no BOM).
   Stage files by name: the tree can hold the user's untracked files.

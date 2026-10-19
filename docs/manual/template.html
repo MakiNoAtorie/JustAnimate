@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$pagetitle$ - JustAnimate User Manual</title>
+<link rel="stylesheet" href="manual.css">
+</head>
+<body>
+<nav class="sidebar">
+<p class="manual-title"><a href="index.html">JustAnimate User Manual</a></p>
+<ul>
+$for(sidebar)$
+<li$if(sidebar.current)$ class="current"$endif$><a href="$sidebar.href$">$sidebar.title$</a></li>
+$endfor$
+</ul>
+</nav>
+<main>
+$body$
+</main>
+</body>
+</html>

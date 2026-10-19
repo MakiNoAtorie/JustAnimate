@@ -82,6 +82,20 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Install Pandoc and Typst (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: |
+          curl --retry 5 --retry-delay 15 --max-time 120 -fsSLo pandoc.tar.gz https://github.com/jgm/pandoc/releases/download/3.9.0.2/pandoc-3.9.0.2-linux-amd64.tar.gz
+          curl --retry 5 --retry-delay 15 --max-time 120 -fsSLo typst.tar.xz https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
+          sha256sum -c - <<'SUMS'
+          a69abfababda8a56969a254b09f9553a7be89ddec00d4e0fe9fd585d71a67508  pandoc.tar.gz
+          a6d077d0a95eed5a2eba715b2dae06be954f624ccbf85758a03f389ded33118c  typst.tar.xz
+          SUMS
+          sudo tar -xzf pandoc.tar.gz -C /usr/local --strip-components=1
+          sudo tar -xJf typst.tar.xz -C /usr/local/bin --strip-components=1 --wildcards '*/typst'
+          pandoc --version | head -1 && typst --version
+
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DJUSTANIMATE_WERROR=ON
 
@@ -90,6 +104,24 @@ jobs:
 
       - name: Run tests
         run: ./build/pencil2d_tests --order rand --rng-seed ${{ github.run_number }}
+
+      - name: Build the manual (Linux)
+        if: runner.os == 'Linux'
+        run: cmake --build build --target manual
+
+      - name: Upload the manual (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: JustAnimate-manual
+          path: |
+            build/manual/*.html
+            build/manual/manual.css
+            build/manual/images/
+            build/manual/JustAnimate-manual.md
+            build/manual/JustAnimate-manual.pdf
+          retention-days: 14
+          if-no-files-found: error
 
       # Packages: a Release build with Qt and ffmpeg bundled, uploaded as a workflow artifact
       - name: Download ffmpeg (Windows)
