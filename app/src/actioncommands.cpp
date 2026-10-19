@@ -43,6 +43,7 @@ GNU General Public License for more details.
 #include "colormanager.h"
 #include "selectionmanager.h"
 #include "util.h"
+#include "log.h"
 #include "app_util.h"
 
 #include "layercamera.h"
@@ -1056,6 +1057,18 @@ void ActionCommands::openTemporaryDirectory()
     if (ret == QMessageBox::Ok)
     {
         QDesktopServices::openUrl(QUrl::fromLocalFile(QDir::temp().filePath(APP_TEMP_DIR_NAME)));
+    }
+}
+
+void ActionCommands::exportLog()
+{
+    const QString name = QString("JustAnimate-log-%1.txt").arg(QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss"));
+    const QString start = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(name);
+    const QString path = QFileDialog::getSaveFileName(mParent, tr("Export Log"), start, tr("Text file (*.txt)"));
+    if (path.isEmpty()) { return; }
+    if (!exportSessionLogs(path))
+    {
+        QMessageBox::warning(mParent, tr("Export Log"), tr("Could not write the log to %1.").arg(QDir::toNativeSeparators(path)));
     }
 }
 

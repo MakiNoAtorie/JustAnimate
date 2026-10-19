@@ -327,6 +327,7 @@
     <addaction name="separator"/>
     <addaction name="actionCheck_for_Updates"/>
     <addaction name="actionReport_Bug"/>
+    <addaction name="actionExport_Log"/>
     <addaction name="actionOpen_Temporary_Directory"/>
     <addaction name="separator"/>
     <addaction name="actionAbout"/>
@@ -758,6 +759,11 @@
   <action name="actionHelp">
    <property name="text">
     <string>User Manual</string>
+   </property>
+  </action>
+  <action name="actionExport_Log">
+   <property name="text">
+    <string>Export Log...</string>
    </property>
   </action>
   <action name="actionAbout">
