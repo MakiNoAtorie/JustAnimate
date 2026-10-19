@@ -6,6 +6,7 @@ the original Pencil2D history is kept below for reference.
 ## JustAnimate - Unreleased
 
 - The manual has a Layers chapter: layer types, add, rename, duplicate, delete and undo, groups and group opacity, blend modes, Lock Transparency, Rough layers, Alt+click solo, lock-all and the refused-edit notices (#301).
+- The user manual has an Animating chapter: onion skin, Shift and Trace, Flip, playback, play-around and the loop range, Transform Key and tweens, Create Inbetweens, the camera layer and peg bar alignment, with screenshots from the screenshot pipeline (#303).
 - The manual has a Getting started chapter: install, the Welcome screen, a tour of the main window, Layouts, Command search, theme and Accent colour, and a first animation from a new project to an exported movie (#298).
 - The user manual has a Timeline and X-sheet chapter: Drawings and Exposure, ripple edits, Exposure commands, Marks, Markers, Linked Drawings, the X-sheet and the Timesheet layout, with screenshots (#302).
 - The user manual has a Brushes and tablet chapter: dab settings, tips, grain, smoothing, smudge, brush presets, radial menus and tablet setup, with screenshots (#300).
