@@ -108,6 +108,32 @@ TEST_CASE("Below-layers cache: a change to a layer below the painted layer shows
     CHECK(canvas == uncached(object.get()));
 }
 
+TEST_CASE("Zoomed out, a one-pixel line blends into the pixels it covers", "[CanvasPainter]")
+{
+    std::unique_ptr<Object> object(new Object);
+    object->init();
+    LayerBitmap* layer = object->addNewBitmapLayer();
+    layer->addNewKeyFrameAt(1);
+    // At 2x zoom-out each line is half of one canvas pixel: nearest sampling shows one line fully and drops the other.
+    for (int y = 0; y < 40; ++y)
+    {
+        layer->getBitmapImageAtFrame(1)->setPixel(0, y, qRgb(0, 0, 0));
+        layer->getBitmapImageAtFrame(1)->setPixel(21, y, qRgb(0, 0, 0));
+    }
+    QImage canvas(kCanvas.size(), QImage::Format_ARGB32_Premultiplied);
+    CanvasPainter painter(canvas);
+    const QTransform view = QTransform::fromTranslate(150, 100).scale(0.5, 0.5);
+    painter.setViewTransform(view, view.inverted());
+    painter.setPaintSettings(object.get(), 0, 1, nullptr);
+    painter.paint(kCanvas);
+    for (const int x : { 150, 160 })
+    {
+        const int alpha = qAlpha(canvas.pixel(x, 105));
+        CHECK(alpha > 32);
+        CHECK(alpha < 224);
+    }
+}
+
 TEST_CASE("Fast mode is off by default", "[CanvasPainter]")
 {
     CHECK_FALSE(CanvasPainterOptions().bFastLayersAbove);

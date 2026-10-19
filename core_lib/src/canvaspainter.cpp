@@ -289,6 +289,8 @@ void CanvasPainter::initializePainter(QPainter& painter, QPaintDevice& device, c
     painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
     painter.setWorldMatrixEnabled(true);
     painter.setWorldTransform(mViewTransform);
+    // Nearest sampling drops stroke pixels when zoomed out; zoomed in it keeps pixels sharp.
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, qAbs(mViewTransform.determinant()) <= 1.0);
 }
 
 void CanvasPainter::renderPreLayers(QPainter& painter, const QRect& blitRect)

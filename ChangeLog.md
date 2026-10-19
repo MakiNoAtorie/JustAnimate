@@ -5,6 +5,7 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Zoomed out, the canvas blends strokes smoothly instead of dropping pixels, so thin lines no longer look broken and jagged.
 - A build from a `v*` tag shows its version (for example 0.7.0.0) in About and `--version`, and attaches the manual PDF and Markdown to a draft release.
 - The manual has an Exporting chapter: movie presets, GIF palette and dither, images, image sequences, sprite sheets, ranges, overwrite and cancel, command-line export with exit codes, and what Rough layers and the Paper template leave out (#307).
 - The manual has a Preferences and reference chapter: every Preferences page with its defaults, preference search, shortcut conflict warnings, a table of the default keyboard shortcuts and a glossary, with screenshots (#308).
