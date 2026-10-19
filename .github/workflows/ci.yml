@@ -217,7 +217,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
           ./packages/JustAnimate-x86_64.AppImage --version
-          ./packages/JustAnimate-x86_64.AppImage --appimage-extract 'usr/share/justanimate/manual/*.html' >/dev/null
+          ./packages/JustAnimate-x86_64.AppImage --appimage-extract >/dev/null
           test -s squashfs-root/usr/share/justanimate/manual/index.html
           ls squashfs-root/usr/share/justanimate/manual/images/*.png >/dev/null
           ./packages/JustAnimate-x86_64.AppImage tests/data/camera-path-test.pclx -o smoke.png
