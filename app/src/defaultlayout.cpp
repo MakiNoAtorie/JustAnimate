@@ -105,7 +105,8 @@ bool dropOutdatedLayouts(QSettings& settings)
     // 3: v1.2, Tool settings strip at the top, tabbed Panels.
     // 4: v1.3, X-sheet tabbed with the timeline.
     // 5: v1.4, Storyboard Panel tabbed on the right.
-    const int version = 5;
+    // 6: Brush Presets, Tools and Tool settings on the left; colors on the right.
+    const int version = 6;
     if (settings.value(SETTING_LAYOUT_VERSION).toInt() >= version) { return false; }
     settings.remove(SETTING_WINDOW_STATE);
     settings.remove(QString(SETTING_WORKSPACE_STATE).chopped(1));

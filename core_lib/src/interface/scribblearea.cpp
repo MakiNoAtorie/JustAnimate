@@ -527,7 +527,8 @@ void ScribbleArea::onObjectLoaded()
 bool ScribbleArea::event(QEvent *event)
 {
     bool processed = false;
-    if (event->type() == QEvent::WindowDeactivate)
+    // A held key's release goes elsewhere after focus loss: on Windows the menu bar takes the Alt release
+    if (event->type() == QEvent::WindowDeactivate || event->type() == QEvent::FocusOut)
     {
         editor()->tools()->clearTemporaryTool();
         processed = true;

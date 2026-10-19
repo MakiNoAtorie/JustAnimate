@@ -187,8 +187,9 @@ void ToolOptionWidget::onLayerChanged(int layerIndex)
 
 void ToolOptionWidget::onToolChanged(ToolType toolType)
 {
-    BaseTool* tool = editor()->tools()->getTool(toolType);
-    updateUIForTool(tool);
+    // A tool held by a key or button keeps the chosen tool's options in view
+    if (editor()->tools()->isTemporaryToolActive()) { return; }
+    updateUIForTool(editor()->tools()->getTool(toolType));
 }
 
 void ToolOptionWidget::onToolsReset()

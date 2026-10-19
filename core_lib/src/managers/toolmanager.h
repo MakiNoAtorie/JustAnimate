@@ -50,6 +50,7 @@ public:
     bool tryClearTemporaryTool(Qt::Key key);
     bool tryClearTemporaryTool(Qt::MouseButton button);
     void clearTemporaryTool();
+    bool isTemporaryToolActive() const { return mTemporaryTool != nullptr; }
     void cleanupAllToolsData();
     bool leavingThisTool();
 

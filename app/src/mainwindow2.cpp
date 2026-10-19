@@ -1252,8 +1252,9 @@ void MainWindow2::resetAndDockAllSubWidgets()
 
 DefaultDockLayout MainWindow2::dockLayout() const
 {
-    return {mToolOptions, {mToolBox}, {mBrushPresets, mColorBox, mColorPalette}, mTimeLine,
-            {{mColorPalette, mColorInspector}, {mTimeLine, mXSheet}, {mTimeLine, mOnionSkinWidget}, {mColorPalette, mStoryboard}}};
+    return {nullptr, {mBrushPresets, mToolOptions}, {mColorBox, mColorPalette}, mTimeLine,
+            {{mBrushPresets, mToolBox}, {mColorPalette, mColorInspector}, {mTimeLine, mXSheet}, {mTimeLine, mOnionSkinWidget},
+             {mColorPalette, mStoryboard}}};
 }
 
 QSize MainWindow2::availableScreenSize() const

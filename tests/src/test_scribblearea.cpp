@@ -910,3 +910,22 @@ TEST_CASE("ScribbleArea - a view change during a stroke leaves no frame cached w
     const QImage other = area->grab().toImage();
     CHECK(other == fresh());
 }
+TEST_CASE("ScribbleArea - the Alt eyedropper ends when the canvas loses focus")
+{
+    TestSession s;
+    s.object->addNewBitmapLayer();
+    REQUIRE(s.start());
+    ScribbleArea* area = s.area.get();
+    area->init();
+    ToolManager* tools = s.editor->tools();
+    tools->setCurrentTool(PENCIL);
+
+    QKeyEvent alt(QEvent::KeyPress, Qt::Key_Alt, Qt::AltModifier);
+    QApplication::sendEvent(area, &alt);
+    REQUIRE(tools->currentTool()->type() == EYEDROPPER);
+
+    // On Windows the Alt release goes to the menu bar, which takes the focus
+    QFocusEvent focusOut(QEvent::FocusOut, Qt::MenuBarFocusReason);
+    QApplication::sendEvent(area, &focusOut);
+    CHECK(tools->currentTool()->type() == PENCIL);
+}

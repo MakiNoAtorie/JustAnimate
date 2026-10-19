@@ -214,7 +214,7 @@ TEST_CASE("MainWindow2 docks every Panel over an old saved state", "[DockLayout]
     }
 }
 
-TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayout]")
+TEST_CASE("MainWindow2 default Layout docks Tool settings on the left", "[DockLayout]")
 {
     QSettings& settings = pencilSettings();
     const SettingsGuard guard({SETTING_WINDOW_STATE, SETTING_WINDOW_GEOMETRY, SETTING_LAYOUT_VERSION, SETTING_WORKSPACE_CURRENT,
@@ -231,9 +231,13 @@ TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayo
     const auto dock = [&window](const char* name) { return window.findChild<QDockWidget*>(name); };
     const auto checkArrangement = [&]
     {
-        CHECK(window.dockWidgetArea(dock("ToolOption")) == Qt::TopDockWidgetArea);
-        CHECK(window.dockWidgetArea(dock("ToolBox")) == Qt::LeftDockWidgetArea);
-        for (const char* name : {"BrushPresets", "ColorWheel", "ColorPalette", "Color Inspector", "Storyboard"})
+        for (const char* name : {"BrushPresets", "ToolBox", "ToolOption"})
+        {
+            INFO(name);
+            CHECK(window.dockWidgetArea(dock(name)) == Qt::LeftDockWidgetArea);
+        }
+        CHECK(window.tabifiedDockWidgets(dock("BrushPresets")).contains(dock("ToolBox")));
+        for (const char* name : {"ColorWheel", "ColorPalette", "Color Inspector", "Storyboard"})
         {
             INFO(name);
             CHECK(window.dockWidgetArea(dock(name)) == Qt::RightDockWidgetArea);
@@ -248,6 +252,8 @@ TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayo
 
     // Size, then opacity, then the rest: in a row at the top, in a column at a side
     QDockWidget* toolSettings = dock("ToolOption");
+    window.addDockWidget(Qt::TopDockWidgetArea, toolSettings);
+    QApplication::processEvents();
     const auto at = [toolSettings](const char* name)
     {
         QWidget* w = toolSettings->findChild<QWidget*>(name);
@@ -301,7 +307,7 @@ TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayo
     QApplication::processEvents();
     CHECK(at("opacitySlider").y() > at("sizeSlider").y());
 
-    // Window > Layout lists the Layouts and Reset layout, which returns Tool settings to the strip
+    // Window > Layout lists the Layouts and Reset layout, which returns Tool settings to the left
     QMenu* layoutMenu = nullptr;
     for (QMenu* menu : window.menuBar()->findChildren<QMenu*>())
     {
@@ -322,7 +328,7 @@ TEST_CASE("MainWindow2 default Layout puts Tool settings in a strip", "[DockLayo
     reset->trigger();
     QApplication::processEvents();
     checkArrangement();
-    CHECK(at("opacitySlider").y() == at("sizeSlider").y());
+    CHECK(at("opacitySlider").y() > at("sizeSlider").y());
 }
 
 TEST_CASE("MainWindow2 has one Command bar that the Window menu hides and shows", "[DockLayout]")
@@ -358,4 +364,19 @@ TEST_CASE("MainWindow2 has one Command bar that the Window menu hides and shows"
     CHECK(bar->isVisible());
     CHECK(window.restoreState(hidden));
     CHECK(!bar->isVisible());
+}
+TEST_CASE("MainWindow2 Tool settings keep the chosen tool while Alt holds the eyedropper", "[DockLayout]")
+{
+    MainWindow2 window;
+    window.show();
+    QApplication::processEvents();
+    ToolManager* tools = window.mEditor->tools();
+    tools->setCurrentTool(PENCIL);
+    QWidget* size = window.findChild<QDockWidget*>("ToolOption")->findChild<QWidget*>("sizeSlider");
+    REQUIRE(size->isVisible());
+
+    REQUIRE(tools->setTemporaryTool(EYEDROPPER, {}, Qt::AltModifier));
+    CHECK(size->isVisible());
+    tools->clearTemporaryTool();
+    CHECK(size->isVisible());
 }

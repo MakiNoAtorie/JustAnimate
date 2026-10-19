@@ -5,6 +5,8 @@ the original Pencil2D history is kept below for reference.
 
 ## JustAnimate - Unreleased
 
+- Layout: the default Layout docks Brush presets (with Tools in a tab) and Tool settings on the left, and colours on the right.
+- The Alt eyedropper ends when Alt is released, also on Windows where the menu bar takes the release, and Tool settings keep showing the chosen tool while a key holds another tool.
 - The canvas blends a blend-mode layer straight into its image, without copies of the view (#286).
 - Vector onion frames are tinted once and kept until their Drawing or the palette changes, and vector Drawings recompute their fills only after an edit (#289).
 - A canvas repaint reads no preference and walks no frames, and flipping the pen to its eraser end keeps the cached frame (#287).
