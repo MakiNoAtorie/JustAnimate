@@ -23,6 +23,7 @@ by native "blocked by" edges:
 | v1.6 Lean | #216 | `integration/v1.6` |
 | v1.7 Deep modules | #217 | `integration/v1.7` |
 | v1.8 Speed | #218 | `integration/v1.8` |
+| v1.9 Manual | #294 | `integration/v1.9` |
 
 To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
 
