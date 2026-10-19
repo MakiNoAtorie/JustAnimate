@@ -7,6 +7,8 @@ to an exported movie.
 
 ## The main window {#getting-started-main-window}
 
+![The main window with a project open](images/getting-started-main-window.png)
+
 ## Draw the first Drawing {#getting-started-first-drawing}
 
 ## Add more Drawings {#getting-started-more-drawings}

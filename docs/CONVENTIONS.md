@@ -104,6 +104,10 @@ Read `docs/conventions-code.md` before you edit code.
   (`shots_getting_started.cpp` ... `shots_preferences_and_reference.cpp`).
   #296 creates and registers all eleven, empty except Getting started.
   A chapter ticket edits only its own shot file.
+  Add a shot: one `SECTION("<shot>")` after `ShotWindow shot;` (the main window,
+  demo project, Light theme; `screenshots.h`) that sets up the scene and calls
+  `saveShot(widget, "<chapter slug>-<shot>")`, plus one image reference.
+  `cmake --build build --target screenshots` writes them to `build/manual/images`.
 - Shot PNG name: `<chapter slug>-<shot>.png`, such as
   `getting-started-main-window.png`; chapters reference `images/<name>`.
 - Online manual URL (#297): `APP_REPO_URL "/blob/master/docs/manual/00-index.md"`.

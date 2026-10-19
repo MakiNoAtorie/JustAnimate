@@ -8,6 +8,22 @@ set(MANUAL_OUTPUT_DIR ${CMAKE_BINARY_DIR}/manual)
 file(MAKE_DIRECTORY ${MANUAL_OUTPUT_DIR}/images)
 file(GLOB MANUAL_CHAPTERS CONFIGURE_DEPENDS ${MANUAL_SOURCE_DIR}/[0-9][0-9]-*.md)
 
+# Screenshots: the hidden [.screenshots] test cases grab the real main window offscreen into images/.
+set(MANUAL_SHOT_ENV JUSTANIMATE_SHOT_DIR=${MANUAL_OUTPUT_DIR}/images QT_QPA_PLATFORM=offscreen)
+if(TARGET Qt6::QOffscreenIntegrationPlugin)
+    list(APPEND MANUAL_SHOT_ENV QT_QPA_PLATFORM_PLUGIN_PATH=$<TARGET_FILE_DIR:Qt6::QOffscreenIntegrationPlugin>)
+endif()
+if(WIN32)
+    # The offscreen platform has no font database on Windows: without this, text draws as boxes.
+    file(TO_CMAKE_PATH "$ENV{WINDIR}/Fonts" MANUAL_FONT_DIR)
+    list(APPEND MANUAL_SHOT_ENV QT_QPA_FONTDIR=${MANUAL_FONT_DIR})
+endif()
+add_custom_target(screenshots
+    COMMAND ${CMAKE_COMMAND} -E env ${MANUAL_SHOT_ENV} $<TARGET_FILE:pencil2d_tests> "[.screenshots]"
+    DEPENDS pencil2d_tests
+    VERBATIM
+)
+
 if(NOT PANDOC_EXECUTABLE)
     add_custom_target(manual
         COMMAND ${CMAKE_COMMAND} -E echo "manual: Pandoc not found; install it and re-run cmake"
@@ -53,3 +69,4 @@ add_custom_target(manual
         ${MANUAL_SOURCE_DIR}/template.html ${MANUAL_SOURCE_DIR}/manual.css
     VERBATIM
 )
+add_dependencies(manual screenshots)
