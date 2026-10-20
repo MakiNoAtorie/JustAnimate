@@ -48,9 +48,11 @@ To build a milestone, start a fresh session and run `/implement-spec #<spec>`.
   Opus for tricky work (undo/serialization/state, rendering, parsing
   untrusted files, cross-module refactors, unexplained failures); Sonnet for
   mechanical work (merges, CI/config, docs, small well-specified fixes).
-- **Implementer prompts** stay short and point: ticket number, branch,
-  `docs/CONVENTIONS.md`, files other agents are editing in parallel.
-  Implementers run local checks only. Merges land on the local integration
+- **Implementers** run as the `implementer` subagent
+  (`.claude/agents/implementer.md`: slim tool set, stable rules built in).
+  Its prompt carries only the ticket number, branch, integration branch,
+  scratchpad path, files other agents are editing in parallel, and any
+  excerpt the ticket does not already hold. Implementers run local checks only. Merges land on the local integration
   branch; push it only once the previous CI run has finished (each push
   cancels the running CI), so every push gets a full run. Gate the push on
   that run: `[ "$(gh run list -b <branch> -L 1 --json conclusion -q
